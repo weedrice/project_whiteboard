@@ -71,7 +71,7 @@ const { t } = useI18n()
       </div>
 
       <div class="border-t nv-border pt-4">
-        <CommentList :postId="inquiry.id" boardUrl="inquiry" />
+        <CommentList :postId="inquiry.id" boardUrl="inquiry" read-only />
       </div>
     </template>
 

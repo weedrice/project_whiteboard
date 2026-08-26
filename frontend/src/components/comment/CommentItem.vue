@@ -36,11 +36,13 @@ const props = withDefaults(defineProps<{
   replyTargetName?: string
   isNewSinceLastView?: boolean
   deepLinkCommentIds?: readonly number[]
+  readOnly?: boolean
 }>(), {
   depth: 0,
   replyTargetName: '',
   isNewSinceLastView: false,
   deepLinkCommentIds: () => [],
+  readOnly: false,
 })
 
 const emit = defineEmits<{
@@ -371,7 +373,7 @@ onUnmounted(cancelPendingCommentReport)
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
           <button
-            v-if="canUseCommentActions && !isBlinded"
+            v-if="!props.readOnly && canUseCommentActions && !isBlinded"
             type="button"
             class="nv-touch-target nv-focus-ring inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             :class="{ 'text-[var(--nv-danger-text)]': comment.liked }"
@@ -394,7 +396,7 @@ onUnmounted(cancelPendingCommentReport)
           </button>
 
           <button
-            v-if="isAuthenticated && canUseCommentActions && !isBlinded"
+            v-if="!props.readOnly && isAuthenticated && canUseCommentActions && !isBlinded"
             type="button"
             class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="isReplying = !isReplying"
@@ -403,7 +405,7 @@ onUnmounted(cancelPendingCommentReport)
           </button>
 
           <button
-            v-if="canReportComment"
+            v-if="!props.readOnly && canReportComment"
             type="button"
             class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
             @click="openCommentReport"
@@ -411,7 +413,7 @@ onUnmounted(cancelPendingCommentReport)
             {{ $t('common.report') }}
           </button>
 
-          <template v-if="canUseCommentActions && isCommentAuthor && !isBlinded">
+          <template v-if="!props.readOnly && canUseCommentActions && isCommentAuthor && !isBlinded">
             <button
               v-if="!isEmoticonOnly"
               type="button"
@@ -471,6 +473,7 @@ onUnmounted(cancelPendingCommentReport)
               :depth="depth + 1"
               :reply-target-name="childReplyTargetName"
               :deep-link-comment-ids="deepLinkCommentIds"
+              :read-only="props.readOnly"
               @reply-success="$emit('reply-success')"
               @edit-success="$emit('edit-success')"
               @delete="(childComment) => $emit('delete', childComment)"

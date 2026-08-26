@@ -84,7 +84,7 @@ vi.mock('@/features/comments/queries/useComment', () => ({
   }),
 }))
 
-const mountCommentList = (props: { targetCommentId?: number | null } = {}) => mount(CommentList, {
+const mountCommentList = (props: { targetCommentId?: number | null; readOnly?: boolean } = {}) => mount(CommentList, {
   props: {
     postId: 1,
     boardUrl: 'free',
@@ -103,8 +103,8 @@ const mountCommentList = (props: { targetCommentId?: number | null } = {}) => mo
       },
       CommentItem: {
         emits: ['delete'],
-        props: ['comment', 'deepLinkCommentIds'],
-        template: '<div data-testid="comment-item" :data-comment-id="comment.commentId" :data-deep-link-path="(deepLinkCommentIds || []).join(\',\')"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
+        props: ['comment', 'deepLinkCommentIds', 'readOnly'],
+        template: '<div data-testid="comment-item" :data-comment-id="comment.commentId" :data-read-only="String(Boolean(readOnly))" :data-deep-link-path="(deepLinkCommentIds || []).join(\',\')"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
       },
       BaseSkeleton: true,
       BaseButton: {
@@ -153,6 +153,13 @@ describe('CommentList', () => {
 
     expect(wrapper.find('#comment-composer').text()).toContain('common.login')
     expect(wrapper.text()).toContain('comment.empty')
+  })
+
+  it('hides the composer and marks all archived comments read-only', () => {
+    const wrapper = mountCommentList({ readOnly: true })
+
+    expect(wrapper.find('[data-testid="comment-form"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="comment-item"]').attributes('data-read-only')).toBe('true')
   })
 
   it('shows a retryable error state when comments fail to load', async () => {

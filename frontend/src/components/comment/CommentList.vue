@@ -17,13 +17,16 @@ import CommentItem from './CommentItem.vue'
 
 const { confirm } = useConfirm()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   postId: number | string
   boardUrl: string
   lastViewedAt?: string | null
   pendingCommentCount?: number
   targetCommentId?: number | null
-}>()
+  readOnly?: boolean
+}>(), {
+  readOnly: false,
+})
 
 const emit = defineEmits<{
   (event: 'refresh-comments'): void
@@ -252,10 +255,10 @@ onBeforeUnmount(() => {
       id="comment-composer"
       class="mb-6 rounded-[24px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4 sm:mb-8 sm:px-5"
     >
-      <div v-if="authStore.isAuthenticated">
+      <div v-if="authStore.isAuthenticated && !props.readOnly">
         <CommentForm :postId="postId" />
       </div>
-      <div v-else class="text-xs nv-text-subtle sm:text-sm">
+      <div v-else-if="!props.readOnly" class="text-xs nv-text-subtle sm:text-sm">
         <router-link
           to="/login"
           class="nv-accent-text underline underline-offset-2 hover:brightness-95"
@@ -312,6 +315,7 @@ onBeforeUnmount(() => {
           :comment="comment"
           :postId="postId"
           :boardUrl="boardUrl"
+          :read-only="props.readOnly"
           @delete="handleDelete"
         />
       </section>
@@ -327,12 +331,13 @@ onBeforeUnmount(() => {
           <span>{{ $t('comment.readUntilHere') }}</span>
         </div>
         <CommentItem
-          v-memo="[postId, boardUrl, props.lastViewedAt, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlinded, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies, deepLinkCommentIds.join(',')]"
+          v-memo="[postId, boardUrl, props.lastViewedAt, props.readOnly, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlinded, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies, deepLinkCommentIds.join(',')]"
           :comment="comment"
           :postId="postId"
           :boardUrl="boardUrl"
           :is-new-since-last-view="isNewComment(comment)"
           :deep-link-comment-ids="deepLinkCommentIds"
+          :read-only="props.readOnly"
           data-reading-comment
           @delete="handleDelete"
         />
