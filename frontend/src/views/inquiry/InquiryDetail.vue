@@ -170,7 +170,7 @@ function runAction(action: 'withdraw' | 'close') {
     <div v-else-if="detailQuery.error.value || !detailQuery.data.value" class="rounded-xl nv-status-danger p-4">{{ t('inquiry.common.notFound') }}</div>
     <template v-else>
       <div class="flex flex-wrap items-center gap-2 rounded-xl border nv-border nv-surface p-4 text-sm">
-        <strong>{{ statusLabel(detailQuery.data.value.status) }}</strong><span>{{ categoryLabel(detailQuery.data.value.category) }}</span>
+        <strong :data-inquiry-status="detailQuery.data.value.status">{{ statusLabel(detailQuery.data.value.status) }}</strong><span>{{ categoryLabel(detailQuery.data.value.category) }}</span>
         <span v-if="detailQuery.data.value.closureReason" class="nv-text-muted">{{ closureReasonLabel(detailQuery.data.value.closureReason) }}</span>
       </div>
       <InquiryTimeline :messages="detailQuery.data.value.messages" />

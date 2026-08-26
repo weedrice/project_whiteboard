@@ -117,13 +117,13 @@ test('legacy inquiry URL creates a dedicated inquiry and reopens a resolved inqu
 
   await expect(page).toHaveURL('/inquiries/91')
   await expect(page.getByRole('heading', { name: '업로드 오류 문의' })).toBeVisible()
-  await expect(page.getByText('RESOLVED', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-inquiry-status="RESOLVED"]')).toBeVisible()
 
   await page.locator('form textarea').fill('아직 같은 문제가 발생합니다.')
   await page.locator('form button[type="submit"]').click()
 
   await expect.poll(() => state.writes).toHaveLength(2)
-  await expect(page.getByText('NEW', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-inquiry-status="NEW"]')).toBeVisible()
   await expect(page.getByText('아직 같은 문제가 발생합니다.')).toBeVisible()
   expect(state.writes).toEqual([
     {
@@ -181,11 +181,11 @@ test('super admin starts and resolves a new inquiry from the support queue', asy
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: '처리 시작' }).click()
   await expect.poll(() => actions).toEqual(['start'])
-  await expect(page.getByRole('dialog')).toContainText('IN_PROGRESS')
+  await expect(page.getByRole('dialog').locator('[data-inquiry-status="IN_PROGRESS"]')).toBeVisible()
 
   await page.getByRole('dialog').locator('textarea').fill('조치가 완료되었습니다.')
   await page.getByRole('dialog').getByRole('button', { name: /답변 등록/ }).click()
   await expect.poll(() => actions).toEqual(['start', 'reply'])
-  await expect(page.getByRole('dialog')).toContainText('RESOLVED')
+  await expect(page.getByRole('dialog').locator('[data-inquiry-status="RESOLVED"]')).toBeVisible()
   expect(actions).toEqual(['start', 'reply'])
 })

@@ -332,7 +332,7 @@ function submitMessage() {
       @close="closeDetail"
     >
       <template v-if="detailQuery.data.value">
-        <p class="text-sm nv-text-muted">{{ detailQuery.data.value.authorName }} · {{ statusLabel(detailQuery.data.value.status) }} · {{ priorityLabel(detailQuery.data.value.effectivePriority) }}</p>
+        <p class="text-sm nv-text-muted" :data-inquiry-status="detailQuery.data.value.status">{{ detailQuery.data.value.authorName }} · {{ statusLabel(detailQuery.data.value.status) }} · {{ priorityLabel(detailQuery.data.value.effectivePriority) }}</p>
         <InquiryTimeline :messages="detailQuery.data.value.messages" admin />
         <div class="flex flex-wrap gap-2">
           <BaseButton v-if="detailQuery.data.value.status === 'NEW'" size="sm" :disabled="actionMutation.isPending.value" @click="runAction('start')">{{ t('inquiry.admin.start') }}</BaseButton>
