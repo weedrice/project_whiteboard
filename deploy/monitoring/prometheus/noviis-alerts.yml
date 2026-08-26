@@ -57,6 +57,9 @@ groups:
         labels: { cadence: hourly, scheduled_job: FileVariantCleanupScheduler.cleanupStaleVariants, threshold: 2h15m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(8100)
+        labels: { cadence: hourly, scheduled_job: InquiryAutoCloseScheduler.closeExpiredResolvedInquiries, threshold: 2h15m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(8100)
         labels: { cadence: hourly, scheduled_job: PopularPostScheduler.aggregatePopularPosts, threshold: 2h15m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(108000)
