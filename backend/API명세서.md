@@ -476,6 +476,37 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 파일만 삭제 대기 상태로 전환한다. 연결됨·삭제됨·존재하지 않음·다른 사용자 소유 파일은 구분하지 않고
 무시하므로 반복 호출해도 안전하다.
 
+### Inquiry
+
+모든 사용자 API는 인증이 필요하고 본인 문의만 반환한다. 목록은 공통 `PageResponse`, 나머지는 공통
+`ApiResponse` envelope를 사용한다. 제목은 1~200자, 본문은 1~10,000자, `fileIds`는 최대 5개다.
+
+| Method | URI | 설명 |
+| --- | --- | --- |
+| `POST` | `/api/v1/inquiries` | `{ category, title, content, fileIds }`로 문의 생성 |
+| `GET` | `/api/v1/inquiries` | 본인 문의 목록(`status`, `category`, `page`, `size`, `sort`) |
+| `GET` | `/api/v1/inquiries/{inquiryId}` | 공개 메시지·이미지·공개 이력과 `allowedActions` 조회 |
+| `POST` | `/api/v1/inquiries/{inquiryId}/messages` | `{ content, fileIds }` 추가 답변 |
+| `POST` | `/api/v1/inquiries/{inquiryId}/withdraw` | 운영자 답변 전 `NEW` 문의 철회 |
+| `POST` | `/api/v1/inquiries/{inquiryId}/close` | `RESOLVED` 문의 사용자 종료 |
+
+관리자 문의 API는 모두 `SUPER_ADMIN` 전용이다. 관리자 목록은 상태·카테고리·계산 우선순위·제목 키워드·
+생성 기간을 필터링하며, 기본 정렬은 운영자 조치 필요 상태, 우선순위 내림차순, 대기 시작 오름차순이다.
+
+| Method | URI | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/support/inquiries` | 신규 문의 운영 목록 |
+| `GET` | `/api/v1/admin/support/inquiries/{inquiryId}` | 내부 메모와 종료 사유를 포함한 관리자 상세 |
+| `POST` | `/api/v1/admin/support/inquiries/{inquiryId}/start` | `NEW → IN_PROGRESS` |
+| `POST` | `/api/v1/admin/support/inquiries/{inquiryId}/reply` | 공개 답변 추가 후 `RESOLVED` |
+| `POST` | `/api/v1/admin/support/inquiries/{inquiryId}/notes` | 상태·알림 변경 없는 내부 메모 |
+| `POST` | `/api/v1/admin/support/inquiries/{inquiryId}/close` | `{ reason }` 관리자 종료 |
+| `POST` | `/api/v1/admin/support/inquiries/{inquiryId}/reopen` | `CLOSED → IN_PROGRESS` |
+
+기존 `/api/v1/admin/inquiries` 조회 API는 레거시 게시글 문의 아카이브용으로 유지한다. 레거시 쓰기가
+차단된 경우 게시글·댓글 명령은 `Q004`를 반환한다. 다른 사용자의 신규 문의·메시지·이미지는 `Q001`
+또는 일반 404로 존재 여부를 숨기며, 활성 문의 5건 제한은 `Q003`, 금지 상태 전이는 `Q002`다.
+
 ### Admin And Global
 
 | Method | URI | 설명 |

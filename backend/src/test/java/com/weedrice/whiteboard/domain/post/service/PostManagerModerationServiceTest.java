@@ -45,6 +45,7 @@ class PostManagerModerationServiceTest {
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
     @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
     @Mock AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    @Mock com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     PostManagerModerationService service;
     User manager;
     Post post;
@@ -55,6 +56,7 @@ class PostManagerModerationServiceTest {
         service = new PostManagerModerationService(posts, boards, users, accessPolicy, audits, semanticSearchEvents,
                 notificationAccessInvalidationService,
                 anonymousReadCacheInvalidator,
+                inquiryLegacyWritePolicy,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         manager = mock(User.class);
         post = mock(Post.class);
@@ -96,6 +98,23 @@ class PostManagerModerationServiceTest {
         verify(post).unblind();
         verify(audits).recordUserAction(manager, ModerationAuditLogService.ACTION_POST_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST, 2L, board, "MANAGER");
+    }
+
+    @Test
+    void archivedInquiryCannotBeBlindedByManager() {
+        org.mockito.Mockito.doThrow(new BusinessException(
+                com.weedrice.whiteboard.global.exception.ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.blindPost(1L, 2L, null));
+
+        org.junit.jupiter.api.Assertions.assertSame(
+                com.weedrice.whiteboard.global.exception.ErrorCode.LEGACY_INQUIRY_READ_ONLY,
+                exception.getErrorCode());
+        verify(post, org.mockito.Mockito.never()).blind(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamEventDispatcher;
@@ -73,6 +74,7 @@ public class CommentCommandService {
     private final CommentLikeCommand commentLikeCommand;
     private final BadgeEvaluationService badgeEvaluationService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
     public Long createComment(CommentCreateCommand command) {
@@ -98,6 +100,7 @@ public class CommentCommandService {
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
         Post post = resolvePostForCreate(postId, context);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         if (context == null || !context.postReadablePrevalidated()) {
             validatePostReadable(post, user);
         }
@@ -237,6 +240,7 @@ public class CommentCommandService {
 
         User user = userWritableResolver.resolveForUpdate(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
         Comment comment = target.comment();
         sanctionService.validateNotMuted(user);
         validateReadableActiveComment(target.post(), comment, user);
@@ -267,6 +271,7 @@ public class CommentCommandService {
     public void deleteComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolveForUpdate(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
         Comment comment = target.comment();
         validateReadableExistingComment(target.post(), comment, user);
         validateCommentOwner(comment, userId);
@@ -312,6 +317,7 @@ public class CommentCommandService {
         sanctionService.validateNotMuted(user);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
         validateReadableActiveComment(target.post(), target.comment(), user);
+        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
 
         commentLikeCommand.like(user, target.comment(), CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
         commentNotificationService.publishLikeNotification(user, target.comment(), commentId);
@@ -323,6 +329,7 @@ public class CommentCommandService {
         sanctionService.validateNotMuted(user);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
         validateReadableExistingComment(target.post(), target.comment(), user);
+        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {

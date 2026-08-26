@@ -31,7 +31,9 @@ class CommentPostAccessServiceTest {
         post.blind("reported", LocalDateTime.now());
         CommentPostAccessService service = new CommentPostAccessService(
                 mock(UserBlockService.class),
-                new PostAccessPolicy(new BoardAccessPolicy(mock(AdminRepository.class))));
+                new PostAccessPolicy(
+                        new BoardAccessPolicy(mock(AdminRepository.class)),
+                        mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class)));
 
         assertThatThrownBy(() -> service.validateReadable(post, new CommentReadContext(null, Set.of())))
                 .isInstanceOf(BusinessException.class)

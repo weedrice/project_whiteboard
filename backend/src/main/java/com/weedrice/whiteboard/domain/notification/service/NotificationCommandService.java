@@ -60,7 +60,7 @@ class NotificationCommandService {
             if (existing != null) {
                 existing.merge(event.getActor(), event.getActorAgent(), content, event.getMessageKey(), messageParams,
                         eventAt);
-                pushDeliveryJobEnqueuer.enqueue(event, existing);
+                if (event.isPushEnabled()) pushDeliveryJobEnqueuer.enqueue(event, existing);
                 return existing;
             }
         }
@@ -78,7 +78,7 @@ class NotificationCommandService {
                 .groupKey(groupKey)
                 .lastEventAt(eventAt)
                 .build());
-        pushDeliveryJobEnqueuer.enqueue(event, notification);
+        if (event.isPushEnabled()) pushDeliveryJobEnqueuer.enqueue(event, notification);
         return notification;
     }
 
@@ -136,6 +136,10 @@ class NotificationCommandService {
 
     private User resolveActiveReceiver(NotificationEvent event) {
         Long receiverId = event.getUserToNotify().getUserId();
+        if (!event.isPushEnabled() && !isGroupable(event)) {
+            return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(receiverId, User.STATUS_ACTIVE)
+                    .orElse(null);
+        }
         User locked = userRepository.findByIdForUpdate(receiverId).orElse(null);
         if (locked == null) {
             return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(receiverId, User.STATUS_ACTIVE)

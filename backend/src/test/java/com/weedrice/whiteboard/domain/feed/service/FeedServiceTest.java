@@ -67,15 +67,20 @@ class FeedServiceTest {
     @Mock
     private AdminRepository adminRepository;
 
+    @Mock
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
         feedService = new FeedService(
                 userFeedRepository,
                 new UserReadableResolver(userRepository),
                 postFacadeReadService,
                 feedGenerationService,
                 userBlockService,
-                adminRepository);
+                adminRepository,
+                inquiryLegacyWritePolicy);
     }
 
     @Test
@@ -345,7 +350,7 @@ class FeedServiceTest {
     }
 
     private UserFeedVisibilityCondition vf(User user, List<Long> blockedUserIds, List<Long> activeAdminBoardIds) {
-        return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
+        return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds, true);
     }
 
     private PostSummaryReadContext readContext(Long userId, User user) {

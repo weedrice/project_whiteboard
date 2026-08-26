@@ -32,6 +32,7 @@ class PostScrapServiceTest {
     @Mock ScrapRepository scrapRepository;
     @Mock ScrapFolderRepository scrapFolderRepository;
     @Mock ReactionWriter reactionWriter;
+    @Mock com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @InjectMocks PostScrapService service;
 
@@ -94,6 +95,26 @@ class PostScrapServiceTest {
         service.move(1L, 3L, null);
 
         assertThat(scrap.getFolder()).isNull();
+        verify(scrapFolderRepository, never()).findOwnedByIdForUpdate(anyLong(), anyLong());
+    }
+
+    @Test
+    void moveArchivedInquiryScrapIsRejectedBeforeFolderMutation() {
+        User user = User.builder().build();
+        com.weedrice.whiteboard.domain.board.entity.Board board =
+                com.weedrice.whiteboard.domain.board.entity.Board.builder().boardUrl("inquiry").build();
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .post(Post.builder().board(board).build())
+                .build();
+        when(scrapRepository.findOwnedByPostIdForUpdate(1L, 3L)).thenReturn(Optional.of(scrap));
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        assertThatThrownBy(() -> service.move(1L, 3L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LEGACY_INQUIRY_READ_ONLY);
+
         verify(scrapFolderRepository, never()).findOwnedByIdForUpdate(anyLong(), anyLong());
     }
 

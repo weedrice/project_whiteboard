@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +53,7 @@ public class UserSettingsService {
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
         private final UserWritableResolver userWritableResolver;
+        private final GlobalConfigService globalConfigService;
         private final Clock clock;
 
         public UserSettingsResponse getSettings(Long userId) {
@@ -138,6 +140,7 @@ public class UserSettingsService {
                 userWritableResolver.resolveForUpdate(userId);
                 List<NormalizedNotificationSettingRequest> normalizedRequests = normalizeNotificationSettingRequests(requests);
                 validateNoDuplicateNotificationTypes(normalizedRequests);
+                normalizedRequests = retainWritableNotificationTypes(normalizedRequests);
 
                 Map<NotificationType, UserNotificationSettings> settingsByType = loadNotificationSettingsByType(userId);
                 List<UserNotificationSettings> settingsToSave = applyNotificationSettingRequests(
@@ -286,6 +289,23 @@ public class UserSettingsService {
                 }
         }
 
+        private List<NormalizedNotificationSettingRequest> retainWritableNotificationTypes(
+                        List<NormalizedNotificationSettingRequest> requests) {
+                if (globalConfigService.isInquiryNotificationTypeEnabled()) {
+                        return requests;
+                }
+                return requests.stream()
+                                .filter(request -> request.notificationType() != NotificationType.INQUIRY)
+                                .toList();
+        }
+
+        private List<NotificationType> readableNotificationTypes() {
+                return List.of(NotificationType.values()).stream()
+                                .filter(type -> type != NotificationType.INQUIRY
+                                                || globalConfigService.isInquiryNotificationTypeEnabled())
+                                .toList();
+        }
+
         private Map<NotificationType, UserNotificationSettings> loadNotificationSettingsByType(Long userId) {
                 return userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(userId).stream()
                                 .collect(Collectors.toMap(
@@ -324,7 +344,7 @@ public class UserSettingsService {
 
         private List<NotificationSettingResponse> buildNotificationSettingResponsesFromStates(
                         Map<NotificationType, Boolean> settingsByType) {
-                return List.of(NotificationType.values()).stream()
+                return readableNotificationTypes().stream()
                                 .map(type -> {
                                         Boolean enabled = settingsByType.get(type);
                                         return new NotificationSettingResponse(type.name(), enabled == null || enabled);

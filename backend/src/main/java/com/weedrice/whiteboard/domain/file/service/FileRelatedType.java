@@ -8,6 +8,7 @@ final class FileRelatedType {
     static final String BOARD_ICON = "BOARD_ICON";
     static final String EMOTICON_THUMBNAIL = "EMOTICON_THUMBNAIL";
     static final String EMOTICON_IMAGE = "EMOTICON_IMAGE";
+    static final String INQUIRY_MESSAGE = "INQUIRY_MESSAGE";
 
     private FileRelatedType() {
     }

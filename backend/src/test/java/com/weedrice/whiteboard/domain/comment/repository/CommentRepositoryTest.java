@@ -707,6 +707,7 @@ class CommentRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(4L);
@@ -730,6 +731,7 @@ class CommentRepositoryTest {
                 false,
                 List.of(blockedAuthor.getUserId()),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -758,6 +760,7 @@ class CommentRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -775,6 +778,7 @@ class CommentRepositoryTest {
                 boolean.class,
                 Collection.class,
                 String.class,
+                boolean.class,
                 org.springframework.data.domain.Pageable.class);
 
         Query query = method.getAnnotation(Query.class);

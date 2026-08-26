@@ -2,21 +2,28 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 import java.util.Set;
 
 @Component
-@RequiredArgsConstructor
 public class PostAccessPolicy {
 
     private final BoardAccessPolicy boardAccessPolicy;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+
+    public PostAccessPolicy(
+            BoardAccessPolicy boardAccessPolicy,
+            InquiryLegacyWritePolicy inquiryLegacyWritePolicy) {
+        this.boardAccessPolicy = boardAccessPolicy;
+        this.inquiryLegacyWritePolicy = inquiryLegacyWritePolicy;
+    }
 
     public void validateReadable(Post post, User viewer) {
         validateReadable(post, viewer, false);
@@ -43,8 +50,7 @@ public class PostAccessPolicy {
     public boolean isReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
         if (post == null
                 || Boolean.TRUE.equals(post.getIsDeleted())
-                || Boolean.TRUE.equals(post.getIsBlinded())
-                || authorBlocked) {
+                || Boolean.TRUE.equals(post.getIsBlinded())) {
             return false;
         }
 
@@ -54,6 +60,16 @@ public class PostAccessPolicy {
         }
         boolean isAuthor = viewer != null && Objects.equals(post.getUser().getUserId(), viewer.getUserId());
         Boolean hasAdminAccess = null;
+        boolean inquiryBoard = boardAccessPolicy.isInquiryBoard(board);
+        boolean legacyInquiryAuthorAccessEnabled = !inquiryBoard
+                || inquiryLegacyWritePolicy.areLegacyWritesEnabled();
+
+        if (inquiryBoard && !legacyInquiryAuthorAccessEnabled) {
+            return viewer != null && viewer.isUsableSuperAdmin();
+        }
+        if (authorBlocked) {
+            return false;
+        }
 
         if (!Boolean.TRUE.equals(board.getIsActive())) {
             if (viewer == null) {
@@ -68,7 +84,7 @@ public class PostAccessPolicy {
         }
 
         if (!Boolean.TRUE.equals(board.getIsPublic())) {
-            boolean canReadInquiryAsAuthor = boardAccessPolicy.isInquiryBoard(board) && isAuthor;
+            boolean canReadInquiryAsAuthor = inquiryBoard && isAuthor && legacyInquiryAuthorAccessEnabled;
             if (!canReadInquiryAsAuthor) {
                 hasAdminAccess = resolveAdminAccess(board, viewer, activeAdminBoardIds, hasAdminAccess);
             }

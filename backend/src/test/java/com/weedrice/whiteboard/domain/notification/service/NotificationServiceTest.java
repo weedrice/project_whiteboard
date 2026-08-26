@@ -382,6 +382,34 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("In-app-only inquiry notification is saved without a web push delivery job")
+    void handleNotificationEvent_inAppOnlyInquirySkipsPushDeliveryJob() {
+        NotificationEvent event = NotificationEvent.inAppOnlyLocalized(
+                user, actor, NotificationType.INQUIRY, NotificationSourceType.INQUIRY,
+                41L, "notification.inquiry.replied");
+        when(messageSource.getMessage(eq("notification.inquiry.replied"), any(),
+                eq("notification.inquiry.replied"), any(Locale.class)))
+                .thenReturn("Your inquiry has a reply.");
+        when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
+
+        NotificationPreferenceService preferenceService =
+                new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                preferenceService,
+                userRepository,
+                pushDeliveryJobEnqueuer,
+                userSettingsRepository,
+                messageSource);
+
+        commandService.handleNotificationEvent(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(pushDeliveryJobEnqueuer, never()).enqueue(any(), any());
+        verify(userRepository, never()).findByIdForUpdate(anyLong());
+    }
+
+    @Test
     @DisplayName("Read notification marks it as read")
     void readNotification_success() {
         Long userId = 1L;

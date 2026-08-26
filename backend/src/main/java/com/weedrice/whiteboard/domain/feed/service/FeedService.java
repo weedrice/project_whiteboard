@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostFacadeReadService;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
@@ -40,6 +41,7 @@ public class FeedService {
     private final FeedGenerationService feedGenerationService;
     private final UserBlockService userBlockService;
     private final AdminRepository adminRepository;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userReadableResolver.resolve(userId);
@@ -78,7 +80,11 @@ public class FeedService {
         List<Long> activeAdminBoardIds = user.isUsableSuperAdmin()
                 ? List.of()
                 : adminRepository.findActiveBoardIdsByUser(user);
-        return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
+        return UserFeedVisibilityCondition.of(
+                user,
+                blockedUserIds,
+                activeAdminBoardIds,
+                inquiryLegacyWritePolicy.areLegacyWritesEnabled());
     }
 
     private void logUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,

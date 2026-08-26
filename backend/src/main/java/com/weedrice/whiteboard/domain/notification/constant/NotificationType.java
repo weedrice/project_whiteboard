@@ -14,9 +14,10 @@ public enum NotificationType {
     SYSTEM,
     SANCTION,
     KEYWORD,
-    BADGE;
+    BADGE,
+    INQUIRY;
 
-    public static final int SUPPORTED_TYPE_COUNT = 9;
+    public static final int SUPPORTED_TYPE_COUNT = 10;
 
     public static NotificationType normalize(String value) {
         if (value == null) {

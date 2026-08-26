@@ -57,6 +57,8 @@ class FileAccessServiceTest {
     private UserBlockService userBlockService;
     @Mock
     private EmoticonMasterRepository emoticonMasterRepository;
+    @Mock
+    private com.weedrice.whiteboard.domain.inquiry.service.InquiryReadService inquiryReadService;
 
     private FileAccessService fileAccessService;
 
@@ -70,7 +72,8 @@ class FileAccessServiceTest {
                 boardAccessPolicy,
                 postAccessPolicy,
                 userBlockService,
-                emoticonMasterRepository);
+                emoticonMasterRepository,
+                inquiryReadService);
     }
 
     @Test
@@ -127,6 +130,34 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("문의 메시지 이미지는 문의 접근 정책을 통과한 사용자에게만 제공한다")
+    void getFileForDownload_inquiryMessage_usesInquiryAccessPolicyAndNoSharedCache() {
+        File file = file(FileRelatedType.INQUIRY_MESSAGE, 41L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(inquiryReadService.canAccessMessageFile(41L, 11L)).thenReturn(true);
+
+        FileAccessResult result = fileAccessService.getFileAccessForDownload(10L, 11L);
+
+        assertThat(result.file()).isSameAs(file);
+        assertThat(result.cacheScope()).isEqualTo(FileAccessResult.CacheScope.OTHER);
+        verify(inquiryReadService).canAccessMessageFile(41L, 11L);
+    }
+
+    @Test
+    @DisplayName("권한 없는 문의 메시지 이미지는 존재를 숨긴다")
+    void getFileForDownload_inquiryMessage_deniedAsNotFound() {
+        File file = file(FileRelatedType.INQUIRY_MESSAGE, 41L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(inquiryReadService.canAccessMessageFile(41L, 22L)).thenReturn(false);
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 22L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }

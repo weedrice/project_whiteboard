@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.service.InquiryReadService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -38,6 +39,7 @@ class FileAccessService {
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
     private final EmoticonMasterRepository emoticonMasterRepository;
+    private final InquiryReadService inquiryReadService;
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
         return getFileAccessForDownload(fileId, viewerUserId).file();
@@ -96,6 +98,12 @@ class FileAccessService {
                     yield emoticonScope.get();
                 }
                 validateUploader(file, viewerUserId);
+                yield FileAccessResult.CacheScope.OTHER;
+            }
+            case FileRelatedType.INQUIRY_MESSAGE -> {
+                if (!inquiryReadService.canAccessMessageFile(file.getRelatedId(), viewerUserId)) {
+                    throw new BusinessException(ErrorCode.NOT_FOUND);
+                }
                 yield FileAccessResult.CacheScope.OTHER;
             }
             default -> {

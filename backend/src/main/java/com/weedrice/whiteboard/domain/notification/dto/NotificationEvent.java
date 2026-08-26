@@ -22,6 +22,7 @@ public class NotificationEvent {
     private String content;
     private String messageKey;
     private List<String> messageParams;
+    private boolean pushEnabled;
 
     public NotificationEvent(User userToNotify, User actor, NotificationType notificationType,
             NotificationSourceType sourceType, Long sourceId,
@@ -57,6 +58,7 @@ public class NotificationEvent {
         this.content = content;
         this.messageKey = messageKey;
         this.messageParams = messageParams;
+        this.pushEnabled = true;
     }
 
     public static NotificationEvent localized(
@@ -68,6 +70,20 @@ public class NotificationEvent {
             String messageKey,
             String... messageParams) {
         return localized(userToNotify, actor, null, notificationType, sourceType, sourceId, messageKey, messageParams);
+    }
+
+    public static NotificationEvent inAppOnlyLocalized(
+            User userToNotify,
+            User actor,
+            NotificationType notificationType,
+            NotificationSourceType sourceType,
+            Long sourceId,
+            String messageKey,
+            String... messageParams) {
+        NotificationEvent event = localized(
+                userToNotify, actor, notificationType, sourceType, sourceId, messageKey, messageParams);
+        event.pushEnabled = false;
+        return event;
     }
 
     public static NotificationEvent localized(

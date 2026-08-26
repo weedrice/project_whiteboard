@@ -197,6 +197,22 @@ class UserFeedRepositoryTest {
     }
 
     @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_excludesInquiryAfterLegacyCutover() {
+        Board inquiryBoard = persistBoard(BoardPolicyConstants.INQUIRY_BOARD_URL, author, true, false);
+        Post ownInquiryPost = persistPost(inquiryBoard, viewer, false);
+        persistFeed(viewer, "POST", ownInquiryPost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                UserFeedVisibilityCondition.of(viewer, List.of(), List.of(), false),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Test
     void findVisibleByTargetUserOrderByCreatedAtDesc_ordersByFeedIdWhenCreatedAtTies() {
         UserFeed first = persistFeed(viewer, "NOTICE", 10L);
         UserFeed second = persistFeed(viewer, "NOTICE", 20L);
@@ -372,6 +388,6 @@ class UserFeedRepositoryTest {
     }
 
     private UserFeedVisibilityCondition vf(User targetUser, List<Long> blockedUserIds, List<Long> activeAdminBoardIds) {
-        return UserFeedVisibilityCondition.of(targetUser, blockedUserIds, activeAdminBoardIds);
+        return UserFeedVisibilityCondition.of(targetUser, blockedUserIds, activeAdminBoardIds, true);
     }
 }

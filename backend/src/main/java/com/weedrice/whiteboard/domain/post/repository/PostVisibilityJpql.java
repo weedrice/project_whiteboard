@@ -7,6 +7,11 @@ public final class PostVisibilityJpql {
 
     public static final String VIEWER_READABLE_POST = """
               AND (
+                    LOWER(b.boardUrl) <> :inquiryBoardUrl
+                    OR :legacyInquiryUserAccessEnabled = true
+                    OR :viewerIsSuperAdmin = true
+                  )
+              AND (
                     p.isBlinded = false
                     OR p.user = :user
                     OR :viewerIsSuperAdmin = true

@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.inquiry.entity.Inquiry;
+import com.weedrice.whiteboard.domain.inquiry.repository.InquiryRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -33,6 +35,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
     private final CommentRepository commentRepository;
     private final PostReadAccessService postReadAccessService;
     private final ScheduledPostRepository scheduledPostRepository;
+    private final InquiryRepository inquiryRepository;
 
     @Override
     public Map<Long, String> resolveAll(Collection<Notification> notifications) {
@@ -52,6 +55,11 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 .collect(Collectors.toSet());
         Set<Long> failedScheduledPostIds = notifications.stream()
                 .filter(this::isScheduledPostFailure)
+                .map(Notification::getSourceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> inquiryIds = notifications.stream()
+                .filter(notification -> isSourceType(notification, NotificationSourceType.INQUIRY))
                 .map(Notification::getSourceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -76,6 +84,10 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 ? Map.of()
                 : scheduledPostRepository.findByScheduledPostIdIn(failedScheduledPostIds).stream()
                         .collect(Collectors.toMap(ScheduledPost::getScheduledPostId, Function.identity()));
+        Map<Long, Inquiry> inquiriesById = inquiryIds.isEmpty()
+                ? Map.of()
+                : inquiryRepository.findAllById(inquiryIds).stream()
+                        .collect(Collectors.toMap(Inquiry::getInquiryId, Function.identity()));
         Map<Long, Set<Long>> readablePostIdsByUserId = resolveReadablePostIdsByUser(
                 notifications,
                 postsById.values());
@@ -95,6 +107,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                     postsById,
                     commentsById,
                     failedScheduledPostsById,
+                    inquiriesById,
                     readablePostIds);
             if (targetUrl != null) {
                 targetUrls.put(notification.getNotificationId(), targetUrl);
@@ -127,6 +140,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             Map<Long, Post> postsById,
             Map<Long, Comment> commentsById,
             Map<Long, ScheduledPost> failedScheduledPostsById,
+            Map<Long, Inquiry> inquiriesById,
             Set<Long> readablePostIds) {
         if (isSourceType(notification, NotificationSourceType.POST)) {
             Post post = postsById.get(notification.getSourceId());
@@ -147,6 +161,19 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
 
         if (isSourceType(notification, NotificationSourceType.MESSAGE)) {
             return "/mypage/messages";
+        }
+
+        if (isSourceType(notification, NotificationSourceType.INQUIRY)) {
+            Long inquiryId = notification.getSourceId();
+            Long receiverUserId = notification.getUser() != null ? notification.getUser().getUserId() : null;
+            if (inquiryId == null || receiverUserId == null) return null;
+            Inquiry inquiry = inquiriesById.get(inquiryId);
+            if (inquiry == null) return null;
+            if (inquiry.isOwnedBy(receiverUserId)) return "/inquiries/" + inquiryId;
+            User receiver = notification.getUser();
+            return receiver != null && receiver.isUsableSuperAdmin()
+                    ? "/admin/inquiries/" + inquiryId
+                    : null;
         }
 
         if (isScheduledPostFailure(notification)) {

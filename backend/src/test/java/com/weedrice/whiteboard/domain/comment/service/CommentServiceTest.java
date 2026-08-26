@@ -92,6 +92,7 @@ class CommentServiceTest {
     private CommentService commentService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Mock
     private CommentRepository commentRepository;
@@ -142,6 +143,9 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
+        inquiryLegacyWritePolicy = org.mockito.Mockito.mock(
+                com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class);
+        lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
         Map<Long, Comment> lockedCommentTargets = new HashMap<>();
         lenient().when(userRepository.findByIdForUpdate(anyLong()))
                 .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
@@ -173,12 +177,13 @@ class CommentServiceTest {
                     return cached == null ? commentRepository.findById(commentId) : Optional.of(cached);
                 });
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
-        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy, inquiryLegacyWritePolicy);
         CommentPostAccessService commentPostAccessService = new CommentPostAccessService(userBlockService, postAccessPolicy);
         CommentReadSupport commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         CommentQueryService commentQueryService = new CommentQueryService(
                 commentRepository,
+                inquiryLegacyWritePolicy,
                 postRepository,
                 userBlockRepository,
                 new UserReadableResolver(userRepository),
@@ -221,7 +226,8 @@ class CommentServiceTest {
                 semanticSearchEventPublisher,
                 commentLikeCommand,
                 badgeEvaluationService,
-                anonymousReadCacheInvalidator);
+                anonymousReadCacheInvalidator,
+                inquiryLegacyWritePolicy);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 
@@ -1305,6 +1311,7 @@ class CommentServiceTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 normalized))
                 .thenReturn(Page.empty(normalized));
 
@@ -1316,6 +1323,7 @@ class CommentServiceTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 normalized);
     }
 
@@ -1617,6 +1625,28 @@ class CommentServiceTest {
     }
 
     @Test
+    void likeComment_legacyInquiryReadOnly_rejectsMutation() {
+        User user = User.builder().displayName("Admin").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("inquiry").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.LEGACY_INQUIRY_READ_ONLY));
+
+        verify(commentLikeRepository, never()).insertIgnore(anyLong(), anyLong());
+    }
+
+    @Test
     @DisplayName("like on agent-authored comment notifies agent owner")
     void likeComment_agentComment_notifiesAgentOwner() {
         User actor = User.builder().displayName("Actor").build();
@@ -1831,6 +1861,28 @@ class CommentServiceTest {
         verify(commentLikeRepository).deleteByUserIdAndCommentId(1L, 10L);
         verify(commentRepository).findById(10L);
         verify(commentRepository).decrementLikeCount(10L);
+    }
+
+    @Test
+    void unlikeComment_legacyInquiryReadOnly_rejectsMutation() {
+        User user = User.builder().displayName("Admin").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("inquiry").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.LEGACY_INQUIRY_READ_ONLY));
+
+        verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
     }
 
     @Test

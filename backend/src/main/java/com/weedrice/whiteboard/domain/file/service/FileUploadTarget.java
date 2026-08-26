@@ -19,6 +19,9 @@ public enum FileUploadTarget {
     /** 게시글 본문 이미지. 프론트도 10MiB를 허용한다. */
     POST_CONTENT(10L * 1024 * 1024, 0, 0),
 
+    /** 문의 메시지 이미지. 게시글 본문과 같은 형식·크기 정책을 사용한다. */
+    INQUIRY_MESSAGE(10L * 1024 * 1024, 0, 0),
+
     /** 스페이스 아이콘. 작게 렌더링되므로 원본도 작아야 한다. */
     BOARD_ICON(2L * 1024 * 1024, 0, 0),
 
@@ -76,6 +79,7 @@ public enum FileUploadTarget {
         }
         return switch (relatedType) {
             case FileRelatedType.POST_CONTENT, FileRelatedType.DRAFT_POST -> POST_CONTENT;
+            case FileRelatedType.INQUIRY_MESSAGE -> INQUIRY_MESSAGE;
             case FileRelatedType.BOARD_ICON -> BOARD_ICON;
             case FileRelatedType.USER_PROFILE -> PROFILE_IMAGE;
             case FileRelatedType.EMOTICON_THUMBNAIL, FileRelatedType.EMOTICON_IMAGE -> EMOTICON;

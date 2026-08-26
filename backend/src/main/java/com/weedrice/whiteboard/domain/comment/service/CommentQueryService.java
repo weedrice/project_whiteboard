@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -46,6 +47,7 @@ public class CommentQueryService {
     private static final int BEST_COMMENT_MIN_LIKES = 1;
 
     private final CommentRepository commentRepository;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final PostRepository postRepository;
     private final UserBlockRepository userBlockRepository;
     private final UserReadableResolver userReadableResolver;
@@ -198,6 +200,7 @@ public class CommentQueryService {
                 blockedUserIdsParameter.empty(),
                 blockedUserIdsParameter.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                 safePageable)
                 .map(MyCommentResponse::from);
     }

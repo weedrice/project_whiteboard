@@ -621,6 +621,66 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("문의 전환 플래그는 삭제할 수 없다")
+    void deleteConfig_requiredInquiryConfig_rejectsDeletion() {
+        List<String> requiredKeys = List.of(
+                GlobalConfigService.INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY,
+                GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY);
+
+        for (String requiredKey : requiredKeys) {
+            assertThatThrownBy(() -> globalConfigService.deleteConfig(ACTOR_USER_ID, requiredKey))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(globalConfigRepository, never()).existsById(anyString());
+        verify(globalConfigRepository, never()).deleteById(anyString());
+        verifyNoInteractions(cacheManager);
+    }
+
+    @Test
+    @DisplayName("문의 우선순위 설정은 삭제해 기본값으로 복귀할 수 있다")
+    void deleteConfig_inquiryPriorityThreshold_deletesConfig() {
+        String key = GlobalConfigService.INQUIRY_PRIORITY_HIGH_CATEGORY_URGENT_HOURS_CONFIG_KEY;
+        when(globalConfigRepository.existsById(key)).thenReturn(true);
+
+        globalConfigService.deleteConfig(ACTOR_USER_ID, key);
+
+        verify(globalConfigRepository).deleteById(key);
+    }
+
+    @Test
+    @DisplayName("문의 알림 타입 호환성 게이트는 행 잠금 후 활성화한다")
+    void updateConfig_inquiryNotificationType_enablesUnderWriteLock() {
+        String key = GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY;
+        GlobalConfig config = new GlobalConfig(key, "N", "rollback gate");
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(key))).thenReturn(List.of(config));
+        when(globalConfigRepository.save(any(GlobalConfig.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse updated = globalConfigService.updateConfig(ACTOR_USER_ID, key, "Y", null);
+
+        assertThat(updated.getValue()).isEqualTo("Y");
+        verify(globalConfigRepository).findAllByKeysForUpdate(List.of(key));
+        verify(globalConfigRepository, never()).findById(key);
+    }
+
+    @Test
+    @DisplayName("문의 알림 타입 호환성 게이트는 활성화 후 비활성화할 수 없다")
+    void updateConfig_inquiryNotificationType_rejectsDisableAfterEnable() {
+        String key = GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY;
+        GlobalConfig config = new GlobalConfig(key, "Y", "rollback gate");
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(key))).thenReturn(List.of(config));
+
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, key, "N", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(globalConfigRepository).findAllByKeysForUpdate(List.of(key));
+        verify(globalConfigRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("updateConfig rejects invalid key value and description before repository access")
     void updateConfig_invalidText_rejectsBeforeRepositoryAccess() {
         assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, null, "value", "desc"))
@@ -732,5 +792,54 @@ class GlobalConfigServiceTest {
 
         verify(globalConfigRepository, never()).findById(anyString());
         verify(globalConfigRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("문의 HIGH 임계값은 URGENT 임계값보다 작아야 한다")
+    void updateConfig_inquiryPriorityHighThreshold_rejectsReversedRelationship() {
+        GlobalConfig high = new GlobalConfig(
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY, "24", "high");
+        GlobalConfig urgent = new GlobalConfig(
+                GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY, "72", "urgent");
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
+                GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY)))
+                .thenReturn(List.of(high, urgent));
+
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
+                "72",
+                "high"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(globalConfigRepository, never()).findById(anyString());
+        verify(globalConfigRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("문의 HIGH/URGENT 임계값의 유효한 관계는 저장한다")
+    void updateConfig_inquiryPriorityThreshold_acceptsValidRelationship() {
+        GlobalConfig high = new GlobalConfig(
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY, "24", "high");
+        GlobalConfig urgent = new GlobalConfig(
+                GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY, "72", "urgent");
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
+                GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY)))
+                .thenReturn(List.of(high, urgent));
+        when(globalConfigRepository.findById(GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY))
+                .thenReturn(Optional.of(high));
+        when(globalConfigRepository.save(high)).thenReturn(high);
+
+        GlobalConfigResponse response = globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
+                "48",
+                "high");
+
+        assertThat(response.getValue()).isEqualTo("48");
+        verify(globalConfigRepository).save(high);
     }
 }

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
@@ -42,6 +43,7 @@ public class PostInteractionService {
     private final PostViewCountWriter postViewCountWriter;
     private final EntityManager entityManager;
     private final SanctionService sanctionService;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
@@ -117,6 +119,7 @@ public class PostInteractionService {
         sanctionService.validateNotMuted(user);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getReadablePostForResolvedUser(postId, user);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         return postReactionService.like(user, actorAgent, post);
     }
 
@@ -125,6 +128,7 @@ public class PostInteractionService {
         User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         validateResolvedActorAgent(userId, actorAgent);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         return postReactionService.like(user, actorAgent, post);
     }
 
@@ -142,6 +146,7 @@ public class PostInteractionService {
         User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         Post post = getReadablePostForResolvedUser(postId, user);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
 
         return postReactionService.unlike(userId, post);
     }
@@ -162,7 +167,8 @@ public class PostInteractionService {
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
         User user = userWritableResolver.resolveForUpdate(userId);
-        getReadablePostForResolvedUser(postId, user);
+        Post post = getReadablePostForResolvedUser(postId, user);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         postScrapService.unscrap(userId, postId);
     }
 

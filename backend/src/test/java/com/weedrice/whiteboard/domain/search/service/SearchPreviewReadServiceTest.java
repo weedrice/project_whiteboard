@@ -70,6 +70,8 @@ class SearchPreviewReadServiceTest {
     private ScrapRepository scrapRepository;
     @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     private SearchPreviewReadService searchPreviewReadService;
     private User user;
@@ -95,6 +97,7 @@ class SearchPreviewReadServiceTest {
                 commentRepository,
                 boardRepository,
                 boardAccessPolicy,
+                inquiryLegacyWritePolicy,
                 userBlockService,
                 postSummaryAssembler,
                 new IntegratedSearchAssembler(),
@@ -298,6 +301,24 @@ class SearchPreviewReadServiceTest {
                 eq(List.of()), eq(false), eq(1L), any(Pageable.class));
         verify(commentRepository).searchCommentsByKeyword(
                 eq(keyword), eq("free"), eq(List.of()), eq(false), eq(1L), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("레거시 전환 후 문의 게시판 범위 통합 검색을 숨긴다")
+    void integratedSearch_rejectsArchivedInquiryBoardForNonSuperAdmin() {
+        Board inquiryBoard = board(10L, "Inquiry", "inquiry");
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND))
+                .when(inquiryLegacyWritePolicy).requireBoardReadable(inquiryBoard, user);
+
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch(
+                "test", null, "inquiry", null, null, null, null, Sort.unsorted(), 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(postRepository, never()).searchPosts(
+                any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
     }
 
     @Test

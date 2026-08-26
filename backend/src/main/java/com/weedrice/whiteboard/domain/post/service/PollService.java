@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PollResponse;
 import com.weedrice.whiteboard.domain.post.entity.Poll;
 import com.weedrice.whiteboard.domain.post.entity.PollOption;
@@ -39,6 +40,7 @@ public class PollService {
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
     private final SanctionService sanctionService;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final Clock clock;
 
     @Transactional
@@ -78,6 +80,7 @@ public class PollService {
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
+        inquiryLegacyWritePolicy.requireBoardWritable(poll.getPost().getBoard());
         validateOpen(poll);
         List<Long> selectedOptionIds = normalizeOptionIds(optionIds);
         if (!Boolean.TRUE.equals(poll.getMultipleChoiceEnabled()) && selectedOptionIds.size() > 1) {
@@ -107,6 +110,7 @@ public class PollService {
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
+        inquiryLegacyWritePolicy.requireBoardWritable(poll.getPost().getBoard());
         validateOpen(poll);
         pollVoteRepository.deleteByPoll_PollIdAndUser_UserId(poll.getPollId(), userId);
         return toResponse(poll, userId);

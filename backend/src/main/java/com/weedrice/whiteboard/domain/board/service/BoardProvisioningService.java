@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -37,6 +38,7 @@ class BoardProvisioningService {
     private final BoardManagerAssignmentService boardManagerAssignmentService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final Clock clock;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardCategoryRepository boardCategoryRepository,
@@ -45,7 +47,8 @@ class BoardProvisioningService {
                              AdminEligibleUserService adminEligibleUserService,
                              BoardManagerAssignmentService boardManagerAssignmentService,
                              BoardAccessPolicy boardAccessPolicy,
-                             Clock clock) {
+                             Clock clock,
+                             InquiryLegacyWritePolicy inquiryLegacyWritePolicy) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
@@ -54,9 +57,11 @@ class BoardProvisioningService {
         this.boardManagerAssignmentService = boardManagerAssignmentService;
         this.boardAccessPolicy = boardAccessPolicy;
         this.clock = clock;
+        this.inquiryLegacyWritePolicy = inquiryLegacyWritePolicy;
     }
 
     void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
+        inquiryLegacyWritePolicy.requireLegacyWritesEnabled();
         User currentUser = getCurrentUserOrNull(userId);
         User manager = resolveInquiryBoardCreatorForUpdate(currentUser);
         String inquiryBoardUrl = normalizeInquiryBoardUrl(requestedBoardUrl);

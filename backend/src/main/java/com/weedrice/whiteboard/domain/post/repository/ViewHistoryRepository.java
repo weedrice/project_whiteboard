@@ -68,6 +68,11 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND p.is_blinded = 'N'
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
+                    LOWER(b.board_url) <> :inquiryBoardUrl
+                    OR :legacyInquiryUserAccessEnabled = true
+                    OR :isSuperAdmin = true
+                  )
+              AND (
                     b.is_active = 'Y'
                     OR :isSuperAdmin = true
                     OR p.user_id = :userId
@@ -114,6 +119,11 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND p.is_blinded = 'N'
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
+                    LOWER(b.board_url) <> :inquiryBoardUrl
+                    OR :legacyInquiryUserAccessEnabled = true
+                    OR :isSuperAdmin = true
+                  )
+              AND (
                     b.is_active = 'Y'
                     OR :isSuperAdmin = true
                     OR p.user_id = :userId
@@ -156,5 +166,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
                                                                @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
                                                                @Param("blockedUserIds") Collection<Long> blockedUserIds,
                                                                @Param("inquiryBoardUrl") String inquiryBoardUrl,
+                                                               @Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
                                                                Pageable pageable);
+
 }

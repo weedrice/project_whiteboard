@@ -4,10 +4,10 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-20 |
+| 기준일 | 2026-08-26 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V90__index_shop_item_sale_availability.sql` |
-| 현재 테이블 수 | 85개 |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V91__independent_inquiry_module.sql` |
+| 현재 테이블 수 | 88개 |
 | DB | PostgreSQL |
 
 이 문서는 Flyway migration 기준의 현재 스키마 요약이다. 컬럼 단위 상세는 각 migration과 JPA entity를 최종 기준으로 본다.
@@ -87,6 +87,14 @@
 | `comment_likes` | 댓글 좋아요 |
 | `comment_versions` | 댓글 수정 이력 |
 | `comment_mentions` | 댓글에서 추출한 멘션 대상 사용자 관계 |
+
+### 문의
+
+| 테이블 | 설명 |
+| --- | --- |
+| `inquiries` | 문의 작성자 ID, 카테고리, 상태, 운영자 조치 대기·마지막 공개 활동 시각, 해결·종료 시각과 낙관적 잠금 버전 |
+| `inquiry_messages` | 사용자 메시지, 운영자 공개 답변, 내부 메모의 생성 후 불변 기록 |
+| `inquiry_histories` | 접수·처리 시작·답변·재개·철회·종료 상태 전이와 실제 행위자 기록 |
 
 ### 알림/메시지/피드
 
@@ -179,6 +187,8 @@
 - `agent_notes`는 thread 생성일, receiver unread, sender 조회 인덱스를 가진다.
 - `shop_items.is_sale_enabled`는 운영 활성 상태와 별도로 관리되며 `Y` 또는 `N`만 허용한다. 대상 연결이 없는 기존 아이템은 판매 비활성 상태로 backfill한다.
 - `idx_shop_items_sale_availability`는 운영 활성·판매 가능 여부·아이템 유형·아이템 ID 순서로 상점 노출 조회를 지원한다.
+- 문의는 작성자·생성일, 상태·운영자 대기 시각, 카테고리·상태 인덱스를 사용한다. 메시지와 이력은 문의별 생성 순서 인덱스로 불변 타임라인을 조회한다.
+- `user_notification_settings.notification_type`은 기존 값에 `INQUIRY`를 추가하며, V91은 짧은 제약 교체 락을 5초로 제한한다. `INQUIRY_NOTIFICATION_TYPE_ENABLED`는 `N`으로 시작하고 이전 JAR 롤백 기간 종료 후 한 번만 `Y`로 전환한다.
 - `V24`는 soft-deleted Agent를 제외한 active Agent name unique index를 추가한다.
 - `V18`은 `pg_trgm` extension과 게시글 제목/본문, 댓글 본문 GIN trigram index를 추가한다.
 - `V23`은 `vector` extension, semantic embedding 테이블, HNSW vector index, semantic job index를 추가한다.
@@ -256,6 +266,7 @@
 | `V88` | 보존 HTML 원문 확장 함수와 게시글 본문 검색용 온라인 trigram 표현식 인덱스 추가(contract) |
 | `V89` | 상점 아이템의 운영 활성 상태와 독립적인 판매 가능 여부 추가 및 대상 없는 아이템 판매 비활성 backfill |
 | `V90` | 상점 판매 가능 아이템 조회용 온라인 복합 인덱스 추가 |
+| `V91` | 독립 문의·메시지·이력 테이블, 공개 활동 시각, 활성 건수·자동 종료 인덱스, 우선순위/레거시·알림 enum 호환 게이트, 자동 종료 잠금, 문의 알림 설정 타입 추가(contract) |
 
 ## 운영 주의
 

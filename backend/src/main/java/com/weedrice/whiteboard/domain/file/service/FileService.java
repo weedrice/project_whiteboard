@@ -34,6 +34,7 @@ public class FileService {
     public static final String RELATED_TYPE_BOARD_ICON = FileRelatedType.BOARD_ICON;
     public static final String RELATED_TYPE_EMOTICON_THUMBNAIL = FileRelatedType.EMOTICON_THUMBNAIL;
     public static final String RELATED_TYPE_EMOTICON_IMAGE = FileRelatedType.EMOTICON_IMAGE;
+    public static final String RELATED_TYPE_INQUIRY_MESSAGE = FileRelatedType.INQUIRY_MESSAGE;
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;

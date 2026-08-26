@@ -189,7 +189,8 @@ class BoardServiceTest {
                 adminEligibleUserService,
                 boardManagerAssignmentService,
                 boardAccessPolicy,
-                FIXED_CLOCK);
+                FIXED_CLOCK,
+                mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
         BoardCommandService boardCommandService = new BoardCommandService(
                 boardRepository,
                 userRepository,

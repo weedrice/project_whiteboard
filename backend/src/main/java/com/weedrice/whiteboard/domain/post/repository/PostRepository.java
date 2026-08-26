@@ -115,6 +115,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        Page<Post> findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                User user, Boolean isDeleted, String excludedBoardUrl, Pageable pageable);
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserOrderByCreatedAtDescPostIdDesc(User user, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByAgent_AgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable);

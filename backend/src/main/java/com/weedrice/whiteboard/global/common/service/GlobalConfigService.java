@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -36,6 +37,13 @@ public class GlobalConfigService {
     public static final String EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY = "EMOTICON_IMAGE_MAX_COUNT";
     public static final String REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY = "REPORT_AUTO_BLIND_THRESHOLD";
     public static final String AGENT_RULES_VERSION_CONFIG_KEY = "AGENT_RULES_VERSION";
+    public static final String INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY = "INQUIRY_PRIORITY_HIGH_HOURS";
+    public static final String INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY = "INQUIRY_PRIORITY_URGENT_HOURS";
+    public static final String INQUIRY_PRIORITY_HIGH_CATEGORY_URGENT_HOURS_CONFIG_KEY =
+            "INQUIRY_PRIORITY_HIGH_CATEGORY_URGENT_HOURS";
+    public static final String INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY =
+            "INQUIRY_NOTIFICATION_TYPE_ENABLED";
+    public static final String INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY = "INQUIRY_LEGACY_WRITE_ENABLED";
     public static final int MAX_POINT_CONFIG_VALUE = 1_000_000;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MIN = 1;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MAX = 100;
@@ -46,6 +54,12 @@ public class GlobalConfigService {
     private static final int MAX_CONFIG_KEY_LENGTH = 100;
     private static final int MAX_CONFIG_VALUE_LENGTH = 10_000;
     private static final int MAX_CONFIG_DESCRIPTION_LENGTH = 255;
+    private static final List<String> INQUIRY_PRIORITY_THRESHOLD_KEYS = List.of(
+            INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
+            INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY);
+    private static final Set<String> REQUIRED_INQUIRY_CONFIG_KEYS = Set.of(
+            INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY,
+            INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY);
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
@@ -69,6 +83,11 @@ public class GlobalConfigService {
         return globalConfigRepository.findById(normalizedKey)
                 .map(GlobalConfig::getConfigValue)
                 .orElse(null);
+    }
+
+    public boolean isInquiryNotificationTypeEnabled() {
+        String value = getConfigFresh(INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY);
+        return value != null && "Y".equalsIgnoreCase(value.trim());
     }
 
     public String getConfigOrThrow(String key) {
@@ -124,6 +143,7 @@ public class GlobalConfigService {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
+        validateInquiryPriorityThresholdRelationship(input.key(), input.value());
         duplicatePolicy.validateCreatable(input.key());
         GlobalConfig config = new GlobalConfig(input.key(), input.value(), input.description());
         try {
@@ -140,8 +160,9 @@ public class GlobalConfigService {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
-        GlobalConfig config = globalConfigRepository.findById(input.key())
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateInquiryPriorityThresholdRelationship(input.key(), input.value());
+        GlobalConfig config = findConfigForUpdate(input.key());
+        validateInquiryNotificationTypeTransition(input.key(), config.getConfigValue(), input.value());
 
         config.setConfigValue(input.value());
         if (description != null) {
@@ -153,10 +174,23 @@ public class GlobalConfigService {
         return GlobalConfigResponse.from(savedConfig);
     }
 
+    private GlobalConfig findConfigForUpdate(String key) {
+        if (INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)) {
+            return globalConfigRepository.findAllByKeysForUpdate(List.of(key)).stream()
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        }
+        return globalConfigRepository.findById(key)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
     @Transactional
     public void deleteConfig(Long actorUserId, String key) {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         String normalizedKey = TextInputNormalizer.normalizeRequired(key, MAX_CONFIG_KEY_LENGTH);
+        if (REQUIRED_INQUIRY_CONFIG_KEYS.contains(normalizedKey)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
@@ -235,15 +269,53 @@ public class GlobalConfigService {
             }
             return;
         }
+        if (INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY.equals(key)
+                || INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY.equals(key)
+                || INQUIRY_PRIORITY_HIGH_CATEGORY_URGENT_HOURS_CONFIG_KEY.equals(key)) {
+            validateIntegerRange(value, 1, 24 * 365);
+            return;
+        }
+        if (INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY.equals(key)
+                || INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)) {
+            if (!"Y".equalsIgnoreCase(value) && !"N".equalsIgnoreCase(value)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            return;
+        }
         if (key == null || !key.startsWith(POINT_CONFIG_PREFIX)) {
             return;
         }
         validateIntegerRange(value, 0, MAX_POINT_CONFIG_VALUE);
     }
 
+    private void validateInquiryNotificationTypeTransition(String key, String currentValue, String proposedValue) {
+        if (INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)
+                && "Y".equalsIgnoreCase(currentValue)
+                && !"Y".equalsIgnoreCase(proposedValue)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
     private void validateIntegerRange(String value, int minValue, int maxValue) {
         Integer parsedValue = parseIntConfigValue(value);
         if (parsedValue == null || parsedValue < minValue || parsedValue > maxValue) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void validateInquiryPriorityThresholdRelationship(String key, String proposedValue) {
+        if (!INQUIRY_PRIORITY_THRESHOLD_KEYS.contains(key)) {
+            return;
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        globalConfigRepository.findAllByKeysForUpdate(INQUIRY_PRIORITY_THRESHOLD_KEYS)
+                .forEach(config -> values.put(config.getConfigKey(), config.getConfigValue()));
+        values.put(key, proposedValue);
+        int highHours = parseIntConfigOrDefault(
+                values.get(INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY), 24, 1, 24 * 365);
+        int urgentHours = parseIntConfigOrDefault(
+                values.get(INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY), 72, 1, 24 * 365);
+        if (highHours >= urgentHours) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

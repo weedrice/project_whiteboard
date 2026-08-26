@@ -50,11 +50,13 @@ class PollServiceTest {
     @Mock PostReadContextResolver postReadContextResolver;
     @Mock PostAccessPolicy postAccessPolicy;
     @Mock SanctionService sanctions;
+    @Mock com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     PollService service;
 
     @BeforeEach
     void setUp() {
-        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, sanctions, CLOCK);
+        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, sanctions,
+                inquiryLegacyWritePolicy, CLOCK);
         PostReadContext context = PostReadContext.anonymous();
         when(postReadContextResolver.resolveForResolvedUser(any())).thenReturn(context);
         when(postReadContextResolver.withAdminBoardIdsForPosts(eq(context), anyList())).thenReturn(context);
@@ -153,6 +155,28 @@ class PollServiceTest {
         assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L)));
 
         verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+    }
+
+    @Test
+    void voteRejectsArchivedInquiryBeforeMutation() {
+        User user = mock(User.class);
+        Poll poll = poll(true, null);
+        com.weedrice.whiteboard.domain.board.entity.Board board =
+                mock(com.weedrice.whiteboard.domain.board.entity.Board.class);
+        when(poll.getPost().getBoard()).thenReturn(board);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
+        when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
+        doThrow(new BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.vote(7L, 2L, List.of(101L)));
+
+        assertSame(com.weedrice.whiteboard.global.exception.ErrorCode.LEGACY_INQUIRY_READ_ONLY,
+                exception.getErrorCode());
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).save(any());
     }
 
     @Test

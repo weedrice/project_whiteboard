@@ -155,6 +155,52 @@ class PostgresApplicationContextSmokeTest {
     }
 
     @Test
+    void independentInquiryMigrationCreatesTablesIndexesConfigAndNotificationContract() {
+        assertEquals(3, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = current_schema()
+                  AND table_name IN ('inquiries', 'inquiry_messages', 'inquiry_histories')
+                """, Integer.class));
+        assertEquals(7, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND indexname IN (
+                    'idx_inquiries_author_created', 'idx_inquiries_queue',
+                    'idx_inquiries_category_status', 'idx_inquiry_messages_inquiry_created',
+                    'idx_inquiry_histories_inquiry_created', 'idx_inquiries_author_status',
+                    'idx_inquiries_auto_close'
+                  )
+                """, Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'inquiries'
+                  AND column_name = 'last_public_activity_at'
+                  AND is_nullable = 'NO'
+                """, Integer.class));
+        assertEquals("Y", jdbcTemplate.queryForObject("""
+                SELECT config_value
+                FROM global_configs
+                WHERE config_key = 'INQUIRY_LEGACY_WRITE_ENABLED'
+                """, String.class));
+        assertEquals(1, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM domain_locks
+                WHERE lock_name = 'INQUIRY_AUTO_CLOSE'
+                """, Integer.class));
+        assertEquals(1, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_constraint
+                WHERE connamespace = current_schema()::regnamespace
+                  AND conname = 'user_notification_settings_notification_type_check'
+                  AND pg_get_constraintdef(oid) LIKE '%INQUIRY%'
+                """, Integer.class));
+    }
+
+    @Test
     void preservedPostHtmlSearchFunctionDecodesMixedStoredContent() {
         String source = "<section><p>검색 가능한 보존 본문</p></section>";
         String payload = Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8));

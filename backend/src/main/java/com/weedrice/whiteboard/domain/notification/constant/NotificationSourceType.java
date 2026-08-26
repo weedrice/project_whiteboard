@@ -7,7 +7,8 @@ public enum NotificationSourceType {
     POST,
     COMMENT,
     MESSAGE,
-    SYSTEM;
+    SYSTEM,
+    INQUIRY;
 
     public String getValue() {
         return name();

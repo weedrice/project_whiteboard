@@ -94,6 +94,7 @@ class ViewHistoryRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10, Sort.by(
                         Sort.Order.desc("modified_at"),
                         Sort.Order.desc("post_id"))));
@@ -121,10 +122,40 @@ class ViewHistoryRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(visiblePost.getPostId());
         assertThat(result.getTotalElements()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("레거시 전환 후 최근 본 글은 본인 문의 게시글을 집계에서도 제외한다")
+    void findVisiblePostIdsByUserIdOrderByModifiedAtDesc_excludesInquiryAfterLegacyCutover() {
+        User managedViewer = entityManager.find(User.class, viewer.getUserId());
+        Board inquiryBoard = Board.builder()
+                .boardName("inquiry")
+                .boardUrl(BoardPolicyConstants.INQUIRY_BOARD_URL)
+                .creator(managedViewer)
+                .isPublic(false)
+                .build();
+        entityManager.persist(inquiryBoard);
+        Post inquiryPost = persistPost(inquiryBoard, managedViewer, "legacy-inquiry");
+        entityManager.persist(ViewHistory.builder().user(managedViewer).post(inquiryPost).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Long> result = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                viewer.getUserId(),
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                false,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
     }
 
     private Post persistPost(Board board, User author, String title) {

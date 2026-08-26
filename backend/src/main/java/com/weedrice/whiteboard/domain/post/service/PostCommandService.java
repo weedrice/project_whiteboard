@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
@@ -60,6 +61,7 @@ public class PostCommandService {
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final MentionService mentionService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -123,6 +125,7 @@ public class PostCommandService {
 
     private CreatedPost createPost(PostCreateTarget target, PostCreateRequest request, PostCreateContext context,
             Long publishingScheduledPostId) {
+        inquiryLegacyWritePolicy.requireBoardWritable(target.board());
         postCreatePolicyValidator.validateBoardAndNotice(target, request);
         PostCreateCategoryTarget categoryTarget =
                 postCreateTargetResolver.resolveCategory(target.board(), request.getCategoryId(), context);
@@ -173,6 +176,7 @@ public class PostCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         Board board = boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        inquiryLegacyWritePolicy.requireBoardWritable(board);
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         if (!Objects.equals(boardId, post.getBoard().getBoardId())) {
@@ -264,6 +268,7 @@ public class PostCommandService {
     }
 
     private void deletePostWithSideEffects(Post post, User modifier) {
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         post.deletePost();
         tagAssignmentService.clearTags(post);
         postVersionRecorder.record(post, modifier, "DELETE", post.getTitle(), post.getContents());

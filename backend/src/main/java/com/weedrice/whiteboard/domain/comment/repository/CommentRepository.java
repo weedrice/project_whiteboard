@@ -231,6 +231,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
                         @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
                         @org.springframework.data.repository.query.Param("inquiryBoardUrl") String inquiryBoardUrl,
+                        @org.springframework.data.repository.query.Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
                         Pageable pageable);
 
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);

@@ -98,6 +98,7 @@ class ScrapRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
         PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
 
@@ -133,6 +134,7 @@ class ScrapRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -161,6 +163,7 @@ class ScrapRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -204,6 +207,7 @@ class ScrapRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10, Sort.by(
                         Sort.Order.desc("createdAt"),
                         Sort.Order.desc("post.postId"))));
@@ -251,6 +255,7 @@ class ScrapRepositoryTest {
                 false,
                 List.of(blockedAuthor.getUserId()),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -280,11 +285,41 @@ class ScrapRepositoryTest {
                 true,
                 NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                true,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
                 .extracting(scrap -> scrap.getPost().getTitle())
                 .contains("내 비밀글");
+    }
+
+    @Test
+    @DisplayName("레거시 전환 후 스크랩 목록은 본인 문의 게시글도 제외한다")
+    void findPageByUserWithPostDetails_excludesOwnInquiryAfterLegacyCutover() {
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board inquiryBoard = persistBoard("inquiry", managedScrapper, false);
+        Post ownInquiryPost = persistPost(inquiryBoard, managedScrapper, "숨겨진 내 문의", true);
+        entityManager.persist(Scrap.builder()
+                .user(managedScrapper)
+                .post(ownInquiryPost)
+                .remark("legacy")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Scrap> result = scrapRepository.findPageByUserWithPostDetails(
+                scrapper,
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                false,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(scrap -> scrap.getPost().getTitle())
+                .containsExactly("스크랩 대상");
+        assertThat(result.getTotalElements()).isEqualTo(1L);
     }
 
     private User persistUser(String loginId, String email, String displayName) {

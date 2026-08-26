@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -61,7 +62,9 @@ class PostDetailViewCommandServiceTest {
         BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostReadContextResolver postReadContextResolver =
                 new PostReadContextResolver(userRepository, userBlockService, adminRepository);
-        PostAccessPolicy postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        PostAccessPolicy postAccessPolicy = new PostAccessPolicy(
+                boardAccessPolicy,
+                mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
         PostDetailContextResolver postDetailContextResolver = new PostDetailContextResolver(
                 postRepository,
                 viewHistoryRepository,

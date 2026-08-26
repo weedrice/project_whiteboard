@@ -5,6 +5,9 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import com.weedrice.whiteboard.domain.inquiry.entity.Inquiry;
+import com.weedrice.whiteboard.domain.inquiry.entity.InquiryCategory;
+import com.weedrice.whiteboard.domain.inquiry.repository.InquiryRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
@@ -24,6 +27,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +45,9 @@ class RepositoryNotificationTargetUrlResolverTest {
 
     @Mock
     private ScheduledPostRepository scheduledPostRepository;
+
+    @Mock
+    private InquiryRepository inquiryRepository;
 
     @Test
     @DisplayName("POST와 COMMENT 알림의 내부 이동 경로를 batch로 계산한다")
@@ -95,6 +102,26 @@ class RepositoryNotificationTargetUrlResolverTest {
     }
 
     @Test
+    @DisplayName("문의 알림은 작성자와 슈퍼관리자에게 서로 다른 안전한 경로를 제공한다")
+    void resolveAll_buildsRoleAwareInquiryTargetUrls() {
+        Notification ownerNotification = notification(5L, "INQUIRY", 41L);
+        Inquiry inquiry = new Inquiry(99L, InquiryCategory.ACCOUNT, "Account", java.time.LocalDateTime.now());
+        ReflectionTestUtils.setField(inquiry, "inquiryId", 41L);
+        Notification adminNotification = notification(6L, "INQUIRY", 41L);
+        ReflectionTestUtils.setField(adminNotification.getUser(), "userId", 100L);
+        adminNotification.getUser().grantSuperAdminRole();
+        when(inquiryRepository.findAllById(any())).thenReturn(List.of(inquiry));
+
+        Map<Long, String> targetUrls = resolver().resolveAll(List.of(ownerNotification, adminNotification));
+
+        assertThat(targetUrls)
+                .containsEntry(5L, "/inquiries/41")
+                .containsEntry(6L, "/admin/inquiries/41");
+        verify(inquiryRepository).findAllById(any());
+        verify(inquiryRepository, never()).findById(any());
+    }
+
+    @Test
     @DisplayName("예약 발행 실패 알림은 소유자의 예약글 수정 경로로 연결한다")
     void resolveAll_buildsFailedScheduledPostTargetUrlForOwner() {
         Notification failedNotification = notification(4L, "SYSTEM", 40L);
@@ -122,7 +149,8 @@ class RepositoryNotificationTargetUrlResolverTest {
                 postRepository,
                 commentRepository,
                 postReadAccessService,
-                scheduledPostRepository);
+                scheduledPostRepository,
+                inquiryRepository);
     }
 
     private Notification notification(Long notificationId, String sourceType, Long sourceId) {

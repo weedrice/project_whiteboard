@@ -59,7 +59,9 @@ class PostSeriesServiceTest {
                 scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
-                new PostAccessPolicy(mock(BoardAccessPolicy.class)));
+                new PostAccessPolicy(
+                        mock(BoardAccessPolicy.class),
+                        mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class)));
         User owner = createUser(1L);
         Board board = createBoard("free");
         PostSeries series = createSeries(10L, owner, "Series title");
@@ -95,7 +97,9 @@ class PostSeriesServiceTest {
                 scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
-                new PostAccessPolicy(mock(BoardAccessPolicy.class)));
+                new PostAccessPolicy(
+                        mock(BoardAccessPolicy.class),
+                        mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class)));
         User owner = createUser(1L);
         User viewer = createUser(2L);
         User blockedAuthor = createUser(3L);

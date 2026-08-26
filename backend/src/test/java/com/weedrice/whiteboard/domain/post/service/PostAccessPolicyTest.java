@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class PostAccessPolicyTest {
 
     private AdminRepository adminRepository;
+    private InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private PostAccessPolicy postAccessPolicy;
     private User viewer;
     private User author;
@@ -29,7 +31,11 @@ class PostAccessPolicyTest {
     @BeforeEach
     void setUp() {
         adminRepository = mock(AdminRepository.class);
-        postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
+        inquiryLegacyWritePolicy = mock(InquiryLegacyWritePolicy.class);
+        org.mockito.Mockito.when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
+        postAccessPolicy = new PostAccessPolicy(
+                new BoardAccessPolicy(adminRepository),
+                inquiryLegacyWritePolicy);
         viewer = user(1L, "viewer");
         author = user(2L, "author");
     }
@@ -85,6 +91,24 @@ class PostAccessPolicyTest {
         Post post = post(board(10L, BoardPolicyConstants.INQUIRY_BOARD_URL, true, false), author, false);
 
         assertThat(postAccessPolicy.isReadable(post, author, false, Set.of())).isTrue();
+    }
+
+    @Test
+    void isReadable_rejectsLegacyInquiryAuthorAfterWriteCutover() {
+        org.mockito.Mockito.when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(false);
+        Post post = post(board(10L, BoardPolicyConstants.INQUIRY_BOARD_URL, true, false), author, false);
+
+        assertThat(postAccessPolicy.isReadable(post, author, false, Set.of())).isFalse();
+    }
+
+    @Test
+    void isReadable_allowsUsableSuperAdminAfterLegacyInquiryWriteCutover() {
+        org.mockito.Mockito.when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(false);
+        User superAdmin = user(3L, "super-admin");
+        superAdmin.grantSuperAdminRole();
+        Post post = post(board(10L, BoardPolicyConstants.INQUIRY_BOARD_URL, true, false), author, false);
+
+        assertThat(postAccessPolicy.isReadable(post, superAdmin, true, Set.of())).isTrue();
     }
 
     @Test

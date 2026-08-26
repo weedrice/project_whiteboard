@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -36,6 +37,7 @@ public class PostManagerModerationService {
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final Clock clock;
 
     public void blindPost(Long managerUserId, Long postId, String reason) {
@@ -75,6 +77,7 @@ public class PostManagerModerationService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         boardAccessPolicy.validateBoardAdmin(board, manager);
+        inquiryLegacyWritePolicy.requireBoardWritable(board);
         return new ManagedPost(manager, post);
     }
 

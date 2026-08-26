@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRe
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -61,6 +63,9 @@ class UserSettingsServiceTest {
     @Mock
     private SanctionService sanctionService;
 
+    @Mock
+    private GlobalConfigService globalConfigService;
+
     @BeforeEach
     void setUp() {
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
@@ -68,7 +73,9 @@ class UserSettingsServiceTest {
                 userSettingsRepository,
                 userNotificationSettingsRepository,
                 userWritableResolver,
+                globalConfigService,
                 Clock.fixed(Instant.parse("2026-07-25T01:23:45Z"), DateTimeUtils.KST_ZONE_ID));
+        lenient().when(globalConfigService.isInquiryNotificationTypeEnabled()).thenReturn(true);
     }
 
     @Test
@@ -272,6 +279,21 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    @DisplayName("Rollback window omits the dedicated inquiry notification setting")
+    void getNotificationSettings_inquiryTypeDisabled_omitsInquiry() {
+        when(globalConfigService.isInquiryNotificationTypeEnabled()).thenReturn(false);
+        when(userNotificationSettingsRepository.findNotificationSettingsReadByUserId(1L))
+                .thenReturn(List.of(notificationProjection(1L, NotificationType.COMMENT, true)));
+
+        List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
+
+        assertThat(responses)
+                .extracting(NotificationSettingResponse::getNotificationType)
+                .doesNotContain(NotificationType.INQUIRY.name())
+                .hasSize(NotificationType.values().length - 1);
+    }
+
+    @Test
     @DisplayName("Settings lookup fails when user does not exist")
     void getSettings_userNotFound() {
         when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.empty());
@@ -373,6 +395,26 @@ class UserSettingsServiceTest {
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(sanctionService).validateNotBanned(user);
         inOrder.verify(userNotificationSettingsRepository).findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("Rollback window ignores inquiry setting writes and omits it from the response")
+    void updateNotificationSettings_inquiryTypeDisabled_doesNotPersistInquiry() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(globalConfigService.isInquiryNotificationTypeEnabled()).thenReturn(false);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem(NotificationType.INQUIRY.name(), false)));
+
+        assertThat(responses)
+                .extracting(NotificationSettingResponse::getNotificationType)
+                .doesNotContain(NotificationType.INQUIRY.name())
+                .hasSize(NotificationType.values().length - 1);
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
     }
 
     @Test

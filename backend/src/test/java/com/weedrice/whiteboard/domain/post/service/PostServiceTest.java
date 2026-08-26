@@ -163,6 +163,7 @@ class PostServiceTest {
     private PostAuthorCommandPolicy postAuthorCommandPolicy;
     private PostCommandService postCommandService;
     private UserWritableResolver userWritableResolver;
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     private PostService postService;
 
@@ -191,7 +192,10 @@ class PostServiceTest {
                 fileService,
                 postInteractionContextResolver,
                 PostContentSummaryExtractorFixtures.withNoviisCdn());
-        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        inquiryLegacyWritePolicy = mock(
+                com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class);
+        lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
+        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy, inquiryLegacyWritePolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
                 userRepository,
                 userBlockService,
@@ -226,13 +230,15 @@ class PostServiceTest {
         PostScrapService postScrapService = new PostScrapService(
                 scrapRepository,
                 mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
-                reactionWriter);
+                reactionWriter,
+                inquiryLegacyWritePolicy);
         PostViewHistoryService postViewHistoryService = new PostViewHistoryService(
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 commentRepository,
                 postRepository,
-                postSummaryAssembler);
+                postSummaryAssembler,
+                inquiryLegacyWritePolicy);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 postVersionRepository,
@@ -277,7 +283,8 @@ class PostServiceTest {
                 postAccessPolicy,
                 postViewCountWriter,
                 entityManager,
-                sanctionService);
+                sanctionService,
+                inquiryLegacyWritePolicy);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
                 userBlockService,
@@ -293,6 +300,7 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postLatestReadService,
                 searchRecordEventPublisher,
+                inquiryLegacyWritePolicy,
                 java.time.Clock.fixed(
                         java.time.Instant.parse("2026-07-07T00:00:00Z"),
                         java.time.ZoneOffset.UTC));
@@ -345,7 +353,8 @@ class PostServiceTest {
                 mock(PostSeriesService.class),
                 mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
                 mentionService,
-                anonymousReadCacheInvalidator);
+                anonymousReadCacheInvalidator,
+                inquiryLegacyWritePolicy);
         postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,
@@ -1661,6 +1670,23 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("레거시 문의 게시글 좋아요는 읽기 전용 오류로 차단한다")
+    void likePost_archivedInquiry_rejectedBeforeMutation() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
+
+        assertThatThrownBy(() -> postService.likePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LEGACY_INQUIRY_READ_ONLY);
+
+        verify(postLikeRepository, never()).saveAndFlush(any(PostLike.class));
+        verify(postRepository, never()).incrementLikeCount(anyLong());
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 게시글 좋아요를 할 수 없다")
     void likePost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -2028,6 +2054,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
 
@@ -2045,6 +2072,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
         verify(userRepository).findById(1L);
     }
@@ -2082,6 +2110,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
 
@@ -2106,8 +2135,9 @@ class PostServiceTest {
                 eq(false),
                 eq(List.of(99L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
 
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
 
@@ -2118,6 +2148,7 @@ class PostServiceTest {
                 eq(false),
                 eq(List.of(99L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
     }
 
@@ -2132,8 +2163,9 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
 
         postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by(Sort.Order.asc("createdAt"))));
 
@@ -2144,6 +2176,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
@@ -2166,8 +2199,9 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(8)));
 
         ScrapListResponse response = postService.getMyScraps(1L, null, "Test", PageRequest.of(0, 10));
 
@@ -2180,6 +2214,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
     }
 
@@ -2196,8 +2231,9 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(8)));
 
         postService.getMyScraps(1L, null, "%A_!", PageRequest.of(0, 10));
 
@@ -2209,6 +2245,7 @@ class PostServiceTest {
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
     }
 
@@ -3153,6 +3190,7 @@ class PostServiceTest {
                 eq(true),
                 eq(List.of(-1L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
@@ -3169,6 +3207,7 @@ class PostServiceTest {
                 eq(true),
                 eq(List.of(-1L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
     }
 
@@ -3183,6 +3222,7 @@ class PostServiceTest {
                 eq(false),
                 eq(List.of(99L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
@@ -3196,6 +3236,7 @@ class PostServiceTest {
                 eq(false),
                 eq(List.of(99L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class));
     }
 
@@ -3209,8 +3250,9 @@ class PostServiceTest {
                 eq(true),
                 eq(List.of(-1L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
 
         Page<PostSummary> result = postInteractionService.getRecentlyViewedPosts(
                 1L,
@@ -3223,6 +3265,7 @@ class PostServiceTest {
                 eq(true),
                 eq(List.of(-1L)),
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                eq(true),
                 pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
@@ -3347,7 +3390,8 @@ class PostServiceTest {
     @DisplayName("내 게시글 조회")
     void getMyPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class)))
+                .thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
         lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
@@ -3355,7 +3399,8 @@ class PostServiceTest {
 
         postListReadService.getMyPosts(1L, Pageable.unpaged());
 
-        verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
+        verify(postRepository).findByUserAndIsDeleted(
+                eq(user), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isZero();
         assertThat(safePageable.getPageSize()).isEqualTo(20);
@@ -3365,17 +3410,34 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("레거시 문의 쓰기 차단 후 내 게시글에서 문의 게시글을 제외한다")
+    void getMyPosts_legacyInquiryReadOnly_excludesInquiryBoard() {
+        when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                eq(user), eq(false), eq("inquiry"), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        postListReadService.getMyPosts(1L, Pageable.unpaged());
+
+        verify(postRepository).findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                eq(user), eq(false), eq("inquiry"), any(Pageable.class));
+    }
+
+    @Test
     @DisplayName("내 게시글 조회는 페이지 크기와 정렬 필드를 제한한다")
     void getMyPosts_normalizesPageable() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class)))
+                .thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
         postListReadService.getMyPosts(
                 1L,
                 PageRequest.of(2, 250, Sort.by(Sort.Order.asc("commentCount"))));
 
-        verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
+        verify(postRepository).findByUserAndIsDeleted(
+                eq(user), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);

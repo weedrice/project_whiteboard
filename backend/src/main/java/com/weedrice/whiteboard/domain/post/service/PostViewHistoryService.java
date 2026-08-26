@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -44,6 +45,7 @@ public class PostViewHistoryService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final PostSummaryAssembler postSummaryAssembler;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
     public void touchView(User user, Post post) {
@@ -76,6 +78,7 @@ public class PostViewHistoryService {
                 blockedUsers.empty(),
                 blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
+                inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                 safePageable);
 
         if (visiblePostIdsPage.isEmpty()) {

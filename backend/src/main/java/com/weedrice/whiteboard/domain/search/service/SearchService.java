@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.search.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -45,6 +46,7 @@ public class SearchService {
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
     private final SearchUserLookupPolicy searchUserLookupPolicy;
 
@@ -97,6 +99,7 @@ public class SearchService {
             if (!boardAccessPolicy.canReadBoard(board, currentUser)) {
                 throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
             }
+            inquiryLegacyWritePolicy.requireBoardReadable(board, currentUser);
             includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
         }
 

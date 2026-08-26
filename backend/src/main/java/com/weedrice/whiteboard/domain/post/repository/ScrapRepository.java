@@ -47,6 +47,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
             @Param("blockedUserIds") Collection<Long> blockedUserIds,
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
+            @Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
             Pageable pageable);
 
     @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
@@ -84,6 +85,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
             @Param("blockedUserIds") Collection<Long> blockedUserIds,
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
+            @Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
             Pageable pageable);
 
     default Page<Scrap> findPageByUserWithPostDetails(
@@ -92,9 +94,10 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             boolean blockedUserIdsEmpty,
             Collection<Long> blockedUserIds,
             String inquiryBoardUrl,
+            boolean legacyInquiryUserAccessEnabled,
             Pageable pageable) {
         return findPageByUserWithPostDetails(user, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
-                blockedUserIds, inquiryBoardUrl, pageable);
+                blockedUserIds, inquiryBoardUrl, legacyInquiryUserAccessEnabled, pageable);
     }
 
     List<Scrap> findByUserAndPostIn(User user, List<Post> posts);

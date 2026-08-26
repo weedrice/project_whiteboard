@@ -94,6 +94,12 @@ public enum ErrorCode {
     FILE_ALREADY_ASSOCIATED(HttpStatus.CONFLICT, "F007", "error.file.alreadyAssociated"),
     FILE_DIMENSION_TOO_LARGE(HttpStatus.BAD_REQUEST, "F008", "error.file.dimensionTooLarge"),
 
+    // Inquiry
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "error.inquiry.notFound"),
+    INVALID_INQUIRY_STATE(HttpStatus.CONFLICT, "Q002", "error.inquiry.invalidState"),
+    INQUIRY_ACTIVE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "Q003", "error.inquiry.activeLimitExceeded"),
+    LEGACY_INQUIRY_READ_ONLY(HttpStatus.CONFLICT, "Q004", "error.inquiry.legacyReadOnly"),
+
     // Email
     EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "error.email.sendFailed"),
 

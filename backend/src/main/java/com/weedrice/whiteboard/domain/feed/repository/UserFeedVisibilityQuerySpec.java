@@ -25,6 +25,7 @@ final class UserFeedVisibilityQuerySpec {
                 """);
         appendBlockedAuthorCondition(query, visibilityCondition);
         appendReadablePostCondition(query, visibilityCondition);
+        appendLegacyInquiryCondition(query);
         query.append("""
                         )
                   )
@@ -37,6 +38,8 @@ final class UserFeedVisibilityQuerySpec {
         query.setParameter("postContentType", CONTENT_TYPE_POST);
         query.setParameter("inquiryBoardUrl", BoardPolicyConstants.INQUIRY_BOARD_URL);
         query.setParameter("isSuperAdmin", visibilityCondition.superAdmin());
+        query.setParameter("legacyInquiryUserAccessEnabled",
+                visibilityCondition.legacyInquiryUserAccessEnabled());
         if (visibilityCondition.hasBlockedUserIds()) {
             query.setParameter("blockedUserIds", visibilityCondition.blockedUserIds());
         }
@@ -57,6 +60,17 @@ final class UserFeedVisibilityQuerySpec {
         appendBoardActiveCondition(query, visibilityCondition);
         appendBoardPublicCondition(query, visibilityCondition);
         appendSecretPostCondition(query, visibilityCondition);
+    }
+
+    private static void appendLegacyInquiryCondition(StringBuilder query) {
+        query.append("""
+
+                              AND (
+                                    LOWER(TRIM(b.boardUrl)) <> :inquiryBoardUrl
+                                    OR :legacyInquiryUserAccessEnabled = true
+                                    OR :isSuperAdmin = true
+                              )
+                """);
     }
 
     private static void appendBoardActiveCondition(StringBuilder query,

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
@@ -43,6 +44,7 @@ public class PostScrapService {
     private final ScrapRepository scrapRepository;
     private final ScrapFolderRepository scrapFolderRepository;
     private final ReactionWriter reactionWriter;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     public boolean isScrappedBy(Long userId, Long postId) {
         return userId != null && scrapRepository.existsById(new ScrapId(userId, postId));
@@ -51,6 +53,7 @@ public class PostScrapService {
     @Transactional
     public void scrap(User user, Post post, String remark, Long folderId) {
         String normalizedRemark = normalizeRemark(remark);
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         ScrapFolder folder = folderId == null
                 ? null
                 : getOwnedScrapFolderForUpdate(user.getUserId(), folderId);
@@ -81,6 +84,7 @@ public class PostScrapService {
     public void move(Long userId, Long postId, Long folderId) {
         Scrap scrap = scrapRepository.findOwnedByPostIdForUpdate(userId, postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_SCRAPED));
+        inquiryLegacyWritePolicy.requireBoardWritable(scrap.getPost().getBoard());
         ScrapFolder folder = folderId == null ? null : getOwnedScrapFolderForUpdate(userId, folderId);
         scrap.moveToFolder(folder);
     }
@@ -107,6 +111,7 @@ public class PostScrapService {
                             blockedUsers.empty(),
                             blockedUsers.ids(),
                             BoardPolicyConstants.INQUIRY_BOARD_URL,
+                            inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                             safePageable)
                     : scrapRepository.findPageByUserWithPostDetails(
                             user,
@@ -115,6 +120,7 @@ public class PostScrapService {
                             blockedUsers.empty(),
                             blockedUsers.ids(),
                             BoardPolicyConstants.INQUIRY_BOARD_URL,
+                            inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                             safePageable);
         } else {
             scrapPage = scrapRepository.findPageByUserWithPostDetailsByKeyword(
@@ -125,6 +131,7 @@ public class PostScrapService {
                     blockedUsers.empty(),
                     blockedUsers.ids(),
                     BoardPolicyConstants.INQUIRY_BOARD_URL,
+                    inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                     safePageable);
         }
         return ScrapListResponse.from(scrapPage);

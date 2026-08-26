@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -69,6 +70,9 @@ class NotificationSettingsFlowTest {
     @Mock
     private PushDeliveryJobEnqueuer pushDeliveryJobEnqueuer;
 
+    @Mock
+    private GlobalConfigService globalConfigService;
+
     private UserSettingsService userSettingsService;
     private NotificationService notificationService;
 
@@ -83,7 +87,9 @@ class NotificationSettingsFlowTest {
                 userSettingsRepository,
                 userNotificationSettingsRepository,
                 new UserWritableResolver(userRepository, sanctionService),
+                globalConfigService,
                 Clock.fixed(Instant.parse("2026-07-25T01:23:45Z"), DateTimeUtils.KST_ZONE_ID));
+        when(globalConfigService.isInquiryNotificationTypeEnabled()).thenReturn(true);
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamPublisher streamPublisher = (userId, summary) -> {
         };

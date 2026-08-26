@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
@@ -75,6 +76,7 @@ public class PostListReadService {
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostLatestReadService postLatestReadService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final Clock clock;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes,
@@ -190,7 +192,10 @@ public class PostListReadService {
                 DEFAULT_BOARD_POST_PAGE_SIZE,
                 DEFAULT_MY_POST_SORT,
                 MY_POST_SORT_PROPERTIES);
-        Page<Post> posts = postRepository.findByUserAndIsDeleted(user, false, safePageable);
+        Page<Post> posts = inquiryLegacyWritePolicy.areLegacyWritesEnabled()
+                ? postRepository.findByUserAndIsDeleted(user, false, safePageable)
+                : postRepository.findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                        user, false, boardAccessPolicy.getInquiryBoardUrl(), safePageable);
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
     }
 

@@ -31,6 +31,8 @@ class ReportTargetPolicyTest {
     private UserBlockService userBlockService;
     @Mock
     private PostAccessPolicy postAccessPolicy;
+    @Mock
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @InjectMocks
     private ReportTargetPolicy reportTargetPolicy;
@@ -46,6 +48,20 @@ class ReportTargetPolicyTest {
         reportTargetPolicy.validatePostReportable(post, reporter);
 
         verify(postAccessPolicy).validateReadable(post, reporter, true);
+    }
+
+    @Test
+    @DisplayName("레거시 문의 게시글 신고는 읽기 전용 오류로 차단한다")
+    void validatePostReportable_rejectsArchivedInquiryMutation() {
+        User reporter = user(1L);
+        User author = user(2L);
+        Post post = post(author);
+        doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
+                .when(inquiryLegacyWritePolicy).requireBoardWritable(post.getBoard());
+
+        assertThatThrownBy(() -> reportTargetPolicy.validatePostReportable(post, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.LEGACY_INQUIRY_READ_ONLY);
     }
 
     @Test

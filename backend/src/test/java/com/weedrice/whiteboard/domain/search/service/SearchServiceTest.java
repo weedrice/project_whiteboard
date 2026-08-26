@@ -85,6 +85,8 @@ class SearchServiceTest {
     private SearchRecordEventPublisher searchRecordEventPublisher;
     @Mock
     private SearchUserLookupPolicy searchUserLookupPolicy;
+    @Mock
+    private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private BoardAccessPolicy boardAccessPolicy;
 
     private SearchService searchService;
@@ -116,6 +118,7 @@ class SearchServiceTest {
                 userBlockService,
                 postSummaryAssembler,
                 boardAccessPolicy,
+                inquiryLegacyWritePolicy,
                 searchRecordEventPublisher,
                 searchUserLookupPolicy);
     }
@@ -759,6 +762,24 @@ class SearchServiceTest {
                 toCaptor.capture(), isNull(), eq(false), isNull(), any(Pageable.class));
         assertThat(fromCaptor.getValue().toLocalDate())
                 .isEqualTo(toCaptor.getValue().toLocalDate().minusDays(1).minusMonths(1).plusDays(1));
+    }
+
+    @Test
+    @DisplayName("레거시 전환 후 일반 게시판 관리자의 문의 게시판 검색을 숨긴다")
+    void searchPosts_rejectsArchivedInquiryBoardForNonSuperAdmin() {
+        Board inquiryBoard = board(1L, "Inquiry", "inquiry");
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND))
+                .when(inquiryLegacyWritePolicy).requireBoardReadable(inquiryBoard, user);
+
+        assertThatThrownBy(() -> searchPostsWithPageable(
+                "test", null, "inquiry", PageRequest.of(0, 20), 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(postRepository, never()).searchPosts(
+                any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
     }
 
     @Test

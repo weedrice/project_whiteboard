@@ -11,6 +11,7 @@ public class DomainLockManager {
 
     public static final String BOARD_ORDER = "BOARD_ORDER";
     public static final String POST_DRAFT_CLEANUP = "POST_DRAFT_CLEANUP";
+    public static final String INQUIRY_AUTO_CLOSE = "INQUIRY_AUTO_CLOSE";
 
     private final DomainLockRepository domainLockRepository;
 
@@ -21,6 +22,11 @@ public class DomainLockManager {
 
     public void lockPostDraftCleanup() {
         domainLockRepository.findByNameForUpdate(POST_DRAFT_CLEANUP)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    public void lockInquiryAutoClose() {
+        domainLockRepository.findByNameForUpdate(INQUIRY_AUTO_CLOSE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 }

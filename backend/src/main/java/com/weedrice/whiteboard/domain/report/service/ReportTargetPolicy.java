@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -18,10 +19,12 @@ class ReportTargetPolicy {
 
     private final UserBlockService userBlockService;
     private final PostAccessPolicy postAccessPolicy;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     void validatePostReportable(Post post, User reporter) {
         validateNotSelfReport(post.getUser(), reporter);
         postAccessPolicy.validateReadable(post, reporter, isEitherDirectionBlocked(reporter, post.getUser()));
+        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
     }
 
     void validateCommentReportable(Comment comment, User reporter) {
@@ -32,6 +35,7 @@ class ReportTargetPolicy {
                 comment.getPost(),
                 reporter,
                 isEitherDirectionBlocked(reporter, comment.getPost().getUser()));
+        inquiryLegacyWritePolicy.requireBoardWritable(comment.getPost().getBoard());
         validateNotSelfReport(comment.getUser(), reporter);
         if (isEitherDirectionBlocked(reporter, comment.getUser())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);

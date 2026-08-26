@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -42,6 +43,7 @@ public class SearchPreviewReadService {
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final IntegratedSearchAssembler integratedSearchAssembler;
@@ -177,6 +179,7 @@ public class SearchPreviewReadService {
         if (!boardAccessPolicy.canReadBoard(board, viewer)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
+        inquiryLegacyWritePolicy.requireBoardReadable(board, viewer);
         return new BoardSearchContext(
                 canonicalBoardUrl,
                 boardAccessPolicy.canViewSecretPosts(board, viewer),

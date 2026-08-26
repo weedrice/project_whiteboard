@@ -118,6 +118,17 @@
         },
         "type" : "object"
       },
+      "AdminInquiryCloseRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "reason" ],
+        "type" : "object"
+      },
       "AdminInquirySummaryResponse" : {
         "properties" : {
           "author" : {
@@ -951,6 +962,20 @@
         },
         "type" : "object"
       },
+      "ApiResponseInquiryDetailResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/InquiryDetailResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseInteger" : {
         "properties" : {
           "data" : {
@@ -1586,6 +1611,20 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/PageResponseEmoticonMasterDto"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageResponseInquirySummaryResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageResponseInquirySummaryResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
@@ -4120,6 +4159,268 @@
         },
         "type" : "object"
       },
+      "InquiryAllowedActions" : {
+        "properties" : {
+          "canAddMessage" : {
+            "type" : "boolean"
+          },
+          "canClose" : {
+            "type" : "boolean"
+          },
+          "canWithdraw" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "InquiryAttachmentResponse" : {
+        "properties" : {
+          "fileId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "fileSize" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mimeType" : {
+            "type" : "string"
+          },
+          "originalName" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InquiryCreateRequest" : {
+        "properties" : {
+          "category" : {
+            "enum" : [ "ACCOUNT", "SERVICE_USE", "TECHNICAL", "CONTENT_OPERATION", "SUGGESTION", "OTHER" ],
+            "type" : "string"
+          },
+          "content" : {
+            "maxLength" : 10000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fileIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 5,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "title" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "category", "content", "title" ],
+        "type" : "object"
+      },
+      "InquiryDetailResponse" : {
+        "properties" : {
+          "allowedActions" : {
+            "$ref" : "#/components/schemas/InquiryAllowedActions"
+          },
+          "authorName" : {
+            "type" : "string"
+          },
+          "authorUserId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "category" : {
+            "enum" : [ "ACCOUNT", "SERVICE_USE", "TECHNICAL", "CONTENT_OPERATION", "SUGGESTION", "OTHER" ],
+            "type" : "string"
+          },
+          "closedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "closureDetail" : {
+            "type" : "string"
+          },
+          "closureReason" : {
+            "enum" : [ "WITHDRAWN", "USER_CONFIRMED", "ADMIN_CLOSED", "AUTO_CLOSED" ],
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "effectivePriority" : {
+            "enum" : [ "NORMAL", "HIGH", "URGENT" ],
+            "type" : "string"
+          },
+          "firstRespondedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "histories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InquiryHistoryResponse"
+            },
+            "type" : "array"
+          },
+          "inquiryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "messages" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InquiryMessageResponse"
+            },
+            "type" : "array"
+          },
+          "modifiedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "resolvedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InquiryHistoryResponse" : {
+        "properties" : {
+          "actionType" : {
+            "enum" : [ "CREATED", "STARTED", "REPLIED", "REOPENED_BY_USER", "REOPENED_BY_ADMIN", "WITHDRAWN", "CLOSED_BY_USER", "CLOSED_BY_ADMIN", "AUTO_CLOSED" ],
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "fromStatus" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          },
+          "historyId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "toStatus" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InquiryMessageCreateRequest" : {
+        "properties" : {
+          "content" : {
+            "maxLength" : 10000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fileIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 5,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "content" ],
+        "type" : "object"
+      },
+      "InquiryMessageResponse" : {
+        "properties" : {
+          "attachments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InquiryAttachmentResponse"
+            },
+            "type" : "array"
+          },
+          "authorName" : {
+            "type" : "string"
+          },
+          "authorUserId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "messageId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "messageType" : {
+            "enum" : [ "USER_MESSAGE", "STAFF_REPLY", "INTERNAL_NOTE" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InquirySummaryResponse" : {
+        "properties" : {
+          "authorName" : {
+            "type" : "string"
+          },
+          "authorUserId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "category" : {
+            "enum" : [ "ACCOUNT", "SERVICE_USE", "TECHNICAL", "CONTENT_OPERATION", "SUGGESTION", "OTHER" ],
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "effectivePriority" : {
+            "enum" : [ "NORMAL", "HIGH", "URGENT" ],
+            "type" : "string"
+          },
+          "inquiryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lastPublicMessageSummary" : {
+            "type" : "string"
+          },
+          "modifiedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "staffActionSince" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "IntegratedSearchResponse" : {
         "properties" : {
           "boardResultPage" : {
@@ -5201,6 +5502,39 @@
           "content" : {
             "items" : {
               "$ref" : "#/components/schemas/EmoticonMasterDto"
+            },
+            "type" : "array"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "hasPrevious" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalElements" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "PageResponseInquirySummaryResponse" : {
+        "properties" : {
+          "content" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InquirySummaryResponse"
             },
             "type" : "array"
           },
@@ -7634,7 +7968,7 @@
             "items" : {
               "$ref" : "#/components/schemas/UpdateNotificationSettingItem"
             },
-            "maxItems" : 9,
+            "maxItems" : 10,
             "minItems" : 0,
             "type" : "array"
           }
@@ -9345,6 +9679,311 @@
           }
         },
         "tags" : [ "admin-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries" : {
+      "get" : {
+        "operationId" : "getPage",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "category",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "ACCOUNT", "SERVICE_USE", "TECHNICAL", "CONTENT_OPERATION", "SUGGESTION", "OTHER" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "priority",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "NORMAL", "HIGH", "URGENT" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "keyword",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "pageable",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Pageable"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseInquirySummaryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}" : {
+      "get" : {
+        "operationId" : "getDetail_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}/close" : {
+      "post" : {
+        "operationId" : "close_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "adminUserId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdminInquiryCloseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}/notes" : {
+      "post" : {
+        "operationId" : "note",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "adminUserId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InquiryMessageCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}/reopen" : {
+      "post" : {
+        "operationId" : "reopen",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "adminUserId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}/reply" : {
+      "post" : {
+        "operationId" : "reply",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "adminUserId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InquiryMessageCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
+      }
+    },
+    "/api/v1/admin/support/inquiries/{inquiryId}/start" : {
+      "post" : {
+        "operationId" : "start",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "adminUserId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-support-inquiry-controller" ]
       }
     },
     "/api/v1/admin/users" : {
@@ -12587,6 +13226,241 @@
           }
         },
         "tags" : [ "home-controller" ]
+      }
+    },
+    "/api/v1/inquiries" : {
+      "get" : {
+        "operationId" : "getMine",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "NEW", "IN_PROGRESS", "RESOLVED", "CLOSED" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "category",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "ACCOUNT", "SERVICE_USE", "TECHNICAL", "CONTENT_OPERATION", "SUGGESTION", "OTHER" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "pageable",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Pageable"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseInquirySummaryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InquiryCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
+      }
+    },
+    "/api/v1/inquiries/{inquiryId}" : {
+      "get" : {
+        "operationId" : "getDetail",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
+      }
+    },
+    "/api/v1/inquiries/{inquiryId}/close" : {
+      "post" : {
+        "operationId" : "close",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
+      }
+    },
+    "/api/v1/inquiries/{inquiryId}/messages" : {
+      "post" : {
+        "operationId" : "addMessage",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InquiryMessageCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
+      }
+    },
+    "/api/v1/inquiries/{inquiryId}/withdraw" : {
+      "post" : {
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "inquiryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInquiryDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "inquiry-controller" ]
       }
     },
     "/api/v1/logs/client" : {
