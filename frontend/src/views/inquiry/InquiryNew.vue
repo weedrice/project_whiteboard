@@ -108,7 +108,9 @@ async function cancel() {
 
 <template>
   <section class="mx-auto max-w-3xl space-y-5">
-    <PageHeader :title="t('inquiry.form.title')" :description="t('inquiry.form.description')" />
+    <PageHeader :title="t('inquiry.form.title')" :description="t('inquiry.form.description')">
+      <template #actions><BaseButton to="/inquiries" variant="secondary">{{ t('inquiry.list.title') }}</BaseButton></template>
+    </PageHeader>
     <form class="space-y-5 rounded-xl border nv-border nv-surface p-5" @submit.prevent="submit">
       <label class="block text-sm font-medium">{{ t('inquiry.form.category') }}
         <select v-model="category" :disabled="formLocked" class="mt-2 block w-full rounded-md border nv-border nv-surface px-3 py-2">

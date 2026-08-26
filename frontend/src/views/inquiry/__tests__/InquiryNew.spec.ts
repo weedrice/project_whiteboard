@@ -66,8 +66,8 @@ function mountView() {
     global: {
       stubs: {
         InquiryImageUploader: InquiryImageUploaderStub,
-        BaseButton: { props: ['disabled', 'to'], template: '<button :disabled="disabled"><slot /></button>' },
-        PageHeader: true,
+        BaseButton: { props: ['disabled', 'to'], template: '<button :disabled="disabled" :data-to="to"><slot /></button>' },
+        PageHeader: { template: '<header><slot name="actions" /></header>' },
       },
     },
   })
@@ -87,6 +87,12 @@ describe('InquiryNew', () => {
     state.mutationOptions = null
     state.sessionGeneration = 0
     configureAuthQueryScope(() => state.sessionGeneration)
+  })
+
+  it('links to the inquiry history from the creation page', () => {
+    const wrapper = mountView()
+
+    expect(wrapper.get('[data-to="/inquiries"]').text()).toBe('inquiry.list.title')
   })
 
   it('invalidates the auth-scoped inquiry list before navigating after creation', async () => {

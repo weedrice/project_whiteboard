@@ -31,6 +31,7 @@ const myPageGroups: UserNavigationGroup[] = [
     items: [
       { nameKey: 'common.notifications', href: '/mypage/notifications' },
       { nameKey: 'common.mailbox', href: '/mypage/messages' },
+      { nameKey: 'inquiry.list.title', href: '/inquiries' },
     ],
   },
   {

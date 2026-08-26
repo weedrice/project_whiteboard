@@ -29,10 +29,15 @@ describe('MyPage', () => {
       items: Array<{ nameKey: string; href: string }>
     }>
     const activity = groups.find((group) => group.nameKey === 'user.navigation.activity')
+    const communication = groups.find((group) => group.nameKey === 'user.navigation.communication')
 
     expect(activity?.items).toContainEqual({
       nameKey: 'user.badges.title',
       href: '/mypage/badges',
+    })
+    expect(communication?.items).toContainEqual({
+      nameKey: 'inquiry.list.title',
+      href: '/inquiries',
     })
     expect(navigation.props('activePath')).toBe('/mypage/badges')
   })
