@@ -338,7 +338,7 @@ describe('useNotificationSettingsForm', () => {
     expect(form.settings.REPLY).toBe(true)
     expect(form.canSave.value).toBe(false)
 
-    form.settings.REPLY = false
+    form.settings.LIKE = true
     await nextTick()
 
     expect(form.canSave.value).toBe(true)
@@ -346,19 +346,38 @@ describe('useNotificationSettingsForm', () => {
 
     expect(updateNotificationSettings).toHaveBeenCalledWith({
       settings: [
-        { notificationType: 'LIKE', isEnabled: false },
-        { notificationType: 'COMMENT', isEnabled: true },
-        { notificationType: 'REPLY', isEnabled: false },
-        { notificationType: 'MENTION', isEnabled: true },
-        { notificationType: 'MESSAGE', isEnabled: true },
-        { notificationType: 'SYSTEM', isEnabled: true },
-        { notificationType: 'SANCTION', isEnabled: true },
-        { notificationType: 'KEYWORD', isEnabled: true },
-        { notificationType: 'BADGE', isEnabled: true }
+        { notificationType: 'LIKE', isEnabled: true },
+        { notificationType: 'COMMENT', isEnabled: true }
       ]
     })
     expect(form.canSave.value).toBe(false)
     expect(form.message.value).toBe('user.settings.saved')
+  })
+
+  it('does not submit notification types omitted by the server compatibility gate', async () => {
+    const updateNotificationSettings = vi.fn().mockResolvedValue(undefined)
+    const form = useNotificationSettingsForm({
+      notificationData: ref<NotificationSettingsPayload[]>([
+        { notificationType: 'LIKE', isEnabled: true },
+        { notificationType: 'COMMENT', isEnabled: true },
+      ]),
+      isSaving: ref(false),
+      updateNotificationSettings,
+      t,
+    })
+    await nextTick()
+
+    expect(form.availableTypes.value).toEqual(['LIKE', 'COMMENT'])
+    form.settings.LIKE = false
+    form.settings.INQUIRY = false
+    await form.save()
+
+    expect(updateNotificationSettings).toHaveBeenCalledWith({
+      settings: [
+        { notificationType: 'LIKE', isEnabled: false },
+        { notificationType: 'COMMENT', isEnabled: true },
+      ],
+    })
   })
 
   it('keeps dirty notification settings when query data refetches', async () => {

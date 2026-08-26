@@ -10,6 +10,7 @@ export const FILE_UPLOAD_TARGETS = {
     BOARD_ICON: 'BOARD_ICON',
     PROFILE_IMAGE: 'PROFILE_IMAGE',
     EMOTICON: 'EMOTICON',
+    INQUIRY_MESSAGE: 'INQUIRY_MESSAGE',
 } as const
 
 export type FileUploadTarget = (typeof FILE_UPLOAD_TARGETS)[keyof typeof FILE_UPLOAD_TARGETS]

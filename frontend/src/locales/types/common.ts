@@ -500,3 +500,6 @@ export interface LayoutMessages {
 }
 
 // 인증 메시지 타입
+export interface InquiryMessages {
+  [key: string]: string | InquiryMessages
+}

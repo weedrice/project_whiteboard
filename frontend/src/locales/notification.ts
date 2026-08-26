@@ -26,10 +26,18 @@ export const notification: NotificationMessages = {
   message: { received: '{0}님이 쪽지를 보냈습니다.' },
   mention: { created: '{0}님이 회원님을 멘션했습니다.' },
   keyword: { matched: '키워드 "{0}"이 포함된 게시글이 등록되었습니다.' },
+  inquiry: {
+    created: '새 문의가 접수되었습니다.',
+    reopened: '문의에 추가 답변이 등록되었습니다.',
+    replied: '문의에 운영자 답변이 등록되었습니다.',
+    closed: '문의가 운영자에 의해 종료되었습니다.',
+    autoClosed: '해결된 문의가 7일 후 자동 종료되었습니다.',
+  },
   sourceTypes: {
     post: '게시글',
     comment: '댓글',
     message: '쪽지',
+    inquiry: '문의',
   },
   types: {
     default: '알림',
@@ -42,5 +50,6 @@ export const notification: NotificationMessages = {
     sanction: '제재',
     keyword: '키워드',
     badge: '뱃지',
+    inquiry: '문의',
   },
 }

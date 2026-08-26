@@ -5,13 +5,15 @@ const SPA_EXACT_PATHS = new Set([
   '/',
   '/boards',
   '/inquiry',
+  '/inquiries',
+  '/admin/inquiries',
   '/mypage',
   '/emoticons',
   '/search',
   '/privacy',
   '/terms',
 ])
-const SPA_PATH_PREFIXES = ['/board/', '/user/', '/mypage/', '/emoticons/', '/tag/']
+const SPA_PATH_PREFIXES = ['/board/', '/user/', '/mypage/', '/emoticons/', '/tag/', '/inquiries/', '/admin/inquiries/']
 const IMAGE_PATH_PREFIXES = ['/assets/', '/img/', '/icons/', '/uploads/']
 const IMAGE_FILE_PATTERN = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i
 

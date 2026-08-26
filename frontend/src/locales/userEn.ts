@@ -320,6 +320,10 @@ export const userEn: UserMessages = {
         label: 'Badges',
         description: 'Receive a notification when you earn a new badge.',
       },
+      INQUIRY: {
+        label: 'Inquiries',
+        description: 'Receive inquiry reply and closure notifications.',
+      },
     },
     email: 'Email notifications',
     emailDesc: 'Receive email notifications about account activity.',

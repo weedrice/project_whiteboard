@@ -5,7 +5,7 @@ import logger from '@/utils/logger'
 import type { UserSettings, UserSettingsUpdatePayload } from '@/types'
 import { isConcurrentModificationError } from '@/utils/errorHandler'
 
-export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE']
+export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE', 'INQUIRY']
 
 interface UserSettingsForm {
   theme: 'LIGHT' | 'DARK'
@@ -203,15 +203,20 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     SYSTEM: true,
     SANCTION: true,
     KEYWORD: true,
-    BADGE: true
+    BADGE: true,
+    INQUIRY: true
   })
   const settings = reactive<Record<NotificationSettingType, boolean>>(createDefaultSettings())
+  const availableTypes = computed(() => {
+    const returnedTypes = new Set(options.notificationData.value?.map((setting) => setting.notificationType) ?? [])
+    return NOTIFICATION_TYPES.filter((type) => returnedTypes.has(type))
+  })
   const message = ref('')
   const isError = ref(false)
   const baseline = ref<Record<NotificationSettingType, boolean> | null>(null)
   const isDirty = computed(() => (
     baseline.value !== null
-    && NOTIFICATION_TYPES.some((type) => settings[type] !== baseline.value?.[type])
+    && availableTypes.value.some((type) => settings[type] !== baseline.value?.[type])
   ))
   const canSave = computed(() => isDirty.value && !options.isSaving.value)
 
@@ -249,7 +254,7 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
       && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
     const submittedSettings = { ...settings }
     const payload: NotificationSettingsBulkPayload = {
-      settings: NOTIFICATION_TYPES.map((notificationType) => ({
+      settings: availableTypes.value.map((notificationType) => ({
         notificationType,
         isEnabled: submittedSettings[notificationType]
       }))
@@ -269,6 +274,7 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
   }
 
   return {
+    availableTypes,
     canSave,
     isDirty,
     isError,

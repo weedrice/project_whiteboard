@@ -43,6 +43,7 @@ import type {
   UserMessages,
 } from './community'
 import type { AdminMessages } from './admin'
+import type { InquiryMessages } from './common'
 
 export interface OnboardingMessages {
   kicker: string
@@ -76,6 +77,7 @@ export interface Messages {
   onboarding: OnboardingMessages
   privacy: PrivacyPolicyMessages
   shop: ShopMessages
+  inquiry: InquiryMessages
 }
 
 export type SupportedLocale = 'ko' | 'en'

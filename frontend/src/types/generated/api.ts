@@ -500,6 +500,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/support/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDetail_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["close_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/inquiries/{inquiryId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -1550,6 +1662,86 @@ export interface paths {
         get: operations["getLanding"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMine"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inquiries/{inquiryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inquiries/{inquiryId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inquiries/{inquiryId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inquiries/{inquiryId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["withdraw"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3059,6 +3251,9 @@ export interface components {
             adminId?: number;
             displayName?: string;
         };
+        AdminInquiryCloseRequest: {
+            reason: string;
+        };
         AdminInquirySummaryResponse: {
             author?: components["schemas"]["AuthorInfo"];
             /** Format: date-time */
@@ -3372,6 +3567,11 @@ export interface components {
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
+        ApiResponseInquiryDetailResponse: {
+            data?: components["schemas"]["InquiryDetailResponse"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
         ApiResponseInteger: {
             /** Format: int32 */
             data?: number;
@@ -3581,6 +3781,11 @@ export interface components {
         };
         ApiResponsePageResponseEmoticonMasterDto: {
             data?: components["schemas"]["PageResponseEmoticonMasterDto"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
+        ApiResponsePageResponseInquirySummaryResponse: {
+            data?: components["schemas"]["PageResponseInquirySummaryResponse"];
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
@@ -4481,6 +4686,107 @@ export interface components {
             latestPosts?: components["schemas"]["FeedPostSummary"][];
             stats?: components["schemas"]["Stats"];
         };
+        InquiryAllowedActions: {
+            canAddMessage?: boolean;
+            canClose?: boolean;
+            canWithdraw?: boolean;
+        };
+        InquiryAttachmentResponse: {
+            /** Format: int64 */
+            fileId?: number;
+            /** Format: int64 */
+            fileSize?: number;
+            mimeType?: string;
+            originalName?: string;
+            url?: string;
+        };
+        InquiryCreateRequest: {
+            /** @enum {string} */
+            category: "ACCOUNT" | "SERVICE_USE" | "TECHNICAL" | "CONTENT_OPERATION" | "SUGGESTION" | "OTHER";
+            content: string;
+            fileIds?: number[];
+            title: string;
+        };
+        InquiryDetailResponse: {
+            allowedActions?: components["schemas"]["InquiryAllowedActions"];
+            authorName?: string;
+            /** Format: int64 */
+            authorUserId?: number;
+            /** @enum {string} */
+            category?: "ACCOUNT" | "SERVICE_USE" | "TECHNICAL" | "CONTENT_OPERATION" | "SUGGESTION" | "OTHER";
+            /** Format: date-time */
+            closedAt?: string;
+            closureDetail?: string;
+            /** @enum {string} */
+            closureReason?: "WITHDRAWN" | "USER_CONFIRMED" | "ADMIN_CLOSED" | "AUTO_CLOSED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** @enum {string} */
+            effectivePriority?: "NORMAL" | "HIGH" | "URGENT";
+            /** Format: date-time */
+            firstRespondedAt?: string;
+            histories?: components["schemas"]["InquiryHistoryResponse"][];
+            /** Format: int64 */
+            inquiryId?: number;
+            messages?: components["schemas"]["InquiryMessageResponse"][];
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** Format: date-time */
+            resolvedAt?: string;
+            /** @enum {string} */
+            status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            title?: string;
+        };
+        InquiryHistoryResponse: {
+            /** @enum {string} */
+            actionType?: "CREATED" | "STARTED" | "REPLIED" | "REOPENED_BY_USER" | "REOPENED_BY_ADMIN" | "WITHDRAWN" | "CLOSED_BY_USER" | "CLOSED_BY_ADMIN" | "AUTO_CLOSED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** @enum {string} */
+            fromStatus?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            /** Format: int64 */
+            historyId?: number;
+            /** @enum {string} */
+            toStatus?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+        };
+        InquiryMessageCreateRequest: {
+            content: string;
+            fileIds?: number[];
+        };
+        InquiryMessageResponse: {
+            attachments?: components["schemas"]["InquiryAttachmentResponse"][];
+            authorName?: string;
+            /** Format: int64 */
+            authorUserId?: number;
+            content?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: int64 */
+            messageId?: number;
+            /** @enum {string} */
+            messageType?: "USER_MESSAGE" | "STAFF_REPLY" | "INTERNAL_NOTE";
+        };
+        InquirySummaryResponse: {
+            authorName?: string;
+            /** Format: int64 */
+            authorUserId?: number;
+            /** @enum {string} */
+            category?: "ACCOUNT" | "SERVICE_USE" | "TECHNICAL" | "CONTENT_OPERATION" | "SUGGESTION" | "OTHER";
+            /** Format: date-time */
+            createdAt?: string;
+            /** @enum {string} */
+            effectivePriority?: "NORMAL" | "HIGH" | "URGENT";
+            /** Format: int64 */
+            inquiryId?: number;
+            lastPublicMessageSummary?: string;
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** Format: date-time */
+            staffActionSince?: string;
+            /** @enum {string} */
+            status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+            title?: string;
+        };
         IntegratedSearchResponse: {
             boardResultPage?: components["schemas"]["IntegratedSearchResultGroupBoardSummary"];
             boardResults?: components["schemas"]["BoardSummary"][];
@@ -4904,6 +5210,19 @@ export interface components {
         };
         PageResponseEmoticonMasterDto: {
             content?: components["schemas"]["EmoticonMasterDto"][];
+            hasNext?: boolean;
+            hasPrevious?: boolean;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageResponseInquirySummaryResponse: {
+            content?: components["schemas"]["InquirySummaryResponse"][];
             hasNext?: boolean;
             hasPrevious?: boolean;
             /** Format: int32 */
@@ -6858,6 +7177,188 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSuperAdminUpdateResponse"];
+                };
+            };
+        };
+    };
+    getPage: {
+        parameters: {
+            query: {
+                status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+                category?: "ACCOUNT" | "SERVICE_USE" | "TECHNICAL" | "CONTENT_OPERATION" | "SUGGESTION" | "OTHER";
+                priority?: "NORMAL" | "HIGH" | "URGENT";
+                keyword?: string;
+                from?: string;
+                to?: string;
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseInquirySummaryResponse"];
+                };
+            };
+        };
+    };
+    getDetail_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    close_1: {
+        parameters: {
+            query: {
+                adminUserId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminInquiryCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    note: {
+        parameters: {
+            query: {
+                adminUserId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    reopen: {
+        parameters: {
+            query: {
+                adminUserId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    reply: {
+        parameters: {
+            query: {
+                adminUserId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query: {
+                adminUserId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
                 };
             };
         };
@@ -9038,6 +9539,157 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseHomeLandingResponse"];
+                };
+            };
+        };
+    };
+    getMine: {
+        parameters: {
+            query: {
+                userId: number;
+                status?: "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+                category?: "ACCOUNT" | "SERVICE_USE" | "TECHNICAL" | "CONTENT_OPERATION" | "SUGGESTION" | "OTHER";
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseInquirySummaryResponse"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query: {
+                userId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    getDetail: {
+        parameters: {
+            query: {
+                userId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    close: {
+        parameters: {
+            query: {
+                userId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    addMessage: {
+        parameters: {
+            query: {
+                userId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
+                };
+            };
+        };
+    };
+    withdraw: {
+        parameters: {
+            query: {
+                userId: number;
+            };
+            header?: never;
+            path: {
+                inquiryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInquiryDetailResponse"];
                 };
             };
         };

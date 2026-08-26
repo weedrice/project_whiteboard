@@ -16,6 +16,11 @@ const LOCALIZED_MESSAGE_KEYS = new Set([
     'notification.message.received',
     'notification.mention.created',
     'notification.keyword.matched',
+    'notification.inquiry.created',
+    'notification.inquiry.reopened',
+    'notification.inquiry.replied',
+    'notification.inquiry.closed',
+    'notification.inquiry.autoClosed',
 ])
 
 const ACTOR_NAME_MESSAGE_KEYS = new Set([
@@ -113,6 +118,12 @@ const PRESENTATION_BY_TYPE: Record<NotificationType, NotificationPresentation> =
         labelKey: 'notification.types.badge',
         badgeClass: 'notification-badge-badge',
         iconClass: 'notification-icon-badge',
+    },
+    INQUIRY: {
+        icon: MessageCircle,
+        labelKey: 'notification.types.inquiry',
+        badgeClass: 'notification-badge-comment',
+        iconClass: 'notification-icon-comment',
     },
 }
 

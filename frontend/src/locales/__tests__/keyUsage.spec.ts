@@ -25,6 +25,12 @@ const allowedTemplateCalls = [
   { template: 'report.types.${targetType.toLowerCase()}', keys: /^report\.types\.[^.]+$/ },
   { template: 'report.reasonTypes.${value}', keys: /^report\.reasonTypes\.(SPAM|ABUSE|ADULT|ETC)$/ },
   { template: 'report.reasonTypes.${reasonType}', keys: /^report\.reasonTypes\.(SPAM|ABUSE|ADULT|ETC)$/ },
+  { template: 'inquiry.timeline.${type}', keys: /^inquiry\.timeline\.(USER_MESSAGE|STAFF_REPLY|INTERNAL_NOTE)$/ },
+  { template: 'inquiry.category.${value}', keys: /^inquiry\.category\.(ACCOUNT|SERVICE_USE|TECHNICAL|CONTENT_OPERATION|SUGGESTION|OTHER)$/ },
+  { template: 'inquiry.status.${value}', keys: /^inquiry\.status\.(NEW|IN_PROGRESS|RESOLVED|CLOSED)$/ },
+  { template: 'inquiry.priority.${value}', keys: /^inquiry\.priority\.(NORMAL|HIGH|URGENT)$/ },
+  { template: 'inquiry.closureReason.${value}', keys: /^inquiry\.closureReason\.(WITHDRAWN|USER_CONFIRMED|ADMIN_CLOSED|AUTO_CLOSED)$/ },
+  { template: 'inquiry.category.${item}', keys: /^inquiry\.category\.(ACCOUNT|SERVICE_USE|TECHNICAL|CONTENT_OPERATION|SUGGESTION|OTHER)$/ },
 ] as const
 
 const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [

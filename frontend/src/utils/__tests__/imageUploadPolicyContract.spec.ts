@@ -78,6 +78,7 @@ function evaluateJavaLiteral(expression: string): number {
 const EXPECTED_BACKEND_LIMITS: Record<string, BackendLimit> = {
     GENERIC: { maxSizeBytes: 10 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
     POST_CONTENT: { maxSizeBytes: 10 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
+    INQUIRY_MESSAGE: { maxSizeBytes: 10 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
     BOARD_ICON: { maxSizeBytes: 2 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
     PROFILE_IMAGE: { maxSizeBytes: 2 * 1024 * 1024, maxWidth: 512, maxHeight: 512 },
     EMOTICON: { maxSizeBytes: 3 * 1024 * 1024, maxWidth: 2048, maxHeight: 2048 },
@@ -92,7 +93,7 @@ describe('업로드 정책 계약', () => {
 
     it('백엔드가 프론트에서 쓰는 대상을 모두 정의한다', () => {
         expect([...limits.keys()]).toEqual(
-            expect.arrayContaining(['GENERIC', 'POST_CONTENT', 'BOARD_ICON', 'PROFILE_IMAGE', 'EMOTICON']),
+            expect.arrayContaining(['GENERIC', 'POST_CONTENT', 'INQUIRY_MESSAGE', 'BOARD_ICON', 'PROFILE_IMAGE', 'EMOTICON']),
         )
     })
 

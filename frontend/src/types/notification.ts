@@ -9,11 +9,11 @@ export interface NotificationActor {
 
 export interface Notification {
     notificationId: number;
-    notificationType: 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE';
+    notificationType: 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE' | 'INQUIRY';
     message: string;
     messageKey?: string;
     messageParams?: string[];
-    sourceType: 'POST' | 'COMMENT' | 'MESSAGE' | 'SYSTEM';
+    sourceType: 'POST' | 'COMMENT' | 'MESSAGE' | 'SYSTEM' | 'INQUIRY';
     sourceId: number;
     isRead: boolean;
     createdAt: string;

@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
 import { useUser } from '@/features/user/useUser'
 import {
-  NOTIFICATION_TYPES,
   useNotificationSettingsForm,
 } from '@/features/user/settings/useUserSettingsForm'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
@@ -64,6 +63,7 @@ const {
 } = useDeleteKeywordSubscription()
 
 const {
+  availableTypes,
   canSave,
   isDirty,
   isError: saveIsError,
@@ -78,7 +78,7 @@ const {
   t,
 })
 
-const notificationOptions = computed(() => NOTIFICATION_TYPES.map((type) => ({
+const notificationOptions = computed(() => availableTypes.value.map((type) => ({
   type,
   label: t(`user.settings.notificationTypes.${type}.label`),
   description: t(`user.settings.notificationTypes.${type}.description`),

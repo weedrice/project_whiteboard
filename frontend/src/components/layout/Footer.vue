@@ -43,7 +43,7 @@ const commitHash = __COMMIT_HASH__
 
           <nav class="flex justify-center items-center gap-x-1 md:contents -mt-0.5 md:mt-0" :aria-label="$t('layout.a11y.footerNavigation')">
             <router-link
-              to="/inquiry"
+              to="/inquiries/new"
               class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5 md:pl-3"
             >
               {{ $t('common.footer.contact') }}

@@ -124,9 +124,25 @@ export const routes: RouteRecordRaw[] = [
     },
     {
         path: '/inquiry',
-        name: 'inquiry-write',
-        component: () => import('@/views/board/InquiryWrite.vue'),
+        redirect: '/inquiries/new',
+    },
+    {
+        path: '/inquiries',
+        name: 'inquiry-list',
+        component: () => import('@/views/inquiry/InquiryList.vue'),
         meta: { requiresAuth: true },
+    },
+    {
+        path: '/inquiries/new',
+        name: 'inquiry-new',
+        component: () => import('@/views/inquiry/InquiryNew.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/inquiries/:inquiryId',
+        name: 'inquiry-detail',
+        component: () => import('@/views/inquiry/InquiryDetail.vue'),
+        meta: { requiresAuth: true, positiveIntegerParams: ['inquiryId'] },
     },
     {
         path: '/board/:boardUrl/write',
@@ -168,6 +184,7 @@ export const routes: RouteRecordRaw[] = [
             { path: 'boards', name: 'BoardManagement', component: () => import('@/views/admin/BoardManagement.vue') },
             { path: 'shop', name: 'ShopManagement', component: () => import('@/views/admin/ShopManagement.vue') },
             { path: 'inquiries', name: 'InquiryManagement', component: () => import('@/views/admin/AdminInquiryPosts.vue') },
+            { path: 'inquiries/:inquiryId', name: 'AdminInquiryDetail', component: () => import('@/views/admin/AdminInquiryPosts.vue'), meta: { positiveIntegerParams: ['inquiryId'] } },
             { path: 'admins', name: 'AdminManagement', component: () => import('@/views/admin/AdminManagement.vue') },
             { path: 'reports', name: 'ReportManagement', component: () => import('@/views/admin/ReportManagement.vue') },
             { path: 'security', name: 'SecuritySettings', component: () => import('@/views/admin/SecuritySettings.vue') },

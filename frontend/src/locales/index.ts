@@ -14,6 +14,7 @@ import { admin } from './admin'
 import { onboarding } from './onboarding'
 import { privacyPolicy } from './privacy'
 import { shop } from './shop'
+import { inquiry } from './inquiry'
 
 export const messages = {
   ko: {
@@ -32,6 +33,7 @@ export const messages = {
     onboarding,
     privacy: privacyPolicy,
     shop,
+    inquiry,
   },
 } satisfies Pick<LocaleMessages, 'ko'>
 

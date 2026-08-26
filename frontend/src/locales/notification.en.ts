@@ -26,10 +26,18 @@ export const notificationEn: NotificationMessages = {
   message: { received: '{0} sent you a message.' },
   mention: { created: '{0} mentioned you.' },
   keyword: { matched: 'A post matching your keyword, "{0}", was published.' },
+  inquiry: {
+    created: 'A new inquiry has been submitted.',
+    reopened: 'An inquiry received a follow-up message.',
+    replied: 'An administrator replied to your inquiry.',
+    closed: 'Your inquiry was closed by an administrator.',
+    autoClosed: 'Your resolved inquiry was automatically closed after seven days.',
+  },
   sourceTypes: {
     post: 'Post',
     comment: 'Comment',
     message: 'Message',
+    inquiry: 'Inquiry',
   },
   types: {
     default: 'Notification',
@@ -42,5 +50,6 @@ export const notificationEn: NotificationMessages = {
     sanction: 'Sanction',
     keyword: 'Keyword',
     badge: 'Badge',
+    inquiry: 'Inquiry',
   },
 }

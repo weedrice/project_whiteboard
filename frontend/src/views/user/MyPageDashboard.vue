@@ -9,12 +9,10 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import DashboardListSection from '@/components/user/DashboardListSection.vue'
 import EmailVerificationModal from '@/components/user/EmailVerificationModal.vue'
-import MyInquiryDetailModal from '@/components/user/MyInquiryDetailModal.vue'
 import MyPageCommentList from '@/components/user/MyPageCommentList.vue'
 import MyPageProfileCard from '@/components/user/MyPageProfileCard.vue'
 import MyPageSummaryCards from '@/components/user/MyPageSummaryCards.vue'
 import { useMyPageDashboardResource } from '@/features/user/dashboard/useMyPageDashboardResource'
-import { useInquiryDetailModal } from '@/features/user/dashboard/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
@@ -55,18 +53,6 @@ const {
   getAgentStatusLabel,
   loadDashboard
 } = useMyPageDashboardResource(t)
-
-const {
-  isInquiryDetailOpen,
-  selectedInquiryPost,
-  isInquiryDetailLoading,
-  inquiryDetailError,
-  isDeletingInquiry,
-  isInquiryPostItem,
-  openMyInquiryPost,
-  closeInquiryModal,
-  deleteInquiryPost
-} = useInquiryDetailModal(fetchMyPosts)
 
 const {
   isVerifyModalOpen,
@@ -170,11 +156,9 @@ onMounted(async () => {
           @retry="fetchMyPosts"
         >
           <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
-            :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
-            :resolve-post-route="resolvePostDetailRoute" :should-intercept-post="isInquiryPostItem"
-            :resolve-board-route="resolveBoardRoute"
-            :show-inquiry-status="isInquiryPostItem"
-            @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
+            :current-sort="myPostsSort" :show-board-name="true"
+            :resolve-post-route="resolvePostDetailRoute" :resolve-board-route="resolveBoardRoute"
+            @update:sort="handleMyPostsSortChange" />
         </DashboardListSection>
 
         <!-- My Comments Section -->
@@ -211,15 +195,6 @@ onMounted(async () => {
         @update:code="emailVerification.code = $event"
       />
 
-      <MyInquiryDetailModal
-        :is-open="isInquiryDetailOpen"
-        :post="selectedInquiryPost"
-        :is-loading="isInquiryDetailLoading"
-        :error="inquiryDetailError"
-        :is-deleting="isDeletingInquiry"
-        @close="closeInquiryModal"
-        @delete-post="deleteInquiryPost"
-      />
     </div>
   </div>
 </template>

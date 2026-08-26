@@ -584,10 +584,18 @@ export interface NotificationMessages {
   message: { received: string }
   mention: { created: string }
   keyword: { matched: string }
+  inquiry: {
+    created: string
+    reopened: string
+    replied: string
+    closed: string
+    autoClosed: string
+  }
   sourceTypes: {
     post: string
     comment: string
     message: string
+    inquiry: string
   }
   types: {
     default: string
@@ -600,6 +608,7 @@ export interface NotificationMessages {
     sanction: string
     keyword: string
     badge: string
+    inquiry: string
   }
 }
 

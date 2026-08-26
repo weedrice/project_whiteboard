@@ -14,6 +14,7 @@ import { adminEn } from './admin/index.en'
 import { onboardingEn } from './onboarding.en'
 import { privacyPolicyEn } from './privacy.en'
 import { shopEn } from './shop.en'
+import { inquiryEn } from './inquiry.en'
 
 const englishMessages: Messages = {
   common: commonEn,
@@ -31,6 +32,7 @@ const englishMessages: Messages = {
   onboarding: onboardingEn,
   privacy: privacyPolicyEn,
   shop: shopEn,
+  inquiry: inquiryEn,
 }
 
 export default englishMessages

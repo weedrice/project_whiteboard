@@ -21,7 +21,7 @@ export interface UserUpdatePayload {
     removeProfileImage?: boolean
 }
 
-export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE'
+export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE' | 'INQUIRY'
 
 export interface NotificationSettingsPayload {
     notificationType: NotificationSettingType

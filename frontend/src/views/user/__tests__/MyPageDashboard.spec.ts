@@ -277,7 +277,7 @@ describe('MyPageDashboard', () => {
     expect(mocks.fetchMyComments).toHaveBeenCalledOnce()
   })
 
-  it('renders inquiry detail widget html through the shared post content view', () => {
+  it('does not expose the retired legacy inquiry detail modal', () => {
     mocks.isInquiryDetailOpen.value = true
     mocks.selectedInquiryPost.value = {
       postId: 9,
@@ -288,9 +288,7 @@ describe('MyPageDashboard', () => {
 
     const wrapper = mountDashboard()
 
-    const frame = wrapper.get('iframe')
-    expect(frame.attributes('sandbox')).toBe('allow-scripts')
-    expect(frame.attributes('srcdoc')).toContain('<p>Unsafe</p>')
-    expect(frame.attributes('srcdoc')).not.toContain('alert(1)')
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Inquiry title')
   })
 })

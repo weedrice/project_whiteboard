@@ -197,6 +197,14 @@ const settingsData = ref<UserSettingsFixture>({
 const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'LIKE' as const, isEnabled: false },
   { notificationType: 'COMMENT' as const, isEnabled: true },
+  { notificationType: 'REPLY' as const, isEnabled: true },
+  { notificationType: 'MENTION' as const, isEnabled: true },
+  { notificationType: 'MESSAGE' as const, isEnabled: true },
+  { notificationType: 'SYSTEM' as const, isEnabled: true },
+  { notificationType: 'SANCTION' as const, isEnabled: true },
+  { notificationType: 'KEYWORD' as const, isEnabled: true },
+  { notificationType: 'BADGE' as const, isEnabled: true },
+  { notificationType: 'INQUIRY' as const, isEnabled: true },
 ])
 const keywordData = ref<KeywordSubscriptionResponse[]>([])
 const sessionsData = ref<UserSession[]>([])
@@ -288,6 +296,14 @@ describe('UserSettings', () => {
     notificationData.value = [
       { notificationType: 'LIKE', isEnabled: false },
       { notificationType: 'COMMENT', isEnabled: true },
+      { notificationType: 'REPLY', isEnabled: true },
+      { notificationType: 'MENTION', isEnabled: true },
+      { notificationType: 'MESSAGE', isEnabled: true },
+      { notificationType: 'SYSTEM', isEnabled: true },
+      { notificationType: 'SANCTION', isEnabled: true },
+      { notificationType: 'KEYWORD', isEnabled: true },
+      { notificationType: 'BADGE', isEnabled: true },
+      { notificationType: 'INQUIRY', isEnabled: true },
     ]
     keywordData.value = []
     sessionsData.value = []
@@ -393,6 +409,7 @@ describe('UserSettings', () => {
     expect(wrapper.text()).toContain('user.settings.notificationTypes.SANCTION.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.KEYWORD.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.BADGE.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.INQUIRY.label')
 
     expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('LIGHT')
     expect((wrapper.findAll('select')[1].element as HTMLSelectElement).value).toBe('ko')
@@ -527,6 +544,7 @@ describe('UserSettings', () => {
         { notificationType: 'SANCTION', isEnabled: true },
         { notificationType: 'KEYWORD', isEnabled: true },
         { notificationType: 'BADGE', isEnabled: true },
+        { notificationType: 'INQUIRY', isEnabled: true },
       ],
     })
     expect(wrapper.text()).toContain('user.settings.saved')
