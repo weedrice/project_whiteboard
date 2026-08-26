@@ -48,6 +48,21 @@ describe('Footer', () => {
         expect(wrapper.text()).toContain('All rights reserved.')
     })
 
+    it('renders the configured non-hash build identifier unchanged', () => {
+        const wrapper = mount(Footer, {
+            global: {
+                plugins: [router],
+                mocks: {
+                    $t: (msg: string) => msg
+                }
+            }
+        })
+
+        const commit = wrapper.get('.nv-footer-commit')
+        expect(commit.text()).toBe('test-hash')
+        expect(commit.attributes('title')).toBe('Commit: test-hash')
+    })
+
     it('toggles theme on button click', async () => {
         const wrapper = mount(Footer, {
             global: {

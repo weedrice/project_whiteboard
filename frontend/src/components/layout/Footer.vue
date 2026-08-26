@@ -3,11 +3,12 @@ import { useThemeStore } from '@/stores/theme'
 import { useThemePreference } from '@/composables/useThemePreference'
 import { Sun, Moon } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { toShortCommitHash } from '@/utils/commitHash'
 
 const COPYRIGHT_YEAR = 2026
 const themeStore = useThemeStore()
 const { toggleTheme } = useThemePreference()
-const commitHash = __COMMIT_HASH__
+const commitHash = toShortCommitHash(__COMMIT_HASH__)
 </script>
 
 <template>
