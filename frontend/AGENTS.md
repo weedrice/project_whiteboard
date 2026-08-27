@@ -37,17 +37,10 @@ frontend/
 `-- package.json      npm scripts and dependencies
 ```
 
-### Where AI agents usually work
+### Nested instructions
 
-- `src/api`: endpoint definitions, token refresh handling, request/response typing
-- `src/features`: domain feature orchestration, feature-local composables, query keys, cache invalidation helpers
-- `src/composables`: shared cross-feature and low-level reusable composables
-- `src/views`: route-level feature work
-- `src/components`: reusable UI work
-- `src/router`: route metadata, auth guards, navigation rules
-- `src/stores`: auth, theme, toast, and other shared state
-- `src/locales`: user-facing text
-- `src/types`: backend contract alignment
+- Before editing under `src/features/`, read and follow `src/features/AGENTS.md`.
+- Before editing under `scripts/`, read and follow `scripts/AGENTS.md`.
 
 ## Local Setup
 
@@ -116,10 +109,6 @@ Important behavior:
 ### Feature boundary rules
 
 - Keep feature-specific query keys, cache invalidation helpers, form state, page resources, and mutation orchestration in `src/features/{domain}`.
-- Current top-level feature slices are `admin`, `board`, `comments`, `emoticon`, `feed`, `mentions`, `notifications`, `search`, `shop`, and `user`; `board/posts` is a nested post slice under `board`.
-- Feature slices may be adopted incrementally; the presence of a domain directory does not mean every root composable for that domain has already moved.
-- `board/posts` owns post detail, draft, editor, form, and post query helpers.
-- `emoticon` owns detail, form, list, and picker helpers.
 - Import domain logic directly from `src/features/...`; do not recreate compatibility re-export shims under `src/composables`.
 
 ### API contract rules
@@ -198,20 +187,6 @@ Notes:
 - The Docker build runs `npm run build` inside the image build stage, so `docker compose build frontend` is enough when the user specifically asks to refresh the frontend image.
 - If only running local Vite dev server work, Docker rebuild is not required unless the user asks for the frontend image to be refreshed.
 
-## Commit Guidance
-
-Use the repository-wide commit style:
-
-```text
-Type: short summary
-```
-
-Examples for this module:
-
-- `Feat: 마이페이지 포인트 관리 섹션 추가`
-- `Fix: 게시글 수정 후 게시글 캐시 갱신`
-- `Refactor: 인증 에러 정규화 로직 공통화`
-
 ## Security Notes
 
 - Never store new secrets in client code or Vite env files that will be committed
@@ -219,41 +194,3 @@ Examples for this module:
 - Access and refresh token handling is already centralized through storage and the shared API layer
 - Do not invent new token storage locations or duplicate refresh logic in feature code
 - Be careful when changing OAuth callback paths, auth redirects, or API base URLs because they must stay aligned with backend and Nginx behavior
-
-## Common AI Agent Mistakes In This Module
-
-### 1. Bypassing the shared API client
-
-If you skip `src/api/index.ts`, you will likely break auth refresh handling, error normalization, or global toasts.
-
-### 2. Forgetting Vue Query cache invalidation
-
-Mutations often require invalidating `post`, `posts`, `board`, `user`, or notification-related queries. Missing this causes stale UI.
-
-### 3. Mixing server state and UI state
-
-Do not move backend data into Pinia without a strong reason. Prefer Vue Query for network-backed state.
-
-### 4. Hardcoding strings instead of using i18n
-
-Many pages already use translated strings. Follow the existing pattern instead of adding scattered literals.
-
-### 5. Breaking route protection unintentionally
-
-Changes to `router/index.ts` can affect auth-only pages, guest-only pages, admin pages, and OAuth callback flows.
-
-### 6. Forgetting backend envelope assumptions
-
-This frontend expects the backend `ApiResponse` wrapper and frequently reads nested `data.data`. If backend integration changes, update types and consumers carefully.
-
-### 7. Ignoring shared base components
-
-Before creating a new input, button, modal, table, or spinner, check whether a common component already exists.
-
-### 8. Storing sensitive data in browser-visible places
-
-Do not expose secrets through `VITE_*`, component constants, test fixtures, or debug logging.
-
-### 9. Rebuilding domain logic in root composables
-
-Do not put domain implementation logic in `src/composables` when an existing feature slice owns the behavior. Add it under `src/features/{domain}` and migrate consumers to that path.

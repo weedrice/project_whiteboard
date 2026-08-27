@@ -24,18 +24,9 @@ backend/
 |-- src/test/resources/  Test-only configuration
 |-- build.gradle         Gradle build and dependency definition
 |-- DATABASE.md          Database reference
-|-- DATABASE_INIT.sql    Legacy seed source; runtime seed authority is Flyway V13
+|-- DATABASE_INIT.sql    Legacy seed source; Flyway migrations are the runtime source of truth
 `-- README.md            Backend overview
 ```
-
-### Where AI agents usually work
-
-- `domain/auth`: login, signup, refresh token, email verification, password reset
-- `domain/board`, `domain/post`, `domain/comment`: core community flows
-- `domain/notification`: durable notification delivery, SSE/Web Push, keyword subscriptions, and settings
-- `domain/admin`, `domain/report`, `domain/sanction`: moderation and admin features
-- `domain/agent`: AI agent registration, authentication, ownership, and activity APIs
-- `global/config`, `global/security`, `global/exception`, `global/common`: cross-cutting behavior that frequently affects multiple domains
 
 ## Local Setup
 
@@ -46,11 +37,12 @@ backend/
 
 Flyway creates both extensions during migration. The migration user therefore needs permission to create them; when that permission is unavailable, have a database administrator install both extensions before starting the backend.
 
-On Windows, if multiple JDKs are installed, set Java 25 explicitly before running Gradle:
+On Windows, if multiple JDKs are installed, set Java 25 explicitly before running Gradle. Replace the placeholder with the installed JDK 25 directory:
 
 ```powershell
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-25.0.4.7-hotspot'
+$env:JAVA_HOME='<absolute path to JDK 25>'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
+java -version
 ```
 
 ### Run
@@ -83,53 +75,10 @@ Preferred configuration strategy:
 - Do not add real secrets to tracked YAML files
 - If local overrides are needed, prefer shell or IDE environment variables over editing tracked config
 
-### Backend environment variables to know
+### Backend environment variables
 
-Common production variables used by this module:
-
-- `SPRING_PROFILES_ACTIVE`
-- `FRONTEND_URL`
-- `DB_HOST`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_MAX_POOL_SIZE`
-- `DB_MIN_IDLE`
-- `JWT_SECRET`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_CLIENT_SECRET`
-- `MAIL_USERNAME`
-- `MAIL_APP_PASSWORD`
-- `AWS_ACCESS_KEY`
-- `AWS_SECRET_KEY`
-- `AWS_S3_REGION`
-- `S3_BUCKET`
-- `CLIENT_IP_TRUST_PROXY_HEADERS`
-- `CLIENT_IP_TRUSTED_PROXIES`
-- `RATE_LIMIT_BUCKET_CACHE_MAX_SIZE`
-- `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES`
-- `AGENT_INTERNAL_SECRET`
-- `APP_MESSAGE_QUEUE_TERMINAL_RETENTION_DAYS`
-- `APP_MESSAGE_QUEUE_DELIVERED_UNCONFIRMED_RETENTION_DAYS`
-- `APP_MESSAGE_QUEUE_CLEANUP_BATCH_SIZE`
-- `APP_VERIFICATION_CODE_TERMINAL_RETENTION_DAYS`
-- `APP_VERIFICATION_CODE_PENDING_RECOVERY_GRACE_MINUTES`
-- `APP_VERIFICATION_CODE_PENDING_RECOVERY_BATCH_SIZE`
-- `APP_VERIFICATION_CODE_PENDING_RECOVERY_MAX_BATCHES`
-- `APP_PASSWORD_RESET_TOKEN_RETENTION_DAYS`
-- `APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE`
-- `APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE`
-- `APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS`
-- `APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE`
-- `APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES`
-
-Important implementation note:
-
-- `EnvironmentValidator` checks production variables used by `application-prod.yml`. If email, agent, or environment validation logic changes, update validation logic and runtime configuration together.
+- Treat `ENVIRONMENT_VARIABLES.md` as the maintained production variable checklist; do not duplicate that inventory here.
+- `EnvironmentValidator` checks required production variables used by `application-prod.yml`. Update the validator, its tests, runtime configuration, and `ENVIRONMENT_VARIABLES.md` together when that contract changes.
 
 ## Backend Conventions
 
@@ -146,6 +95,7 @@ Important implementation note:
 - Put business rules in services, not controllers
 - The module commonly uses `@Transactional(readOnly = true)` at class level and `@Transactional` on mutating methods
 - Reuse existing service flows before adding duplicate logic
+- When extracting a read or command service, remove private helpers and constants that become dead code so the old and new implementations cannot drift.
 - Raise `BusinessException` with `ErrorCode` instead of ad hoc runtime exceptions for expected business failures
 
 ### Persistence rules
@@ -154,21 +104,7 @@ Important implementation note:
 - Reuse repository and Querydsl patterns already in the codebase
 - Be careful with pagination, sorting, and entity loading to avoid N+1 regressions
 - When changing database behavior, review `DATABASE.md`, related repositories, and entity indexes
-- Follow `docs/ops/database-migration-policy.md`: never edit an applied `V*.sql`, keep automatic releases expand-compatible with the previous JAR, and defer destructive contract changes until the rollback window has closed.
-
-#### Flyway database documentation
-
-- When adding a `src/main/resources/db/migration/V*.sql` migration, update `DATABASE.md` in the same focused change. Apply the same rule to an explicitly authorized removal, rename, or edit of an unapplied migration.
-- Review and update the document date, highest migration filename, table count and table list, affected columns, constraints and indexes, migration history, and operational cautions as applicable.
-- End the documented migration range at the numerically highest `V*.sql` file. Do not use its companion `.sql.conf` file as the range endpoint.
-- Before completing migration work, run this check from the repository root:
-
-  ```bash
-  python3 backend/scripts/verify-database-doc.py
-  ```
-
-- On Windows, use an installed Python executable or `py -3` to run the same script when the `python3` alias is unavailable.
-- The verifier checks the migration endpoint, table count, and migration-created table inventory. Manually compare migration SQL with the documented column semantics, constraints, index purpose, and operational impact because those details are not fully machine-checked.
+- Before creating or editing Flyway files, read and follow `src/main/resources/db/migration/AGENTS.md` and `docs/ops/database-migration-policy.md`.
 
 ### Security rules
 
@@ -198,19 +134,21 @@ Agent endpoints under `/api/v1/agents/**` are not standard user APIs.
 
 ## Testing
 
-Run from `backend/`:
+Run from `backend/` on Windows:
 
-```bash
-./gradlew test
-./gradlew jacocoTestReport
+```powershell
+.\gradlew.bat test
+.\gradlew.bat jacocoTestReport
 ```
 
-Useful targeted commands:
+On macOS or Linux, use `./gradlew` instead of `.\gradlew.bat`.
 
-```bash
-./gradlew test --tests "*PostServiceTest"
-./gradlew test --tests "*AgentServiceTest"
-./gradlew test --tests "*SecurityConfigAuthorizationTest"
+Useful targeted commands on Windows:
+
+```powershell
+.\gradlew.bat test --tests "*PostServiceTest"
+.\gradlew.bat test --tests "*AgentServiceTest"
+.\gradlew.bat test --tests "*SecurityConfigAuthorizationTest"
 ```
 
 Test notes:
@@ -223,20 +161,6 @@ Test notes:
 - Some generated test XML can fail strict XML parsing when display names are garbled. If that happens, extract only the first `<testsuite ...>` line with text/regex and read `tests`, `failures`, `errors`, and `skipped`
 - Coverage output is written to `build/reports/jacoco/html`
 
-## Commit Guidance
-
-Use the repository-wide commit style:
-
-```text
-Type: short summary
-```
-
-Examples for this module:
-
-- `Feat: add agent board access validation`
-- `Fix: prevent unauthorized secret post access`
-- `Refactor: simplify notification service transaction boundaries`
-
 ## Security Notes
 
 - Never add new secrets to `application-dev.yml`, `application-prod.yml`, or test fixtures
@@ -245,41 +169,3 @@ Examples for this module:
 - If you touch auth, OAuth, JWT, refresh tokens, or password reset flows, review both security behavior and frontend compatibility
 - If you touch file uploads or S3 behavior, review both metadata persistence and storage-side effects
 - If you change CORS, callback URLs, or hostnames, treat that as deployment-sensitive work
-
-## Common AI Agent Mistakes In This Module
-
-### 1. Returning raw payloads instead of `ApiResponse`
-
-Frontend code assumes the standard API envelope. Breaking that contract causes broad regressions.
-
-### 2. Moving business logic into controllers
-
-This codebase expects services to own domain rules, transactions, and validation beyond request-shape validation.
-
-### 3. Forgetting security changes are centralized
-
-A new endpoint may require updates in `SecurityConfig`, method security, CORS, and frontend auth assumptions.
-
-### 4. Breaking agent authentication flows
-
-Agent requests use different headers and auth rules from normal user requests. Do not treat them as a normal JWT endpoint.
-
-### 5. Ignoring transaction boundaries
-
-If a method mutates state, audit whether it needs `@Transactional`, event publishing, logging, and related entity updates.
-
-### 6. Assuming H2 guarantees PostgreSQL correctness
-
-Be cautious with SQL behavior, indexes, sequence assumptions, and native query semantics.
-
-### 7. Changing enums, DTO fields, or endpoint URLs without checking frontend consumers
-
-Backend changes often require matching updates in `frontend/src/api`, `frontend/src/types`, and related views/composables.
-
-### 8. Editing tracked config to make local development easier
-
-Use environment variables or untracked local setup. Do not normalize insecure local shortcuts into committed code.
-
-### 9. Leaving duplicate private logic after service extraction
-
-When extracting a read or command service, keep existing public methods only if callers still use them, but remove private helpers and constants that become dead code. Otherwise the old and new implementations can drift.
