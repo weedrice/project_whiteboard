@@ -4,13 +4,10 @@ import { createPostEditorExtensions } from '@/components/board/editor/postEditor
 import { isRawHtmlBlockNodeSelected } from '@/extensions/tiptap-raw-html-block'
 import { SANDBOXED_POST_HTML_MARKER_CLASS } from '@/utils/postHtmlSandbox'
 
-type ImageAltPopoverOpener = (target: HTMLImageElement, alt: string, nodePos: number) => void
-
 export function usePostEditorInstance(options: {
     modelValue: Ref<string>
     onUpdateHtml: (html: string) => void
     openSlashMenu: () => void
-    openImageAltPopover: ImageAltPopoverOpener
     onRawHtmlBlockSelectionChange?: (selected: boolean) => void
 }) {
     const editor = useEditor({
@@ -51,13 +48,6 @@ export function usePostEditorInstance(options: {
                     }
                     return false
                 },
-            },
-            handleClickOn: (_view, _pos, node, nodePos, event) => {
-                if (node.type.name !== 'image') return false
-                const target = event.target instanceof HTMLElement ? event.target.closest('img') : null
-                if (!(target instanceof HTMLImageElement)) return false
-                options.openImageAltPopover(target, node.attrs.alt ?? '', nodePos)
-                return false
             },
         },
         extensions: createPostEditorExtensions(),

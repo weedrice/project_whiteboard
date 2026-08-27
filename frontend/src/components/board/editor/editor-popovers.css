@@ -95,17 +95,6 @@
   cursor: pointer;
 }
 
-.image-alt-popover {
-  width: min(90vw, 420px);
-}
-
-.image-alt-help {
-  color: var(--nv-muted);
-  font-size: 0.75rem;
-  line-height: 1.4;
-  margin-top: 0.35rem;
-}
-
 .color-panel {
   position: fixed;
   top: 50%;

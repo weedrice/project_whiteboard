@@ -137,6 +137,26 @@ vi.mock('@tiptap/vue-3', () => ({
         mocks.editorOptions.value = options
         return mocks.editorRef
     }),
+    nodeViewProps: {
+        editor: { type: Object, required: true },
+        node: { type: Object, required: true },
+        decorations: { type: Array, required: true },
+        innerDecorations: { type: Object, required: true },
+        view: { type: Object, required: true },
+        selected: { type: Boolean, required: true },
+        extension: { type: Object, required: true },
+        getPos: { type: Function, required: true },
+        updateAttributes: { type: Function, required: true },
+        deleteNode: { type: Function, required: true },
+    },
+    VueNodeViewRenderer: vi.fn(() => ({})),
+    VueRenderer: vi.fn(),
+    NodeViewWrapper: defineComponent({
+        name: 'NodeViewWrapper',
+        setup(_, { attrs, slots }) {
+            return () => h('span', attrs, slots.default?.())
+        },
+    }),
     EditorContent: defineComponent({
         name: 'EditorContent',
         setup() {
@@ -226,7 +246,6 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import PostEditorTipTap from '../PostEditorTipTap.vue'
-import PostEditorImageAltPopover from '../editor/PostEditorImageAltPopover.vue'
 
 const BaseButtonStub = defineComponent({
     name: 'BaseButton',
@@ -301,14 +320,6 @@ export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEve
     return handler as (view: unknown, event: TEvent) => boolean
 }
 
-export const getEditorHandleClickOn = () => {
-    const handler = mocks.editorOptions.value?.editorProps?.handleClickOn
-    if (!handler) {
-        throw new Error('Editor handleClickOn handler was not registered')
-    }
-    return handler
-}
-
 export const setEditorSelection = (selection: unknown) => {
     mocks.editor.state.selection = selection as typeof mocks.editor.state.selection
 }
@@ -343,4 +354,4 @@ export const resetPostEditorTipTapTestState = () => {
     mocks.i18nT.mockImplementation((key: string) => key)
 }
 
-export { mountEditor, PostEditorImageAltPopover, selectors }
+export { mountEditor, selectors }

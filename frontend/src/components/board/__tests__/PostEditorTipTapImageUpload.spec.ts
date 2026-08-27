@@ -3,7 +3,6 @@ import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import {
     cleanupPostEditorTipTapTestState,
-    getEditorHandleClickOn,
     getPostEditorTipTapMocks,
     mountEditor,
     resetPostEditorTipTapTestState,
@@ -150,37 +149,6 @@ describe('PostEditorTipTap image workflows', () => {
         expect(wrapper.find('.image-drop-overlay').exists()).toBe(false)
         expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/dropped.webp"'))
-    })
-
-    it('opens image alt editor from selected images and applies or clears alt text', async () => {
-        const wrapper = mountEditor()
-        const handleClickOn = getEditorHandleClickOn()
-        const image = document.createElement('img')
-        image.src = 'https://cdn.test/image.png'
-
-        handleClickOn(null, 7, { type: { name: 'image' }, attrs: { alt: 'Original alt' } }, 7, {
-            target: image,
-        } as unknown as MouseEvent)
-        await nextTick()
-
-        expect(wrapper.find('.image-alt-popover').exists()).toBe(true)
-        expect((wrapper.get('#editor-image-alt').element as HTMLInputElement).value).toBe('Original alt')
-        expect(mocks.editor.commands.setTextSelection).toHaveBeenCalledWith(7)
-
-        wrapper.findComponent({ name: 'PostEditorImageAltPopover' }).vm.$emit('apply', 'Updated alt')
-        await nextTick()
-
-        expect(mocks.chain.updateAttributes).toHaveBeenCalledWith('image', { alt: 'Updated alt' })
-        expect(wrapper.find('.image-alt-popover').exists()).toBe(false)
-
-        handleClickOn(null, 8, { type: { name: 'image' }, attrs: { alt: 'Clear me' } }, 8, {
-            target: image,
-        } as unknown as MouseEvent)
-        await nextTick()
-        wrapper.findComponent({ name: 'PostEditorImageAltPopover' }).vm.$emit('clear')
-        await nextTick()
-
-        expect(mocks.chain.updateAttributes).toHaveBeenCalledWith('image', { alt: null })
     })
 
     it('shows cancellable image upload progress while uploading', async () => {

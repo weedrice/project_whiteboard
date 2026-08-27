@@ -7,7 +7,6 @@ import { codeBlockLanguages, colorLabelKeys, colorPresets, fontSizes, lineHeight
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
 import { focusPostEditorAtPointer, usePostEditorInstance } from '@/features/board/posts/editor/usePostEditorInstance'
-import { usePostEditorImageAltCommands } from '@/features/board/posts/editor/usePostEditorImageAltCommands'
 import { usePostEditorColorPanel } from '@/features/board/posts/editor/usePostEditorColorPanel'
 import { usePostEditorFloatingPanelRefs } from '@/features/board/posts/editor/usePostEditorFloatingPanelRefs'
 import { usePostEditorImageFiles } from '@/features/board/posts/editor/usePostEditorImageFiles'
@@ -64,18 +63,15 @@ const {
   showLinkPopover,
   showTablePopover,
   showSlashMenu,
-  showImageAltPopover,
   slashPopoverRef,
   colorPanelRef,
   linkPopoverRef,
   tablePopoverRef,
-  imageAltPopoverRef,
   colorTriggerElement,
   slashPosition,
   colorPosition,
   linkPosition,
   tablePosition,
-  imageAltPosition,
   closeFloatingMenus,
 } = usePostEditorPopovers()
 const {
@@ -89,12 +85,10 @@ const {
   slashPosition,
   closeFloatingMenus,
 })
-let openImageAltPopoverFromEditor = (_target: HTMLImageElement, _alt: string, _nodePos: number) => {}
 const editor = usePostEditorInstance({
   modelValue,
   onUpdateHtml: (html) => emit('update:modelValue', html),
   openSlashMenu,
-  openImageAltPopover: (target, alt, nodePos) => openImageAltPopoverFromEditor(target, alt, nodePos),
   onRawHtmlBlockSelectionChange: (selected) => {
     isRawHtmlBlockSelected.value = selected
   },
@@ -173,21 +167,6 @@ const {
 })
 
 const {
-  imageAltText,
-  openImageAltPopover,
-  closeImageAltPopover,
-  applyImageAlt,
-  clearImageAlt,
-} = usePostEditorImageAltCommands({
-  editor,
-  showImageAltPopover,
-  imageAltPosition,
-  closeFloatingMenus,
-})
-
-openImageAltPopoverFromEditor = openImageAltPopover
-
-const {
   tableRows,
   tableCols,
   tableHeaderRow,
@@ -236,13 +215,11 @@ const {
   assignSlashPopover,
   assignColorPanel,
   assignLinkPopover,
-  assignImageAltPopover,
   assignTablePopover,
 } = usePostEditorFloatingPanelRefs({
   slashPopoverRef,
   colorPanelRef,
   linkPopoverRef,
-  imageAltPopoverRef,
   tablePopoverRef,
 })
 
@@ -403,17 +380,14 @@ onBeforeUnmount(() => {
       :show-slash-menu="showSlashMenu"
       :show-color-panel="showColorPanel"
       :show-link-popover="showLinkPopover"
-      :show-image-alt-popover="showImageAltPopover"
       :show-table-popover="showTablePopover"
       :assign-slash-popover="assignSlashPopover"
       :assign-color-panel="assignColorPanel"
       :assign-link-popover="assignLinkPopover"
-      :assign-image-alt-popover="assignImageAltPopover"
       :assign-table-popover="assignTablePopover"
       :slash-position="slashPosition"
       :color-position="colorPosition"
       :link-position="linkPosition"
-      :image-alt-position="imageAltPosition"
       :table-position="tablePosition"
       :slash-actions="availableSlashActions"
       :slash-active-index="slashActiveIndex"
@@ -424,7 +398,6 @@ onBeforeUnmount(() => {
       :link-url="linkUrl"
       :link-text="linkText"
       :can-remove-link="editor?.isActive('link') ?? false"
-      :image-alt-text="imageAltText"
       :table-rows="tableRows"
       :table-cols="tableCols"
       :table-header-row="tableHeaderRow"
@@ -438,9 +411,6 @@ onBeforeUnmount(() => {
       @apply-link="applyLink"
       @remove-link="removeLink"
       @close-link-popover="closeLinkPopover"
-      @apply-image-alt="applyImageAlt"
-      @clear-image-alt="clearImageAlt"
-      @close-image-alt-popover="closeImageAltPopover"
       @update:table-rows="tableRows = $event"
       @update:table-cols="tableCols = $event"
       @update:table-header-row="tableHeaderRow = $event"

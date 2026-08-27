@@ -2,7 +2,6 @@
 import type { CSSProperties, Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
-import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
 import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMask.vue'
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
@@ -17,17 +16,14 @@ const props = defineProps<{
   showSlashMenu: boolean
   showColorPanel: boolean
   showLinkPopover: boolean
-  showImageAltPopover: boolean
   showTablePopover: boolean
   assignSlashPopover: (value: HTMLElement | null) => void
   assignColorPanel: (value: HTMLElement | null) => void
   assignLinkPopover: (value: HTMLElement | null) => void
-  assignImageAltPopover: (value: HTMLElement | null) => void
   assignTablePopover: (value: HTMLElement | null) => void
   slashPosition: FloatingPanelPosition
   colorPosition: FloatingPanelPosition
   linkPosition: FloatingPanelPosition
-  imageAltPosition: FloatingPanelPosition
   tablePosition: FloatingPanelPosition
   slashActions: SlashAction[]
   slashActiveIndex: number
@@ -38,7 +34,6 @@ const props = defineProps<{
   linkUrl: string
   linkText: string
   canRemoveLink: boolean
-  imageAltText: string
   tableRows: number
   tableCols: number
   tableHeaderRow: boolean
@@ -55,9 +50,6 @@ const emit = defineEmits<{
   (e: 'apply-link', url: string, text: string): void
   (e: 'remove-link'): void
   (e: 'close-link-popover'): void
-  (e: 'apply-image-alt', value: string): void
-  (e: 'clear-image-alt'): void
-  (e: 'close-image-alt-popover'): void
   (e: 'update:tableRows', value: number): void
   (e: 'update:tableCols', value: number): void
   (e: 'update:tableHeaderRow', value: boolean): void
@@ -141,25 +133,6 @@ function getElementRef(value: unknown): HTMLElement | null {
         @apply="(url, text) => emit('apply-link', url, text)"
         @close="emit('close-link-popover')"
         @remove="emit('remove-link')"
-      />
-    </div>
-  </PostEditorPopoverMask>
-
-  <PostEditorPopoverMask :open="showImageAltPopover" @close="emit('close-image-alt-popover')">
-    <div
-      :ref="(value) => props.assignImageAltPopover(getElementRef(value))"
-      class="link-popover image-alt-popover"
-      :style="imageAltPosition.popoverStyle.value"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="editor-image-alt-dialog-title"
-    >
-      <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
-      <PostEditorImageAltPopover
-        :alt="imageAltText"
-        @apply="emit('apply-image-alt', $event)"
-        @clear="emit('clear-image-alt')"
-        @close="emit('close-image-alt-popover')"
       />
     </div>
   </PostEditorPopoverMask>
