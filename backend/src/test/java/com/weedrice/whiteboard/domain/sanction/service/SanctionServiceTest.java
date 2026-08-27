@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
+import com.weedrice.whiteboard.domain.common.service.CommonCodeReader;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
@@ -38,6 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -60,6 +63,7 @@ class SanctionServiceTest {
     @Mock private UserLifecycleService userLifecycleService;
     @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private UserReadableResolver userReadableResolver;
+    @Mock private CommonCodeReader commonCodeReader;
 
     private SanctionService sanctionService;
 
@@ -83,13 +87,15 @@ class SanctionServiceTest {
                 sanctionRepository,
                 moderationActorResolver,
                 sanctionPolicyService,
-                new SanctionRequestValidator(FIXED_CLOCK),
+                new SanctionRequestValidator(FIXED_CLOCK, commonCodeReader),
                 new SanctionTargetResolver(userRepository, postRepository, new CommentReadSupport(commentRepository)),
                 new SanctionEffectApplier(userLifecycleService),
                 userReadableResolver,
                 FIXED_CLOCK);
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
+        lenient().when(commonCodeReader.isActiveDetail(eq("SANCTION_TYPE"), anyString()))
+                .thenReturn(true);
     }
 
     private PageRequest defaultSanctionPageable() {
@@ -277,6 +283,19 @@ class SanctionServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("reject inactive sanction type common code")
+    void createSanction_rejectsInactiveType() {
+        when(commonCodeReader.isActiveDetail("SANCTION_TYPE", "BAN")).thenReturn(false);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Inactive", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
     }
 
     @Test

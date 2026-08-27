@@ -391,6 +391,39 @@ class CommonCodeServiceTest {
     }
 
     @Test
+    @DisplayName("관리자 상세 목록은 비활성 코드를 포함해 정렬된 전체 목록을 반환한다")
+    void getAllCommonCodeDetails_includesInactiveDetails() {
+        CommonCodeDetail inactiveDetail = CommonCodeDetail.builder()
+                .commonCode(commonCode)
+                .codeValue("INACTIVE_VALUE")
+                .codeName("Inactive Value")
+                .sortOrder(2)
+                .isActive(false)
+                .build();
+        when(commonCodeRepository.existsById("TEST_TYPE")).thenReturn(true);
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeOrderBySortOrderAscCodeValueAsc("TEST_TYPE"))
+                .thenReturn(List.of(commonCodeDetail, inactiveDetail));
+
+        List<CommonCodeDetailResponse> responses = commonCodeService.getAllCommonCodeDetails("TEST_TYPE");
+
+        assertThat(responses).extracting(CommonCodeDetailResponse::getIsActive)
+                .containsExactly(true, false);
+    }
+
+    @Test
+    @DisplayName("관리자 상세 목록도 존재하지 않는 타입이면 NOT_FOUND를 반환한다")
+    void getAllCommonCodeDetails_missingType_throwsNotFound() {
+        when(commonCodeRepository.existsById("MISSING_TYPE")).thenReturn(false);
+
+        assertThatThrownBy(() -> commonCodeService.getAllCommonCodeDetails("MISSING_TYPE"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(commonCodeDetailRepository, never())
+                .findByCommonCode_TypeCodeOrderBySortOrderAscCodeValueAsc(anyString());
+    }
+
+    @Test
     @DisplayName("공통 코드 상세 수정 성공")
     void updateCommonCodeDetail_success() {
         // given

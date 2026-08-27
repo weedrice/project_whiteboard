@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.common.service.CommonCodeReader;
 import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
@@ -8,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,8 +26,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,9 +48,17 @@ class ReportCommandServiceTest {
     private SanctionService sanctionService;
     @Mock
     private ReportAutoBlindService reportAutoBlindService;
+    @Mock
+    private CommonCodeReader commonCodeReader;
 
     @InjectMocks
     private ReportCommandService reportCommandService;
+
+    @BeforeEach
+    void setUpActiveReportReasons() {
+        lenient().when(commonCodeReader.isActiveDetail(eq("REPORT_REASON"), anyString()))
+                .thenReturn(true);
+    }
 
     @Test
     @DisplayName("createReport succeeds")
@@ -282,6 +295,20 @@ class ReportCommandServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "INVALID", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("createReport rejects an inactive report reason common code")
+    void createReport_inactiveReasonType_throwsValidationError() {
+        User reporter = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(commonCodeReader.isActiveDetail("REPORT_REASON", "SPAM")).thenReturn(false);
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 

@@ -25,4 +25,9 @@ public class CommonCodeReader {
         }
         throw new BusinessException(ErrorCode.NOT_FOUND);
     }
+
+    public boolean isActiveDetail(String typeCode, String codeValue) {
+        return commonCodeDetailRepository
+                .existsByCommonCode_TypeCodeAndCodeValueAndIsActive(typeCode, codeValue, true);
+    }
 }

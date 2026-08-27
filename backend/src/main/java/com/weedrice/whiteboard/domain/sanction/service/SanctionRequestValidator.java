@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.sanction.service;
 
+import com.weedrice.whiteboard.domain.common.service.CommonCodeReader;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -15,6 +16,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 class SanctionRequestValidator {
 
+    private static final String SANCTION_TYPE_COMMON_CODE_TYPE = "SANCTION_TYPE";
     private static final String TYPE_BAN = "BAN";
     private static final String TYPE_MUTE = "MUTE";
     private static final String TYPE_WARNING = "WARNING";
@@ -22,6 +24,7 @@ class SanctionRequestValidator {
     private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
 
     private final Clock clock;
+    private final CommonCodeReader commonCodeReader;
 
     NormalizedCommand validate(String type, String remark, LocalDateTime endDate,
                                Long contentId, String contentType) {
@@ -38,6 +41,9 @@ class SanctionRequestValidator {
         }
         String normalizedType = type.trim().toUpperCase(Locale.ROOT);
         if (!ALLOWED_TYPES.contains(normalizedType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (!commonCodeReader.isActiveDetail(SANCTION_TYPE_COMMON_CODE_TYPE, normalizedType)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedType;

@@ -12367,6 +12367,32 @@
         "tags" : [ "common-code-controller" ]
       }
     },
+    "/api/v1/common-codes/{typeCode}/details/all" : {
+      "get" : {
+        "operationId" : "getAllCommonCodeDetails",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "typeCode",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCommonCodeDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "common-code-controller" ]
+      }
+    },
     "/api/v1/configs/public" : {
       "get" : {
         "operationId" : "getPublicConfigs",

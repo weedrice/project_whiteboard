@@ -77,6 +77,26 @@ class CommonCodeDetailRepositoryTest {
                 .containsExactly("C", "A", "B");
     }
 
+    @Test
+    @DisplayName("admin details include inactive rows and preserve sort order")
+    void findByCommonCode_TypeCodeOrderBySortOrderAscCodeValueAsc_includesInactiveRows() {
+        CommonCode commonCode = CommonCode.builder()
+                .typeCode("ADMIN_TYPE")
+                .typeName("Admin Type")
+                .build();
+        entityManager.persist(commonCode);
+        entityManager.persist(detail(commonCode, "ACTIVE", "Active", 20, true));
+        entityManager.persist(detail(commonCode, "INACTIVE", "Inactive", 10, false));
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = commonCodeDetailRepository
+                .findByCommonCode_TypeCodeOrderBySortOrderAscCodeValueAsc("ADMIN_TYPE");
+
+        assertThat(result).extracting(CommonCodeDetail::getCodeValue)
+                .containsExactly("INACTIVE", "ACTIVE");
+    }
+
     private CommonCodeDetail detail(CommonCode commonCode, String codeValue, String codeName,
             Integer sortOrder, Boolean isActive) {
         return CommonCodeDetail.builder()

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.common.service.CommonCodeReader;
 import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
@@ -19,11 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 class ReportCommandService {
 
+    private static final String REPORT_REASON_COMMON_CODE_TYPE = "REPORT_REASON";
+
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final ReportTargetValidator reportTargetValidator;
     private final SanctionService sanctionService;
     private final ReportAutoBlindService reportAutoBlindService;
+    private final CommonCodeReader commonCodeReader;
 
     @Transactional
     public Long createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
@@ -62,14 +66,21 @@ class ReportCommandService {
     }
 
     private String normalizeReasonType(String reasonType) {
+        String normalizedReasonType;
         if (reasonType == null || reasonType.isBlank()) {
-            return ReportReasonType.ETC.name();
+            normalizedReasonType = ReportReasonType.ETC.name();
+        } else {
+            try {
+                normalizedReasonType = ReportReasonType.from(reasonType).name();
+            } catch (IllegalArgumentException ex) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
         }
-        try {
-            return ReportReasonType.from(reasonType).name();
-        } catch (IllegalArgumentException ex) {
+
+        if (!commonCodeReader.isActiveDetail(REPORT_REASON_COMMON_CODE_TYPE, normalizedReasonType)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+        return normalizedReasonType;
     }
 
     private String normalizeContents(String contents) {

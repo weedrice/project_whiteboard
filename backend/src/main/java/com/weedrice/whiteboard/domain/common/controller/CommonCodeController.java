@@ -65,6 +65,12 @@ public class CommonCodeController {
         return ApiResponse.success(commonCodeService.getCommonCodeDetails(typeCode));
     }
 
+    @GetMapping("/{typeCode}/details/all")
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
+    public ApiResponse<List<CommonCodeDetailResponse>> getAllCommonCodeDetails(@PathVariable String typeCode) {
+        return ApiResponse.success(commonCodeService.getAllCommonCodeDetails(typeCode));
+    }
+
     @PutMapping("/details/{detailId}")
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeDetailResponse> updateCommonCodeDetail(

@@ -137,6 +137,20 @@ class CommonCodeControllerTest {
     }
 
     @Test
+    @DisplayName("관리자 공통 코드 상세 목록은 비활성 코드를 포함해 반환한다")
+    void getAllCommonCodeDetails_returnsSuccess() throws Exception {
+        String typeCode = "TEST";
+        CommonCodeDetailResponse inactive = new CommonCodeDetailResponse(
+                2L, typeCode, "INACTIVE", "Inactive", 20, false);
+        when(commonCodeService.getAllCommonCodeDetails(typeCode)).thenReturn(List.of(inactive));
+
+        mockMvc.perform(get("/api/v1/common-codes/{typeCode}/details/all", typeCode))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].isActive").value(false));
+    }
+
+    @Test
     @DisplayName("없는 공통 코드 상세 목록 조회는 404를 반환한다")
     void getCommonCodeDetails_returnsNotFoundWhenTypeMissing() throws Exception {
         String typeCode = "MISSING";
@@ -238,6 +252,7 @@ class CommonCodeControllerTest {
         assertRequiresSuperAdmin("getCommonCode", String.class);
         assertRequiresSuperAdmin("updateCommonCode", String.class, CommonCodeRequest.class);
         assertRequiresSuperAdmin("createCommonCodeDetail", String.class, CommonCodeDetailRequest.class);
+        assertRequiresSuperAdmin("getAllCommonCodeDetails", String.class);
         assertRequiresSuperAdmin("updateCommonCodeDetail", Long.class, CommonCodeDetailRequest.class);
         assertRequiresSuperAdmin("deleteCommonCodeDetail", Long.class);
     }

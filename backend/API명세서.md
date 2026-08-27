@@ -462,6 +462,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `PUT` | `/api/v1/common-codes/{typeCode}` | 공통 코드 수정 |
 | `POST` | `/api/v1/common-codes/{typeCode}/details` | 상세 코드 생성 |
 | `GET` | `/api/v1/common-codes/{typeCode}/details` | 상세 코드 목록 |
+| `GET` | `/api/v1/common-codes/{typeCode}/details/all` | 관리자용 전체 상세 코드 목록(비활성 포함) |
 | `PUT` | `/api/v1/common-codes/details/{detailId}` | 상세 코드 수정 |
 | `DELETE` | `/api/v1/common-codes/details/{detailId}` | 상세 코드 삭제 |
 

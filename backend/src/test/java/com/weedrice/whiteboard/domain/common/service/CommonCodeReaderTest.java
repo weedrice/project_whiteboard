@@ -96,4 +96,17 @@ class CommonCodeReaderTest {
         verify(commonCodeRepository).existsById("MISSING_TYPE");
         verify(commonCodeRepository, never()).findById(any());
     }
+
+    @Test
+    @DisplayName("활성 공통 코드 상세 여부를 조회한다")
+    void isActiveDetail_returnsRepositoryResult() {
+        when(commonCodeDetailRepository.existsByCommonCode_TypeCodeAndCodeValueAndIsActive(
+                "REPORT_REASON", "SPAM", true)).thenReturn(true);
+
+        boolean result = commonCodeReader.isActiveDetail("REPORT_REASON", "SPAM");
+
+        assertThat(result).isTrue();
+        verify(commonCodeDetailRepository).existsByCommonCode_TypeCodeAndCodeValueAndIsActive(
+                "REPORT_REASON", "SPAM", true);
+    }
 }

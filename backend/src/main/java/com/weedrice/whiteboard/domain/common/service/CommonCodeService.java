@@ -157,6 +157,18 @@ public class CommonCodeService {
                 .collect(Collectors.toList());
     }
 
+    public List<CommonCodeDetailResponse> getAllCommonCodeDetails(String typeCode) {
+        String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
+        if (!commonCodeRepository.existsById(normalizedTypeCode)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return commonCodeDetailRepository
+                .findByCommonCode_TypeCodeOrderBySortOrderAscCodeValueAsc(normalizedTypeCode)
+                .stream()
+                .map(CommonCodeDetailResponse::from)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public CommonCodeDetailResponse updateCommonCodeDetail(Long id, CommonCodeDetailRequest request) {
         CommonCodeDetail detail = commonCodeDetailRepository.findById(id)
