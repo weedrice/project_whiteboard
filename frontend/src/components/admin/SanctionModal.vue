@@ -11,12 +11,10 @@
       </div>
 
       <div>
-        <BaseSelect id="sanction-type" v-model="form.type" :label="t('admin.sanction.type')" :disabled="isLocked"
-          :error="sanctionValidation.visibleError('type')" @blur="sanctionValidation.touchField('type', sanctionValidationValues)">
-          <option value="WARNING">{{ t('admin.sanction.types.WARNING') }}</option>
-          <option value="MUTE">{{ t('admin.sanction.types.MUTE') }}</option>
-          <option value="BAN">{{ t('admin.sanction.types.BAN') }}</option>
-        </BaseSelect>
+        <BaseSelect id="sanction-type" v-model="form.type" :label="t('admin.sanction.type')"
+          :options="sanctionTypeOptions" :disabled="isLocked || !sanctionTypesReady || !hasSanctionTypes"
+          :error="sanctionTypesError ? t('common.messages.loadFailed') : sanctionValidation.visibleError('type')"
+          @blur="sanctionValidation.touchField('type', sanctionValidationValues)" />
       </div>
 
       <div>
@@ -46,7 +44,8 @@
 
       <AdminModalActions class-name="mt-5">
         <BaseButton type="button" variant="secondary" :disabled="isLocked" @click="requestClose">{{ t('admin.sanction.cancel') }}</BaseButton>
-        <BaseButton type="submit" variant="danger" :disabled="isSubmitting || loading">
+        <BaseButton type="submit" variant="danger"
+          :disabled="isSubmitting || loading || !sanctionTypesReady || !hasSanctionTypes">
           {{ isSubmitting || loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
         </BaseButton>
       </AdminModalActions>
@@ -69,8 +68,12 @@ import { useToastStore } from '@/stores/toast'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { useAuthStore } from '@/stores/auth'
 import type { SanctionData } from '@/types'
+import {
+  COMMON_CODE_TYPES,
+  useStrictSupportedCommonCodeValues,
+} from '@/composables/useCommonCodeDetails'
 
-const { t } = useI18n()
+type SanctionType = SanctionData['type']
 
 const props = defineProps<{
   isOpen: boolean
@@ -88,6 +91,26 @@ const props = defineProps<{
     sessionGeneration?: number
   } | null
 }>()
+
+const { t } = useI18n()
+const SUPPORTED_SANCTION_TYPES: SanctionType[] = ['WARNING', 'MUTE', 'BAN']
+const {
+  values: activeSanctionTypes,
+  isReady: sanctionTypesReady,
+  isError: sanctionTypesError,
+} = useStrictSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.SANCTION_TYPE,
+  SUPPORTED_SANCTION_TYPES,
+  { enabled: computed(() => props.isOpen) },
+)
+const sanctionTypeOptions = computed(() => activeSanctionTypes.value.map((value) => ({
+  value,
+  label: t(`admin.sanction.types.${value}`),
+})))
+const hasSanctionTypes = computed(() => sanctionTypeOptions.value.length > 0)
+const defaultSanctionType = (): SanctionType => activeSanctionTypes.value.includes('WARNING')
+  ? 'WARNING'
+  : activeSanctionTypes.value[0] ?? 'WARNING'
 
 interface SanctionCompletedIntent {
   targetUserId: number
@@ -110,15 +133,13 @@ const isLocked = computed(() => isSubmitting.value || loading.value)
 
 const sanctionTargetName = computed(() => props.user?.displayName || props.user?.nickname || props.user?.name || t('common.messages.unknown'))
 
-type SanctionType = SanctionData['type']
-
 const form = reactive<{
   type: SanctionType
   reason: string
   description: string
   duration: number | ''
 }>({
-  type: 'WARNING',
+  type: defaultSanctionType(),
   reason: 'SPAM',
   description: '',
   duration: ''
@@ -126,7 +147,9 @@ const form = reactive<{
 type SanctionField = 'type' | 'reason' | 'description' | 'duration'
 const sanctionValidation = useFieldValidation<SanctionField>({
   validators: {
-    type: (values) => ['WARNING', 'MUTE', 'BAN'].includes(String(values.type)) ? '' : t('admin.sanction.typeRequired'),
+    type: (values) => activeSanctionTypes.value.includes(values.type as SanctionType)
+      ? ''
+      : t('admin.sanction.typeRequired'),
     reason: (values) => String(values.reason ?? '').trim() ? '' : t('admin.sanction.reason'),
     description: (values) => String(values.description ?? '').trim().length <= 255 ? '' : t('admin.sanction.description'),
     duration: (values) => {
@@ -146,7 +169,7 @@ const sanctionValidationValues = computed(() => ({
 }))
 
 function resetForm() {
-  form.type = 'WARNING'
+  form.type = defaultSanctionType()
   form.reason = 'SPAM'
   form.description = ''
   form.duration = ''
@@ -162,6 +185,12 @@ watch(() => form.type, (type, previousType) => {
   sanctionValidation.errors.duration = ''
 })
 
+watch(activeSanctionTypes, (types) => {
+  if (types.length > 0 && !types.includes(form.type)) {
+    form.type = defaultSanctionType()
+  }
+}, { immediate: true })
+
 watch(
   () => [props.isOpen, props.user?.userId ?? props.user?.id, props.user?.reportId, props.user?.modalRevision] as const,
   ([isOpen]) => {
@@ -172,6 +201,7 @@ watch(
 
 async function submitSanction() {
   if (!props.user || isSubmitting.value) return
+  if (!sanctionTypesReady.value) return
   if (!sanctionValidation.validateAll(sanctionValidationValues.value)) return
 
   const targetUserId = props.user.userId ?? props.user.id ?? 0

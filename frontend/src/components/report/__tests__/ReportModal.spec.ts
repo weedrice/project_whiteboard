@@ -6,7 +6,41 @@ import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } f
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
+    commonCodeDetails: [] as Array<{
+        id: number
+        typeCode: string
+        codeValue: string
+        codeName: string
+        sortOrder: number
+        isActive: boolean
+    }>,
+    commonCodeLoading: false,
+    commonCodeValidating: false,
+    commonCodeError: false,
 }))
+
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+    const { computed } = await vi.importActual<typeof import('vue')>('vue')
+    return {
+        COMMON_CODE_TYPES: {
+            REPORT_REASON: 'REPORT_REASON',
+            POINT_CHANGE_TYPE: 'POINT_CHANGE_TYPE',
+        },
+        useStrictSupportedCommonCodeValues: (_typeCode: string, supportedValues: readonly string[]) => ({
+            values: computed(() => mocks.commonCodeLoading
+                ? []
+                : mocks.commonCodeDetails
+                    .filter(detail => detail.isActive && supportedValues.includes(detail.codeValue))
+                    .map(detail => detail.codeValue)),
+            isReady: computed(() => !mocks.commonCodeLoading
+                && !mocks.commonCodeValidating
+                && !mocks.commonCodeError),
+            isLoading: computed(() => mocks.commonCodeLoading),
+            isValidating: computed(() => mocks.commonCodeLoading || mocks.commonCodeValidating),
+            isError: computed(() => mocks.commonCodeError),
+        }),
+    }
+})
 
 vi.mock('@/stores/toast', () => ({
     useToastStore: () => ({
@@ -61,6 +95,17 @@ const mountModal = (submit = vi.fn(async () => true)) => mount(ReportModal, {
 describe('ReportModal', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.commonCodeDetails = ['SPAM', 'ABUSE', 'ADULT', 'ETC'].map((codeValue, index) => ({
+            id: index + 1,
+            typeCode: 'REPORT_REASON',
+            codeValue,
+            codeName: codeValue,
+            sortOrder: (index + 1) * 10,
+            isActive: true,
+        }))
+        mocks.commonCodeLoading = false
+        mocks.commonCodeValidating = false
+        mocks.commonCodeError = false
     })
 
     it('shows a warning and skips submit when reason is blank', async () => {
@@ -129,6 +174,56 @@ describe('ReportModal', () => {
         await getButtonByText(wrapper, 'common.report').trigger('click')
 
         expect(submit).toHaveBeenCalledWith('spam links', 'SPAM')
+    })
+
+    it('uses the active common code order and hides unsupported values', () => {
+        mocks.commonCodeDetails = [
+            { id: 1, typeCode: 'REPORT_REASON', codeValue: 'ETC', codeName: '기타', sortOrder: 10, isActive: true },
+            { id: 2, typeCode: 'REPORT_REASON', codeValue: 'LEGACY', codeName: '레거시', sortOrder: 20, isActive: true },
+            { id: 3, typeCode: 'REPORT_REASON', codeValue: 'SPAM', codeName: '광고', sortOrder: 30, isActive: true },
+            { id: 4, typeCode: 'REPORT_REASON', codeValue: 'ABUSE', codeName: '욕설', sortOrder: 40, isActive: false },
+        ]
+
+        const wrapper = mountModal()
+        const values = Array.from(wrapper.get('select').element.options).map((option) => option.value)
+
+        expect(values).toEqual(['ETC', 'SPAM'])
+    })
+
+    it('selects an active fallback when ETC is inactive', async () => {
+        mocks.commonCodeDetails = [
+            { id: 1, typeCode: 'REPORT_REASON', codeValue: 'SPAM', codeName: '광고', sortOrder: 10, isActive: true },
+        ]
+        const submit = vi.fn(async () => true)
+        const wrapper = mountModal(submit)
+
+        await wrapper.get('textarea').setValue('spam links')
+        await getButtonByText(wrapper, 'common.report').trigger('click')
+
+        expect(submit).toHaveBeenCalledWith('spam links', 'SPAM')
+    })
+
+    it('fails closed when report reason common codes cannot be loaded', async () => {
+        mocks.commonCodeError = true
+        const submit = vi.fn(async () => true)
+        const wrapper = mountModal(submit)
+
+        await wrapper.get('textarea').setValue('report reason')
+        const reportButton = getButtonByText(wrapper, 'common.report')
+
+        expect(wrapper.get('select').attributes('disabled')).toBeDefined()
+        expect(reportButton.attributes('disabled')).toBeDefined()
+        await reportButton.trigger('click')
+        expect(submit).not.toHaveBeenCalled()
+    })
+
+    it('keeps cached reason options visible but blocks submit while revalidating', () => {
+        mocks.commonCodeValidating = true
+        const wrapper = mountModal()
+
+        expect(Array.from(wrapper.get('select').element.options).map((option) => option.value))
+            .toEqual(['SPAM', 'ABUSE', 'ADULT', 'ETC'])
+        expect(getButtonByText(wrapper, 'common.report').attributes('disabled')).toBeDefined()
     })
 
     it('resets the draft and ignores a delayed result after target identity changes', async () => {

@@ -11,6 +11,7 @@ const commonCodeApiMock = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   createDetail: vi.fn(),
+  getAllDetails: vi.fn(),
   updateDetail: vi.fn(),
   deleteDetail: vi.fn(),
 }))
@@ -44,9 +45,10 @@ describe('CommonCodeManagement', () => {
       { typeCode: 'REPORT_REASON', typeName: 'Report reason', description: 'Reasons' },
       { typeCode: 'USER_STATUS', typeName: 'User status', description: 'Statuses' },
     ]))
-    commonCodeApiMock.getDetails.mockResolvedValue(response([
+    commonCodeApiMock.getAllDetails.mockResolvedValue(response([
       { id: 1, typeCode: 'REPORT_REASON', codeValue: 'SPAM', codeName: 'Spam', sortOrder: 1, isActive: true },
     ]))
+    commonCodeApiMock.updateDetail.mockResolvedValue(response({}))
   })
 
   it('loads code groups and the selected group details', async () => {
@@ -61,7 +63,7 @@ describe('CommonCodeManagement', () => {
     await flushPromises()
 
     expect(commonCodeApiMock.getAll).toHaveBeenCalledOnce()
-    expect(commonCodeApiMock.getDetails).toHaveBeenCalledWith('REPORT_REASON', { signal: expect.any(AbortSignal) })
+    expect(commonCodeApiMock.getAllDetails).toHaveBeenCalledWith('REPORT_REASON', { signal: expect.any(AbortSignal) })
     expect(wrapper.text()).toContain('Report reason')
     expect(wrapper.text()).toContain('Spam')
   })
@@ -111,7 +113,7 @@ describe('CommonCodeManagement', () => {
     expect(navigationMocks.confirm).toHaveBeenCalledWith('admin.commonCodes.messages.confirmDiscardChanges')
     expect(wrapper.findAll('input')[0].element.value).toBe('REPORT_REASON')
     expect(wrapper.findAll('input')[1].element.value).toBe('Changed name')
-    expect(commonCodeApiMock.getDetails).not.toHaveBeenCalledWith('USER_STATUS', expect.anything())
+    expect(commonCodeApiMock.getAllDetails).not.toHaveBeenCalledWith('USER_STATUS', expect.anything())
   })
 
   it('blocks route leave when dirty master changes are not confirmed', async () => {
@@ -162,5 +164,72 @@ describe('CommonCodeManagement', () => {
     await pendingSave
     await flushPromises()
     expect(wrapper.findAll('button').some((button) => button.text() === 'common.cancel')).toBe(false)
+  })
+
+  it('shows inactive details and allows an administrator to reactivate them', async () => {
+    commonCodeApiMock.getAllDetails.mockResolvedValue(response([
+      { id: 2, typeCode: 'REPORT_REASON', codeValue: 'ABUSE', codeName: 'Abuse', sortOrder: 2, isActive: false },
+    ]))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(CommonCodeManagement, {
+      global: {
+        plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+        mocks: { $t: (key: string) => key },
+        stubs: { Teleport: true },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('common.inactive')
+    const vm = wrapper.vm as unknown as {
+      openDetailModal: (detailId: number) => void
+      detailForm: { isActive: boolean }
+      saveDetail: () => Promise<void>
+    }
+    vm.openDetailModal(2)
+    vm.detailForm.isActive = true
+    await vm.saveDetail()
+
+    expect(commonCodeApiMock.updateDetail).toHaveBeenCalledWith(2, {
+      codeValue: 'ABUSE',
+      codeName: 'Abuse',
+      sortOrder: 2,
+      isActive: true,
+    })
+  })
+
+  it('keeps the edited type fixed while saving and invalidates its public cache', async () => {
+    const updateRequest = createDeferred<unknown>()
+    commonCodeApiMock.updateDetail.mockReturnValueOnce(updateRequest.promise)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(['common-codes', 'REPORT_REASON', 'details'], [{ codeValue: 'SPAM' }])
+    const wrapper = mount(CommonCodeManagement, {
+      global: {
+        plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+        mocks: { $t: (key: string) => key },
+        stubs: { Teleport: true },
+      },
+    })
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      selectedTypeCode: string
+      openDetailModal: (detailId: number) => void
+      saveDetail: () => Promise<void>
+      selectTypeCode: (typeCode: string) => Promise<void>
+    }
+    vm.openDetailModal(1)
+    const pendingSave = vm.saveDetail()
+    await vi.waitFor(() => expect(commonCodeApiMock.updateDetail).toHaveBeenCalledTimes(1))
+
+    await vm.selectTypeCode('USER_STATUS')
+    expect(vm.selectedTypeCode).toBe('REPORT_REASON')
+
+    updateRequest.resolve(response({}))
+    await pendingSave
+    await flushPromises()
+
+    expect(queryClient.getQueryState(['common-codes', 'REPORT_REASON', 'details'])?.isInvalidated)
+      .toBe(true)
   })
 })

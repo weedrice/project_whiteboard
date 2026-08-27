@@ -42,6 +42,8 @@ export const commonCodeApi = {
     api.put<ApiResponse<CommonCode>>(`/common-codes/${encodePathSegment(typeCode)}`, data),
   getDetails: (typeCode: string, config?: AxiosRequestConfig) =>
     api.get<ApiResponse<CommonCodeDetail[]>>(`/common-codes/${encodePathSegment(typeCode)}/details`, config),
+  getAllDetails: (typeCode: string, config?: AxiosRequestConfig) =>
+    api.get<ApiResponse<CommonCodeDetail[]>>(`/common-codes/${encodePathSegment(typeCode)}/details/all`, config),
   createDetail: (typeCode: string, data: CommonCodeDetailPayload) =>
     api.post<ApiResponse<CommonCodeDetail>>(`/common-codes/${encodePathSegment(typeCode)}/details`, data),
   updateDetail: (detailId: number, data: CommonCodeDetailPayload) =>

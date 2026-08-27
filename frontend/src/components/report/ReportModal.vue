@@ -7,7 +7,8 @@
                 :label="$t('report.reasonType')"
                 :options="reasonTypeOptions"
                 class="mb-4"
-                :disabled="isReporting"
+                :disabled="isReporting || !reportReasonCodesReady || !hasReasonTypeOptions"
+                :error="reportReasonCodesError ? t('common.messages.loadFailed') : ''"
             />
             <BaseTextarea
                 id="reportReason"
@@ -24,7 +25,11 @@
                 <BaseButton @click="closeModal" variant="secondary" class="mr-2">
                     {{ $t('common.cancel') }}
                 </BaseButton>
-                <BaseButton @click="handleValidatedReport" :disabled="isReporting" :variant="submitVariant">
+                <BaseButton
+                    @click="handleValidatedReport"
+                    :disabled="isReporting || !reportReasonCodesReady || !hasReasonTypeOptions"
+                    :variant="submitVariant"
+                >
                     {{ isReporting ? pendingLabel : submitLabel }}
                 </BaseButton>
             </div>
@@ -44,6 +49,10 @@ import { useToastStore } from '@/stores/toast'
 import { computed, ref, watch } from 'vue'
 import type { ReportReasonType } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import {
+    COMMON_CODE_TYPES,
+    useStrictSupportedCommonCodeValues,
+} from '@/composables/useCommonCodeDetails'
 import {
     isReportReasonTooLong,
     isValidReportReason,
@@ -76,11 +85,25 @@ const emit = defineEmits<{
 const title = props.title ?? t('report.title')
 const submitLabel = props.submitLabel ?? t('common.report')
 const pendingLabel = props.pendingLabel ?? t('common.messages.reporting')
+const REPORT_REASON_TYPES: ReportReasonType[] = ['SPAM', 'ABUSE', 'ADULT', 'ETC']
+const {
+    values: activeReasonTypes,
+    isReady: reportReasonCodesReady,
+    isError: reportReasonCodesError,
+} = useStrictSupportedCommonCodeValues(
+    COMMON_CODE_TYPES.REPORT_REASON,
+    REPORT_REASON_TYPES,
+    { enabled: computed(() => props.isOpen) },
+)
+const defaultReasonType = () => activeReasonTypes.value.includes('ETC')
+    ? 'ETC'
+    : activeReasonTypes.value[0] ?? 'ETC'
 const reportReasonType = ref<ReportReasonType>('ETC')
-const reasonTypeOptions = computed(() => (['SPAM', 'ABUSE', 'ADULT', 'ETC'] as const).map((value) => ({
+const reasonTypeOptions = computed(() => activeReasonTypes.value.map((value) => ({
     value,
     label: t(`report.reasonTypes.${value}`),
 })))
+const hasReasonTypeOptions = computed(() => reasonTypeOptions.value.length > 0)
 
 const {
     value: reportReason,
@@ -117,7 +140,7 @@ const validation = useFieldValidation<'reason'>({
 const validationValues = computed(() => ({ reason: reportReason.value }))
 const resetReportSession = () => {
     resetReport()
-    reportReasonType.value = 'ETC'
+    reportReasonType.value = defaultReasonType()
     validation.clearValidation()
 }
 const closeModal = () => {
@@ -125,6 +148,7 @@ const closeModal = () => {
     emit('close')
 }
 const handleValidatedReport = () => {
+    if (!reportReasonCodesReady.value) return
     if (!validation.validateAll(validationValues.value)) {
         toastStore.addToast(
             isReportReasonTooLong(reportReason.value)
@@ -142,4 +166,9 @@ watch(
     resetReportSession,
     { flush: 'sync' },
 )
+watch(activeReasonTypes, (reasonTypes) => {
+    if (reasonTypes.length > 0 && !reasonTypes.includes(reportReasonType.value)) {
+        reportReasonType.value = defaultReasonType()
+    }
+}, { immediate: true })
 </script>

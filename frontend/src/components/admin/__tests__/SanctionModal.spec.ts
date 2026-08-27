@@ -6,7 +6,6 @@ import {
     BaseButtonStub,
     BaseInputStub,
     BaseModalStub,
-    BaseSelectStub,
     BaseTextareaStub,
     PassThroughStub,
 } from '@/test/vue-test-helpers'
@@ -15,7 +14,29 @@ import SanctionModal from '../SanctionModal.vue'
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     sanctionUser: vi.fn(),
+    sanctionTypes: ['WARNING', 'MUTE', 'BAN'],
+    sanctionTypesLoading: false,
+    sanctionTypesValidating: false,
+    sanctionTypesError: false,
 }))
+
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+    const { computed } = await vi.importActual<typeof import('vue')>('vue')
+    return {
+        COMMON_CODE_TYPES: { SANCTION_TYPE: 'SANCTION_TYPE' },
+        useStrictSupportedCommonCodeValues: () => ({
+            values: computed(() => mocks.sanctionTypesLoading
+                ? []
+                : mocks.sanctionTypes),
+            isReady: computed(() => !mocks.sanctionTypesLoading
+                && !mocks.sanctionTypesValidating
+                && !mocks.sanctionTypesError),
+            isLoading: computed(() => mocks.sanctionTypesLoading),
+            isValidating: computed(() => mocks.sanctionTypesLoading || mocks.sanctionTypesValidating),
+            isError: computed(() => mocks.sanctionTypesError),
+        }),
+    }
+})
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
@@ -60,7 +81,6 @@ function mountModal(user: {
                 AdminModalActions: PassThroughStub,
                 BaseButton: BaseButtonStub,
                 BaseInput: BaseInputStub,
-                BaseSelect: BaseSelectStub,
                 BaseTextarea: BaseTextareaStub
             }
         }
@@ -71,6 +91,10 @@ describe('SanctionModal', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mocks.sanctionUser.mockResolvedValue(undefined)
+        mocks.sanctionTypes = ['WARNING', 'MUTE', 'BAN']
+        mocks.sanctionTypesLoading = false
+        mocks.sanctionTypesValidating = false
+        mocks.sanctionTypesError = false
     })
 
     it('shows report target names when only name is provided', () => {
@@ -121,6 +145,37 @@ describe('SanctionModal', () => {
             type: 'WARNING',
             endDate: undefined,
         }))
+    })
+
+    it('uses the active sanction common code order', () => {
+        mocks.sanctionTypes = ['BAN', 'WARNING']
+
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+        const options = wrapper.get('select#sanction-type').findAll('option')
+
+        expect(options.map((option) => option.attributes('value'))).toEqual(['BAN', 'WARNING'])
+    })
+
+    it('selects an active fallback when warning is inactive', async () => {
+        mocks.sanctionTypes = ['BAN']
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).toHaveBeenCalledWith(expect.objectContaining({
+            targetUserId: 7,
+            type: 'BAN',
+        }))
+    })
+
+    it('fails closed when sanction type common codes cannot be loaded', async () => {
+        mocks.sanctionTypesError = true
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        expect(wrapper.get('select#sanction-type').attributes('disabled')).toBeDefined()
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).not.toHaveBeenCalled()
     })
 
     it('locks cancellation and inputs while a sanction request is pending', async () => {

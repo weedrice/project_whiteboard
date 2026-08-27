@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Plus, Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useQueryClient } from '@tanstack/vue-query'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -16,11 +17,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { commonCodeDetailQueryKey } from '@/composables/useCommonCodeDetails'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
+const queryClient = useQueryClient()
 const selectedTypeCode = ref('')
 const isCodeModalOpen = ref(false)
 const isDetailModalOpen = ref(false)
@@ -43,7 +46,7 @@ const codes = computed(() => codesQuery.data.value ?? [])
 const selectedCode = computed(() => codes.value.find((code) => code.typeCode === selectedTypeCode.value) ?? null)
 const detailsQuery = useAdminDataQuery(
   computed(() => ['admin', 'common-codes', selectedTypeCode.value, 'details']),
-  (config) => commonCodeApi.getDetails(selectedTypeCode.value, config),
+  (config) => commonCodeApi.getAllDetails(selectedTypeCode.value, config),
   { enabled: computed(() => Boolean(selectedTypeCode.value)) },
 )
 const details = computed(() => detailsQuery.data.value ?? [])
@@ -97,7 +100,7 @@ function openCodeModal() {
   isCodeModalOpen.value = true
 }
 async function selectTypeCode(typeCode: string) {
-  if (typeCode === selectedTypeCode.value) return
+  if (isSaving.value || typeCode === selectedTypeCode.value) return
   const revision = ++selectionRevision
   if (isMasterDirty.value && !(await confirm(t('admin.commonCodes.messages.confirmDiscardChanges')))) return
   if (revision !== selectionRevision) return
@@ -167,14 +170,17 @@ async function saveDetail() {
     return
   }
   const intent = captureAuthSessionIntent(authStore)
+  const typeCode = selectedTypeCode.value
   const payload = detailPayload()
   const detailId = editingDetailId.value
   isSaving.value = true
   try {
-    if (detailId == null) await commonCodeApi.createDetail(selectedTypeCode.value, payload)
+    if (detailId == null) await commonCodeApi.createDetail(typeCode, payload)
     else await commonCodeApi.updateDetail(detailId, payload)
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     await detailsQuery.refetch()
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('admin.commonCodes.messages.detailSaved'), 'success')
     forceCloseDetailModal()
@@ -184,14 +190,24 @@ async function saveDetail() {
 }
 
 async function deleteDetail(detailId: number) {
+  if (isSaving.value || !selectedTypeCode.value) return
   const intent = captureAuthSessionIntent(authStore)
+  const typeCode = selectedTypeCode.value
   if (!(await confirm(t('admin.commonCodes.messages.confirmDelete')))) return
   if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  await commonCodeApi.deleteDetail(detailId)
-  if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  await detailsQuery.refetch()
-  if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  toastStore.addToast(t('admin.commonCodes.messages.deleted'), 'success')
+  if (selectedTypeCode.value !== typeCode) return
+  isSaving.value = true
+  try {
+    await commonCodeApi.deleteDetail(detailId)
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    await detailsQuery.refetch()
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    toastStore.addToast(t('admin.commonCodes.messages.deleted'), 'success')
+  } finally {
+    if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
+  }
 }
 </script>
 
@@ -208,6 +224,7 @@ async function deleteDetail(detailId: number) {
         <button v-for="code in codes" :key="code.typeCode" type="button"
           class="mb-1 w-full rounded-md px-3 py-3 text-left nv-focus-ring"
           :class="selectedTypeCode === code.typeCode ? 'bg-[var(--nv-surface-2)] nv-title' : 'nv-text nv-hover-surface'"
+          :disabled="isSaving"
           @click="selectTypeCode(code.typeCode)">
           <span class="block font-semibold">{{ code.typeName }}</span>
           <span class="block text-xs nv-text-subtle">{{ code.typeCode }}</span>
