@@ -299,12 +299,26 @@ for (const workflowPath of [
 
 for (const required of [
   'deploy/release-freshness-paths.txt',
+  'deploy/scripts/download-attestation-with-retry.sh',
   'deploy/scripts/verify-deployment-freshness.sh',
-  'deploy/scripts/verify-release-provenance.sh',
-  'deploy/sudoers/noviis-deploy',
   '.github/workflows/ci.yml',
 ]) {
   assert(isFreshnessBound(freshness, 'backend', required) && isFreshnessBound(freshness, 'frontend', required), `${required} is missing from the common freshness boundary`)
+}
+for (const outsideCurrentInlineRelease of [
+  '.github/CODEOWNERS',
+  '.github/workflows/seo-monitor.yml',
+  'deploy/scripts/activate-backend-release.sh',
+  'deploy/scripts/activate-frontend-release.sh',
+  'deploy/scripts/record-cleanup-debt.sh',
+  'deploy/scripts/verify-active-backend-release.sh',
+  'deploy/scripts/verify-active-frontend-release.sh',
+  'deploy/scripts/verify-backend-start-state.sh',
+  'deploy/scripts/verify-release-provenance.sh',
+  'deploy/sudoers/noviis-deploy',
+  'deploy/systemd/app.service',
+]) {
+  assert(!isFreshnessBound(freshness, 'backend', outsideCurrentInlineRelease) && !isFreshnessBound(freshness, 'frontend', outsideCurrentInlineRelease), `${outsideCurrentInlineRelease} must not stale a current inline release`)
 }
 for (const [component, workflow] of [['backend', backend], ['frontend', frontend]]) {
   for (const file of referencedReleaseFiles(workflow)) {

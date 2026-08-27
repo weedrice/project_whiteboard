@@ -29,7 +29,7 @@ Contract migration 여부는 release metadata와 envelope에 서명된다. 새 c
 
 backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
 
-backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, JAR 교체, 8081 management health 검증을 수행한다. 일반 변경의 시작 실패는 이전 JAR로 자동 복원하고, contract migration은 이전 schema 호환성을 보장할 수 없으므로 자동 rollback하지 않는다. frontend는 현재 `/var/www/app`을 실행별 rollback 경로로 옮긴 뒤 새 파일을 활성화한다. 내부 및 공개 검증이 끝나면 backup을 제거하고, 검증 실패 시 이전 디렉터리를 복원한다. 별도 상시 설치 helper와 root-owned 배포 상태 파일은 요구하지 않는다.
+backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, JAR 교체, 8081 management health 검증을 수행한다. 일반 변경의 시작 실패는 이전 JAR로 자동 복원하고, contract migration은 이전 schema 호환성을 보장할 수 없으므로 자동 rollback하지 않는다. frontend는 현재 `/var/www/app`을 실행별 rollback 경로로 옮긴 뒤 새 파일을 활성화한다. 내부 및 공개 검증이 끝나면 backup을 제거하고, 검증 실패 시 이전 디렉터리를 복원한다. 현재 reusable workflow는 이 단일 EC2 inline 경로를 production 구현으로 사용하며 별도 상시 설치 helper와 root-owned 배포 상태 파일을 요구하지 않는다. `deploy/scripts/activate-*-release.sh`, `deploy/systemd/`, `deploy/sudoers/`는 CI에서 별도로 검증되는 hardened host profile이지만, coordinated adoption 변경 없이 현재 workflow가 이를 호출한다고 간주하지 않는다.
 
 ## SEO
 
@@ -53,7 +53,7 @@ Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: fals
 
 workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadata 권한은 필요한 release job에만 부여한다. `changes` job만 마지막 성공 배포 실행을 조회하기 위해 `actions: read`를 추가로 사용한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`, `deployments: read`, `id-token: write`를 부여하지 않는다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
-배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 수동 실행의 명시적 승인 없이는 시작되지 않으며 production checkout은 Git credential을 보존하지 않는다.
+배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. 이 manifest는 현재 production artifact 생성·검증·inline 배포 workflow가 실제 소비하는 경로만 추적하며, workflow가 참조하는 release 파일이 빠지면 ops CI가 실패한다. 별도 hardened host profile의 activation·provenance·sudoers·systemd 파일은 ops CI에서 계속 검증하지만, production workflow가 해당 profile을 채택하기 전에는 기존 inline release를 stale로 만들지 않는다. Contract migration release도 통합 CI와 production environment 보호 규칙을 통과하면 `main`에서 자동 배포될 수 있으며, production checkout은 Git credential을 보존하지 않는다.
 
 Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 검증의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
 
