@@ -21,7 +21,7 @@ if node "$validator" "$fixture"; then
 fi
 
 cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
-sed -i '/deploy\/scripts\/verify-release-provenance.sh/d' "$fixture/deploy/release-freshness-paths.txt"
+sed -i '/deploy\/scripts\/verify-deployment-freshness.sh/d' "$fixture/deploy/release-freshness-paths.txt"
 if node "$validator" "$fixture"; then
   echo "Expected a missing common freshness boundary to fail" >&2
   exit 1
