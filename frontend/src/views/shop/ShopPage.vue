@@ -1,24 +1,29 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Coins, ShoppingBag } from 'lucide-vue-next'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
+import {
+  COMMON_CODE_TYPES,
+  useSupportedCommonCodeValues,
+} from '@/composables/useCommonCodeDetails'
 import { useUser } from '@/features/user/useUser'
 import { usePurchaseShopItem, useShopItems } from '@/features/shop/useShop'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatInteger } from '@/utils/numberFormat'
-import type { ShopItem } from '@/api/shop'
+import type { ShopItem, ShopItemPageParams } from '@/api/shop'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 const { t } = useI18n()
@@ -28,6 +33,27 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useMyPoint } = useUser()
+const itemTypeFilter = ref<ShopItemType | ''>('')
+const SHOP_ITEM_TYPES = ['EMOTICON'] as const
+type ShopItemType = typeof SHOP_ITEM_TYPES[number]
+const activeItemTypes = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.ITEM_TYPE,
+  SHOP_ITEM_TYPES,
+)
+const itemTypeOptions = computed(() => [
+  { value: '', label: t('shop.itemTypes.ALL') },
+  ...activeItemTypes.value.map((value) => ({
+    value,
+    label: t(`shop.itemTypes.${value}`),
+  })),
+])
+const useFilteredShopItems = (params: Ref<{ page: number; size: number }>) => {
+  const filteredParams = computed<ShopItemPageParams>(() => ({
+    ...params.value,
+    ...(itemTypeFilter.value ? { itemType: itemTypeFilter.value } : {}),
+  }))
+  return useShopItems(filteredParams)
+}
 
 const {
   page,
@@ -37,7 +63,19 @@ const {
   isLoading,
   errorMessage,
   refetch,
-} = usePaginatedListState<ShopItem>(useShopItems, { initialSize: 12, t })
+} = usePaginatedListState<ShopItem>(useFilteredShopItems, { initialSize: 12, t })
+
+watch(activeItemTypes, (types) => {
+  if (itemTypeFilter.value && !types.includes(itemTypeFilter.value)) {
+    itemTypeFilter.value = ''
+    page.value = 0
+  }
+})
+
+function handleItemTypeFilterChange(value: string | number) {
+  itemTypeFilter.value = typeof value === 'string' ? value as ShopItemType | '' : ''
+  page.value = 0
+}
 
 const pointQueryEnabled = computed(() => authStore.isAuthenticated)
 const pointQueryIdentity = computed(() => authStore.user?.userId ?? authStore.user?.loginId ?? null)
@@ -119,6 +157,17 @@ const purchase = async (item: ShopItem) => {
       </BaseCard>
     </header>
 
+    <div class="mb-6 flex justify-end">
+      <BaseSelect
+        id="shop-item-type-filter"
+        :model-value="itemTypeFilter"
+        :label="t('shop.itemType')"
+        :options="itemTypeOptions"
+        input-class="sm:w-52"
+        @update:model-value="handleItemTypeFilterChange"
+      />
+    </div>
+
     <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
       <BaseCard v-for="index in 6" :key="index" bordered>
         <BaseSkeleton class="mb-3 h-5 w-2/3" />
@@ -144,7 +193,9 @@ const purchase = async (item: ShopItem) => {
             <div class="flex h-full flex-col">
               <div class="mb-3 flex items-start justify-between gap-3">
                 <h2 class="font-semibold nv-title">{{ item.itemName }}</h2>
-                <BaseBadge variant="gray" size="sm">{{ item.itemType }}</BaseBadge>
+                <BaseBadge variant="gray" size="sm">
+                  {{ item.itemType === 'EMOTICON' ? t('shop.itemTypes.EMOTICON') : item.itemType }}
+                </BaseBadge>
               </div>
               <p class="mb-5 min-h-10 flex-1 text-sm nv-text-muted">
                 {{ item.description || '-' }}

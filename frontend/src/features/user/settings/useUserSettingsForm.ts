@@ -31,6 +31,7 @@ interface UseUserSettingsFormOptions {
 
 interface UseNotificationSettingsFormOptions {
   notificationData: Ref<NotificationSettingsPayload[] | undefined>
+  notificationTypes?: Ref<NotificationSettingType[]>
   isSaving: Ref<boolean>
   updateNotificationSettings: (payload: NotificationSettingsBulkPayload) => Promise<unknown>
   getSessionGeneration?: () => number
@@ -209,7 +210,8 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
   const settings = reactive<Record<NotificationSettingType, boolean>>(createDefaultSettings())
   const availableTypes = computed(() => {
     const returnedTypes = new Set(options.notificationData.value?.map((setting) => setting.notificationType) ?? [])
-    return NOTIFICATION_TYPES.filter((type) => returnedTypes.has(type))
+    const orderedTypes = options.notificationTypes?.value ?? NOTIFICATION_TYPES
+    return orderedTypes.filter((type) => returnedTypes.has(type))
   })
   const message = ref('')
   const isError = ref(false)

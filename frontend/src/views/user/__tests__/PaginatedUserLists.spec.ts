@@ -20,8 +20,13 @@ const reportApi = vi.hoisted(() => ({
     getMyReports: vi.fn(),
 }))
 
+const commonCodeApi = vi.hoisted(() => ({
+    getDetails: vi.fn(),
+}))
+
 vi.mock('@/api/user', () => ({ userApi }))
 vi.mock('@/api/report', () => ({ reportApi }))
+vi.mock('@/api/commonCode', () => ({ commonCodeApi }))
 vi.mock('@/stores/auth', () => ({
     useAuthStore: () => ({ sessionGeneration: 0 }),
 }))
@@ -128,6 +133,19 @@ describe('paginated user lists', () => {
         confirmMock.mockResolvedValue(true)
         userApi.getMyPointHistories.mockRejectedValue(new Error('network'))
         reportApi.getMyReports.mockRejectedValue(new Error('network'))
+        commonCodeApi.getDetails.mockResolvedValue({
+            data: {
+                success: true,
+                data: ['EARN', 'SPEND', 'EXPIRE', 'PENALTY', 'REWARD_REVERSAL'].map((codeValue, index) => ({
+                    id: index + 1,
+                    typeCode: 'POINT_CHANGE_TYPE',
+                    codeValue,
+                    codeName: codeValue,
+                    sortOrder: (index + 1) * 10,
+                    isActive: true,
+                })),
+            },
+        })
     })
 
     it('shows an error state when scraps fail to load', async () => {
@@ -310,6 +328,29 @@ describe('paginated user lists', () => {
             { page: 0, size: 15, type: 'PENALTY' },
             { signal: expect.any(AbortSignal) },
         )
+    })
+
+    it('uses the active point common code order and hides unsupported values', async () => {
+        commonCodeApi.getDetails.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: [
+                    { id: 1, typeCode: 'POINT_CHANGE_TYPE', codeValue: 'SPEND', codeName: '사용', sortOrder: 10, isActive: true },
+                    { id: 2, typeCode: 'POINT_CHANGE_TYPE', codeValue: 'ADMIN_ADJ', codeName: '조정', sortOrder: 20, isActive: true },
+                    { id: 3, typeCode: 'POINT_CHANGE_TYPE', codeValue: 'EARN', codeName: '획득', sortOrder: 30, isActive: true },
+                    { id: 4, typeCode: 'POINT_CHANGE_TYPE', codeValue: 'EXPIRE', codeName: '만료', sortOrder: 40, isActive: false },
+                ],
+            },
+        })
+        userApi.getMyPointHistories.mockResolvedValue(pageResponse())
+
+        const wrapper = mountList(PointHistory)
+        await flushPromises()
+        const select = wrapper.get('#point-history-type-filter').element as HTMLSelectElement
+        const values = Array.from(select.options)
+            .map((option) => option.value)
+
+        expect(values).toEqual(['', 'SPEND', 'EARN'])
     })
 
     it('shows an error state when reports fail to load', async () => {

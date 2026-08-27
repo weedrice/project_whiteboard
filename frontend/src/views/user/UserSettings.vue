@@ -86,6 +86,7 @@ useUnsavedChangesGuard(
         />
         <NotificationSettingsSection
           v-show="activeSection === 'notifications'"
+          :active="activeSection === 'notifications'"
           @guard-state="updateGuardState('notifications', $event)"
         />
         <SecuritySettingsSection v-show="activeSection === 'security'" />

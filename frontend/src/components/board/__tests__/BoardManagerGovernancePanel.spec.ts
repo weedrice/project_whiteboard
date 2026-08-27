@@ -14,7 +14,24 @@ const boardApiMock = vi.hoisted(() => ({
   getManagerAudits: vi.fn(),
 }))
 
+const commonCodeMocks = vi.hoisted(() => ({
+  values: {
+    REPORT_STATUS: ['PENDING', 'RESOLVED', 'REJECTED'],
+    TARGET_TYPE: ['POST', 'COMMENT'],
+  } as Record<string, string[]>,
+}))
+
 vi.mock('@/api/board', () => ({ boardApi: boardApiMock }))
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue')
+  return {
+    COMMON_CODE_TYPES: {
+      REPORT_STATUS: 'REPORT_STATUS',
+      TARGET_TYPE: 'TARGET_TYPE',
+    },
+    useSupportedCommonCodeValues: (typeCode: string) => computed(() => commonCodeMocks.values[typeCode] ?? []),
+  }
+})
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {
@@ -46,6 +63,8 @@ describe('BoardManagerGovernancePanel', () => {
     vi.clearAllMocks()
     boardApiMock.getManagerReports.mockResolvedValue(pageResponse())
     boardApiMock.getManagerAudits.mockResolvedValue(pageResponse())
+    commonCodeMocks.values.REPORT_STATUS = ['PENDING', 'RESOLVED', 'REJECTED']
+    commonCodeMocks.values.TARGET_TYPE = ['POST', 'COMMENT']
   })
 
   afterEach(() => {
@@ -181,6 +200,19 @@ describe('BoardManagerGovernancePanel', () => {
 
     const options = wrapper.get('#board-report-target').findAll('option')
     expect(options.map((option) => option.attributes('value'))).toEqual(['', 'POST', 'COMMENT'])
+  })
+
+  it('uses common code ordering in board report filters', async () => {
+    commonCodeMocks.values.REPORT_STATUS = ['REJECTED', 'PENDING']
+    commonCodeMocks.values.TARGET_TYPE = ['COMMENT', 'POST']
+
+    const { wrapper } = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.get('#board-report-status').findAll('option')
+      .map((option) => option.attributes('value'))).toEqual(['', 'REJECTED', 'PENDING'])
+    expect(wrapper.get('#board-report-target').findAll('option')
+      .map((option) => option.attributes('value'))).toEqual(['', 'COMMENT', 'POST'])
   })
 
   it('shows the space name in the board-manager audit grid', async () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { PauseCircle, PlayCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
@@ -17,6 +17,10 @@ import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import {
+  COMMON_CODE_TYPES,
+  useSupportedCommonCodeValues,
+} from '@/composables/useCommonCodeDetails'
 import {
   useAdminShopItems,
   useUpdateAdminShopItemSaleStatus,
@@ -36,6 +40,18 @@ const searchText = ref('')
 const itemType = ref('')
 const sourceStatus = ref('')
 const saleStatus = ref('')
+const SHOP_ITEM_TYPES = ['EMOTICON'] as const
+const activeItemTypes = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.ITEM_TYPE,
+  SHOP_ITEM_TYPES,
+)
+const itemTypeOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...activeItemTypes.value.map((value) => ({
+    value,
+    label: t(`shop.itemTypes.${value}`),
+  })),
+])
 const appliedFilters = ref<Omit<AdminShopItemSearchParams, 'page' | 'size'>>({})
 const { page, params, resetPage } = usePaginatedQueryState({
   initialSize: 20,
@@ -89,6 +105,13 @@ function resetFilters() {
   saleStatus.value = ''
   handleSearch()
 }
+
+watch(activeItemTypes, (types) => {
+  if (itemType.value && !types.includes(itemType.value as typeof SHOP_ITEM_TYPES[number])) {
+    itemType.value = ''
+    handleSearch()
+  }
+})
 
 function saleStatusPresentation(item: AdminShopItem) {
   if (!item.isActive && item.targetId === null) {
@@ -167,7 +190,7 @@ async function submitSaleStatus() {
             />
           </AdminFilterField>
           <AdminFilterField :label="t('admin.shop.filter.itemType')" for-id="shop-item-type" width="compact">
-            <BaseInput id="shop-item-type" v-model="itemType" maxlength="50" placeholder="EMOTICON" />
+            <BaseSelect id="shop-item-type" v-model="itemType" :options="itemTypeOptions" />
           </AdminFilterField>
           <AdminFilterField :label="t('admin.shop.filter.sourceStatus')" for-id="shop-source-status" width="select">
             <BaseSelect id="shop-source-status" v-model="sourceStatus" :options="booleanOptions" />

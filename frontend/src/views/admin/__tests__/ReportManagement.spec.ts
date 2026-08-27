@@ -39,6 +39,10 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   confirmWithReason: vi.fn(),
   addToast: vi.fn(),
+  commonCodeValues: {
+    REPORT_STATUS: ['PENDING', 'RESOLVED', 'REJECTED'],
+    TARGET_TYPE: ['POST', 'COMMENT', 'USER'],
+  } as Record<string, string[]>,
   params: null as Ref<{
     page: number
     size: number
@@ -46,6 +50,17 @@ const mocks = vi.hoisted(() => ({
     targetType?: 'POST' | 'COMMENT' | 'USER'
   }> | null,
 }))
+
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue')
+  return {
+    COMMON_CODE_TYPES: {
+      REPORT_STATUS: 'REPORT_STATUS',
+      TARGET_TYPE: 'TARGET_TYPE',
+    },
+    useSupportedCommonCodeValues: (typeCode: string) => computed(() => mocks.commonCodeValues[typeCode] ?? []),
+  }
+})
 
 vi.mock('@/features/admin/useAdmin', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
@@ -218,6 +233,8 @@ describe('ReportManagement', () => {
     vi.clearAllMocks()
     mocks.params = null
     mocks.isLoading.value = false
+    mocks.commonCodeValues.REPORT_STATUS = ['PENDING', 'RESOLVED', 'REJECTED']
+    mocks.commonCodeValues.TARGET_TYPE = ['POST', 'COMMENT', 'USER']
     mocks.reportsData.value = {
       ...mocks.reportsData.value,
       number: 0,
@@ -269,6 +286,18 @@ describe('ReportManagement', () => {
       status: 'PENDING',
       targetType: 'COMMENT',
     })
+  })
+
+  it('uses common code ordering for report filters', () => {
+    mocks.commonCodeValues.REPORT_STATUS = ['REJECTED', 'PENDING']
+    mocks.commonCodeValues.TARGET_TYPE = ['USER', 'POST']
+
+    const wrapper = mountReportManagement()
+
+    expect(wrapper.get('#admin-report-status-filter').findAll('option')
+      .map((option) => option.attributes('value'))).toEqual(['', 'REJECTED', 'PENDING'])
+    expect(wrapper.get('#admin-report-target-filter').findAll('option')
+      .map((option) => option.attributes('value'))).toEqual(['', 'USER', 'POST'])
   })
 
   it('does not directly refetch after resolving because mutation invalidates reports', async () => {

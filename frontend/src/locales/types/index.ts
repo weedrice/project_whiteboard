@@ -17,6 +17,10 @@ export interface ShopMessages {
   purchaseFailed: string
   insufficientPoints: string
   empty: string
+  itemTypes: {
+    ALL: string
+    EMOTICON: string
+  }
   purchases: {
     title: string
     empty: string

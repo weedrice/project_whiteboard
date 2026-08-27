@@ -14,6 +14,13 @@ const authState = vi.hoisted(() => ({
 }))
 const pointState = vi.hoisted(() => ({ currentPoint: 500 }))
 const handlePageChange = vi.hoisted(() => vi.fn())
+const itemTypeCodes = vi.hoisted(() => ({ values: ['EMOTICON'] as string[] }))
+const capturedShopItemParams = vi.hoisted(() => ({
+  current: null as { value: Record<string, unknown> } | null,
+}))
+const useShopItems = vi.hoisted(() => vi.fn((params: { value: Record<string, unknown> }) => {
+  capturedShopItemParams.current = params
+}))
 const translate = vi.hoisted(() => (key: string, params?: Record<string, unknown>) => {
   if (key === 'shop.purchaseConfirm') return `${params?.name}:${params?.price}`
   if (key === 'shop.insufficientPoints') return `${params?.current}/${params?.price}`
@@ -32,11 +39,13 @@ vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({ useMyPoint: () => ({ data: ref({ currentPoint: pointState.currentPoint }) }) }),
 }))
 vi.mock('@/features/shop/useShop', () => ({
-  useShopItems: vi.fn(),
+  useShopItems,
   usePurchaseShopItem: () => ({ mutateAsync }),
 }))
 vi.mock('@/composables/usePaginatedListState', () => ({
-  usePaginatedListState: () => ({
+  usePaginatedListState: (queryFactory: (params: { value: Record<string, unknown> }) => unknown) => {
+    queryFactory(ref({ page: 0, size: 12 }))
+    return {
     page: ref(0),
     handlePageChange,
     items: ref([{
@@ -50,8 +59,16 @@ vi.mock('@/composables/usePaginatedListState', () => ({
     isLoading: ref(false),
     errorMessage: ref(''),
     refetch: vi.fn(),
-  }),
+    }
+  },
 }))
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue')
+  return {
+    COMMON_CODE_TYPES: { ITEM_TYPE: 'ITEM_TYPE' },
+    useSupportedCommonCodeValues: () => computed(() => itemTypeCodes.values),
+  }
+})
 vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: (error: unknown) => error instanceof Error ? error.message : '',
 }))
@@ -103,7 +120,24 @@ describe('ShopPage', () => {
     authState.user.userId = 1
     authState.user.points = 500
     pointState.currentPoint = 500
+    itemTypeCodes.values = ['EMOTICON']
+    capturedShopItemParams.current = null
     mutateAsync.mockResolvedValue(undefined)
+  })
+
+  it('uses active ITEM_TYPE codes for the shop filter and sends the selected type', async () => {
+    const wrapper = mountPage()
+
+    const filter = wrapper.get('#shop-item-type-filter')
+    expect(filter.findAll('option').map(option => option.attributes('value'))).toEqual(['', 'EMOTICON'])
+
+    await filter.setValue('EMOTICON')
+
+    expect(capturedShopItemParams.current?.value).toEqual({
+      page: 0,
+      size: 12,
+      itemType: 'EMOTICON',
+    })
   })
 
   it('returns an anonymous buyer to the same shop after login', async () => {

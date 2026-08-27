@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onScopeDispose, ref, toRef, watch } from 'vue'
+import { computed, onScopeDispose, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
@@ -15,6 +15,8 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useBoardManagerGovernance } from '@/features/board/edit/useBoardManagerGovernance'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import type { Report } from '@/types'
+import type { ReportStatusFilter, ReportTargetTypeFilter } from '@/api/adminTypes'
+import { COMMON_CODE_TYPES, useSupportedCommonCodeValues } from '@/composables/useCommonCodeDetails'
 
 const props = withDefaults(defineProps<{
   boardUrl: string
@@ -25,6 +27,30 @@ const props = withDefaults(defineProps<{
 
 const { t } = useI18n()
 const governance = useBoardManagerGovernance(toRef(props, 'boardUrl'), toRef(props, 'enabled'))
+const SUPPORTED_REPORT_STATUSES: ReportStatusFilter[] = ['PENDING', 'RESOLVED', 'REJECTED']
+const SUPPORTED_BOARD_REPORT_TARGET_TYPES: ReportTargetTypeFilter[] = ['POST', 'COMMENT']
+const activeReportStatuses = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.REPORT_STATUS,
+  SUPPORTED_REPORT_STATUSES,
+)
+const activeReportTargetTypes = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.TARGET_TYPE,
+  SUPPORTED_BOARD_REPORT_TARGET_TYPES,
+)
+const reportStatusOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...activeReportStatuses.value.map((value) => ({
+    value,
+    label: t(`admin.reports.status.${value}`),
+  })),
+])
+const reportTargetTypeOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...activeReportTargetTypes.value.map((value) => ({
+    value,
+    label: t(`admin.dashboard.auditTargets.${value}`),
+  })),
+])
 const selectedReport = ref<Report | null>(null)
 const isReportDetailOpen = ref(false)
 
@@ -46,6 +72,19 @@ watch(
   { flush: 'sync' },
 )
 
+watch(activeReportStatuses, (statuses) => {
+  const selectedStatus = governance.reportStatus.value
+  if (selectedStatus && !statuses.includes(selectedStatus)) {
+    governance.handleReportStatusChange('')
+  }
+})
+watch(activeReportTargetTypes, (targetTypes) => {
+  const selectedTargetType = governance.reportTargetType.value
+  if (selectedTargetType && !targetTypes.includes(selectedTargetType)) {
+    governance.handleReportTargetTypeChange('')
+  }
+})
+
 const unsubscribeSessionBoundary = subscribeAuthSessionBoundary(closeReportDetail)
 onScopeDispose(unsubscribeSessionBoundary)
 </script>
@@ -63,12 +102,7 @@ onScopeDispose(unsubscribeSessionBoundary)
               <BaseSelect
                 id="board-report-status"
                 :model-value="governance.reportStatus.value"
-                :options="[
-                  { value: '', label: t('admin.common.all') },
-                  { value: 'PENDING', label: t('admin.reports.status.PENDING') },
-                  { value: 'RESOLVED', label: t('admin.reports.status.RESOLVED') },
-                  { value: 'REJECTED', label: t('admin.reports.status.REJECTED') },
-                ]"
+                :options="reportStatusOptions"
                 @update:model-value="governance.handleReportStatusChange"
               />
             </AdminFilterField>
@@ -76,11 +110,7 @@ onScopeDispose(unsubscribeSessionBoundary)
               <BaseSelect
                 id="board-report-target"
                 :model-value="governance.reportTargetType.value"
-                :options="[
-                  { value: '', label: t('admin.common.all') },
-                  { value: 'POST', label: t('admin.dashboard.auditTargets.POST') },
-                  { value: 'COMMENT', label: t('admin.dashboard.auditTargets.COMMENT') },
-                ]"
+                :options="reportTargetTypeOptions"
                 @update:model-value="governance.handleReportTargetTypeChange"
               />
             </AdminFilterField>

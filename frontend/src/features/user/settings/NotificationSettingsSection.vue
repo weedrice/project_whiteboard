@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
 import { useUser } from '@/features/user/useUser'
 import {
+  NOTIFICATION_TYPES,
   useNotificationSettingsForm,
 } from '@/features/user/settings/useUserSettingsForm'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
@@ -16,13 +17,26 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import { COMMON_CODE_TYPES, useStrictSupportedCommonCodeValues } from '@/composables/useCommonCodeDetails'
 
 const emit = defineEmits<{
   guardState: [state: { dirty: boolean; pending: boolean }]
 }>()
+const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const {
+  values: activeNotificationTypes,
+  isReady: notificationTypesReady,
+  isLoading: notificationTypesLoading,
+  isError: notificationTypesError,
+  refetch: refetchNotificationTypes,
+} = useStrictSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.NOTIFICATION_TYPE,
+  NOTIFICATION_TYPES,
+  { enabled: computed(() => props.active) },
+)
 const {
   useUserSettings,
   useNotificationSettings,
@@ -72,7 +86,8 @@ const {
   settings,
 } = useNotificationSettingsForm({
   notificationData,
-  isSaving: isUpdatingNotifications,
+  notificationTypes: activeNotificationTypes,
+  isSaving: computed(() => isUpdatingNotifications.value || !notificationTypesReady.value),
   updateNotificationSettings,
   getSessionGeneration: () => authStore.sessionGeneration,
   t,
@@ -215,19 +230,26 @@ async function disableBrowserPush() {
     setPushMessage('user.settings.pushDisableFailed', true)
   }
 }
+
+async function retryNotificationSettings() {
+  await Promise.allSettled([
+    refetchNotifications(),
+    refetchNotificationTypes(),
+  ])
+}
 </script>
 
 <template>
   <section id="notifications" role="tabpanel" aria-labelledby="settings-notifications-tab">
-    <div v-if="isNotificationLoading" class="py-10 text-center">
+    <div v-if="isNotificationLoading || notificationTypesLoading" class="py-10 text-center">
       <BaseSpinner />
     </div>
     <ErrorState
-      v-else-if="isNotificationError"
+      v-else-if="isNotificationError || notificationTypesError"
       title-tag="h2"
       :message="$t('common.messages.loadFailed')"
       show-retry
-      @retry="refetchNotifications()"
+      @retry="retryNotificationSettings"
     />
     <template v-else>
       <h2 id="settings-notifications-heading" class="text-lg font-medium leading-6 nv-title">

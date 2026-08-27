@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, ref } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ShopManagement from '../ShopManagement.vue'
 
@@ -31,6 +31,8 @@ const shopItemsData = ref({
 const updateSaleStatus = vi.fn()
 const isUpdatePending = ref(false)
 const addToast = vi.fn()
+const itemTypeCodes = ref(['EMOTICON'])
+let capturedShopItemParams: { value: Record<string, unknown> } | null = null
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -43,15 +45,26 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/features/admin/shop/useAdminShopItems', () => ({
-  useAdminShopItems: () => ({
-    data: shopItemsData,
-    isLoading: ref(false),
-  }),
+  useAdminShopItems: (params: { value: Record<string, unknown> }) => {
+    capturedShopItemParams = params
+    return {
+      data: shopItemsData,
+      isLoading: ref(false),
+    }
+  },
   useUpdateAdminShopItemSaleStatus: () => ({
     mutateAsync: updateSaleStatus,
     isPending: isUpdatePending,
   }),
 }))
+
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue')
+  return {
+    COMMON_CODE_TYPES: { ITEM_TYPE: 'ITEM_TYPE' },
+    useSupportedCommonCodeValues: () => computed(() => itemTypeCodes.value),
+  }
+})
 
 const AdminPaginatedTableStub = defineComponent({
   props: {
@@ -117,8 +130,15 @@ const mountShopManagement = () => mount(ShopManagement, {
         template: '<input :value="modelValue" />',
       },
       BaseSelect: {
-        props: ['modelValue'],
-        template: '<select :value="modelValue" />',
+        props: ['modelValue', 'options'],
+        emits: ['update:modelValue'],
+        template: `
+          <select :value="modelValue" @change="$emit('update:modelValue', $event.target.value)">
+            <option v-for="option in options" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        `,
       },
       BaseModal: {
         props: ['isOpen'],
@@ -141,6 +161,24 @@ describe('ShopManagement', () => {
     isUpdatePending.value = false
     shopItemsData.value.content[0].isActive = true
     shopItemsData.value.content[0].isSaleEnabled = true
+    itemTypeCodes.value = ['EMOTICON']
+    capturedShopItemParams = null
+  })
+
+  it('uses active ITEM_TYPE codes for the admin filter and applies the selected type', async () => {
+    const wrapper = mountShopManagement()
+    const filter = wrapper.get('#shop-item-type')
+
+    expect(filter.findAll('option').map(option => option.attributes('value'))).toEqual(['', 'EMOTICON'])
+    await filter.setValue('EMOTICON')
+    await wrapper.get('form').trigger('submit')
+
+    expect(capturedShopItemParams?.value.itemType).toBe('EMOTICON')
+
+    itemTypeCodes.value = []
+    await nextTick()
+
+    expect(capturedShopItemParams?.value.itemType).toBeUndefined()
   })
 
   it('shows the independent sale status and opens the suspend dialog', async () => {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
@@ -10,6 +11,8 @@ import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import { useReportModerationPage } from '@/features/admin/reports/useReportModerationPage'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
+import { COMMON_CODE_TYPES, useSupportedCommonCodeValues } from '@/composables/useCommonCodeDetails'
+import type { ReportStatusFilter, ReportTargetTypeFilter } from '@/api/adminTypes'
 
 const { t } = useI18n()
 const {
@@ -37,6 +40,42 @@ const {
   handleResolve,
   handleReject,
 } = useReportModerationPage()
+
+const SUPPORTED_REPORT_STATUSES: ReportStatusFilter[] = ['PENDING', 'RESOLVED', 'REJECTED']
+const SUPPORTED_REPORT_TARGET_TYPES: ReportTargetTypeFilter[] = ['POST', 'COMMENT', 'USER']
+const activeReportStatuses = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.REPORT_STATUS,
+  SUPPORTED_REPORT_STATUSES,
+)
+const activeReportTargetTypes = useSupportedCommonCodeValues(
+  COMMON_CODE_TYPES.TARGET_TYPE,
+  SUPPORTED_REPORT_TARGET_TYPES,
+)
+const reportStatusOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...activeReportStatuses.value.map((value) => ({
+    value,
+    label: t(`admin.reports.status.${value}`),
+  })),
+])
+const reportTargetTypeOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...activeReportTargetTypes.value.map((value) => ({
+    value,
+    label: t(`admin.dashboard.auditTargets.${value}`),
+  })),
+])
+
+watch(activeReportStatuses, (statuses) => {
+  if (statusFilter.value && !statuses.includes(statusFilter.value)) {
+    handleStatusFilterChange('')
+  }
+})
+watch(activeReportTargetTypes, (targetTypes) => {
+  if (targetTypeFilter.value && !targetTypes.includes(targetTypeFilter.value)) {
+    handleTargetTypeFilterChange('')
+  }
+})
 </script>
 
 <template>
@@ -48,12 +87,7 @@ const {
             <BaseSelect
               id="admin-report-status-filter"
               :model-value="statusFilter"
-              :options="[
-                { value: '', label: t('admin.common.all') },
-                { value: 'PENDING', label: t('admin.reports.status.PENDING') },
-                { value: 'RESOLVED', label: t('admin.reports.status.RESOLVED') },
-                { value: 'REJECTED', label: t('admin.reports.status.REJECTED') },
-              ]"
+              :options="reportStatusOptions"
               @update:model-value="handleStatusFilterChange"
             />
           </AdminFilterField>
@@ -61,12 +95,7 @@ const {
             <BaseSelect
               id="admin-report-target-filter"
               :model-value="targetTypeFilter"
-              :options="[
-                { value: '', label: t('admin.common.all') },
-                { value: 'POST', label: t('admin.dashboard.auditTargets.POST') },
-                { value: 'COMMENT', label: t('admin.dashboard.auditTargets.COMMENT') },
-                { value: 'USER', label: t('admin.dashboard.auditTargets.USER') },
-              ]"
+              :options="reportTargetTypeOptions"
               @update:model-value="handleTargetTypeFilterChange"
             />
           </AdminFilterField>

@@ -50,6 +50,16 @@ type UserComposableMock = {
 type QueryMock<T> = { data: T; isLoading: { value: boolean }; isError: { value: boolean }; refetch: () => Promise<void> }
 
 const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
+const commonCodeMocks = vi.hoisted(() => ({
+  notificationTypes: [
+    'LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE',
+    'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE', 'INQUIRY',
+  ],
+  isLoading: false,
+  isValidating: false,
+  isError: false,
+  refetch: vi.fn(),
+}))
 const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
 const authStoreMock = vi.hoisted(() => ({
   sessionGeneration: 1,
@@ -101,6 +111,23 @@ vi.mock('vue-router', () => ({
 vi.mock('@/features/user/useUser', () => ({
   useUser: useUserMock,
 }))
+
+vi.mock('@/composables/useCommonCodeDetails', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue')
+  return {
+    COMMON_CODE_TYPES: { NOTIFICATION_TYPE: 'NOTIFICATION_TYPE' },
+    useStrictSupportedCommonCodeValues: () => ({
+      values: computed(() => commonCodeMocks.notificationTypes),
+      isReady: computed(() => !commonCodeMocks.isLoading
+        && !commonCodeMocks.isValidating
+        && !commonCodeMocks.isError),
+      isLoading: computed(() => commonCodeMocks.isLoading),
+      isValidating: computed(() => commonCodeMocks.isLoading || commonCodeMocks.isValidating),
+      isError: computed(() => commonCodeMocks.isError),
+      refetch: commonCodeMocks.refetch,
+    }),
+  }
+})
 
 vi.mock('@/stores/theme', () => ({
   useThemeStore: useThemeStoreMock,
@@ -305,6 +332,14 @@ describe('UserSettings', () => {
       { notificationType: 'BADGE', isEnabled: true },
       { notificationType: 'INQUIRY', isEnabled: true },
     ]
+    commonCodeMocks.notificationTypes = [
+      'LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE',
+      'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE', 'INQUIRY',
+    ]
+    commonCodeMocks.isLoading = false
+    commonCodeMocks.isValidating = false
+    commonCodeMocks.isError = false
+    commonCodeMocks.refetch.mockReset().mockResolvedValue(undefined)
     keywordData.value = []
     sessionsData.value = []
     loginHistoryData.value = emptyLoginHistoryPage()
@@ -718,6 +753,57 @@ describe('UserSettings', () => {
     expect(refetchSettings).toHaveBeenCalledOnce()
     expect(refetchNotifications).not.toHaveBeenCalled()
     expect(refetchSessions).not.toHaveBeenCalled()
+  })
+
+  it('uses active common code ordering and saves only exposed notification types', async () => {
+    commonCodeMocks.notificationTypes = ['MESSAGE', 'LIKE']
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    const notificationInputs = wrapper.findAll('#notifications input[id^="notification-"]')
+    expect(notificationInputs.map((input) => input.attributes('id'))).toEqual([
+      'notification-message',
+      'notification-like',
+    ])
+
+    await wrapper.get('#notification-message').setValue(false)
+    await wrapper.get('#notification-like').setValue(true)
+    await getSaveButtons(wrapper).notificationSaveButton.trigger('click')
+    await nextTick()
+
+    expect(updateNotificationSettings).toHaveBeenCalledWith({
+      settings: [
+        { notificationType: 'MESSAGE', isEnabled: false },
+        { notificationType: 'LIKE', isEnabled: true },
+      ],
+    })
+  })
+
+  it('waits for notification common codes before exposing editable settings', async () => {
+    commonCodeMocks.isLoading = true
+
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.find('#notification-like').exists()).toBe(false)
+  })
+
+  it('keeps notification settings visible during common code revalidation', async () => {
+    commonCodeMocks.isValidating = true
+
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.find('#notification-like').exists()).toBe(true)
+  })
+
+  it('keeps INQUIRY hidden when the backend rollout gate omits it', async () => {
+    notificationData.value = notificationData.value.filter((setting) => setting.notificationType !== 'INQUIRY')
+
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.find('#notification-inquiry').exists()).toBe(false)
   })
 
   it('does not revoke the new account sessions after a delayed confirmation', async () => {

@@ -15,6 +15,10 @@ export const shop: ShopMessages = {
   purchaseFailed: '상품 구매에 실패했습니다.',
   insufficientPoints: '포인트가 부족합니다. 보유 {current}P / 필요 {price}P',
   empty: '판매 중인 상품이 없습니다.',
+  itemTypes: {
+    ALL: '전체 유형',
+    EMOTICON: '이모티콘',
+  },
   purchases: {
     title: '구매 내역',
     empty: '구매 내역이 없습니다.',

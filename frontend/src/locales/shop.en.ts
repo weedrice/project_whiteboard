@@ -15,6 +15,10 @@ export const shopEn: ShopMessages = {
   purchaseFailed: 'Failed to purchase the item.',
   insufficientPoints: 'Not enough points. You have {current}P / Need {price}P',
   empty: 'No items are currently available.',
+  itemTypes: {
+    ALL: 'All types',
+    EMOTICON: 'Emoticon',
+  },
   purchases: {
     title: 'Purchase history',
     empty: 'No purchase history.',

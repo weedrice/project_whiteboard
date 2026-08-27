@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/features/user/useUser'
 import { formatDate } from '@/utils/date'
@@ -10,10 +10,29 @@ import { Coins } from 'lucide-vue-next'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import type { PointHistory, PointHistoryType } from '@/types'
 import type { PointHistoryParams } from '@/api/user'
+import { COMMON_CODE_TYPES, useCommonCodeDetails } from '@/composables/useCommonCodeDetails'
 
 const { t } = useI18n()
 const { useMyPointHistories } = useUser()
 const typeFilter = ref<PointHistoryType | ''>('')
+const POINT_HISTORY_TYPES: PointHistoryType[] = ['EARN', 'SPEND', 'EXPIRE', 'PENALTY', 'REWARD_REVERSAL']
+const supportedPointHistoryTypes = new Set<string>(POINT_HISTORY_TYPES)
+const isPointHistoryType = (value: string): value is PointHistoryType => supportedPointHistoryTypes.has(value)
+const { data: pointChangeCodes } = useCommonCodeDetails(COMMON_CODE_TYPES.POINT_CHANGE_TYPE)
+const activePointHistoryTypes = computed<PointHistoryType[]>(() => {
+  if (pointChangeCodes.value === undefined) return POINT_HISTORY_TYPES
+
+  return pointChangeCodes.value
+    .filter((detail) => detail.isActive && isPointHistoryType(detail.codeValue))
+    .map((detail) => detail.codeValue as PointHistoryType)
+})
+const pointHistoryTypeOptions = computed(() => [
+  { value: '', label: t('user.pointsHistory.types.ALL') },
+  ...activePointHistoryTypes.value.map((value) => ({
+    value,
+    label: t(`user.pointsHistory.types.${value}`),
+  })),
+])
 const useFilteredPointHistories = (params: Ref<{ page: number; size: number }>) => {
   const filteredParams = computed<PointHistoryParams>(() => ({
     ...params.value,
@@ -32,6 +51,13 @@ const {
   errorMessage,
   refetch,
 } = usePaginatedListState<PointHistory>(useFilteredPointHistories, { initialSize: 15, t })
+
+watch(activePointHistoryTypes, (types) => {
+  if (typeFilter.value && !types.includes(typeFilter.value)) {
+    typeFilter.value = ''
+    page.value = 0
+  }
+})
 
 function handleTypeFilterChange(value: string | number) {
   typeFilter.value = typeof value === 'string' ? value as PointHistoryType | '' : ''
@@ -88,14 +114,7 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
         id="point-history-type-filter"
         :model-value="typeFilter"
         :label="$t('user.pointsHistory.typeFilter')"
-        :options="[
-          { value: '', label: $t('user.pointsHistory.types.ALL') },
-          { value: 'EARN', label: $t('user.pointsHistory.types.EARN') },
-          { value: 'SPEND', label: $t('user.pointsHistory.types.SPEND') },
-          { value: 'EXPIRE', label: $t('user.pointsHistory.types.EXPIRE') },
-          { value: 'PENALTY', label: $t('user.pointsHistory.types.PENALTY') },
-          { value: 'REWARD_REVERSAL', label: $t('user.pointsHistory.types.REWARD_REVERSAL') },
-        ]"
+        :options="pointHistoryTypeOptions"
         input-class="sm:w-52"
         @update:model-value="handleTypeFilterChange"
       />
