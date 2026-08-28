@@ -7,6 +7,9 @@ import { resolveLegacyPostEditorImageCssWidth } from '@/utils/postEditorImageLay
 
 type ImageAlignment = 'inline' | 'left' | 'center' | 'right'
 
+const MINIMUM_IMAGE_WIDTH_PX = 80
+const MINIMUM_IMAGE_WIDTH_PERCENT = 25
+
 const props = defineProps(nodeViewProps)
 const { t } = useI18n()
 const resizingWidthPercent = ref<number | null>(null)
@@ -54,7 +57,11 @@ const hasIntrinsicImageWidth = computed(() => wrapperStyle.value == null)
 
 const minimumImageWidthPercent = computed(() => {
   const containerWidth = measuredContainerWidth.value ?? editorContentWidth()
-  return normalizePercent((Math.min(80, containerWidth) / containerWidth) * 100)
+  return minimumWidthPercent(containerWidth)
+})
+
+const accessibleMinimumImageWidthPercent = computed(() => {
+  return Math.min(minimumImageWidthPercent.value, currentImageWidthPercent.value)
 })
 
 const controlsStyle = computed(() => ({
@@ -118,8 +125,9 @@ function setImageWidth(percent: number | null) {
     return
   }
 
+  const normalizedPercent = clampImageWidthPercent(percent)
   props.updateAttributes({
-    styleWidth: `${percent}%`,
+    styleWidth: `${normalizedPercent}%`,
     width: null,
     height: null,
   })
@@ -167,9 +175,7 @@ function startResize(event: PointerEvent) {
       : imageAlignment.value === 'right'
         ? startWidth - delta
         : startWidth + delta
-    const minWidth = Math.min(80, maxWidth)
-    const clampedWidth = Math.min(maxWidth, Math.max(minWidth, nextWidth))
-    resizingWidthPercent.value = normalizePercent((clampedWidth / maxWidth) * 100)
+    resizingWidthPercent.value = clampImageWidthPercent((nextWidth / maxWidth) * 100, maxWidth)
     scheduleControlPosition()
   }
 
@@ -215,15 +221,14 @@ function resizeWithKeyboard(event: KeyboardEvent) {
   const currentPercent = measureImageWidthPercent(imageNode)
   measuredContainerWidth.value = maxWidth
   measuredImageWidthPercent.value = currentPercent
-  const minPercent = normalizePercent((Math.min(80, maxWidth) / maxWidth) * 100)
   let nextPercent: number | null = null
 
   if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-    nextPercent = Math.max(minPercent, currentPercent - 5)
+    nextPercent = currentPercent - 5
   } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-    nextPercent = Math.min(100, currentPercent + 5)
+    nextPercent = currentPercent + 5
   } else if (event.key === 'Home') {
-    nextPercent = minPercent
+    nextPercent = minimumWidthPercent(maxWidth)
   } else if (event.key === 'End') {
     nextPercent = 100
   }
@@ -232,7 +237,7 @@ function resizeWithKeyboard(event: KeyboardEvent) {
   event.preventDefault()
   event.stopPropagation()
   props.updateAttributes({
-    styleWidth: `${normalizePercent(nextPercent)}%`,
+    styleWidth: `${clampImageWidthPercent(nextPercent, maxWidth)}%`,
     width: null,
     height: null,
   })
@@ -240,6 +245,19 @@ function resizeWithKeyboard(event: KeyboardEvent) {
 
 function normalizePercent(value: number): number {
   return Math.round(value * 10) / 10
+}
+
+function minimumWidthPercent(containerWidth: number): number {
+  const safeContainerWidth = containerWidth > 0 ? containerWidth : 1
+  const pixelMinimumPercent = (Math.min(MINIMUM_IMAGE_WIDTH_PX, safeContainerWidth) / safeContainerWidth) * 100
+  return normalizePercent(Math.min(MINIMUM_IMAGE_WIDTH_PERCENT, pixelMinimumPercent))
+}
+
+function clampImageWidthPercent(
+  percent: number,
+  containerWidth = measuredContainerWidth.value ?? editorContentWidth(),
+): number {
+  return normalizePercent(Math.min(100, Math.max(minimumWidthPercent(containerWidth), percent)))
 }
 
 function updateControlPosition() {
@@ -426,7 +444,7 @@ onBeforeUnmount(() => {
       tabindex="0"
       :aria-label="t('board.writePost.imageControls.resize')"
       aria-orientation="horizontal"
-      :aria-valuemin="minimumImageWidthPercent"
+      :aria-valuemin="accessibleMinimumImageWidthPercent"
       :aria-valuemax="100"
       :aria-valuenow="currentImageWidthPercent"
       @pointerdown="startResize"

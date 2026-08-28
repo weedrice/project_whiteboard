@@ -144,10 +144,46 @@ describe('PostEditorImageView', () => {
     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
     await nextTick()
     expect(handle.attributes('aria-valuenow')).toBe('50')
-    expect(handle.attributes('aria-valuemin')).toBe('40')
+    expect(handle.attributes('aria-valuemin')).toBe('25')
 
     await handle.trigger('keydown', { key: 'Home' })
-    expect(updateAttributes).toHaveBeenCalledWith({ styleWidth: '40%', width: null, height: null })
+    expect(updateAttributes).toHaveBeenCalledWith({ styleWidth: '25%', width: null, height: null })
+  })
+
+  it('uses one minimum-width rule for presets, keyboard controls, and slider accessibility', async () => {
+    const { wrapper, updateAttributes } = mountImageView('inline', { styleWidth: '10%' })
+    const imageNode = wrapper.get('.post-editor-image-node').element
+    const parentNode = imageNode.parentElement as HTMLElement
+    Object.defineProperty(imageNode, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ width: 20, height: 20, top: 0, right: 20, bottom: 20, left: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    })
+    Object.defineProperty(parentNode, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ width: 200, height: 200, top: 0, right: 200, bottom: 200, left: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    })
+
+    window.dispatchEvent(new Event('resize'))
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    await nextTick()
+
+    const handle = wrapper.get('.post-editor-image-resize-handle')
+    expect(handle.attributes('aria-valuenow')).toBe('10')
+    expect(handle.attributes('aria-valuemin')).toBe('10')
+
+    await handle.trigger('keydown', { key: 'ArrowRight' })
+    expect(updateAttributes).toHaveBeenLastCalledWith({ styleWidth: '25%', width: null, height: null })
+
+    await wrapper.get('[data-image-width="25"]').trigger('click')
+    expect(updateAttributes).toHaveBeenLastCalledWith({ styleWidth: '25%', width: null, height: null })
+
+    updateAttributes.mockClear()
+    handle.element.dispatchEvent(
+      createPointerEvent('pointerdown', { pointerId: 9, clientX: 100, button: 0, bubbles: true }),
+    )
+    document.dispatchEvent(createPointerEvent('pointermove', { pointerId: 9, clientX: 0 }))
+    document.dispatchEvent(createPointerEvent('pointerup', { pointerId: 9 }))
+    expect(updateAttributes).toHaveBeenCalledWith({ styleWidth: '25%', width: null, height: null })
   })
 
   it('keeps intrinsic sizing explicit and preserves safe legacy width units', () => {
