@@ -161,13 +161,15 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       dismiss: '닫기',
     },
     dropImageHint: '이미지를 놓아 업로드',
-    imageAlt: {
-      title: '이미지 대체 텍스트',
-      label: '대체 텍스트',
-      placeholder: '이미지를 설명하는 짧은 문구',
-      help: '스크린리더와 이미지 로딩 실패 상황에서 표시됩니다.',
-      apply: '적용',
-      clear: '비우기',
+    imageControls: {
+      original: '원본',
+      originalSize: '원본 크기',
+      sizePercent: '본문 너비의 {percent}%',
+      alignLeft: '왼쪽 정렬',
+      alignCenter: '가운데 정렬',
+      alignRight: '오른쪽 정렬',
+      alignInline: '정렬 해제',
+      resize: '이미지 크기 조절',
     },
     codeBlock: {
       copy: '복사',

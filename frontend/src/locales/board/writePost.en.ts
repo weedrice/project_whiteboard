@@ -162,13 +162,15 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       dismiss: 'Dismiss',
     },
     dropImageHint: 'Drop images to upload',
-    imageAlt: {
-      title: 'Image alt text',
-      label: 'Alt text',
-      placeholder: 'Briefly describe the image',
-      help: 'Used by screen readers and shown when the image cannot load.',
-      apply: 'Apply',
-      clear: 'Clear',
+    imageControls: {
+      original: 'Original',
+      originalSize: 'Original size',
+      sizePercent: '{percent}% of content width',
+      alignLeft: 'Align left',
+      alignCenter: 'Align center',
+      alignRight: 'Align right',
+      alignInline: 'Clear alignment',
+      resize: 'Resize image',
     },
     codeBlock: {
       copy: 'Copy',

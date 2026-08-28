@@ -1,5 +1,5 @@
 import { mergeAttributes } from '@tiptap/core'
-import { VueRenderer } from '@tiptap/vue-3'
+import { VueNodeViewRenderer, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Mention from '@tiptap/extension-mention'
@@ -19,8 +19,10 @@ import {
   RawHtmlBlockKeyboardNavigation,
 } from '@/extensions/tiptap-raw-html-block'
 import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
+import PostEditorImageView from '@/components/board/editor/PostEditorImageView.vue'
 import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
+import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
 import type { MentionCandidate } from '@/types'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
@@ -42,6 +44,31 @@ const EditorImage = Image.extend({
       },
       width: createPreservedHtmlAttribute('width'),
       height: createPreservedHtmlAttribute('height'),
+      styleWidth: {
+        default: null,
+        parseHTML: (element: HTMLElement) => parseImageStyleWidth(element.style.width),
+        renderHTML: (attributes: { styleWidth?: string | null }) => (
+          isSafePostEditorImageWidth(attributes.styleWidth)
+            ? { style: `width: ${attributes.styleWidth}` }
+            : {}
+        ),
+      },
+      alignment: {
+        default: 'inline',
+        parseHTML: (element: HTMLElement) => {
+          if (element.classList.contains('tiptap-image-align-left')) return 'left'
+          if (element.classList.contains('tiptap-image-align-center')) return 'center'
+          if (element.classList.contains('tiptap-image-align-right')) return 'right'
+          return 'inline'
+        },
+        renderHTML: (attributes: { alignment?: string | null }) => (
+          attributes.alignment === 'left'
+          || attributes.alignment === 'center'
+          || attributes.alignment === 'right'
+            ? { class: `tiptap-image-align-${attributes.alignment}` }
+            : {}
+        ),
+      },
       fileId: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('data-file-id'),
@@ -57,6 +84,10 @@ const EditorImage = Image.extend({
         ),
       },
     }
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(PostEditorImageView)
   },
 })
 
@@ -76,9 +107,15 @@ function createPreservedHtmlAttribute(name: string) {
     parseHTML: (element: HTMLElement) => element.getAttribute(name),
     renderHTML: (attributes: Record<string, unknown>) => {
       const value = attributes[name]
-      return typeof value === 'string' && value ? { [name]: value } : {}
+      return (typeof value === 'string' && value) || (typeof value === 'number' && value > 0)
+        ? { [name]: String(value) }
+        : {}
     },
   }
+}
+
+function parseImageStyleWidth(value: string): string | null {
+  return isSafePostEditorImageWidth(value) ? value : null
 }
 
 let mentionListIdSequence = 0

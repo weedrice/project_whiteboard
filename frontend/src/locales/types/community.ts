@@ -445,13 +445,15 @@ export interface BoardMessages {
       dismiss: string
     }
     dropImageHint: string
-    imageAlt: {
-      title: string
-      label: string
-      placeholder: string
-      help: string
-      apply: string
-      clear: string
+    imageControls: {
+      original: string
+      originalSize: string
+      sizePercent: string
+      alignLeft: string
+      alignCenter: string
+      alignRight: string
+      alignInline: string
+      resize: string
     }
     codeBlock: {
       copy: string

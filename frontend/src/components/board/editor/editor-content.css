@@ -168,6 +168,159 @@
   vertical-align: baseline;
 }
 
+.post-editor-image-node {
+  display: inline-block;
+  max-width: 100%;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.post-editor-image-node > img {
+  cursor: grab;
+  display: block;
+  height: auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+.post-editor-image-node > img:active {
+  cursor: grabbing;
+}
+
+.post-editor-image-node--intrinsic > img {
+  width: auto;
+}
+
+.post-editor-image-node--left,
+.post-editor-image-node--center,
+.post-editor-image-node--right {
+  display: block;
+}
+
+.post-editor-image-node--left.post-editor-image-node--intrinsic,
+.post-editor-image-node--center.post-editor-image-node--intrinsic,
+.post-editor-image-node--right.post-editor-image-node--intrinsic {
+  width: fit-content;
+}
+
+.post-editor-image-node--left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.post-editor-image-node--center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.post-editor-image-node--right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.post-editor-image-node--selected {
+  border-radius: 0.75rem;
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 3px;
+}
+
+.post-editor-image-controls {
+  align-items: center;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.65rem;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--nv-ink) 18%, transparent);
+  display: flex;
+  gap: 0.15rem;
+  left: 50%;
+  max-width: calc(100vw - 2rem);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 0.25rem;
+  position: absolute;
+  top: 0.5rem;
+  transform: translateX(calc(-50% + var(--post-editor-image-controls-shift, 0px)));
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.post-editor-image-node--inline .post-editor-image-controls,
+.post-editor-image-node--left .post-editor-image-controls {
+  left: 0;
+  transform: translateX(var(--post-editor-image-controls-shift, 0px));
+}
+
+.post-editor-image-node--right .post-editor-image-controls {
+  left: auto;
+  right: 0;
+  transform: translateX(var(--post-editor-image-controls-shift, 0px));
+}
+
+.post-editor-image-control {
+  align-items: center;
+  border-radius: 0.4rem;
+  color: var(--nv-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 1.85rem;
+  justify-content: center;
+  min-width: 1.85rem;
+  padding: 0 0.35rem;
+}
+
+.post-editor-image-control--size {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.post-editor-image-control:hover,
+.post-editor-image-control--active {
+  background: var(--nv-surface-2);
+  color: var(--nv-accent);
+}
+
+.post-editor-image-control:active {
+  transform: translateY(1px);
+}
+
+.post-editor-image-control:focus-visible {
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 1px;
+}
+
+.post-editor-image-control-divider {
+  background: var(--nv-line);
+  height: 1.25rem;
+  margin: 0 0.15rem;
+  width: 1px;
+}
+
+.post-editor-image-resize-handle {
+  background: var(--nv-accent);
+  border: 2px solid var(--nv-surface);
+  border-radius: 999px;
+  bottom: -0.55rem;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--nv-ink) 30%, transparent);
+  cursor: nwse-resize;
+  height: 1rem;
+  position: absolute;
+  right: -0.55rem;
+  touch-action: none;
+  width: 1rem;
+  z-index: 15;
+}
+
+.post-editor-image-resize-handle:focus-visible {
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 2px;
+}
+
+.post-editor-image-resize-handle--left {
+  cursor: nesw-resize;
+  left: -0.55rem;
+  right: auto;
+}
+
 .mention-node,
 .tiptap-editor-wrap .ProseMirror .mention-node {
   background: color-mix(in srgb, var(--nv-accent) 10%, transparent);
