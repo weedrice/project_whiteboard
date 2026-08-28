@@ -18,6 +18,10 @@ const allowedTemplateCalls = [
   { template: 'user.pointsHistory.transaction.${transactionKind(item)}', keys: /^user\.pointsHistory\.transaction\.[^.]+$/ },
   { template: 'user.draftList.scheduledStatus.${post.status}', keys: /^user\.draftList\.scheduledStatus\.[^.]+$/ },
   { template: 'board.writePost.colorLabels.${colorLabelKeys[index]}', keys: /^board\.writePost\.colorLabels\.[^.]+$/ },
+  {
+    template: 'board.writePost.imageControls.${item.label}',
+    keys: /^board\.writePost\.imageControls\.(alignLeft|alignCenter|alignRight|alignInline)$/,
+  },
   { template: 'board.postDetail.versionActions.${normalized}', keys: /^board\.postDetail\.versionActions\.(CREATE|MODIFY|DELETE)$/ },
   { template: 'admin.users.status.${status}', keys: /^admin\.users\.status\.[^.]+$/ },
   { template: 'admin.users.role.${role}', keys: /^admin\.users\.role\.[^.]+$/ },
