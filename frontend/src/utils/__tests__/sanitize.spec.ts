@@ -72,7 +72,7 @@ describe('sanitize', () => {
 
     it('sanitizeQuillHtml keeps only same-origin and approved CDN images without referrers', () => {
         const html = [
-            '<img src="/api/v1/files/1" alt="same origin">',
+            '<img src="/api/v1/files/1" alt="same origin" style="width: 50%" class="tiptap-image-inline tiptap-image-align-center max-w-full h-auto align-baseline">',
             '<img src="https://cdn.noviis.kr/files/2" alt="cdn">',
             '<img src="https://tracker.example/pixel.gif" alt="external">',
             '<img src="//cdn.noviis.kr/files/3" alt="protocol relative">',
@@ -81,6 +81,8 @@ describe('sanitize', () => {
         const clean = sanitizeQuillHtml(html)
 
         expect(clean).toContain('src="/api/v1/files/1"')
+        expect(clean).toContain('style="width: 50%"')
+        expect(clean).toContain('tiptap-image-align-center')
         expect(clean).toContain('src="https://cdn.noviis.kr/files/2"')
         expect(clean.match(/referrerpolicy="no-referrer"/g)).toHaveLength(2)
         expect(clean).not.toContain('tracker.example')

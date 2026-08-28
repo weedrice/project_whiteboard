@@ -1,4 +1,6 @@
 const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
+import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
+
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
@@ -66,6 +68,7 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
         'loading',
         'width',
         'height',
+        'style',
         'data-file-id',
         'data-server-src',
     ]),
@@ -117,6 +120,7 @@ const EDITOR_STYLE_PROPERTIES: Readonly<Record<string, ReadonlySet<string>>> = {
     col: new Set(['min-width', 'width']),
     th: new Set(['text-align', 'min-width', 'width']),
     td: new Set(['text-align', 'min-width', 'width']),
+    img: new Set(['width']),
 }
 
 export const SANDBOXED_POST_HTML_MARKER_CLASS = SANDBOX_MARKER_CLASS
@@ -247,8 +251,17 @@ function hasSupportedEditorClass(element: HTMLElement, tag: string): boolean {
     if (tag === 'code') return tokens.every((token) => token === 'hljs' || token.startsWith('language-'))
     if (tag === 'a') return tokens.every((token) => token === 'tiptap-link')
     if (tag === 'img') {
-        const allowed = new Set(['tiptap-image-inline', 'max-w-full', 'h-auto', 'align-baseline'])
-        return tokens.every((token) => allowed.has(token))
+        const allowed = new Set([
+            'tiptap-image-inline',
+            'tiptap-image-align-left',
+            'tiptap-image-align-center',
+            'tiptap-image-align-right',
+            'max-w-full',
+            'h-auto',
+            'align-baseline',
+        ])
+        const alignmentCount = tokens.filter((token) => token.startsWith('tiptap-image-align-')).length
+        return alignmentCount <= 1 && tokens.every((token) => allowed.has(token))
     }
     if (tag === 'span') return tokens.every((token) => token === 'mention-node')
     if (tag === 'div') return tokens.every((token) => token === 'tiptap-video-wrapper')
@@ -260,7 +273,12 @@ function hasSupportedEditorStyle(element: HTMLElement, tag: string): boolean {
     const allowedProperties = EDITOR_STYLE_PROPERTIES[tag]
     const properties = Array.from(element.style)
     if (!allowedProperties || properties.length === 0) return false
-    return properties.every((property) => allowedProperties.has(property.toLowerCase()))
+    if (!properties.every((property) => allowedProperties.has(property.toLowerCase()))) return false
+    if (tag === 'img') {
+        return element.style.getPropertyPriority('width') === ''
+            && isSafePostEditorImageWidth(element.style.width)
+    }
+    return true
 }
 
 function hasUnsupportedEditorTagWithPattern(content: string): boolean {

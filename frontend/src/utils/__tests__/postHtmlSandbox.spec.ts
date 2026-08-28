@@ -59,6 +59,10 @@ describe('postHtmlSandbox', () => {
             '<div class="custom-card"><p>Card</p></div>',
             '<p id="intro">Intro</p>',
             '<p style="letter-spacing:2px">Spaced</p>',
+            '<p><img src="/api/v1/files/514" style="width: calc(50% - 1rem)"></p>',
+            '<p><img src="/api/v1/files/514" style="width: 125%"></p>',
+            '<p><img src="/api/v1/files/514" style="width: 50% !important"></p>',
+            '<p><img src="/api/v1/files/514" class="tiptap-image-align-left tiptap-image-align-right"></p>',
             '<a href="https://noviis.kr" target="_self">Same tab</a>',
             '<ol type="A"><li>Alpha</li></ol>',
             '<custom-widget data-value="1"></custom-widget>',
@@ -80,6 +84,7 @@ describe('postHtmlSandbox', () => {
         expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" loading="eager"></p>')).toBe(false)
         expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" loading="invalid"></p>')).toBe(true)
         expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" width="640" height="480"></p>')).toBe(false)
+        expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" style="width: 50%" class="tiptap-image-inline tiptap-image-align-center max-w-full h-auto align-baseline"></p>')).toBe(false)
         expect(requiresPreservedPostHtml('<iframe src="https://www.youtube.com/embed/test-id" width="560" height="315"></iframe>')).toBe(false)
         expect(requiresPreservedPostHtml('<table width="100%" style="width: 100%; min-width: 320px"><tbody><tr><td><p>Cell</p></td></tr></tbody></table>')).toBe(false)
     })

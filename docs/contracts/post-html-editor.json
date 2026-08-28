@@ -14,6 +14,17 @@
       }
     },
     {
+      "name": "image-layout",
+      "selector": "img",
+      "html": "<p><img src=\"/api/v1/files/515\" alt=\"배치 이미지\" style=\"width: 50%\" class=\"tiptap-image-inline max-w-full h-auto align-baseline tiptap-image-align-center\"></p>",
+      "attributes": {
+        "src": "/api/v1/files/515",
+        "alt": "배치 이미지",
+        "style": "width: 50%",
+        "class": "tiptap-image-inline max-w-full h-auto align-baseline tiptap-image-align-center"
+      }
+    },
+    {
       "name": "video-iframe-metadata",
       "selector": "iframe",
       "html": "<iframe src=\"https://www.youtube.com/embed/test-id\" width=\"560\" height=\"315\" frameborder=\"0\" allowfullscreen=\"true\" loading=\"lazy\" referrerpolicy=\"strict-origin-when-cross-origin\" sandbox=\"allow-scripts allow-same-origin allow-presentation\" allow=\"encrypted-media; picture-in-picture\"></iframe>",
