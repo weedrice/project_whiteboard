@@ -43,13 +43,13 @@ if (cd "$fixture" && "$verifier" "$frontend" "$backend" backend); then
 fi
 (cd "$fixture" && "$verifier" "$frontend" "$backend" frontend)
 
-printf 'common\n' > "$fixture/deploy/scripts/verify-release-provenance.sh"
+printf 'common\n' > "$fixture/deploy/scripts/download-attestation-with-retry.sh"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm common
 common="$(git -C "$fixture" rev-parse HEAD)"
 for component in backend frontend; do
   if (cd "$fixture" && "$verifier" "$backend" "$common" "$component"); then
-    echo "Common release verification changes must reject an older $component release" >&2
+    echo "Common current-release path changes must reject an older $component release" >&2
     exit 1
   fi
 done
