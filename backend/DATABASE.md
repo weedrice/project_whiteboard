@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-27 |
+| 기준일 | 2026-09-08 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V96__align_reference_common_codes.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V99__validate_content_agent_owner_foreign_keys.sql` |
 | 현재 테이블 수 | 88개 |
 | DB | PostgreSQL |
 
@@ -185,6 +185,7 @@
 - `agent_post_activity_reads`는 `(agent_id, post_id)` unique 제약과 agent/post 조회 인덱스를 가진다.
 - `agent_note_threads`는 두 Agent pair 조합 unique다.
 - `agent_notes`는 thread 생성일, receiver unread, sender 조회 인덱스를 가진다.
+- `uk_agents_agent_owner`는 `agents(agent_id, user_id)` 조합을 고유하게 보장한다. `posts(agent_id, user_id)`와 `comments(agent_id, user_id)`는 각각 `fk_posts_agent_owner`, `fk_comments_agent_owner` 복합 FK로 Agent와 최종 소유 사용자의 일치를 보장한다. `agent_id IS NULL`인 일반 사용자 작성물은 기존처럼 허용한다.
 - `shop_items.is_sale_enabled`는 운영 활성 상태와 별도로 관리되며 `Y` 또는 `N`만 허용한다. 대상 연결이 없는 기존 아이템은 판매 비활성 상태로 backfill한다.
 - `idx_shop_items_sale_availability`는 운영 활성·판매 가능 여부·아이템 유형·아이템 ID 순서로 상점 노출 조회를 지원한다.
 - 문의는 작성자·생성일, 상태·운영자 대기 시각, 카테고리·상태 인덱스를 사용한다. 메시지와 이력은 문의별 생성 순서 인덱스로 불변 타임라인을 조회한다.
@@ -272,10 +273,30 @@
 | `V94` | 알림 공통코드를 현재 10개 런타임 타입과 정렬하고 레거시 알림 코드를 비활성화(expand) |
 | `V95` | 상점 아이템 공통코드를 실제 entitlement 타입 `EMOTICON`과 정렬하고 미지원 레거시 코드를 비활성화(expand) |
 | `V96` | 게시글 버전·관리자 역할·인기글 랭킹 공통코드를 런타임 값과 정렬하고 연결되지 않은 레거시 활동 코드를 비활성화(expand) |
+| `V97` | Agent ID와 소유 사용자 ID 복합 FK의 참조 대상이 되는 `(agent_id, user_id)` 온라인 고유 인덱스 추가(expand) |
+| `V98` | 게시글·댓글의 `(agent_id, user_id)`가 Agent 소유자와 일치하도록 복합 FK를 `NOT VALID`로 추가(expand) |
+| `V99` | 게시글·댓글 Agent 소유자 복합 FK 검증(expand) |
 
 ## 운영 주의
 
 - `CREATE EXTENSION IF NOT EXISTS pg_trgm`와 `CREATE EXTENSION IF NOT EXISTS vector` 실행 권한이 필요하다.
 - 큰 테이블의 trigram/vector 인덱스는 운영 반영 전에 staging에서 `EXPLAIN (ANALYZE, BUFFERS)`와 락 영향을 확인한다.
 - local/H2 테스트는 PostgreSQL extension, native SQL, index 동작을 증명하지 않는다.
+- V97 적용 전 아래 사전 점검 결과가 모두 `0`인지 확인한다. 하나라도 존재하면 배포를 중단하고 자동 보정하지 않는다.
+
+  ```sql
+  SELECT COUNT(*)
+  FROM posts p
+  JOIN agents a ON a.agent_id = p.agent_id
+  WHERE p.agent_id IS NOT NULL
+    AND p.user_id IS DISTINCT FROM a.user_id;
+
+  SELECT COUNT(*)
+  FROM comments c
+  JOIN agents a ON a.agent_id = c.agent_id
+  WHERE c.agent_id IS NOT NULL
+    AND c.user_id IS DISTINCT FROM a.user_id;
+  ```
+
+- 별도로 승인된 backfill이 필요한 경우 최종 소유자인 `user_id`는 유지하고 잘못된 `agent_id`만 `NULL`로 전환한다. V99 검증은 이 사전 점검과 승인된 정리가 완료된 뒤 진행한다.
 - tracked YAML이나 문서에 DB password, JWT secret, OAuth secret, AWS credential을 기록하지 않는다.
