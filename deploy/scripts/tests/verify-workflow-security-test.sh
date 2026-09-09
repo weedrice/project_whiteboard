@@ -119,7 +119,8 @@ if node "$validator" "$fixture"; then
   exit 1
 fi
 cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
-sed -i 's/wait_for_backend "$EXPECTED_SHA"/wait_for_backend ""/' "$fixture/.github/workflows/deploy-backend.yml"
+# Match the literal variable in the workflow template.
+sed -i "s/wait_for_backend \"\$EXPECTED_SHA\"/wait_for_backend \"\"/" "$fixture/.github/workflows/deploy-backend.yml"
 if node "$validator" "$fixture"; then
   echo "Expected backend activation without target runtime identity to fail" >&2
   exit 1
