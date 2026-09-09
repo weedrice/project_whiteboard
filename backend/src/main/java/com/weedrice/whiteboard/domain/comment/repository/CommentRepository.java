@@ -313,6 +313,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 return findByCommentIdAndPostIdAndIsDeletedFalse(commentId, postId);
         }
 
+        @Query("SELECT c.postId FROM Comment c WHERE c.commentId = :commentId")
+        Optional<Long> findPostIdByCommentId(@Param("commentId") Long commentId);
+
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT c FROM Comment c WHERE c.commentId = :commentId")
         Optional<Comment> findByIdWithRelationsForUpdate(

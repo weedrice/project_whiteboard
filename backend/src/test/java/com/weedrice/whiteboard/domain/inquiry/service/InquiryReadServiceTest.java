@@ -21,6 +21,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -168,6 +170,60 @@ class InquiryReadServiceTest {
                     assertThat(item.toStatus()).isEqualTo(InquiryStatus.CLOSED);
                 });
         assertThat(result.closureDetail()).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, false, USER_MESSAGE, true",
+            "true, false, STAFF_REPLY, true",
+            "true, false, INTERNAL_NOTE, false",
+            "true, true, USER_MESSAGE, true",
+            "true, true, STAFF_REPLY, true",
+            "true, true, INTERNAL_NOTE, true",
+            "false, false, USER_MESSAGE, false",
+            "false, false, STAFF_REPLY, false",
+            "false, false, INTERNAL_NOTE, false",
+            "false, true, USER_MESSAGE, true",
+            "false, true, STAFF_REPLY, true",
+            "false, true, INTERNAL_NOTE, true"
+    })
+    void canAccessMessageFile_combinesOwnershipAndUsableSuperAdminRole(
+            boolean owner, boolean superAdmin, InquiryMessageType type, boolean allowed) {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 25, 9, 0);
+        Long viewerId = owner ? 10L : 20L;
+        when(messageRepository.findById(101L)).thenReturn(Optional.of(
+                new InquiryMessage(1L, 99L, type, "message", now)));
+        when(inquiryRepository.findById(1L)).thenReturn(Optional.of(inquiry(1L, 10L, "Private", now)));
+        if (!owner || !type.isPublic()) {
+            when(userPort.isUsableSuperAdmin(viewerId)).thenReturn(superAdmin);
+        }
+
+        assertThat(readService.canAccessMessageFile(101L, viewerId)).isEqualTo(allowed);
+    }
+
+    @Test
+    void canAccessMessageFile_deniesMissingMessageBeforeCheckingRole() {
+        assertThat(readService.canAccessMessageFile(101L, 10L)).isFalse();
+        verify(userPort, never()).isUsableSuperAdmin(any());
+    }
+
+    @Test
+    void canAccessMessageFile_deniesMissingInquiryBeforeCheckingRole() {
+        when(messageRepository.findById(101L)).thenReturn(Optional.of(
+                message(101L, 1L, 10L, "message", LocalDateTime.of(2026, 8, 25, 9, 0))));
+
+        assertThat(readService.canAccessMessageFile(101L, 10L)).isFalse();
+        verify(userPort, never()).isUsableSuperAdmin(any());
+    }
+
+    @Test
+    void canAccessMessageFile_deniesAnonymousViewerBeforeCheckingRole() {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 25, 9, 0);
+        when(messageRepository.findById(101L)).thenReturn(Optional.of(message(101L, 1L, 10L, "message", now)));
+        when(inquiryRepository.findById(1L)).thenReturn(Optional.of(inquiry(1L, 10L, "Private", now)));
+
+        assertThat(readService.canAccessMessageFile(101L, null)).isFalse();
+        verify(userPort, never()).isUsableSuperAdmin(any());
     }
 
     private Inquiry inquiry(Long inquiryId, Long authorUserId, String title, LocalDateTime now) {

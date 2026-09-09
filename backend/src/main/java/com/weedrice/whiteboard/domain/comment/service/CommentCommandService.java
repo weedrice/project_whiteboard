@@ -278,9 +278,9 @@ public class CommentCommandService {
     }
 
     private LockedCommentTarget loadCommentTargetForUpdate(Long commentId) {
-        Comment initialComment = commentRepository.findByIdWithRelations(commentId)
+        // Do not manage the comment until parent locks are held: a lock query does not refresh cached state.
+        Long postId = commentRepository.findPostIdByCommentId(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        Long postId = initialComment.getPostId();
         CommentPostSnapshot post = commentPostPort.lockForWrite(postId);
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));

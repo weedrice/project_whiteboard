@@ -182,6 +182,9 @@ class CommentServiceTest {
                     ref.isAgentAuthored() ? "Agent" : "User", null, null)));
             return snapshots;
         });
+        lenient().when(commentRepository.findPostIdByCommentId(anyLong()))
+                .thenAnswer(invocation -> commentRepository.findByIdWithRelations(invocation.getArgument(0))
+                        .map(Comment::getPostId));
         lenient().when(commentRepository.findByIdWithRelations(anyLong()))
                 .thenAnswer(invocation -> {
                     Long commentId = invocation.getArgument(0);
@@ -1659,6 +1662,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1715,6 +1719,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(agentOwner).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder()
                 .user(agentOwner)
                 .agent(targetAgent)
@@ -1750,6 +1755,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(author, "userId", 1L);
         Board board = Board.builder().boardUrl("free").creator(author).build();
         Post post = Post.builder().board(board).user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(author).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1790,6 +1796,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1813,6 +1820,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1836,6 +1844,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         comment.deleteComment();
@@ -1860,6 +1869,7 @@ class CommentServiceTest {
         Board board = Board.builder().boardUrl("free").isPublic(true).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         comment.blind("AUTO_REPORT", LocalDateTime.now());
@@ -1898,6 +1908,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1945,6 +1956,7 @@ class CommentServiceTest {
         Board board = Board.builder().boardUrl("free").isPublic(true).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         comment.blind("AUTO_REPORT", LocalDateTime.now());
@@ -1968,6 +1980,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -1990,6 +2003,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -2010,6 +2024,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         comment.deleteComment();
@@ -2034,6 +2049,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(author, "userId", 1L);
         Board board = Board.builder().boardUrl("free").creator(author).build();
         Post post = Post.builder().board(board).user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(author).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -2171,7 +2187,7 @@ class CommentServiceTest {
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
-        when(commentRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(comment));
+        doReturn(Optional.of(2L)).when(commentRepository).findPostIdByCommentId(10L);
         when(postRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(post));
         when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
         doReturn(Optional.of(post)).when(postRepository).findByIdWithRelationsForUpdate(2L);
@@ -2184,9 +2200,11 @@ class CommentServiceTest {
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(
                 userRepository, boardRepository, postRepository, commentRepository);
         order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(commentRepository).findPostIdByCommentId(10L);
         order.verify(boardRepository).findByIdForUpdate(3L);
         order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
         order.verify(commentRepository).findByIdWithRelationsForUpdate(10L);
+        verify(commentRepository, never()).findByIdWithRelations(10L);
     }
 
     @Test
@@ -2200,6 +2218,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(board, "isPublic", true);
 
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).content("Old @Alice").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -2226,6 +2245,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(board, "isActive", true);
         ReflectionTestUtils.setField(board, "isPublic", true);
         Post post = Post.builder().board(board).user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(author).post(post).content("Old").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         CommentMention storedMention = CommentMention.builder()
@@ -2260,6 +2280,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(author, "userId", 1L);
         Board board = Board.builder().boardUrl("free").creator(author).build();
         Post post = Post.builder().board(board).user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(viewer).post(post).content("Old").build();
 
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
@@ -2282,6 +2303,7 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(other).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(other).post(post).content("Old").build();
 
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
@@ -2299,6 +2321,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
 
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
@@ -2319,6 +2342,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
         comment.deleteComment();
 
@@ -2341,6 +2365,7 @@ class CommentServiceTest {
         Board board = Board.builder().boardUrl("free").isPublic(true).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         comment.blind("AUTO_REPORT", LocalDateTime.now());

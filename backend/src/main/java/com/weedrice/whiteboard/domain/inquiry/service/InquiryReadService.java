@@ -75,13 +75,9 @@ public class InquiryReadService {
         if (message == null) return denied();
         Inquiry inquiry = inquiryRepository.findById(message.getInquiryId()).orElse(null);
         if (inquiry == null || viewerUserId == null) return denied();
-        if (inquiry.isOwnedBy(viewerUserId)) {
-            if (message.getMessageType().isPublic()) return true;
-            return denied();
-        }
-        boolean allowed = userPort.isUsableSuperAdmin(viewerUserId);
-        if (!allowed) denied();
-        return allowed;
+        if (inquiry.isOwnedBy(viewerUserId) && message.getMessageType().isPublic()) return true;
+        if (userPort.isUsableSuperAdmin(viewerUserId)) return true;
+        return denied();
     }
 
     Inquiry getOwned(Long inquiryId, Long userId) {
