@@ -23,11 +23,13 @@ import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBound
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
 import { clearUserTimeZone } from '@/utils/displayTimeZone'
 import {
+    cleanupLegacyDraftStorage,
     clearStoredDraftSnapshotsForUser,
     countUnsyncedStoredDraftSnapshotsForUser,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import { clearDraftTombstonesForUser } from '@/features/board/posts/draft/postDraftTombstone'
 
+cleanupLegacyDraftStorage()
 validateEnv()
 applyStandaloneDisplayModeClass()
 

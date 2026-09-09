@@ -677,7 +677,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 options.ownerId?.value,
                 draftId.value,
                 clientDraftKey.value,
-                activeStorageKey.value,
             )) return
             transitionToProtectedDraft()
             void reportDraftOperationalEvent('scheduled_in_another_tab')
@@ -727,7 +726,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 options.ownerId.value,
                 scheduledDraftId,
                 clientDraftKey.value,
-                activeStorageKey.value,
             )
         }
         clearRecovery()

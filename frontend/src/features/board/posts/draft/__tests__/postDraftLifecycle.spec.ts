@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Storage } from '@/utils/storage'
 import {
   cleanupExpiredDraftSnapshots,
+  cleanupLegacyDraftStorage,
   clearStoredDraftSnapshotsForUser,
   countUnsyncedStoredDraftSnapshotsForUser,
   loadStoredDraftSnapshot,
@@ -14,7 +15,7 @@ import {
   clearDraftTombstonesForUser,
 } from '@/features/board/posts/draft/postDraftTombstone'
 
-const CURRENT_SCHEMA_VERSION = 1
+const CURRENT_SCHEMA_VERSION = 2
 const OVERSIZED_BACKUP_CONTENT_LENGTH = 3 * 1024 * 1024
 
 describe('draft browser lifecycle', () => {
@@ -93,7 +94,7 @@ describe('draft browser lifecycle', () => {
       contents: '<p>important draft</p>',
       unassociatedUploadFileIds: [8],
     }))
-    expect(Storage.get(key)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
       unassociatedUploadFileIds: [8],
     }))
   })
@@ -114,14 +115,15 @@ describe('draft browser lifecycle', () => {
       title: 'recover me',
       unassociatedUploadFileIds: undefined,
     }))
-    expect(Storage.get(key)).not.toHaveProperty('unassociatedUploadFileIds')
+    expect(Storage.get<{ uploads?: Record<string, unknown> }>(key)?.uploads)
+      .not.toHaveProperty('unassociatedUploadFileIds')
   })
 
   it('migrates legacy boolean tombstones to timestamped records', () => {
-    Storage.set('noviis:draft-deleted:1:91', true)
+    Storage.set('noviis:draft-deleted-v2:1:91', true)
 
     expect(isDraftDeletedLocally(1, 91)).toBe(true)
-    expect(Storage.get('noviis:draft-deleted:1:91')).toEqual({
+    expect(Storage.get('noviis:draft-deleted-v2:1:91')).toEqual({
       deletedAt: '2026-08-03T00:00:00.000Z',
     })
   })
@@ -136,9 +138,9 @@ describe('draft browser lifecycle', () => {
     expect(clearDraftTombstonesForUser(1)).toBe(1)
 
     expect(Storage.has('noviis:draft:1:create:free:new')).toBe(false)
-    expect(Storage.has('noviis:draft-deleted:1:91')).toBe(false)
+    expect(Storage.has('noviis:draft-deleted-v2:1:91')).toBe(false)
     expect(Storage.has('noviis:draft:2:create:free:new')).toBe(true)
-    expect(Storage.has('noviis:draft-deleted:2:92')).toBe(true)
+    expect(Storage.has('noviis:draft-deleted-v2:2:92')).toBe(true)
   })
 
   it('counts only unsynced snapshots owned by the requested user', () => {
@@ -186,7 +188,7 @@ describe('draft browser lifecycle', () => {
     })
 
     expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 91)).toBe(true)
-    expect(Storage.get(targetKey)).toEqual(expect.objectContaining({ draftId: 91 }))
+    expect(loadStoredDraftSnapshot(targetKey)).toEqual(expect.objectContaining({ draftId: 91 }))
     expect(Storage.has(legacyKey)).toBe(false)
   })
 
@@ -224,7 +226,7 @@ describe('draft browser lifecycle', () => {
     })
 
     expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 91)).toBe(true)
-    expect(Storage.get(targetKey)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(targetKey)).toEqual(expect.objectContaining({
       title: 'new local content',
       hasLocalChanges: true,
     }))
@@ -250,7 +252,7 @@ describe('draft browser lifecycle', () => {
     })
 
     expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 91)).toBe(true)
-    expect(Storage.get(targetKey)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(targetKey)).toEqual(expect.objectContaining({
       title: 'new local content',
       hasLocalChanges: true,
     }))
@@ -277,8 +279,10 @@ describe('draft browser lifecycle', () => {
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     }))
     expect(Storage.get(key)).toEqual(expect.objectContaining({
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
       schemaVersion: CURRENT_SCHEMA_VERSION,
+      sync: expect.objectContaining({
+        clientModifiedAt: '2026-08-03T00:00:00.000Z',
+      }),
     }))
   })
 
@@ -362,8 +366,7 @@ describe('draft browser lifecycle', () => {
       clientDraftKey: undefined,
       clientInstanceId: undefined,
     }))
-    expect(Storage.get(key)).not.toHaveProperty('clientDraftKey')
-    expect(Storage.get(key)).not.toHaveProperty('clientInstanceId')
+    expect(Storage.get(key)).toEqual(expect.objectContaining({ identity: {} }))
   })
 
   it('restores content outside current limits as requiring correction', () => {
@@ -452,7 +455,20 @@ describe('draft browser lifecycle', () => {
       clientModifiedAt: '2026-08-03T00:01:00.000Z',
     })).toBe(true)
     expect(Storage.get(firstKey)).toEqual(expect.objectContaining({ title: 'first draft' }))
-    expect(Storage.get(secondKey)).toEqual(expect.objectContaining({ title: 'second draft' }))
+    expect(loadStoredDraftSnapshot(secondKey)).toEqual(expect.objectContaining({ title: 'second draft' }))
+  })
+
+  it('silently removes legacy draft snapshots, tombstones, and event payloads', () => {
+    Storage.set('noviis:draft:1:create:free:new', { title: 'legacy' })
+    Storage.set('noviis:draft-deleted:1:91', { deletedAt: '2026-08-03T00:00:00.000Z' })
+    Storage.set('noviis:draft-updated-event', { type: 'draft-updated' })
+    Storage.set('noviis:draft-v2:1:create:free:new', { schemaVersion: 2 })
+
+    expect(cleanupLegacyDraftStorage()).toBe(3)
+    expect(Storage.has('noviis:draft:1:create:free:new')).toBe(false)
+    expect(Storage.has('noviis:draft-deleted:1:91')).toBe(false)
+    expect(Storage.has('noviis:draft-updated-event')).toBe(false)
+    expect(Storage.has('noviis:draft-v2:1:create:free:new')).toBe(true)
   })
 
   it('rejects an oversized backup without deleting another draft', () => {

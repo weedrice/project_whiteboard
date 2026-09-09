@@ -29,7 +29,7 @@ describe('draft deletion cross-tab channel', () => {
       close() {}
     }
     vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
-    const peer = new FakeBroadcastChannel('noviis-draft-deleted')
+    const peer = new FakeBroadcastChannel('noviis-draft-session-v2')
     const received: unknown[] = []
     peer.addEventListener('message', (event) => received.push(event.data))
     const storageProto = Object.getPrototypeOf(window.localStorage) as globalThis.Storage

@@ -43,7 +43,7 @@ describe('draft updated event', () => {
 
   it('broadcasts metadata without editor content', () => {
     const stop = registerDraftUpdatedListener(vi.fn())
-    new FakeBroadcastChannel('noviis-draft-updated')
+    new FakeBroadcastChannel('noviis-draft-session-v2')
 
     publishDraftUpdatedEvent(7, {
       draftId: 91,
@@ -66,7 +66,7 @@ describe('draft updated event', () => {
   it('delivers only the compact update contract', () => {
     const listener = vi.fn()
     registerDraftUpdatedListener(listener)
-    const peer = new FakeBroadcastChannel('noviis-draft-updated')
+    const peer = new FakeBroadcastChannel('noviis-draft-session-v2')
     peer.postMessage({
       type: 'draft-updated',
       eventId: 'event-1',

@@ -18,8 +18,8 @@ vi.mock('@/utils/clientErrorReporter', () => ({
   reportDraftOperationalEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
-const baseKey = 'noviis:draft:7:create:general:new'
-const draftKey = 'noviis:draft:7:create:general:91'
+const baseKey = 'noviis:draft-v2:7:create:general:new'
+const draftKey = 'noviis:draft-v2:7:create:general:91'
 
 function createController(overrides: {
   onStored?: (snapshot: DraftRecoverySnapshot) => void
@@ -31,7 +31,7 @@ function createController(overrides: {
   const clientDraftKey = ref('client-key')
   const controller = createDraftLocalSnapshotController({
     storageKey,
-    resolveStorageKey: (id) => `noviis:draft:7:create:general:${id}`,
+    resolveStorageKey: (id) => `noviis:draft-v2:7:create:general:${id}`,
     draftId,
     draftVersion,
     clientDraftKey,
@@ -62,12 +62,12 @@ describe('draft local snapshot controller', () => {
     })).toBe(true)
 
     expect(Storage.get(baseKey)).toEqual(expect.objectContaining({
-      boardUrl: 'general',
-      title: 'local draft',
-      clientDraftKey: 'client-key',
-      version: 3,
-      clientInstanceId: 'tab-a',
-      unassociatedUploadFileIds: [2],
+      schemaVersion: 2,
+      target: expect.objectContaining({ boardUrl: 'general' }),
+      identity: expect.objectContaining({ clientDraftKey: 'client-key', version: 3 }),
+      content: expect.objectContaining({ title: 'local draft' }),
+      sync: expect.objectContaining({ clientInstanceId: 'tab-a' }),
+      uploads: expect.objectContaining({ unassociatedUploadFileIds: [2] }),
     }))
     expect(onStored).toHaveBeenCalledWith(expect.objectContaining({
       unassociatedUploadFileIds: [2],
@@ -117,9 +117,9 @@ describe('draft local snapshot controller', () => {
     const onRemoved = vi.fn()
     const { controller } = createController({ onRemoved })
     Storage.set(baseKey, { boardUrl: 'general' })
-    Storage.set('noviis:draft:7:create:other:new', { boardUrl: 'other' })
+    Storage.set('noviis:draft-v2:7:create:other:new', { boardUrl: 'other' })
 
-    expect(controller.removeKey('noviis:draft:7:create:other:new')).toBe(true)
+    expect(controller.removeKey('noviis:draft-v2:7:create:other:new')).toBe(true)
     expect(onRemoved).not.toHaveBeenCalled()
     expect(controller.remove()).toBe(true)
     expect(onRemoved).toHaveBeenCalledTimes(1)

@@ -17,9 +17,15 @@ import {
 } from '@/utils/postForm'
 
 const DRAFT_LOCAL_RETENTION_DAYS = 90
-const DRAFT_SNAPSHOT_SCHEMA_VERSION = 1
+const DRAFT_SNAPSHOT_SCHEMA_VERSION = 2
 const MAX_LOCAL_DRAFT_BACKUP_BYTES = 3 * 1024 * 1024
-const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
+const DRAFT_STORAGE_PREFIX = 'noviis:draft-v2:'
+const LEGACY_DRAFT_STORAGE_PREFIX = 'noviis:draft:'
+const LEGACY_DRAFT_TOMBSTONE_PREFIX = 'noviis:draft-deleted:'
+const LEGACY_DRAFT_EVENT_KEYS = new Set([
+  'noviis:draft-updated-event',
+  'noviis:draft-scheduled-event',
+])
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 const MAX_FUTURE_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
 
@@ -27,6 +33,20 @@ type StoredDraftReadResult =
   | { status: 'valid', snapshot: DraftRecoverySnapshot, rawSize: number }
   | { status: 'preserved-unknown', rawSize: number, modifiedAt: number }
   | { status: 'missing' | 'invalid', rawSize: 0 }
+
+type StoredDraftSnapshotV2 = {
+  schemaVersion: 2
+  target: Pick<DraftRecoverySnapshot, 'boardUrl' | 'originalPostId'>
+  identity: Pick<DraftRecoverySnapshot,
+    'draftId' | 'clientDraftKey' | 'version' | 'updatedAt' | 'modifiedAt'>
+  content: Pick<DraftRecoverySnapshot,
+    'title' | 'contents' | 'categoryId' | 'tags' | 'isNotice' | 'isNsfw'
+    | 'isSpoiler' | 'isSecret' | 'poll' | 'seriesId'>
+  sync: Pick<DraftRecoverySnapshot,
+    'clientModifiedAt' | 'clientInstanceId' | 'hasLocalChanges'
+    | 'staleReferencesReset' | 'contractValidationFailed'>
+  uploads: Pick<DraftRecoverySnapshot, 'fileIds' | 'unassociatedUploadFileIds'>
+}
 
 function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
   for (const value of [snapshot.clientModifiedAt, snapshot.updatedAt, snapshot.modifiedAt]) {
@@ -39,6 +59,64 @@ function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function flattenStoredDraftSnapshot(value: unknown): unknown {
+  if (!isRecord(value)
+    || value.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION
+    || !isRecord(value.target)
+    || !isRecord(value.identity)
+    || !isRecord(value.content)
+    || !isRecord(value.sync)
+    || !isRecord(value.uploads)) return value
+  return {
+    schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+    ...value.target,
+    ...value.identity,
+    ...value.content,
+    ...value.sync,
+    ...value.uploads,
+  }
+}
+
+function toStoredDraftSnapshot(snapshot: DraftRecoverySnapshot): StoredDraftSnapshotV2 {
+  return {
+    schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+    target: {
+      boardUrl: snapshot.boardUrl,
+      originalPostId: snapshot.originalPostId,
+    },
+    identity: {
+      draftId: snapshot.draftId,
+      clientDraftKey: snapshot.clientDraftKey,
+      version: snapshot.version,
+      updatedAt: snapshot.updatedAt,
+      modifiedAt: snapshot.modifiedAt,
+    },
+    content: {
+      title: snapshot.title,
+      contents: snapshot.contents,
+      categoryId: snapshot.categoryId,
+      tags: snapshot.tags,
+      isNotice: snapshot.isNotice,
+      isNsfw: snapshot.isNsfw,
+      isSpoiler: snapshot.isSpoiler,
+      isSecret: snapshot.isSecret,
+      poll: snapshot.poll,
+      seriesId: snapshot.seriesId,
+    },
+    sync: {
+      clientModifiedAt: snapshot.clientModifiedAt,
+      clientInstanceId: snapshot.clientInstanceId,
+      hasLocalChanges: snapshot.hasLocalChanges,
+      staleReferencesReset: snapshot.staleReferencesReset,
+      contractValidationFailed: snapshot.contractValidationFailed,
+    },
+    uploads: {
+      fileIds: snapshot.fileIds,
+      unassociatedUploadFileIds: snapshot.unassociatedUploadFileIds,
+    },
+  }
 }
 
 function getUnparseableSnapshotModifiedAt(value: Record<string, unknown>): number | null {
@@ -112,9 +190,10 @@ function hasDraftPayloadContractViolation(value: Record<string, unknown>): boole
 }
 
 function parseDraftRecoverySnapshot(
-  value: unknown,
+  rawValue: unknown,
   now = Date.now(),
 ): DraftRecoverySnapshot | null {
+  const value = flattenStoredDraftSnapshot(rawValue)
   if (!isRecord(value)) return null
   if (value.schemaVersion !== undefined && value.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION) return null
   if (typeof value.boardUrl !== 'string' || !value.boardUrl.trim()
@@ -190,19 +269,18 @@ function readStoredDraftSnapshot(key: string, now = Date.now()): StoredDraftRead
     Storage.remove(key)
     return { status: 'invalid', rawSize: 0 }
   }
-  const normalizedOwnershipChanged = isRecord(parsed)
-    && JSON.stringify(parsed.unassociatedUploadFileIds)
+  const flattenedParsed = flattenStoredDraftSnapshot(parsed)
+  const normalizedOwnershipChanged = isRecord(flattenedParsed)
+    && JSON.stringify(flattenedParsed.unassociatedUploadFileIds)
       !== JSON.stringify(snapshot.unassociatedUploadFileIds)
   let normalizedRawSize = rawSize
   if (!isRecord(parsed)
+    || !isRecord(parsed.target)
     || parsed.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION
-    || parsed.clientModifiedAt !== snapshot.clientModifiedAt
-    || parsed.clientDraftKey !== snapshot.clientDraftKey
-    || parsed.clientInstanceId !== snapshot.clientInstanceId
-    || parsed.contractValidationFailed !== snapshot.contractValidationFailed
     || normalizedOwnershipChanged) {
-    if (Storage.set(key, snapshot)) {
-      normalizedRawSize = JSON.stringify(snapshot).length * 2
+    const storedSnapshot = toStoredDraftSnapshot(snapshot)
+    if (Storage.set(key, storedSnapshot)) {
+      normalizedRawSize = JSON.stringify(storedSnapshot).length * 2
     }
   }
   return { status: 'valid', snapshot, rawSize: normalizedRawSize }
@@ -215,26 +293,44 @@ export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRec
 
 export function cleanupExpiredDraftSnapshots(now = Date.now()) {
   for (const key of Storage.keys()) {
-    if (!key.startsWith(DRAFT_STORAGE_PREFIX)) continue
+    if (!key.startsWith(DRAFT_STORAGE_PREFIX)
+      && !key.startsWith(LEGACY_DRAFT_STORAGE_PREFIX)) continue
     readStoredDraftSnapshot(key, now)
   }
 }
 
-export function clearStoredDraftSnapshotsForUser(userId: string | number) {
-  const userPrefix = `${DRAFT_STORAGE_PREFIX}${userId}:`
+export function cleanupLegacyDraftStorage() {
   let removed = 0
   for (const key of Storage.keys()) {
-    if (!key.startsWith(userPrefix)) continue
+    if (!key.startsWith(LEGACY_DRAFT_STORAGE_PREFIX)
+      && !key.startsWith(LEGACY_DRAFT_TOMBSTONE_PREFIX)
+      && !LEGACY_DRAFT_EVENT_KEYS.has(key)) continue
+    if (Storage.remove(key)) removed++
+  }
+  return removed
+}
+
+export function clearStoredDraftSnapshotsForUser(userId: string | number) {
+  const userPrefixes = [
+    `${DRAFT_STORAGE_PREFIX}${userId}:`,
+    `${LEGACY_DRAFT_STORAGE_PREFIX}${userId}:`,
+  ]
+  let removed = 0
+  for (const key of Storage.keys()) {
+    if (!userPrefixes.some((prefix) => key.startsWith(prefix))) continue
     if (Storage.remove(key)) removed++
   }
   return removed
 }
 
 export function countUnsyncedStoredDraftSnapshotsForUser(userId: string | number) {
-  const userPrefix = `${DRAFT_STORAGE_PREFIX}${userId}:`
+  const userPrefixes = [
+    `${DRAFT_STORAGE_PREFIX}${userId}:`,
+    `${LEGACY_DRAFT_STORAGE_PREFIX}${userId}:`,
+  ]
   let count = 0
   for (const key of Storage.keys()) {
-    if (!key.startsWith(userPrefix)) continue
+    if (!userPrefixes.some((prefix) => key.startsWith(prefix))) continue
     const result = readStoredDraftSnapshot(key)
     if (result.status === 'preserved-unknown'
       || (result.status === 'valid' && result.snapshot.hasLocalChanges !== false)) count++
@@ -249,10 +345,7 @@ export function countUnsyncedStoredDraftSnapshotsForUser(userId: string | number
 export function storeDraftSnapshot(key: string, snapshot: DraftRecoverySnapshot): boolean {
   if (readStoredDraftSnapshot(key).status === 'preserved-unknown') return false
 
-  const versionedSnapshot = {
-    ...snapshot,
-    schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
-  }
+  const versionedSnapshot = toStoredDraftSnapshot(snapshot)
   let rawSize: number
   try {
     rawSize = JSON.stringify(versionedSnapshot).length * 2

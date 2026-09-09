@@ -49,7 +49,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     && !!options.boardUrl.value
   ))
   const legacyDraftStorageKey = computed(() =>
-    `noviis:draft:${options.userId.value ?? 'guest'}:${options.mode()}:${options.boardUrl.value || 'unknown'}:${options.postId.value || 'new'}`,
+    `noviis:draft-v2:${options.userId.value ?? 'guest'}:${options.mode()}:${options.boardUrl.value || 'unknown'}:${options.postId.value || 'new'}`,
   )
   const draftStorageKey = computed(() => {
     const preferredDraftId = options.preferredDraftId?.value

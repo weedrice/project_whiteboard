@@ -14,6 +14,7 @@ import {
 import { closeDraftScheduledChannelForTest } from '@/features/board/posts/draft/postDraftScheduledEvent'
 import { closeDraftUpdatedChannelForTest } from '@/features/board/posts/draft/postDraftUpdatedEvent'
 import { createDraftContentFingerprint } from '@/features/board/posts/draft/postDraftRecovery'
+import { loadStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 
 const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
@@ -127,7 +128,7 @@ function dispatchDraftUpdatedEvent({
 }) {
     draftUpdateEventSequence++
     window.dispatchEvent(new StorageEvent('storage', {
-        key: 'noviis:draft-updated-event',
+        key: 'noviis:draft-session-event:v2',
         newValue: JSON.stringify({
             type: 'draft-updated',
             eventId: `updated-event-${draftUpdateEventSequence}`,
@@ -144,7 +145,7 @@ function dispatchDraftUpdatedEvent({
 }
 
 function getStoredDraftSnapshot(storageKey = 'noviis:test:draft'): DraftRecoverySnapshot {
-    const snapshot = Storage.get<DraftRecoverySnapshot>(storageKey)
+    const snapshot = loadStoredDraftSnapshot(storageKey)
     if (!snapshot) throw new Error(`Missing stored draft snapshot: ${storageKey}`)
     return snapshot
 }
@@ -223,7 +224,7 @@ describe('usePostDraft', () => {
             version: undefined,
             updatedAt: undefined,
         })
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 91,
             clientDraftKey: 'client-draft-key-1234',
             version: 0,
@@ -315,8 +316,8 @@ describe('usePostDraft', () => {
             fileIds: [],
             seriesId: null,
         }), expect.objectContaining({ fileIds: [7] }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ fileIds: [] }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('seriesId')
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({ fileIds: [] }))
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('seriesId')
     })
 
     it('schedules a bounded retry when immediate reference recovery is exhausted', async () => {
@@ -493,7 +494,7 @@ describe('usePostDraft', () => {
         await composable.saveNow()
 
         expect(composable.lastSavedAt.value).toBe('2026-07-07T12:00:00.000Z')
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 92,
             updatedAt: '2026-07-07T12:00:00.000Z',
         }))
@@ -558,7 +559,7 @@ describe('usePostDraft', () => {
             title: 'Server title',
             updatedAt: '2025-01-02T00:00:00.000Z',
         }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 91,
             title: 'Server title',
             updatedAt: '2025-01-02T00:00:00.000Z',
@@ -766,7 +767,7 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
 
         expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ categoryId: 12 }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             categoryId: 12,
             staleReferencesReset: true,
             hasLocalChanges: true,
@@ -841,7 +842,7 @@ describe('usePostDraft', () => {
         }
 
         window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:draft-scheduled-event',
+            key: 'noviis:draft-session-event:v2',
             newValue: JSON.stringify(message),
         }))
         await vi.advanceTimersByTimeAsync(10_000)
@@ -871,7 +872,7 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
 
         window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:draft-scheduled-event',
+            key: 'noviis:draft-session-event:v2',
             newValue: JSON.stringify({
                 type: 'draft-scheduled',
                 eventId: 'scheduled-event-with-local-edits',
@@ -896,11 +897,11 @@ describe('usePostDraft', () => {
             seriesId: 8,
             hasLocalChanges: true,
         }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'Unsaved protected edit',
             hasLocalChanges: true,
         }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('draftId')
 
         mocks.saveDraftMutateAsync.mockClear()
         await composable.saveProtectedDraftAsNew()
@@ -968,7 +969,7 @@ describe('usePostDraft', () => {
             updatedAt: '2025-01-02T00:00:00.000Z',
         }))
         expect(composable.draftConflict.value).toBe(false)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             hasLocalChanges: false,
             updatedAt: '2025-01-04T00:00:00.000Z',
         }))
@@ -1116,7 +1117,7 @@ describe('usePostDraft', () => {
         await savePromise
 
         expect(composable.contractValidationFailed.value).toBe(true)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'x'.repeat(201),
             contractValidationFailed: true,
             hasLocalChanges: true,
@@ -1131,7 +1132,7 @@ describe('usePostDraft', () => {
         const { composable } = mountComposable()
 
         const savePromise = composable.saveNow()
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ title: 'Draft title' }))
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({ title: 'Draft title' }))
 
         composable.clearPublishedDraftRecovery()
         resolveSave({
@@ -1267,7 +1268,7 @@ describe('usePostDraft', () => {
             draftId: 91,
             title: 'Latest editor title',
         }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 91,
             title: 'Latest editor title',
         }))
@@ -1595,7 +1596,7 @@ describe('usePostDraft', () => {
         expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith({ draftId: 91, version: 0 })
         expect(composable.draftId.value).toBeNull()
         expect(Storage.get('noviis:test:draft')).toBeNull()
-        expect(Storage.get('noviis:draft-deleted:7:91')).toEqual({
+        expect(Storage.get('noviis:draft-deleted-v2:7:91')).toEqual({
             deletedAt: '2026-07-07T12:00:00.000Z',
         })
     })
@@ -1654,7 +1655,7 @@ describe('usePostDraft', () => {
         await composable.saveNow()
 
         expect(Storage.has('noviis:test:draft')).toBe(false)
-        expect(Storage.get('noviis:test:draft:91')).toEqual(expect.objectContaining({
+        expect(loadStoredDraftSnapshot('noviis:test:draft:91')).toEqual(expect.objectContaining({
             draftId: 91,
             clientDraftKey: 'client-draft-key-1234',
             hasLocalChanges: false,
@@ -1675,7 +1676,7 @@ describe('usePostDraft', () => {
 
         await expect(composable.saveNow()).rejects.toThrow('delete failed')
         expect(composable.draftId.value).toBe(91)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 91,
             title: 'Draft title',
         }))
@@ -1742,12 +1743,12 @@ describe('usePostDraft', () => {
         }))
         expect(composable.restoreSource.value).toBe('local')
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
-            schemaVersion: 1,
-            hasLocalChanges: true,
+            schemaVersion: 2,
+            sync: expect.objectContaining({ hasLocalChanges: true }),
         }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('version')
-        expect(Storage.get('noviis:test:draft')).not.toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('draftId')
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('version')
+        expect(getStoredDraftSnapshot()).not.toEqual(expect.objectContaining({
             clientDraftKey: 'client-draft-key-1234',
         }))
         expect(mocks.loggerError).not.toHaveBeenCalled()
@@ -1780,7 +1781,7 @@ describe('usePostDraft', () => {
             fileIds: [32],
             unassociatedUploadFileIds: [32],
         }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             fileIds: [32],
             unassociatedUploadFileIds: [32],
         }))
@@ -1808,7 +1809,7 @@ describe('usePostDraft', () => {
         expect(composable.restoreFailed.value).toBe(true)
         expect(composable.draftId.value).toBe(91)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Local draft' }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ draftId: 91 }))
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({ draftId: 91 }))
     })
 
     it('updates an existing server draft when only its category remains', async () => {
@@ -1847,7 +1848,7 @@ describe('usePostDraft', () => {
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
         expect(mocks.deleteDraftMutateAsync).not.toHaveBeenCalled()
         expect(composable.lastSaveScope.value).toBe('browser')
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ categoryId: 5 }))
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({ categoryId: 5 }))
     })
 
     it('does not create an unsynced local snapshot for a completely empty draft', async () => {
@@ -1938,9 +1939,10 @@ describe('usePostDraft', () => {
         const ownerId = ref<number | null>(7)
         const { composable } = mountComposable(undefined, undefined, undefined, ownerId)
         await composable.saveNow()
-        const peer = new FakeBroadcastChannel('noviis-draft-deleted')
+        const peer = new FakeBroadcastChannel('noviis-draft-session-v2')
         peer.postMessage({
             type: 'draft-deleted',
+            eventId: 'peer-delete-91',
             sourceId: 'peer-tab',
             ownerId: '7',
             draftId: '91',
@@ -1986,11 +1988,11 @@ describe('usePostDraft', () => {
 
         expect(composable.draftDeleted.value).toBe(true)
         expect(composable.draftId.value).toBeNull()
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'Draft title',
             hasLocalChanges: true,
         }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('draftId')
     })
 
     it('falls back to a replacement server draft after a stale local draft id returns 404', async () => {
@@ -2106,7 +2108,7 @@ describe('usePostDraft', () => {
 
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(true)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'Typed while restoring',
             hasLocalChanges: true,
         }))
@@ -2259,7 +2261,7 @@ describe('usePostDraft', () => {
             undefined,
             (draftId) => `noviis:test:draft:${draftId}`,
         )
-        const peer = new FakeBroadcastChannel('noviis-draft-updated')
+        const peer = new FakeBroadcastChannel('noviis-draft-session-v2')
         composable.writeLocalSnapshot()
         const clientDraftKey = getStoredClientDraftKey()
 
@@ -2450,11 +2452,11 @@ describe('usePostDraft', () => {
     it('does not treat local backup removal as server draft deletion', async () => {
         const { composable } = mountComposable(undefined, ref('noviis:test:draft'), ref(true), ref(7))
         await composable.saveNow()
-        const snapshot = Storage.get<DraftRecoverySnapshot>('noviis:test:draft')
+        const snapshot = Storage.get<Record<string, unknown>>('noviis:test:draft')
 
         window.dispatchEvent(new StorageEvent('storage', {
             key: 'noviis:test:draft',
-            oldValue: JSON.stringify({ ...snapshot, clientInstanceId: 'other-tab' }),
+            oldValue: JSON.stringify(snapshot),
             newValue: null,
         }))
 
@@ -2468,7 +2470,7 @@ describe('usePostDraft', () => {
 
         composable.clearPublishedDraftRecovery()
 
-        expect(Storage.get('noviis:draft-deleted:7:91')).toEqual({
+        expect(Storage.get('noviis:draft-deleted-v2:7:91')).toEqual({
             deletedAt: '2026-07-07T12:00:00.000Z',
         })
         expect(Storage.get('noviis:test:draft')).toBeNull()
@@ -2496,7 +2498,7 @@ describe('usePostDraft', () => {
         expect(composable.draftDeleted.value).toBe(true)
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSaveFailed.value).toBe(false)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'Preserved after deletion',
             categoryId: 5,
             fileIds: [],
@@ -2504,7 +2506,7 @@ describe('usePostDraft', () => {
             staleReferencesReset: true,
             hasLocalChanges: true,
         }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('draftId')
 
         await expect(composable.saveDeletedDraftAsNew()).resolves.toBe(true)
 
@@ -2547,7 +2549,7 @@ describe('usePostDraft', () => {
             contents: '<img src="/api/v1/files/8">',
             fileIds: [8],
         }))
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             contents: '<img src="/api/v1/files/8">',
             fileIds: [8],
             unassociatedUploadFileIds: [8],
@@ -2570,7 +2572,7 @@ describe('usePostDraft', () => {
 
             expect(composable.draftDeleted.value).toBe(true)
             expect(composable.lastLocalSaveFailed.value).toBe(true)
-            expect(Storage.get('noviis:test:draft')).not.toEqual(expect.objectContaining({
+            expect(getStoredDraftSnapshot()).not.toEqual(expect.objectContaining({
                 title: 'Memory-only recovery',
             }))
             expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith('local_storage_write_failed')
@@ -2596,7 +2598,7 @@ describe('usePostDraft', () => {
         expect(composable.draftDeleted.value).toBe(false)
         expect(composable.draftId.value).toBe(91)
         expect(composable.lastSaveFailed.value).toBe(true)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             draftId: 91,
             title: 'Still recoverable',
         }))
@@ -2612,13 +2614,13 @@ describe('usePostDraft', () => {
         await composable.saveNow()
 
         window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:draft-deleted:7:91',
+            key: 'noviis:draft-deleted-v2:7:91',
             newValue: JSON.stringify({ deletedAt: '2026-07-07T13:00:00.000Z' }),
         }))
 
         expect(composable.draftDeleted.value).toBe(true)
         expect(composable.draftId.value).toBeNull()
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
             title: 'Draft title',
             hasLocalChanges: true,
         }))

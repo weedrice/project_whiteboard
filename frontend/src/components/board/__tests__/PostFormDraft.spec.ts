@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { Storage } from '@/utils/storage'
+import { loadStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   findButtonByText,
   getLastCreatePostVariables,
@@ -415,7 +416,7 @@ describe('PostForm draft behavior', () => {
       isAuthenticated: true,
       user: { userId: 1, role: 'USER' },
     })
-    Storage.set('noviis:draft:1:create:free:new:draft-91', {
+    Storage.set('noviis:draft-v2:1:create:free:new:draft-91', {
       draftId: 91,
       boardUrl: 'free',
       title: 'First draft',
@@ -425,7 +426,7 @@ describe('PostForm draft behavior', () => {
       clientModifiedAt: '2026-08-02T00:00:00.000Z',
       hasLocalChanges: true,
     })
-    Storage.set('noviis:draft:1:create:free:new:draft-92', {
+    Storage.set('noviis:draft-v2:1:create:free:new:draft-92', {
       draftId: 92,
       boardUrl: 'free',
       title: 'Second draft',
@@ -436,7 +437,7 @@ describe('PostForm draft behavior', () => {
     const wrapper = mountPostForm('create', {}, {}, { postId: '', initialDraftId: '91' })
     await flushPromises()
     expect(wrapper.get('#title').element).toHaveProperty('value', 'First draft')
-    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
       fileIds: [61],
     }))
 
@@ -445,7 +446,7 @@ describe('PostForm draft behavior', () => {
 
     expect(wrapper.get('#title').element).toHaveProperty('value', 'Second draft')
     expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', 'Second body')
-    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
       fileIds: [61],
     }))
   })
@@ -457,7 +458,7 @@ describe('PostForm draft behavior', () => {
         isAuthenticated: true,
         user: { userId: 1, role: 'USER' },
       })
-      Storage.set('noviis:draft:1:create:free:new', {
+      Storage.set('noviis:draft-v2:1:create:free:new', {
         boardUrl: 'free',
         title: 'Route draft',
         contents: 'Route draft body',
@@ -478,7 +479,7 @@ describe('PostForm draft behavior', () => {
       isAuthenticated: true,
       user: { userId: 1, role: 'USER' },
     })
-    const storageKey = 'noviis:draft:1:create:free:new'
+    const storageKey = 'noviis:draft-v2:1:create:free:new'
     Storage.set(storageKey, {
       draftId: 91,
       boardUrl: 'free',
@@ -491,7 +492,7 @@ describe('PostForm draft behavior', () => {
     mountPostForm('create', {}, {}, { postId: '' })
     await flushPromises()
 
-    expect(Storage.get(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
       title: 'Recovered draft',
       hasLocalChanges: false,
     }))
@@ -505,7 +506,7 @@ describe('PostForm draft behavior', () => {
       user: { userId: 1, role: 'USER' },
     })
     setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
-    const storageKey = 'noviis:draft:1:create:free:new'
+    const storageKey = 'noviis:draft-v2:1:create:free:new'
     Storage.set(storageKey, {
       draftId: 91,
       boardUrl: 'free',
@@ -520,7 +521,7 @@ describe('PostForm draft behavior', () => {
     await flushPromises()
 
     expect(wrapper.get('#category').element).toHaveProperty('value', '12')
-    expect(Storage.get(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
       categoryId: 12,
       staleReferencesReset: true,
     }))
@@ -601,7 +602,7 @@ describe('PostForm draft behavior', () => {
       version: 1,
       categoryId: 12,
     }))
-    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
       categoryId: 12,
       version: 2,
       hasLocalChanges: false,
@@ -668,7 +669,7 @@ describe('PostForm draft behavior', () => {
       version: 2,
       categoryId: 13,
     }))
-    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
       categoryId: 13,
       version: 3,
       hasLocalChanges: false,
@@ -688,7 +689,7 @@ describe('PostForm draft behavior', () => {
 
     window.dispatchEvent(new Event('pagehide'))
 
-    expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new')).toEqual(expect.objectContaining({
       title: 'Typed immediately before page hide',
       hasLocalChanges: true,
     }))
@@ -712,7 +713,7 @@ describe('PostForm draft behavior', () => {
       window.dispatchEvent(new Event('pagehide'))
 
       expect(setItem).toHaveBeenCalledTimes(2)
-      expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+      expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new')).toEqual(expect.objectContaining({
         title: 'Retry this local snapshot',
         hasLocalChanges: true,
       }))
@@ -726,7 +727,7 @@ describe('PostForm draft behavior', () => {
       isAuthenticated: true,
       user: { userId: 1, role: 'USER' },
     })
-    const storageKey = 'noviis:draft:1:create:free:new'
+    const storageKey = 'noviis:draft-v2:1:create:free:new'
     Storage.set(storageKey, {
       draftId: 91,
       boardUrl: 'free',
@@ -770,7 +771,7 @@ describe('PostForm draft behavior', () => {
 
     wrapper.unmount()
 
-    expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot('noviis:draft-v2:1:create:free:new')).toEqual(expect.objectContaining({
       title: 'Typed immediately before route change',
       hasLocalChanges: true,
     }))
@@ -781,7 +782,7 @@ describe('PostForm draft behavior', () => {
       isAuthenticated: true,
       user: { userId: 1, role: 'USER' },
     })
-    const storageKey = 'noviis:draft:1:create:free:new'
+    const storageKey = 'noviis:draft-v2:1:create:free:new'
     Storage.set(storageKey, {
       draftId: 91,
       boardUrl: 'free',
@@ -795,7 +796,7 @@ describe('PostForm draft behavior', () => {
 
     window.dispatchEvent(new Event('pagehide'))
 
-    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+    expect(loadStoredDraftSnapshot(storageKey)).toEqual(expect.objectContaining({
       title: 'Canonical draft',
       hasLocalChanges: false,
     }))

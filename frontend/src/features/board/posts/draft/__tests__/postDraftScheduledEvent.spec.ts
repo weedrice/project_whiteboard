@@ -38,14 +38,14 @@ describe('draft scheduled cross-tab channel', () => {
     }
     vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
     registerDraftScheduledListener(() => undefined)
-    const peer = new FakeBroadcastChannel('noviis-draft-scheduled')
+    const peer = new FakeBroadcastChannel('noviis-draft-session-v2')
     const received: unknown[] = []
     peer.addEventListener('message', (event) => received.push(event.data))
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError')
     })
 
-    publishDraftScheduledEvent(1, 91, 'client-draft-key-1234', 'noviis:draft:1:edit:91')
+    publishDraftScheduledEvent(1, 91, 'client-draft-key-1234')
 
     expect(received).toHaveLength(1)
     expect(received[0]).toMatchObject({
@@ -67,18 +67,17 @@ describe('draft scheduled cross-tab channel', () => {
       ownerId: '1',
       draftId: 91,
       clientDraftKey: 'client-draft-key-1234',
-      storageKey: 'noviis:draft:1:edit:91',
       at: Date.now(),
     } as const
 
     for (let index = 0; index < 2; index++) {
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'noviis:draft-scheduled-event',
+        key: 'noviis:draft-session-event:v2',
         newValue: JSON.stringify(message),
       }))
     }
     window.dispatchEvent(new StorageEvent('storage', {
-      key: 'noviis:draft-scheduled-event',
+      key: 'noviis:draft-session-event:v2',
       newValue: JSON.stringify({
         ...message,
         eventId: 'expired-event',
@@ -97,7 +96,6 @@ describe('draft scheduled cross-tab channel', () => {
       ownerId: '1',
       draftId: null,
       clientDraftKey: 'original-draft-key',
-      storageKey: 'noviis:draft:1:create:free',
       at: Date.now(),
     } as const
 
@@ -106,7 +104,6 @@ describe('draft scheduled cross-tab channel', () => {
       1,
       null,
       'different-draft-key',
-      'noviis:draft:1:create:free',
     )).toBe(false)
   })
 })
