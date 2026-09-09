@@ -18,6 +18,7 @@ import { useToastStore } from '@/stores/toast'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
+import PostDraftActions from '@/components/board/PostDraftActions.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
@@ -279,11 +280,20 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
   createSeries: handleCreateSeries,
 })
 
+function getLeaveState() {
+  return {
+    dirty: hasUnsavedChanges.value,
+    submitting: isSubmissionLocked.value,
+    message: leaveConfirmMessage.value,
+  }
+}
+
 function onBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasUnsavedChanges.value && !isSubmitting.value && !isSubmissionLocked.value) return
+  const leaveState = getLeaveState()
+  if (!leaveState.dirty && !leaveState.submitting) return
   event.preventDefault()
-  event.returnValue = leaveConfirmMessage.value
-  return leaveConfirmMessage.value
+  event.returnValue = leaveState.message
+  return leaveState.message
 }
 
 function resetFormIdentityState() {
@@ -346,25 +356,14 @@ watch(scheduledPost, hydrateScheduledPost, { immediate: true })
 
 const {
   draftEnabled,
-  draftStatusLabel,
+  draftPresentation,
   draftId,
   draftConflict,
   draftProtected,
-  protectedDraftForkAvailable,
   draftDeleted,
-  restoreFailed,
-  isRestoringDraft,
   isSavingDraft,
-  lastSaveFailed,
   saveDraftNow,
-  handleSaveDraft,
-  handleReloadServerDraft,
-  handleKeepLocalDraft,
-  handleRetryDraftRestore,
-  handleSaveDeletedDraftAsNew,
-  handleDiscardDeletedDraft,
-  handleSaveProtectedDraftAsNew,
-  handleDiscardProtectedDraft,
+  executeDraftAction,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
   flushLatestLocalSnapshot,
@@ -464,6 +463,21 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   },
 })
 
+const effectiveDraftPresentation = computed(() => ({
+  ...draftPresentation.value,
+  actions: draftPresentation.value.actions.map((action) => ({
+    ...action,
+    disabled: action.disabled || isSubmitting.value || isSubmissionLocked.value,
+  })),
+}))
+const hasSaveDraftAction = computed(() => (
+  effectiveDraftPresentation.value.actions.length === 1
+  && effectiveDraftPresentation.value.actions[0]?.id === 'save'
+))
+const hasBlockingDraftActions = computed(() => (
+  effectiveDraftPresentation.value.actions.length > 0 && !hasSaveDraftAction.value
+))
+
 function handleCancel() {
   if (isSubmitting.value || isSubmissionLocked.value) return
   emit('cancel')
@@ -509,7 +523,7 @@ const {
   t,
   addToast: toastStore.addToast,
   handleSubmit,
-  handleSaveDraft,
+  handleSaveDraft: () => executeDraftAction('save'),
   handleCancel,
   onBeforeUnload,
 })
@@ -527,10 +541,8 @@ function assignVideoPopover(value: Element | ComponentPublicInstance | null) {
 }
 
 defineExpose({
-  hasUnsavedChanges: () => hasUnsavedChanges.value,
-  isSubmissionInProgress: () => isSubmissionLocked.value,
-  getLeaveConfirmMessage: () => leaveConfirmMessage.value,
-  flushPendingDraft: flushLatestLocalSnapshot,
+  getLeaveState,
+  flushDraft: flushLatestLocalSnapshot,
 })
 </script>
 
@@ -618,26 +630,10 @@ defineExpose({
           <PostFormSidePanel
             :metadata-panel-props="metadataPanelProps"
             :metadata-panel-handlers="metadataPanelHandlers"
-            :draft-status-label="draftStatusLabel"
-            :draft-enabled="draftEnabled"
-            :is-saving-draft="isSavingDraft"
-            :is-restoring-draft="isRestoringDraft"
-            :draft-conflict="draftConflict"
-            :draft-protected="draftProtected"
-            :protected-draft-fork-available="protectedDraftForkAvailable"
-            :draft-deleted="draftDeleted"
-            :restore-failed="restoreFailed"
-            :save-failed="lastSaveFailed"
+            :draft-presentation="effectiveDraftPresentation"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
-            @save-draft="handleSaveDraft"
-            @reload-server-draft="handleReloadServerDraft"
-            @keep-local-draft="handleKeepLocalDraft"
-            @retry-restore="handleRetryDraftRestore"
-            @save-deleted-as-new="handleSaveDeletedDraftAsNew"
-            @discard-deleted="handleDiscardDeletedDraft"
-            @save-protected-as-new="handleSaveProtectedDraftAsNew"
-            @discard-protected="handleDiscardProtectedDraft"
+            @draft-action="executeDraftAction"
             @update:scheduled-at="scheduledAt = $event"
           />
         </fieldset>
@@ -645,96 +641,14 @@ defineExpose({
     </div>
 
     <div class="nv-compose-mobile-actions nv-elevated-surface sm:hidden">
-      <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
-        {{ draftStatusLabel }}
+      <div v-if="effectiveDraftPresentation.label" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
+        {{ effectiveDraftPresentation.label }}
       </div>
-      <div v-if="draftDeleted" class="grid grid-cols-2 gap-2">
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleSaveDeletedDraftAsNew"
-        >
-          {{ $t('board.writePost.draftStatus.saveAsNew') }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleDiscardDeletedDraft"
-        >
-          {{ $t('board.writePost.draftStatus.discardLocal') }}
-        </BaseButton>
-      </div>
-      <div v-else-if="draftConflict" class="grid grid-cols-2 gap-2">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleReloadServerDraft"
-        >
-          {{ $t('board.writePost.draftStatus.reloadServer') }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleKeepLocalDraft"
-        >
-          {{ $t('board.writePost.draftStatus.keepLocal') }}
-        </BaseButton>
-      </div>
-      <div v-else-if="draftProtected && protectedDraftForkAvailable" class="grid grid-cols-2 gap-2">
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleSaveProtectedDraftAsNew"
-        >
-          {{ $t('board.writePost.draftStatus.saveAsNew') }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
-          @click="handleDiscardProtectedDraft"
-        >
-          {{ $t('board.writePost.draftStatus.discardLocal') }}
-        </BaseButton>
-      </div>
-      <BaseButton
-        v-else-if="draftProtected"
-        type="button"
-        variant="secondary"
-        size="sm"
-        class="min-h-[36px] w-full"
-        to="/mypage/drafts"
-      >
-        {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
-      </BaseButton>
-      <BaseButton
-        v-else-if="restoreFailed"
-        type="button"
-        variant="secondary"
-        size="sm"
-        class="min-h-[36px] w-full"
-        :disabled="isRestoringDraft || isSubmitting || isSubmissionLocked"
-        @click="handleRetryDraftRestore"
-      >
-        {{ $t('board.writePost.draftStatus.retryRestore') }}
-      </BaseButton>
+      <PostDraftActions
+        v-if="hasBlockingDraftActions"
+        :presentation="effectiveDraftPresentation"
+        @action="executeDraftAction"
+      />
       <div class="flex items-center gap-2">
         <BaseButton
           type="button"
@@ -757,21 +671,12 @@ defineExpose({
         >
           {{ $t('board.writePost.actions.preview') }}
         </BaseButton>
-        <BaseButton
-          v-else-if="draftEnabled && !draftConflict && !draftProtected && !draftDeleted"
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[40px] flex-1"
-          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
-          @click="handleSaveDraft"
-        >
-          {{ isSavingDraft
-            ? $t('board.writePost.draftStatus.saving')
-            : lastSaveFailed
-              ? $t('board.writePost.draftStatus.retryNow')
-              : $t('board.writePost.actions.saveDraft') }}
-        </BaseButton>
+        <PostDraftActions
+          v-else-if="hasSaveDraftAction"
+          :presentation="effectiveDraftPresentation"
+          inline
+          @action="executeDraftAction"
+        />
         <BaseButton
           type="button"
           variant="primary"
@@ -784,21 +689,12 @@ defineExpose({
           {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}
         </BaseButton>
       </div>
-      <BaseButton
-        v-if="!props.hidePreview && draftEnabled && !draftConflict && !draftProtected && !draftDeleted"
-        type="button"
-        variant="secondary"
-        size="sm"
-        class="mt-2 min-h-[36px] w-full"
-        :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
-        @click="handleSaveDraft"
-      >
-        {{ isSavingDraft
-          ? $t('board.writePost.draftStatus.saving')
-          : lastSaveFailed
-            ? $t('board.writePost.draftStatus.retryNow')
-            : $t('board.writePost.actions.saveDraft') }}
-      </BaseButton>
+      <PostDraftActions
+        v-if="!props.hidePreview && hasSaveDraftAction"
+        class="mt-2"
+        :presentation="effectiveDraftPresentation"
+        @action="executeDraftAction"
+      />
     </div>
 
     <PostPreviewModal

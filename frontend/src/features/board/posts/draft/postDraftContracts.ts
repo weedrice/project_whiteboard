@@ -43,3 +43,17 @@ export type DraftActionId =
   | 'save-as-new'
   | 'discard-local'
   | 'open-scheduled'
+
+export interface DraftPresentationAction {
+  id: DraftActionId
+  label: string
+  variant: 'primary' | 'secondary'
+  disabled: boolean
+  to?: string
+}
+
+export interface DraftPresentation {
+  label: string
+  busy: boolean
+  actions: DraftPresentationAction[]
+}

@@ -37,15 +37,13 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
     },
     emits: ['cancel'],
     setup(props, { expose, emit }) {
-      const exposed: Record<string, unknown> = {
-        hasUnsavedChanges: () => hasUnsavedChanges,
-      }
-      if (leaveMessage !== undefined) {
-        exposed.getLeaveConfirmMessage = () => leaveMessage
-      }
-      expose(exposed as {
-        hasUnsavedChanges: () => boolean
-        getLeaveConfirmMessage?: () => string
+      expose({
+        getLeaveState: () => ({
+          dirty: hasUnsavedChanges,
+          submitting: false,
+          message: leaveMessage ?? '',
+        }),
+        flushDraft: () => true,
       })
       return () => h('button', {
         type: 'button',

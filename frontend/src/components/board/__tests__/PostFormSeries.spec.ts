@@ -2,7 +2,7 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryClient } from '@/queryClient'
 import { createDeferred } from '@/test/async'
-import { Storage } from '@/utils/storage'
+import { storeDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   findButtonByText,
   mockAddToast,
@@ -97,7 +97,7 @@ describe('PostForm series creation identity', () => {
     mockGetPostSeries.mockResolvedValueOnce({
       data: { data: [{ seriesId: 10, title: 'Available series' }] },
     })
-    Storage.set('noviis:draft:1:create:free:new', {
+    storeDraftSnapshot('noviis:draft-v2:1:create:free:new', {
       draftId: 91,
       boardUrl: 'free',
       title: 'Recovered draft',

@@ -1,12 +1,15 @@
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 
+export interface PostFormLeaveState {
+    dirty: boolean
+    submitting: boolean
+    message: string
+}
+
 export interface PostFormLeaveGuardTarget {
-    hasUnsavedChanges?: () => boolean
-    isSubmissionInProgress?: () => boolean
-    consumeSuccessfulSubmissionNavigation?: () => boolean
-    getLeaveConfirmMessage?: () => string
-    flushPendingDraft?: () => boolean
+    getLeaveState: () => PostFormLeaveState
+    flushDraft: () => boolean
 }
 
 export type PostFormLeaveConfirm = (message: string) => boolean | Promise<boolean>
@@ -18,20 +21,19 @@ export function usePostFormLeaveGuard(
 ) {
     const guardNavigation = async () => {
         const form = postFormRef.value
-        if (form?.consumeSuccessfulSubmissionNavigation?.()) {
-            return true
-        }
-        const hasUnsavedChanges = form?.hasUnsavedChanges?.() ?? false
-        if (form?.isSubmissionInProgress?.()) {
+        if (!form) return true
+
+        const leaveState = form.getLeaveState()
+        if (leaveState.submitting) {
             return false
         }
-        if (hasUnsavedChanges) {
-            const message = form?.getLeaveConfirmMessage?.() ?? fallbackMessage
+        if (leaveState.dirty) {
+            const message = leaveState.message || fallbackMessage
             if (!await confirmLeave(message)) {
                 return false
             }
         }
-        if (hasUnsavedChanges && form?.flushPendingDraft?.() === false) {
+        if (leaveState.dirty && !form.flushDraft()) {
             return false
         }
         return true

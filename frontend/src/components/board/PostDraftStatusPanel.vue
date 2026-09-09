@@ -1,28 +1,13 @@
 <script setup lang="ts">
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PostDraftActions from '@/components/board/PostDraftActions.vue'
+import type { DraftActionId, DraftPresentation } from '@/features/board/posts/draft/postDraftContracts'
 
 defineProps<{
-  label: string
-  draftEnabled: boolean
-  isSavingDraft: boolean
-  isRestoringDraft: boolean
-  draftConflict: boolean
-  draftProtected: boolean
-  protectedDraftForkAvailable: boolean
-  draftDeleted: boolean
-  restoreFailed: boolean
-  saveFailed: boolean
+  presentation: DraftPresentation
 }>()
 
 defineEmits<{
-  saveDraft: []
-  reloadServerDraft: []
-  keepLocalDraft: []
-  retryRestore: []
-  saveDeletedAsNew: []
-  discardDeleted: []
-  saveProtectedAsNew: []
-  discardProtected: []
+  action: [action: DraftActionId]
 }>()
 </script>
 
@@ -32,110 +17,8 @@ defineEmits<{
       <p class="nv-kicker">{{ $t('board.writePost.sections.draftState') }}</p>
     </div>
     <div class="flex flex-col gap-3">
-      <p class="text-sm text-[var(--nv-ink-soft)]">{{ label }}</p>
-      <template v-if="draftDeleted">
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          full-width
-          :disabled="isSavingDraft || isRestoringDraft"
-          @click="$emit('saveDeletedAsNew')"
-        >
-          {{ $t('board.writePost.draftStatus.saveAsNew') }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          full-width
-          :disabled="isSavingDraft || isRestoringDraft"
-          @click="$emit('discardDeleted')"
-        >
-          {{ $t('board.writePost.draftStatus.discardLocal') }}
-        </BaseButton>
-      </template>
-      <template v-else-if="draftConflict">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          full-width
-          :disabled="isSavingDraft || isRestoringDraft"
-          @click="$emit('reloadServerDraft')"
-        >
-          {{ $t('board.writePost.draftStatus.reloadServer') }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          full-width
-          :disabled="isSavingDraft || isRestoringDraft"
-          @click="$emit('keepLocalDraft')"
-        >
-          {{ $t('board.writePost.draftStatus.keepLocal') }}
-        </BaseButton>
-      </template>
-      <template v-else-if="draftProtected">
-        <template v-if="protectedDraftForkAvailable">
-          <BaseButton
-            type="button"
-            variant="primary"
-            size="sm"
-            full-width
-            :disabled="isSavingDraft || isRestoringDraft"
-            @click="$emit('saveProtectedAsNew')"
-          >
-            {{ $t('board.writePost.draftStatus.saveAsNew') }}
-          </BaseButton>
-          <BaseButton
-            type="button"
-            variant="secondary"
-            size="sm"
-            full-width
-            :disabled="isSavingDraft || isRestoringDraft"
-            @click="$emit('discardProtected')"
-          >
-            {{ $t('board.writePost.draftStatus.discardLocal') }}
-          </BaseButton>
-        </template>
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          full-width
-          to="/mypage/drafts"
-        >
-          {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
-        </BaseButton>
-      </template>
-      <BaseButton
-        v-else-if="restoreFailed"
-        type="button"
-        variant="secondary"
-        size="sm"
-        full-width
-        :disabled="isRestoringDraft"
-        @click="$emit('retryRestore')"
-      >
-        {{ $t('board.writePost.draftStatus.retryRestore') }}
-      </BaseButton>
-      <BaseButton
-        v-else-if="draftEnabled"
-        type="button"
-        variant="secondary"
-        size="sm"
-        full-width
-        :disabled="isSavingDraft || isRestoringDraft"
-        @click="$emit('saveDraft')"
-      >
-        {{ isSavingDraft
-          ? $t('board.writePost.draftStatus.saving')
-          : saveFailed
-            ? $t('board.writePost.draftStatus.retryNow')
-            : $t('board.writePost.actions.saveDraft') }}
-      </BaseButton>
+      <p class="text-sm text-[var(--nv-ink-soft)]">{{ presentation.label }}</p>
+      <PostDraftActions :presentation="presentation" @action="$emit('action', $event)" />
     </div>
   </section>
 </template>

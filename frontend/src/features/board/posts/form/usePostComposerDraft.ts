@@ -20,6 +20,7 @@ import type {
   DraftContentAdapter,
   DraftActionId,
   DraftLifecycleEvent,
+  DraftPresentation,
 } from '@/features/board/posts/draft/postDraftContracts'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
@@ -250,6 +251,62 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     return options.t('board.writePost.draftStatus.ready')
   })
 
+  const draftPresentation = computed<DraftPresentation>(() => {
+    const busy = isSavingDraft.value || isRestoringDraft.value
+    const action = (
+      id: DraftActionId,
+      label: string,
+      variant: 'primary' | 'secondary',
+      disabled = busy,
+      to?: string,
+    ) => ({ id, label, variant, disabled, ...(to ? { to } : {}) })
+    const actions = draftDeleted.value
+      ? [
+          action('save-as-new', options.t('board.writePost.draftStatus.saveAsNew'), 'primary'),
+          action('discard-local', options.t('board.writePost.draftStatus.discardLocal'), 'secondary'),
+        ]
+      : draftConflict.value
+        ? [
+            action('reload-server', options.t('board.writePost.draftStatus.reloadServer'), 'secondary'),
+            action('keep-local', options.t('board.writePost.draftStatus.keepLocal'), 'primary'),
+          ]
+        : draftProtected.value
+          ? [
+              ...(protectedDraftForkAvailable.value
+                ? [
+                    action('save-as-new', options.t('board.writePost.draftStatus.saveAsNew'), 'primary'),
+                    action('discard-local', options.t('board.writePost.draftStatus.discardLocal'), 'secondary'),
+                  ]
+                : []),
+              action(
+                'open-scheduled',
+                options.t('board.writePost.draftStatus.openScheduledPosts'),
+                'secondary',
+                false,
+                '/mypage/drafts',
+              ),
+            ]
+          : restoreFailed.value
+            ? [action(
+                'retry-restore',
+                options.t('board.writePost.draftStatus.retryRestore'),
+                'secondary',
+                isRestoringDraft.value,
+              )]
+            : draftEnabled.value
+              ? [action(
+                  'save',
+                  isSavingDraft.value
+                    ? options.t('board.writePost.draftStatus.saving')
+                    : lastSaveFailed.value
+                      ? options.t('board.writePost.draftStatus.retryNow')
+                      : options.t('board.writePost.actions.saveDraft'),
+                  'secondary',
+                )]
+              : []
+    return { label: draftStatusLabel.value, busy, actions }
+  })
+
   watch(
     draftIdentity,
     (_current, previous) => {
@@ -475,7 +532,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
 
   return {
     draftEnabled,
-    draftStatusLabel,
+    draftPresentation,
     draftId,
     draftConflict,
     draftProtected,
@@ -489,14 +546,6 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     saveRetryExhausted,
     saveDraftNow,
     executeDraftAction,
-    handleSaveDraft,
-    handleReloadServerDraft,
-    handleKeepLocalDraft,
-    handleRetryDraftRestore,
-    handleSaveDeletedDraftAsNew,
-    handleDiscardDeletedDraft,
-    handleSaveProtectedDraftAsNew,
-    handleDiscardProtectedDraft,
     cleanupPublishedDraft: clearPublishedDraftRecovery,
     clearScheduledDraftRecovery,
     flushLatestLocalSnapshot,

@@ -34,9 +34,8 @@ import { getExposedVm } from '@/test/vue-test-helpers'
 import { whenPwaReloadSafe } from '@/pwaReloadGuard'
 
 type PostFormExposed = {
-    hasUnsavedChanges: () => boolean
-    isSubmissionInProgress: () => boolean
-    getLeaveConfirmMessage: () => string
+    getLeaveState: () => { dirty: boolean, submitting: boolean, message: string }
+    flushDraft: () => boolean
 }
 
 describe('PostForm', () => {
@@ -622,9 +621,9 @@ describe('PostForm', () => {
         expect(wrapper.emitted('cancel')).toBeUndefined()
 
         const exposed = getExposedVm<PostFormExposed>(wrapper)
-        expect(exposed.hasUnsavedChanges()).toBe(true)
-        expect(exposed.isSubmissionInProgress()).toBe(true)
-        expect(exposed.getLeaveConfirmMessage()).toBe('board.writePost.leaveConfirm')
+        expect(exposed.getLeaveState().dirty).toBe(true)
+        expect(exposed.getLeaveState().submitting).toBe(true)
+        expect(exposed.getLeaveState().message).toBe('board.writePost.leaveConfirm')
 
         const beforeUnloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
         window.dispatchEvent(beforeUnloadEvent)
@@ -657,8 +656,8 @@ describe('PostForm', () => {
     it('covers unsaved-change helper branches for empty snapshot, category and tag changes', async () => {
         setBoardCategories([])
         const noCategoryWrapper = mountPostForm('create')
-        const noCategoryExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(noCategoryWrapper)
-        expect(noCategoryExposed.hasUnsavedChanges()).toBe(false)
+        const noCategoryExposed = getExposedVm<Pick<PostFormExposed, 'getLeaveState'>>(noCategoryWrapper)
+        expect(noCategoryExposed.getLeaveState().dirty).toBe(false)
 
         setBoardCategories([
             { categoryId: 1, name: 'General', minWriteRole: 'USER' },
@@ -667,14 +666,14 @@ describe('PostForm', () => {
         const categoryDirtyWrapper = mountPostForm('create')
         await nextTick()
         await categoryDirtyWrapper.get('#category').setValue('2')
-        const categoryDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(categoryDirtyWrapper)
-        expect(categoryDirtyExposed.hasUnsavedChanges()).toBe(true)
+        const categoryDirtyExposed = getExposedVm<Pick<PostFormExposed, 'getLeaveState'>>(categoryDirtyWrapper)
+        expect(categoryDirtyExposed.getLeaveState().dirty).toBe(true)
 
         const tagsLengthDirtyWrapper = mountPostForm('create')
         await nextTick()
         await tagsLengthDirtyWrapper.get('[data-testid=\"set-tags\"]').trigger('click')
-        const tagsLengthDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(tagsLengthDirtyWrapper)
-        expect(tagsLengthDirtyExposed.hasUnsavedChanges()).toBe(true)
+        const tagsLengthDirtyExposed = getExposedVm<Pick<PostFormExposed, 'getLeaveState'>>(tagsLengthDirtyWrapper)
+        expect(tagsLengthDirtyExposed.getLeaveState().dirty).toBe(true)
 
         postRef.value = {
             postId: 77,
@@ -688,8 +687,8 @@ describe('PostForm', () => {
         const tagsValueDirtyWrapper = mountPostForm('edit')
         await nextTick()
         await tagsValueDirtyWrapper.get('[data-testid=\"set-tags\"]').trigger('click')
-        const tagsValueDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(tagsValueDirtyWrapper)
-        expect(tagsValueDirtyExposed.hasUnsavedChanges()).toBe(true)
+        const tagsValueDirtyExposed = getExposedVm<Pick<PostFormExposed, 'getLeaveState'>>(tagsValueDirtyWrapper)
+        expect(tagsValueDirtyExposed.getLeaveState().dirty).toBe(true)
     })
 
     it('shows submitting labels for create and edit pending states', async () => {
@@ -737,7 +736,7 @@ describe('PostForm', () => {
         expect(cancelButtons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
         await cancelButtons[0]?.trigger('click')
         expect(wrapper.emitted('cancel')).toBeUndefined()
-        expect((wrapper.vm as unknown as { isSubmissionInProgress: () => boolean }).isSubmissionInProgress()).toBe(true)
+        expect((wrapper.vm as unknown as PostFormExposed).getLeaveState().submitting).toBe(true)
 
         const unloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
         window.dispatchEvent(unloadEvent)
@@ -855,7 +854,7 @@ describe('PostForm', () => {
         const wrapper = mountPostForm('edit', {}, {}, { scheduledPostId: '44', postId: '' })
         await nextTick()
 
-        expect((wrapper.vm as unknown as { flushPendingDraft: () => boolean }).flushPendingDraft()).toBe(true)
+        expect((wrapper.vm as unknown as PostFormExposed).flushDraft()).toBe(true)
         expect(wrapper.get('#title').element).toHaveProperty('value', 'Scheduled title')
         expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty(
             'value',

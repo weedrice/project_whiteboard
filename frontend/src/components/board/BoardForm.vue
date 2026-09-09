@@ -119,10 +119,14 @@ const visibilityDescription = computed(() => {
   if (visibility.value === 'UNLISTED') return t('board.form.visibilityUnlistedDesc')
   return t('board.form.visibilityPrivateDesc')
 })
-let allowSuccessfulRouteLeave = false
 const hasUnsavedChangesState = computed(() => (
   selectedFile.value !== savedSelectedFile.value || formSnapshot(form.value) !== savedSnapshot.value
 ))
+let submissionBaselineCommitted = false
+
+watch(hasUnsavedChangesState, (dirty) => {
+  if (dirty) submissionBaselineCommitted = false
+})
 
 watch(() => props.initialData, (initialData) => {
   savedSnapshot.value = formSnapshot(initialData)
@@ -136,13 +140,15 @@ function hasUnsavedChanges() {
 function markCurrentSnapshotSaved() {
   savedSnapshot.value = formSnapshot(form.value)
   savedSelectedFile.value = selectedFile.value
-  allowSuccessfulRouteLeave = true
+  submissionBaselineCommitted = true
 }
 
-function consumeSuccessfulSubmissionNavigation() {
-  if (!allowSuccessfulRouteLeave) return false
-  allowSuccessfulRouteLeave = false
-  return true
+function getLeaveState() {
+  return {
+    dirty: hasUnsavedChanges(),
+    submitting: isSubmitting.value && !submissionBaselineCommitted,
+    message: t('board.form.leaveConfirm'),
+  }
 }
 
 function handleCancel() {
@@ -152,9 +158,10 @@ function handleCancel() {
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasUnsavedChanges() && !isSubmitting.value) return
+  const leaveState = getLeaveState()
+  if (!leaveState.dirty && !leaveState.submitting) return
   event.preventDefault()
-  event.returnValue = ''
+  event.returnValue = leaveState.message
 }
 
 usePwaReloadBlocker(hasUnsavedChangesState)
@@ -162,9 +169,8 @@ onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
 
 defineExpose({
-  hasUnsavedChanges,
-  isSubmissionInProgress: () => isSubmitting.value,
-  consumeSuccessfulSubmissionNavigation,
+  getLeaveState,
+  flushDraft: () => true,
   markCurrentSnapshotSaved,
 })
 </script>

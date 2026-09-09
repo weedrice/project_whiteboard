@@ -6,33 +6,18 @@ import type {
   PostFormMetadataPanelHandlers,
   PostFormMetadataPanelProps,
 } from '@/features/board/posts/form/usePostFormMetadataBindings'
+import type { DraftActionId, DraftPresentation } from '@/features/board/posts/draft/postDraftContracts'
 
 defineProps<{
   metadataPanelProps: PostFormMetadataPanelProps
   metadataPanelHandlers: PostFormMetadataPanelHandlers
-  draftStatusLabel: string
-  draftEnabled: boolean
-  isSavingDraft: boolean
-  isRestoringDraft: boolean
-  draftConflict: boolean
-  draftProtected: boolean
-  protectedDraftForkAvailable: boolean
-  draftDeleted: boolean
-  restoreFailed: boolean
-  saveFailed: boolean
+  draftPresentation: DraftPresentation
   scheduledAt: string
   showScheduler: boolean
 }>()
 
 defineEmits<{
-  saveDraft: []
-  reloadServerDraft: []
-  keepLocalDraft: []
-  retryRestore: []
-  saveDeletedAsNew: []
-  discardDeleted: []
-  saveProtectedAsNew: []
-  discardProtected: []
+  draftAction: [action: DraftActionId]
   'update:scheduledAt': [value: string]
 }>()
 </script>
@@ -48,24 +33,8 @@ defineEmits<{
     </section>
 
     <PostDraftStatusPanel
-      :label="draftStatusLabel"
-      :draft-enabled="draftEnabled"
-      :is-saving-draft="isSavingDraft"
-      :is-restoring-draft="isRestoringDraft"
-      :draft-conflict="draftConflict"
-      :draft-protected="draftProtected"
-      :protected-draft-fork-available="protectedDraftForkAvailable"
-      :draft-deleted="draftDeleted"
-      :restore-failed="restoreFailed"
-      :save-failed="saveFailed"
-      @save-draft="$emit('saveDraft')"
-      @reload-server-draft="$emit('reloadServerDraft')"
-      @keep-local-draft="$emit('keepLocalDraft')"
-      @retry-restore="$emit('retryRestore')"
-      @save-deleted-as-new="$emit('saveDeletedAsNew')"
-      @discard-deleted="$emit('discardDeleted')"
-      @save-protected-as-new="$emit('saveProtectedAsNew')"
-      @discard-protected="$emit('discardProtected')"
+      :presentation="draftPresentation"
+      @action="$emit('draftAction', $event)"
     />
 
     <section

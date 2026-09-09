@@ -13,6 +13,7 @@ import { Storage } from '@/utils/storage'
 const userApiMocks = vi.hoisted(() => ({
     createPostSeries: vi.fn(),
     getPostSeries: vi.fn(),
+    resolveDraftRecovery: vi.fn(),
 }))
 const mockCreatePostSeries = userApiMocks.createPostSeries
 const mockGetPostSeries = userApiMocks.getPostSeries
@@ -519,6 +520,15 @@ export const resetPostFormTestState = () => {
     editorFileIds.value = []
     userApiMocks.createPostSeries.mockReset()
     userApiMocks.getPostSeries.mockReset()
+    userApiMocks.resolveDraftRecovery.mockReset()
+    userApiMocks.resolveDraftRecovery.mockResolvedValue({
+        data: {
+            data: {
+                status: 'MISSING',
+                staleCandidate: false,
+            },
+        },
+    })
 
     routeState.params.boardUrl = 'free'
     routeState.params.postId = '1'

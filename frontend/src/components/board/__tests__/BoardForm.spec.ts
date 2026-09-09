@@ -251,7 +251,9 @@ describe('BoardForm', () => {
     })
     expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
     expect(wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
-    expect((wrapper.vm as unknown as { isSubmissionInProgress: () => boolean }).isSubmissionInProgress()).toBe(true)
+    expect((wrapper.vm as unknown as {
+      getLeaveState: () => { submitting: boolean }
+    }).getLeaveState().submitting).toBe(true)
 
     const unloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
     window.dispatchEvent(unloadEvent)
@@ -417,22 +419,22 @@ describe('BoardForm', () => {
       },
     })
     const exposed = wrapper.vm as unknown as {
-      hasUnsavedChanges(): boolean
+      getLeaveState(): { dirty: boolean }
       markCurrentSnapshotSaved(): void
     }
 
-    expect(exposed.hasUnsavedChanges()).toBe(false)
+    expect(exposed.getLeaveState().dirty).toBe(false)
     const textInputs = wrapper.findAll('input')
       .filter((input) => input.attributes('type') !== 'file' && input.attributes('type') !== 'checkbox')
     await textInputs[0].setValue('Changed')
-    expect(exposed.hasUnsavedChanges()).toBe(true)
+    expect(exposed.getLeaveState().dirty).toBe(true)
 
     const event = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
     window.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
 
     exposed.markCurrentSnapshotSaved()
-    expect(exposed.hasUnsavedChanges()).toBe(false)
+    expect(exposed.getLeaveState().dirty).toBe(false)
     wrapper.unmount()
   })
 })
