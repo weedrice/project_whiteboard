@@ -67,8 +67,8 @@ class RepositoryNotificationTargetUrlResolverTest {
         Map<Long, String> targetUrls = resolver.resolveAll(List.of(postNotification, commentNotification));
 
         assertThat(targetUrls)
-                .containsEntry(1L, "/board/free/post/10")
-                .containsEntry(2L, "/board/notice/post/11#comment-20");
+                .containsEntry(1L, "/board/free/post/10/")
+                .containsEntry(2L, "/board/notice/post/11/#comment-20");
         verify(postRepository).findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(any());
         verify(commentRepository).findByCommentIdInAndIsDeletedFalse(any());
     }

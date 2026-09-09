@@ -207,7 +207,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             return null;
         }
 
-        return "/board/%s/post/%d".formatted(post.getBoard().getBoardUrl(), post.getPostId());
+        return "/board/%s/post/%d/".formatted(post.getBoard().getBoardUrl(), post.getPostId());
     }
 
     private String buildCommentTargetUrl(Comment comment, Post post) {
@@ -219,7 +219,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             return null;
         }
 
-        return "/board/%s/post/%d#comment-%d".formatted(
+        return "/board/%s/post/%d/#comment-%d".formatted(
                 post.getBoard().getBoardUrl(),
                 post.getPostId(),
                 comment.getCommentId());
