@@ -57,6 +57,7 @@ onMounted(async () => {
     ownedToken = accessToken
 
     const hydration = await authStore.hydrateUser({ skipAuthRefresh: true })
+    if (callbackController.signal.aborted || hydration === 'stale') return
     if (hydration === 'transient-failure') {
       if (callbackController.signal.aborted
         || authStore.sessionGeneration !== ownedGeneration
@@ -64,9 +65,16 @@ onMounted(async () => {
       await router.replace({ name: 'error', query: { status: '503', retry: '/' } })
       return
     }
-    if (hydration !== 'success') {
-      await authStore.logout()
-      if (!callbackController.signal.aborted) {
+    if (hydration === 'terminal-failure') {
+      // hydrateUser clears its own failed session before returning terminal-failure.
+      if (authStore.sessionGeneration !== ownedGeneration + 1
+        || authStore.accessToken !== null) return
+      const logoutPromise = authStore.logout()
+      const loggedOutGeneration = authStore.sessionGeneration
+      await logoutPromise
+      if (!callbackController.signal.aborted
+        && authStore.sessionGeneration === loggedOutGeneration
+        && authStore.accessToken === null) {
         toastStore.addToast(t('auth.loginFailed'), 'error')
         await router.replace('/login')
       }

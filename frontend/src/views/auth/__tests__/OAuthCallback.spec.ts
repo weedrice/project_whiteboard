@@ -213,7 +213,7 @@ describe('OAuthCallback', () => {
     })
 
     it('does not redirect when another account becomes current during user hydration', async () => {
-        let resolveHydration!: (value: 'success') => void
+        let resolveHydration!: (value: 'stale') => void
         mocks.authStore.hydrateUser.mockReturnValueOnce(new Promise((resolve) => {
             resolveHydration = resolve
         }))
@@ -222,7 +222,7 @@ describe('OAuthCallback', () => {
         await vi.waitFor(() => expect(mocks.authStore.hydrateUser).toHaveBeenCalledTimes(1))
         mocks.authStore.sessionGeneration += 1
         mocks.authStore.accessToken = 'account-b-access'
-        resolveHydration('success')
+        resolveHydration('stale')
         await flushMountedWork()
 
         expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginSuccess', 'success')
@@ -270,7 +270,11 @@ describe('OAuthCallback', () => {
     })
 
     it('redirects to login when user hydration is terminal', async () => {
-        mocks.authStore.hydrateUser.mockResolvedValueOnce('terminal-failure')
+        mocks.authStore.hydrateUser.mockImplementationOnce(async () => {
+            mocks.authStore.sessionGeneration += 1
+            mocks.authStore.accessToken = null
+            return 'terminal-failure'
+        })
 
         mount(OAuthCallback)
         await flushMountedWork()
