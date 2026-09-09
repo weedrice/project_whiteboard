@@ -104,6 +104,10 @@ tasks.named('test') {
 tasks.register('postgresSmokeTest', Test) {
 	group = 'verification'
 	description = 'Runs the opt-in PostgreSQL/Flyway application context smoke test.'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	maxHeapSize = '1g'
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	useJUnitPlatform()
 	environment 'POSTGRES_SMOKE_TEST', 'true'
 	filter {

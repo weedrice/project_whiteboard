@@ -9,7 +9,7 @@
 검증 job은 다음 책임을 가진다.
 
 - Backend: Java 25, Gradle test, JaCoCo coverage verification
-- PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행
+- PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
 - Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
 - CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
@@ -17,7 +17,7 @@
 
 자동·수동 배포는 검증이 끝난 동일 실행에서 release artifact를 한 번 생성한다. 권한 없는 candidate job이 빌드하고, Gradle/npm을 실행하지 않는 별도 release job만 OIDC·attestation 쓰기 권한으로 candidate digest를 서명한다. artifact 이름은 영역, `run_id`, `run_attempt`, commit SHA를 모두 포함하지만 job 간 전달은 이름을 다시 계산하지 않고 `upload-artifact`가 반환한 immutable artifact ID를 사용한다. 서명된 metadata의 `run_attempt`는 candidate를 실제로 만든 attempt이며 consumer는 producer output으로 전달된 값을 검증한다. 따라서 실패한 job만 재실행해 `github.run_attempt`가 증가해도 성공한 이전 producer artifact를 정확한 ID로 안전하게 이어받고, 전체 재실행에서는 새 artifact ID가 생성된다.
 
-backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 별도 readback 연결에서 설치된 JAR digest, systemd 활성 상태와 8081 management health를 다시 검증한 경우에만 `activated_sha`를 출력한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
+backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 서비스 중지 성공과 `MainPID=0`을 확인한 뒤 JAR을 교체한다. 활성화와 별도 readback 연결 모두에서 설치된 JAR digest, systemd 활성 상태, 8081 management health와 `/actuator/info`의 실행 중 `build.commit`이 대상 SHA와 일치하는지 확인한 경우에만 `activated_sha`를 출력한다. Candidate JAR에는 `BUILD_COMMIT_SHA`로 해당 SHA를 내장하며 info endpoint는 loopback management port로만 접근한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
 contract migration도 검증을 통과하면 일반 backend 변경과 동일하게 `main` push에서 배포하며 별도 `workflow_dispatch` 승인 입력을 요구하지 않는다. production environment 보호 규칙은 그대로 적용한다. 수동 DB snapshot이나 AWS 증거 검증은 배포 조건으로 사용하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
@@ -29,7 +29,7 @@ Contract migration 여부는 release metadata와 envelope에 서명된다. 새 c
 
 backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
 
-backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, JAR 교체, 8081 management health 검증을 수행한다. 일반 변경의 시작 실패는 이전 JAR로 자동 복원하고, contract migration은 이전 schema 호환성을 보장할 수 없으므로 자동 rollback하지 않는다. frontend는 현재 `/var/www/app`을 실행별 rollback 경로로 옮긴 뒤 새 파일을 활성화한다. 내부 및 공개 검증이 끝나면 backup을 제거하고, 검증 실패 시 이전 디렉터리를 복원한다. 현재 reusable workflow는 이 단일 EC2 inline 경로를 production 구현으로 사용하며 별도 상시 설치 helper와 root-owned 배포 상태 파일을 요구하지 않는다. `deploy/scripts/activate-*-release.sh`, `deploy/systemd/`, `deploy/sudoers/`는 CI에서 별도로 검증되는 hardened host profile이지만, coordinated adoption 변경 없이 현재 workflow가 이를 호출한다고 간주하지 않는다.
+backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, JAR 교체, 8081 management health 검증을 수행한다. 일반 변경의 시작 실패는 이전 JAR로 자동 복원하고, contract migration은 이전 schema 호환성을 보장할 수 없으므로 자동 rollback하지 않는다. frontend는 현재 `/var/www/app`을 실행별 rollback 경로로 옮긴 뒤 새 파일을 활성화한다. 내부 및 공개 검증이 끝나면 backup을 제거한다. 활성화를 시도한 뒤 공개 readback 또는 SEO 검증이 실패하면 `activation-result` 출력 성공 여부와 무관하게 rollback을 시도한다. 활성 디렉터리가 실패한 대상 SHA이고 실행별 backup에 유효한 이전 release identity와 index가 있는지 확인한 뒤 복원하며, 복원 후 내부·공개 endpoint의 이전 SHA도 검증한다. 현재 release가 다른 대상으로 바뀌었거나 최초 배포라 backup이 없으면 임의로 삭제하지 않고 실패 상태로 운영 복구를 요구한다. 현재 reusable workflow는 이 단일 EC2 inline 경로를 production 구현으로 사용하며 별도 상시 설치 helper와 root-owned 배포 상태 파일을 요구하지 않는다. `deploy/scripts/activate-*-release.sh`, `deploy/systemd/`, `deploy/sudoers/`는 CI에서 별도로 검증되는 hardened host profile이지만, coordinated adoption 변경 없이 현재 workflow가 이를 호출한다고 간주하지 않는다.
 
 ## SEO
 
@@ -41,7 +41,7 @@ production 배포와 정기 monitor는 공개 SEO endpoint 검증만 수행한�
 
 Grafana dashboard는 JSON parse뿐 아니라 panel/refId 중복, backend query scope와 모든 PromQL을 검사한다. systemd unit과 monitoring drop-in은 `hardening-contract.json`의 exact directive 및 writable-path 계약을 통과해야 한다.
 
-`ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, 부분 재실행의 producer artifact ID 전달, 누적 backend 배포 기준과 migration 기준의 일치, Deployment Gate 원인 진단, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
+`ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, 부분 재실행의 producer artifact ID 전달, 누적 backend 배포 기준과 migration 기준의 일치, Deployment Gate 원인 진단, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. `inline-deployment.test.mjs`는 실제 reusable workflow의 shell을 추출해 서비스·HTTP 호출만 모킹하고, 중지 실패·잔여 PID·실행 SHA 불일치·contract rollback 금지·공개 readback 실패와 복원 identity 검증을 검사한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
 
 non-Agent `@Scheduled` 메서드는 `scheduled-jobs.txt`와 freshness rule이 일치해야 한다. sudoers는 `visudo -cf`와 허용·거부 command matrix를 모두 통과해야 한다. systemd 메모리 상한은 운영 측정 기록과 staging 검증이 없으면 추가하지 않는다.
 

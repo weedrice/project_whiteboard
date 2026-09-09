@@ -46,6 +46,9 @@ public class SecurityConfig {
         @Value("${app.frontend-url}")
         private String frontendUrl;
 
+        @Value("${management.server.port:8081}")
+        private int managementPort;
+
         @Value("${app.agent.internal-secret:}")
         private String agentInternalSecret;
 
@@ -85,6 +88,10 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(request -> request.getLocalPort() == managementPort
+                                                                && "GET".equals(request.getMethod())
+                                                                && "/actuator/info".equals(request.getServletPath()))
+                                                .permitAll()
                                                 .requestMatchers("/api/v1/users/me", "/api/v1/users/me/**",
                                                                 "/api/v1/users/mention-candidates",
                                                                 "/api/v1/search/recent", "/api/v1/search/recent/**")

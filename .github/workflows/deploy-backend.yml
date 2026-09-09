@@ -153,7 +153,12 @@ jobs:
               had_previous=true
             fi
 
-            sudo systemctl stop app || true
+            sudo systemctl stop app
+            test "$(sudo systemctl show app --property=MainPID --value)" = 0
+            if sudo systemctl is-active --quiet app; then
+              echo "Backend is still active after stop; refusing JAR replacement" >&2
+              exit 1
+            fi
             sudo install -m 0644 "$STAGING_DIR/app.jar" "$APP_DIR/app.jar.next"
             test "$(sudo sha256sum "$APP_DIR/app.jar.next" | awk '{print $1}')" = "$expected_digest"
             sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
@@ -163,7 +168,9 @@ jobs:
             if sudo systemctl start app; then
               attempt=0
               while [ "$attempt" -lt 45 ]; do
-                if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null; then
+                if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null \
+                  && curl -fsS --max-time 5 "${HEALTH_URL%/health}/info" \
+                    | grep -Fq -- "\"commit\":\"$EXPECTED_SHA\""; then
                   healthy=true
                   break
                 fi
@@ -173,7 +180,8 @@ jobs:
             fi
 
             if [ "$healthy" != true ]; then
-              sudo systemctl stop app || true
+              sudo systemctl stop app
+              test "$(sudo systemctl show app --property=MainPID --value)" = 0
               if [ "$CONTRACT_MIGRATION" = false ] && [ "$had_previous" = true ]; then
                 sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
                 sudo systemctl start app
@@ -205,6 +213,8 @@ jobs:
             test "$(sudo sha256sum /opt/app/backend/app.jar | awk '{print $1}')" = "$expected_digest"
             sudo systemctl is-active --quiet app
             curl -fsS --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null
+            curl -fsS --max-time 10 http://127.0.0.1:8081/actuator/info \
+              | grep -Fq -- "\"commit\":\"$EXPECTED_SHA\""
             echo "ACTIVATED_SHA=$EXPECTED_SHA"
             echo "ACTIVATED_RUN_ID=${{ github.run_id }}"
             echo "ACTIVATED_RUN_NUMBER=${{ github.run_number }}"

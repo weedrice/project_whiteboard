@@ -46,7 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({
         SecurityConfig.class,
         JwtAuthenticationEntryPoint.class,
-        SecurityConfigAuthorizationTest.TestController.class
+        SecurityConfigAuthorizationTest.TestController.class,
+        SecurityConfigAuthorizationTest.ActuatorTestController.class
 })
 class SecurityConfigAuthorizationTest {
 
@@ -244,6 +245,23 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("build info permits anonymous GET only on the management port")
+    void buildInfo_isRestrictedToManagementPort() throws Exception {
+        mockMvc.perform(get("/actuator/info").servletPath("/actuator/info")
+                        .with(request -> { request.setLocalPort(8081); return request; }))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/actuator/info").servletPath("/actuator/info")
+                        .with(request -> { request.setLocalPort(8080); return request; }))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/actuator/info").servletPath("/actuator/info")
+                        .with(request -> { request.setLocalPort(8081); return request; }))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/actuator/env").servletPath("/actuator/env")
+                        .with(request -> { request.setLocalPort(8081); return request; }))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("unmatched API endpoints require authentication")
     void unmatchedApiEndpoint_requiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/private"))
@@ -398,6 +416,11 @@ class SecurityConfigAuthorizationTest {
 
     @RestController
     static class ActuatorTestController {
+
+        @GetMapping("/actuator/info")
+        String info() {
+            return "info";
+        }
 
         @GetMapping("/actuator/health")
         String health() {

@@ -138,3 +138,8 @@ Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 
 `src/test/resources/application-postgres-smoke.yml`에 있으며, 환경 변수 목록은
 [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md#postgresql-smoke-test)를 참고합니다.
 이 작업은 일반 `test`와 별도이며 H2 테스트 통과를 PostgreSQL 검증으로 간주하지 않습니다.
+
+### 배포 버전 확인
+
+배포 검증은 관리 서버(`127.0.0.1:8081`)의 `GET /actuator/info`에서 `build.commit`을 읽어 실행 중인
+빌드의 커밋을 확인합니다. 이 경로의 익명 GET 허용은 관리 포트에 한정되며 빌드 시 `BUILD_COMMIT_SHA`를 설정합니다.

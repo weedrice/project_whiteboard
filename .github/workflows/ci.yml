@@ -480,7 +480,17 @@ jobs:
           PGPASSWORD: noviis_ci
 
       - name: Run PostgreSQL application context smoke test
-        run: ./gradlew test --tests "*PostgresApplicationContextSmokeTest" --rerun-tasks
+        run: |
+          rm -f build/test-results/postgresSmokeTest/TEST-com.weedrice.whiteboard.PostgresApplicationContextSmokeTest.xml
+          ./gradlew postgresSmokeTest --rerun-tasks
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          report = ET.parse('build/test-results/postgresSmokeTest/TEST-com.weedrice.whiteboard.PostgresApplicationContextSmokeTest.xml').getroot()
+          counts = {key: int(report.get(key, '0')) for key in ('tests', 'failures', 'errors', 'skipped')}
+          print(counts)
+          assert counts['tests'] > counts['skipped'], 'PostgreSQL smoke did not execute any tests'
+          assert counts['failures'] == counts['errors'] == 0, 'PostgreSQL smoke failed'
+          PY
         working-directory: backend
         env:
           POSTGRES_SMOKE_TEST: "true"
@@ -706,6 +716,7 @@ jobs:
           bash deploy/scripts/tests/record-cleanup-debt-test.sh
           node deploy/scripts/tests/resolve-deployment-baselines-test.mjs
           bash deploy/scripts/tests/verify-workflow-security-test.sh
+          node --test deploy/scripts/tests/inline-deployment.test.mjs
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
           bash deploy/monitoring/tests/verify-grafana-archive-test.sh

@@ -112,4 +112,29 @@ if node "$validator" "$fixture"; then
   exit 1
 fi
 
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i '0,/sudo systemctl stop app$/s//sudo systemctl stop app || true/' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected ignored backend stop failure to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i 's@http://127.0.0.1:8081/actuator/info@http://127.0.0.1:8081/actuator/health@g' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected backend readback without runtime identity to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i "s/steps.activate.outcome != 'skipped'/steps.activation-result.outcome == 'success'/" "$fixture/.github/workflows/deploy-frontend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected frontend rollback skipping public readback failures to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-frontend.yml" "$fixture/.github/workflows/deploy-frontend.yml"
+sed -i '/node --test deploy\/scripts\/tests\/inline-deployment.test.mjs/d' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected missing inline deployment regression fixtures to fail" >&2
+  exit 1
+fi
+
 echo "Workflow AST negative fixtures passed"

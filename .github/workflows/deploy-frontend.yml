@@ -238,7 +238,7 @@ jobs:
           SEO_EXPECTED_RELEASE_SHA: ${{ inputs.expected_sha }}
 
       - name: Roll back frontend after verification failure
-        if: failure() && steps.activation-result.outcome == 'success'
+        if: failure() && steps.activate.outcome != 'skipped'
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -248,9 +248,21 @@ jobs:
             set -eu
             BACKUP_DIR="/var/www/app.rollback-${{ github.run_id }}-${{ github.run_attempt }}"
             case "$BACKUP_DIR" in /var/www/app.rollback-*) ;; *) exit 64 ;; esac
-            sudo test -e "$BACKUP_DIR"
+            EXPECTED_SHA="${{ inputs.expected_sha }}"
+            sudo test -d "$BACKUP_DIR"
+            sudo test -f "$BACKUP_DIR/index.html"
+            previous_sha="$(sudo cat "$BACKUP_DIR/.noviis-release" | tr -d '\r\n')"
+            echo "$previous_sha" | grep -Eq '^[0-9a-f]{40}$'
+            if [ "$(sudo cat /var/www/app/.noviis-release | tr -d '\r\n')" != "$EXPECTED_SHA" ]; then
+              echo "Active frontend is not the failed target; refusing rollback" >&2
+              exit 1
+            fi
             sudo rm -rf -- /var/www/app
             sudo mv "$BACKUP_DIR" /var/www/app
+            test "$(sudo cat /var/www/app/.noviis-release | tr -d '\r\n')" = "$previous_sha"
+            test "$(curl -fsS --max-time 10 --resolve noviis.kr:443:127.0.0.1 \
+              https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$previous_sha"
+            test "$(curl -fsS --max-time 10 https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$previous_sha"
 
       - name: Finalize frontend deployment
         if: success()

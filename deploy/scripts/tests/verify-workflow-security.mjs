@@ -297,6 +297,32 @@ for (const workflowPath of [
     `${workflowPath} must pin an explicit Ubuntu runner image`)
 }
 
+// Inline production activation must validate the running process and recover even
+// when independent public readback fails before an activation output is emitted.
+const backendActivation = backend.jobs.deploy.steps.find((step) => step.id === 'activate').with.script
+const backendReadback = backend.jobs.deploy.steps.find((step) => step.id === 'reconcile').with.script
+assert(!backendActivation.includes('systemctl stop app || true'), 'backend must not ignore a failed stop')
+assert(backendActivation.includes('systemctl show app --property=MainPID --value'), 'backend must verify process exit before replacement')
+assert(backendActivation.includes('${HEALTH_URL%/health}/info') && backendReadback.includes('http://127.0.0.1:8081/actuator/info'),
+  'backend activation and readback must verify the running commit')
+assert(backendActivation.includes('grep -Fq -- "\\\"commit\\\":\\\"$EXPECTED_SHA\\\""')
+  && backendReadback.includes('grep -Fq -- "\\\"commit\\\":\\\"$EXPECTED_SHA\\\""'),
+  'backend runtime info must match the expected commit')
+const backendBuild = ci.jobs['candidate-backend'].steps.find((step) => step.name === 'Build backend release once after the CI gate')
+assert(backendBuild.env.BUILD_COMMIT_SHA === '${{ github.sha }}', 'backend artifact must embed the candidate commit')
+assert(stepRuns(ci.jobs['backend-postgres-migration'], './gradlew postgresSmokeTest --rerun-tasks'),
+  'PostgreSQL CI must exercise the documented smoke task')
+assert(stepRuns(ci.jobs['backend-postgres-migration'], "assert counts['tests'] > counts['skipped']"),
+  'PostgreSQL CI must reject zero or entirely skipped smoke tests')
+const frontendRollback = frontend.jobs.deploy.steps.find((step) => step.name === 'Roll back frontend after verification failure')
+assert(frontendRollback.if === "failure() && steps.activate.outcome != 'skipped'",
+  'frontend rollback must cover readback failure before activation-result succeeds')
+assert(frontendRollback.with.script.includes('refusing rollback')
+  && frontendRollback.with.script.includes('"$previous_sha"'),
+  'frontend rollback must verify target and restored release identity')
+assert(stepRuns(ci.jobs['ops-config-test'], 'node --test deploy/scripts/tests/inline-deployment.test.mjs'),
+  'ops CI must exercise inline deployment regression fixtures')
+
 for (const required of [
   'deploy/release-freshness-paths.txt',
   'deploy/scripts/download-attestation-with-retry.sh',
