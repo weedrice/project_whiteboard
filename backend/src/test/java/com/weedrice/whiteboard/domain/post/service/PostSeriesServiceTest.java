@@ -51,6 +51,39 @@ class PostSeriesServiceTest {
     private PostReadContextResolver postReadContextResolver;
 
     @Test
+    void getMySeries_validatesAccountWithoutRequestingWriteLock() {
+        PostSeriesService service = new PostSeriesService(
+                postSeriesRepository, postSeriesItemRepository, draftPostRepository,
+                scheduledPostRepository, userWritableResolver, postReadContextResolver,
+                mock(PostAccessPolicy.class));
+        PostSeries series = createSeries(10L, createUser(1L), "Series title");
+        when(postSeriesRepository.findByOwnerUserIdOrderBySeriesIdDesc(1L)).thenReturn(List.of(series));
+
+        var result = service.getMySeries(1L);
+
+        assertThat(result).extracting(response -> response.getSeriesId()).containsExactly(10L);
+        verify(userWritableResolver).validate(1L);
+        verify(userWritableResolver, never()).validateForUpdate(1L);
+    }
+
+    @Test
+    void getMySeries_rejectsUnusableAccountBeforeReadingSeries() {
+        PostSeriesService service = new PostSeriesService(
+                postSeriesRepository, postSeriesItemRepository, draftPostRepository,
+                scheduledPostRepository, userWritableResolver, postReadContextResolver,
+                mock(PostAccessPolicy.class));
+        var rejection = new com.weedrice.whiteboard.global.exception.BusinessException(
+                com.weedrice.whiteboard.global.exception.ErrorCode.USER_NOT_ACTIVE);
+        when(userWritableResolver.validate(1L)).thenThrow(rejection);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getMySeries(1L))
+                .isSameAs(rejection);
+
+        verify(postSeriesRepository, never()).findByOwnerUserIdOrderBySeriesIdDesc(1L);
+        verify(userWritableResolver, never()).validateForUpdate(1L);
+    }
+
+    @Test
     void getNavigation_includesCurrentIndexAndTotalCount() {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,

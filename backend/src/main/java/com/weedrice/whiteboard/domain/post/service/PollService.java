@@ -90,6 +90,8 @@ public class PollService {
         }
 
         pollVoteRepository.deleteByPoll_PollIdAndUserId(poll.getPollId(), userId);
+        // Flush queued entity deletes before IDENTITY inserts reuse a selected option.
+        pollVoteRepository.flush();
         for (Long optionId : selectedOptionIds) {
                 pollVoteRepository.save(PollVote.builder()
                     .poll(poll)

@@ -38,7 +38,7 @@ public class PostSeriesService {
     private final PostAccessPolicy postAccessPolicy;
 
     public List<PostSeriesResponse> getMySeries(@NonNull Long userId) {
-        postUserWritePort.validateForUpdate(userId);
+        postUserWritePort.validate(userId);
         return PostSeriesResponse.listFrom(postSeriesRepository.findByOwnerUserIdOrderBySeriesIdDesc(userId));
     }
 

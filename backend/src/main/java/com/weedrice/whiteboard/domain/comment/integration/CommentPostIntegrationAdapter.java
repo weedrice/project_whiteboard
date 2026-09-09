@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.integration;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
 import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
@@ -14,6 +15,7 @@ import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CommentPostIntegrationAdapter implements CommentPostPort {
 
+    private final EntityManager entityManager;
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final PostAccessPolicy postAccessPolicy;
@@ -56,12 +59,16 @@ public class CommentPostIntegrationAdapter implements CommentPostPort {
     @Override
     @Transactional
     public CommentPostSnapshot lockForWrite(Long postId) {
-        Post initial = load(postId);
-        Long boardId = initial.getBoard().getBoardId();
-        boardRepository.findByIdForUpdate(boardId)
+        // A lock query does not refresh entities already loaded in this persistence context.
+        Long boardId = postRepository.findBoardIdByPostId(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        Board board = boardRepository.findByIdForUpdate(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        // Agent callers may already have loaded both entities before entering this adapter.
+        entityManager.refresh(board);
         Post locked = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        entityManager.refresh(locked);
         if (!Objects.equals(boardId, locked.getBoard().getBoardId())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }

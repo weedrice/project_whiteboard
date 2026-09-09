@@ -83,9 +83,7 @@ public class CommentCommandService {
         commentUserWritePort.validateWritable(userId);
         resolveActor(userId, agentId, context);
         CommentPostSnapshot post = resolvePostForCreate(postId, context);
-        if (context == null || !context.postReadablePrevalidated()) {
-            validatePostReadable(post.postId(), userId);
-        }
+        validatePostReadable(post.postId(), userId);
         commentPostPort.validateWritable(post.postId(), userId);
 
         Comment parentComment = null;

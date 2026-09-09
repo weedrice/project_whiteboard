@@ -170,6 +170,15 @@ class CommentServiceTest {
                 .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
         lenient().when(postRepository.findByIdWithRelations(nullable(Long.class)))
                 .thenAnswer(invocation -> Optional.of(defaultPost(invocation.getArgument(0))));
+        lenient().when(postRepository.findBoardIdByPostId(nullable(Long.class)))
+                .thenAnswer(invocation -> postRepository.findByIdWithRelations(invocation.getArgument(0))
+                        .map(Post::getBoard).map(board -> {
+                            // Persisted posts always reference a board with an assigned identifier.
+                            if (board.getBoardId() == null) {
+                                ReflectionTestUtils.setField(board, "boardId", 1L);
+                            }
+                            return board.getBoardId();
+                        }));
         lenient().when(boardRepository.findByIdForUpdate(nullable(Long.class)))
                 .thenAnswer(invocation -> Optional.of(defaultBoard(invocation.getArgument(0))));
         lenient().when(actorWritePort.validateForWrite(any(ContentActorRef.class)))
@@ -218,6 +227,7 @@ class CommentServiceTest {
                 boardCategoryRepository,
                 boardCategoryWritePolicy);
         CommentPostPort commentPostPort = new CommentPostIntegrationAdapter(
+                org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class),
                 postRepository,
                 boardRepository,
                 postAccessPolicy,
@@ -343,6 +353,7 @@ class CommentServiceTest {
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(userRepository, boardRepository, postRepository);
         order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(postRepository).findBoardIdByPostId(2L);
         order.verify(boardRepository).findByIdForUpdate(3L);
         order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
     }
@@ -988,6 +999,44 @@ class CommentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
         verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "public", "isDeleted", "isSecret", "isBlinded" })
+    void createCommentAsAgent_prevalidatedContextStillChecksLockedPost(String state) {
+        User owner = User.builder().displayName("owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+        User writer = User.builder().displayName("writer").build();
+        ReflectionTestUtils.setField(writer, "userId", 2L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(writer));
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
+        if (!state.equals("public")) {
+            ReflectionTestUtils.setField(post, state, true);
+            assertThatThrownBy(() -> commentService.createCommentAsAgent(
+                    2L, 99L, 10L, null, "content", CommentCreateContext.agentRoot(99L, 10L)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+            verify(commentRepository, never()).save(any(Comment.class));
+            return;
+        }
+        Agent agent = Agent.builder().user(writer).agentTokenHash("hash").name("agent-writer")
+                .description("desc").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(agentRepository.findById(99L)).thenReturn(Optional.of(agent));
+        when(postRepository.incrementCommentCount(10L)).thenReturn(1);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 100L);
+            return saved;
+        });
+
+        assertThat(commentService.createCommentAsAgent(
+                2L, 99L, 10L, null, "content", CommentCreateContext.agentRoot(99L, 10L))).isEqualTo(100L);
+        verify(postRepository).incrementCommentCount(10L);
     }
 
     @Test
@@ -2201,6 +2250,7 @@ class CommentServiceTest {
                 userRepository, boardRepository, postRepository, commentRepository);
         order.verify(userRepository).findByIdForUpdate(1L);
         order.verify(commentRepository).findPostIdByCommentId(10L);
+        order.verify(postRepository).findBoardIdByPostId(2L);
         order.verify(boardRepository).findByIdForUpdate(3L);
         order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
         order.verify(commentRepository).findByIdWithRelationsForUpdate(10L);
