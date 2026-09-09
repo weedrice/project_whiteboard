@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { usePostComposerSubmit } from '@/features/board/posts/form/usePostComposerSubmit'
 import logger from '@/utils/logger'
 import { createDeferred } from '@/test/async'
+import type { DraftSaveResult } from '@/features/board/posts/draft/postDraftContracts'
+import type { DraftPost } from '@/types'
 
 vi.mock('@/utils/logger', () => ({
   default: {
@@ -22,6 +24,11 @@ const basePayload = {
   fileIds: [10],
 }
 
+const serverDraftResult = (draftId: number): DraftSaveResult => ({
+  type: 'server',
+  draft: { draftId } as DraftPost,
+})
+
 function createSubmit(overrides: {
   mode?: 'create' | 'edit'
   title?: string
@@ -32,7 +39,7 @@ function createSubmit(overrides: {
   draftId?: number | null
   scheduledAt?: string
   scheduledPostId?: string
-  saveDraftNow?: () => Promise<{ draftId?: number | null } | null>
+  saveDraftNow?: () => Promise<DraftSaveResult>
   createSuccessToastMessage?: () => string | undefined
 } = {}) {
   const identity = ref('session-1:create:free:new')
@@ -65,7 +72,7 @@ function createSubmit(overrides: {
     draftEnabled: ref(overrides.draftEnabled ?? false),
     draftBlockReason: ref(overrides.draftBlockReason ?? null),
     draftId: ref(overrides.draftId ?? null),
-    saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue(null),
+    saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue({ type: 'skipped' }),
     buildPayload: () => payload.value,
     markCurrentSnapshotSaved,
     cleanupPublishedDraft,
@@ -104,7 +111,7 @@ function createSubmit(overrides: {
 
 describe('usePostComposerSubmit', () => {
   it('keeps a single-flight lock from draft save through the mutation callback', async () => {
-    const draft = createDeferred<{ draftId: number }>()
+    const draft = createDeferred<DraftSaveResult>()
     const saveDraftNow = vi.fn(() => draft.promise)
     const submit = createSubmit({ draftEnabled: true, saveDraftNow })
 
@@ -113,7 +120,7 @@ describe('usePostComposerSubmit', () => {
 
     expect(submit.isSubmissionLocked.value).toBe(true)
     expect(saveDraftNow).toHaveBeenCalledOnce()
-    draft.resolve({ draftId: 8 })
+    draft.resolve(serverDraftResult(8))
     await Promise.all([first, duplicate])
 
     expect(submit.createPost).toHaveBeenCalledOnce()
@@ -123,7 +130,7 @@ describe('usePostComposerSubmit', () => {
   })
 
   it('stops before mutation when the form identity changes during the pre-submit draft save', async () => {
-    const draft = createDeferred<{ draftId: number }>()
+    const draft = createDeferred<DraftSaveResult>()
     const submit = createSubmit({
       draftEnabled: true,
       saveDraftNow: vi.fn(() => draft.promise),
@@ -132,7 +139,7 @@ describe('usePostComposerSubmit', () => {
     const pendingSubmit = submit.handleSubmit()
     submit.identity.value = 'session-1:create:qna:new'
     submit.boardUrl.value = 'qna'
-    draft.resolve({ draftId: 91 })
+    draft.resolve(serverDraftResult(91))
     await pendingSubmit
 
     expect(submit.isSubmissionLocked.value).toBe(false)
@@ -212,7 +219,7 @@ describe('usePostComposerSubmit', () => {
     const submit = createSubmit({
       draftEnabled: true,
       draftId: 4,
-      saveDraftNow: vi.fn().mockResolvedValue({ draftId: 91 }),
+      saveDraftNow: vi.fn().mockResolvedValue(serverDraftResult(91)),
       createSuccessToastMessage: () => 'created',
     })
     submit.markCurrentSnapshotSaved.mockImplementation(() => calls.push('mark'))
@@ -268,7 +275,7 @@ describe('usePostComposerSubmit', () => {
       draftEnabled: true,
       draftId: 4,
       scheduledAt: '2026-07-14T12:00',
-      saveDraftNow: vi.fn().mockResolvedValue({ draftId: 91 }),
+      saveDraftNow: vi.fn().mockResolvedValue(serverDraftResult(91)),
     })
 
     await submit.handleSubmit()
@@ -351,7 +358,7 @@ describe('usePostComposerSubmit', () => {
       scheduledAt: '2026-07-20T12:00',
       draftEnabled: true,
       draftId: 4,
-      saveDraftNow: vi.fn().mockResolvedValue({ draftId: 91 }),
+      saveDraftNow: vi.fn().mockResolvedValue(serverDraftResult(91)),
     })
 
     await submit.handleSubmit()
@@ -395,7 +402,7 @@ describe('usePostComposerSubmit', () => {
       mode: 'edit',
       draftEnabled: true,
       draftId: 4,
-      saveDraftNow: vi.fn().mockResolvedValue(null),
+      saveDraftNow: vi.fn().mockResolvedValue({ type: 'skipped' }),
     })
 
     await submit.handleSubmit()

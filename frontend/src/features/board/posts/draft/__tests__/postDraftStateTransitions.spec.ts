@@ -48,28 +48,36 @@ function createController(options: {
   }))
 
   const controller = createDraftStateTransitionController({
-    draftId,
-    ownerId: ref(7),
-    draftDeleted,
-    draftProtected,
-    protectedDraftForkAvailable,
-    staleReferencesReset,
-    draftConflict,
-    lastSaveFailed,
-    localRevision: () => options.localRevision ?? 1,
-    persistedRevision: () => options.persistedRevision ?? 0,
-    clearAutosaveTimer,
-    clearSaveRetry,
-    invalidatePendingSaves,
-    resetDraftTracking,
-    buildPayload,
-    getDetachedDraftFileIdsToPreserve: () => [3],
-    prepareStaleSnapshot,
-    applyDraft,
-    onStaleReferencesReset,
-    loadLocalSnapshot: () => options.localSnapshot ?? null,
-    removeLocalSnapshot,
-    storeLocalSnapshot,
+    session: {
+      draftId,
+      ownerId: ref(7),
+      draftDeleted,
+      draftProtected,
+      protectedDraftForkAvailable,
+      staleReferencesReset,
+      draftConflict,
+      lastSaveFailed,
+      localRevision: () => options.localRevision ?? 1,
+      persistedRevision: () => options.persistedRevision ?? 0,
+      clearAutosaveTimer,
+      clearSaveRetry,
+      invalidatePendingSaves,
+      resetDraftTracking,
+    },
+    content: {
+      buildPayload,
+      selectDetachedUploadIds: () => [3],
+      normalizeSnapshot: prepareStaleSnapshot,
+      applySnapshot: applyDraft,
+    },
+    localStore: {
+      load: () => options.localSnapshot ?? null,
+      remove: removeLocalSnapshot,
+      store: storeLocalSnapshot,
+    },
+    onEvent: (event) => {
+      if (event.type === 'references-removed') onStaleReferencesReset()
+    },
   })
 
   return {

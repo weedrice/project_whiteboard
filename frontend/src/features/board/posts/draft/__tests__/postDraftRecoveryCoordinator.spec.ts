@@ -90,52 +90,63 @@ function createHarness() {
   const saveNow = vi.fn().mockResolvedValue(serverDraft())
 
   const coordinator = createDraftRecoveryCoordinator({
-    enabled,
-    ownerId,
-    preferredDraftId,
-    draftId,
-    draftVersion,
-    clientDraftKey,
-    updatedAt,
-    lastSavedAt,
-    lastSaveScope,
-    lastSaveFailed,
-    restoreFailed,
-    isRestoringDraft,
-    draftConflict,
-    draftProtected,
-    draftDeleted,
-    staleReferencesReset,
-    contractValidationFailed,
-    restoreSource,
-    hasRestoredDraft,
-    getSessionGeneration: () => sessionGeneration,
-    getLocalRevision: () => localRevision,
-    incrementLocalRevision: () => { localRevision++ },
-    markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
-    startRecoveryRequest: () => {
-      activeRecoveryController?.abort()
-      activeRecoveryController = new AbortController()
-      return activeRecoveryController
+    session: {
+      enabled,
+      ownerId,
+      preferredDraftId,
+      draftId,
+      draftVersion,
+      clientDraftKey,
+      updatedAt,
+      lastSavedAt,
+      lastSaveScope,
+      lastSaveFailed,
+      restoreFailed,
+      isRestoringDraft,
+      draftConflict,
+      draftProtected,
+      draftDeleted,
+      staleReferencesReset,
+      contractValidationFailed,
+      restoreSource,
+      hasRestoredDraft,
+      getGeneration: () => sessionGeneration,
+      getLocalRevision: () => localRevision,
+      incrementLocalRevision: () => { localRevision++ },
+      markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
+      startRecoveryRequest: () => {
+        activeRecoveryController?.abort()
+        activeRecoveryController = new AbortController()
+        return activeRecoveryController
+      },
+      finishRecoveryRequest: (controller) => {
+        if (activeRecoveryController !== controller) return false
+        activeRecoveryController = null
+        return true
+      },
+      isRecoveryRequestCurrent: (controller) => activeRecoveryController === controller,
+      resetDraftTracking,
     },
-    finishRecoveryRequest: (controller) => {
-      if (activeRecoveryController !== controller) return false
-      activeRecoveryController = null
-      return true
+    remote: {
+      loadById: vi.mocked(loadDraftById),
+      resolve: vi.mocked(resolveServerDraftForRecovery),
     },
-    isRecoveryRequestCurrent: (controller) => activeRecoveryController === controller,
-    buildPayload: payload,
-    applyDraft,
-    onSaved,
-    onStaleReferencesReset,
-    onLocalSnapshotAvailable,
-    loadLocalSnapshot: () => null,
-    removeLocalSnapshot,
-    storeLocalSnapshot,
-    resetDraftTracking,
-    transitionToProtectedDraft,
-    scheduleAutosave,
-    saveNow,
+    localStore: {
+      load: () => null,
+      remove: removeLocalSnapshot,
+      store: storeLocalSnapshot,
+    },
+    content: {
+      buildPayload: payload,
+      applySnapshot: applyDraft,
+      normalizeSnapshot: (snapshot) => snapshot,
+    },
+    workflow: { transitionToProtectedDraft, scheduleAutosave, saveNow },
+    onEvent: (event) => {
+      if (event.type === 'saved') onSaved()
+      if (event.type === 'references-removed') onStaleReferencesReset()
+      if (event.type === 'local-snapshot-found') onLocalSnapshotAvailable(event.snapshot)
+    },
   })
 
   return {
@@ -184,42 +195,56 @@ describe('draft recovery coordinator', () => {
     } as DraftRecoverySnapshot
 
     const coordinator = createDraftRecoveryCoordinator({
-      enabled: ref(true),
-      draftId: harness.draftId,
-      draftVersion: harness.draftVersion,
-      clientDraftKey: harness.clientDraftKey,
-      updatedAt: harness.updatedAt,
-      lastSavedAt: harness.lastSavedAt,
-      lastSaveScope: harness.lastSaveScope,
-      lastSaveFailed: ref(false),
-      restoreFailed: harness.restoreFailed,
-      isRestoringDraft: harness.isRestoringDraft,
-      draftConflict: harness.draftConflict,
-      draftProtected: harness.draftProtected,
-      draftDeleted: harness.draftDeleted,
-      staleReferencesReset: ref(false),
-      contractValidationFailed: ref(false),
-      restoreSource: harness.restoreSource,
-      hasRestoredDraft: harness.hasRestoredDraft,
-      getSessionGeneration: () => 0,
-      getLocalRevision: harness.getLocalRevision,
-      incrementLocalRevision: harness.incrementLocalRevision,
-      markCurrentRevisionPersisted: vi.fn(),
-      startRecoveryRequest: () => new AbortController(),
-      finishRecoveryRequest: () => true,
-      isRecoveryRequestCurrent: () => true,
-      buildPayload: payload,
-      applyDraft: harness.applyDraft,
-      prepareRecoveredSnapshot: () => changedSnapshot,
-      onSaved: harness.onSaved,
-      onStaleReferencesReset: harness.onStaleReferencesReset,
-      loadLocalSnapshot: () => null,
-      removeLocalSnapshot: () => true,
-      storeLocalSnapshot: harness.storeLocalSnapshot,
-      resetDraftTracking: vi.fn(),
-      transitionToProtectedDraft: harness.transitionToProtectedDraft,
-      scheduleAutosave: harness.scheduleAutosave,
-      saveNow: harness.saveNow,
+      session: {
+        enabled: ref(true),
+        draftId: harness.draftId,
+        draftVersion: harness.draftVersion,
+        clientDraftKey: harness.clientDraftKey,
+        updatedAt: harness.updatedAt,
+        lastSavedAt: harness.lastSavedAt,
+        lastSaveScope: harness.lastSaveScope,
+        lastSaveFailed: ref(false),
+        restoreFailed: harness.restoreFailed,
+        isRestoringDraft: harness.isRestoringDraft,
+        draftConflict: harness.draftConflict,
+        draftProtected: harness.draftProtected,
+        draftDeleted: harness.draftDeleted,
+        staleReferencesReset: ref(false),
+        contractValidationFailed: ref(false),
+        restoreSource: harness.restoreSource,
+        hasRestoredDraft: harness.hasRestoredDraft,
+        getGeneration: () => 0,
+        getLocalRevision: harness.getLocalRevision,
+        incrementLocalRevision: harness.incrementLocalRevision,
+        markCurrentRevisionPersisted: vi.fn(),
+        startRecoveryRequest: () => new AbortController(),
+        finishRecoveryRequest: () => true,
+        isRecoveryRequestCurrent: () => true,
+        resetDraftTracking: vi.fn(),
+      },
+      remote: {
+        loadById: vi.mocked(loadDraftById),
+        resolve: vi.mocked(resolveServerDraftForRecovery),
+      },
+      localStore: {
+        load: () => null,
+        remove: () => true,
+        store: harness.storeLocalSnapshot,
+      },
+      content: {
+        buildPayload: payload,
+        applySnapshot: harness.applyDraft,
+        normalizeSnapshot: () => changedSnapshot,
+      },
+      workflow: {
+        transitionToProtectedDraft: harness.transitionToProtectedDraft,
+        scheduleAutosave: harness.scheduleAutosave,
+        saveNow: harness.saveNow,
+      },
+      onEvent: (event) => {
+        if (event.type === 'saved') harness.onSaved()
+        if (event.type === 'references-removed') harness.onStaleReferencesReset()
+      },
     })
 
     expect(await coordinator.reloadServerDraft()).toBe(true)

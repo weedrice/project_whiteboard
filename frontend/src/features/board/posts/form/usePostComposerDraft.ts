@@ -4,6 +4,8 @@ import {
   type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
+import type { PostDraftData } from '@/api/post'
+import type { DraftPost } from '@/types'
 import {
   extractPostFileIdsFromContent,
   removePostFileReferencesFromContent,
@@ -14,6 +16,11 @@ import { formatTimeOnly } from '@/utils/date'
 import { migrateStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import { hasSameDraftContent } from '@/features/board/posts/draft/postDraftRecovery'
 import { useEventListener } from '@/composables/useEventListener'
+import type {
+  DraftContentAdapter,
+  DraftActionId,
+  DraftLifecycleEvent,
+} from '@/features/board/posts/draft/postDraftContracts'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -91,6 +98,83 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  const buildDraftPayload = () => ({
+    ...options.buildPayload('draft'),
+    boardUrl: options.boardUrl.value,
+    originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+  })
+
+  const recoverServerReferences = (savedDraft: DraftPost, payload: PostDraftData) => {
+    const currentPayload = options.buildPayload('draft')
+    const retainedFileIds = new Set(savedDraft.fileIds ?? [])
+    const removedFileIds = new Set([
+      ...(payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId)),
+      ...extractPostFileIdsFromContent(payload.contents ?? '')
+        .filter((fileId) => !retainedFileIds.has(fileId)),
+    ])
+    const categoryChangedSinceSave = (currentPayload.categoryId ?? null) !== (payload.categoryId ?? null)
+    const seriesChangedSinceSave = (currentPayload.seriesId ?? null) !== (payload.seriesId ?? null)
+    const recoveredPayload = {
+      ...currentPayload,
+      boardUrl: options.boardUrl.value,
+      originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+      contents: removePostFileReferencesFromContent(currentPayload.contents, [...removedFileIds]),
+      categoryId: categoryChangedSinceSave
+        ? currentPayload.categoryId
+        : savedDraft.categoryId
+          ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
+      fileIds: (currentPayload.fileIds ?? []).filter((fileId) => !removedFileIds.has(fileId)),
+      seriesId: seriesChangedSinceSave ? currentPayload.seriesId : savedDraft.seriesId ?? null,
+    }
+    applyDraftWithoutTracking(recoveredPayload)
+    return recoveredPayload
+  }
+
+  const contentAdapter: DraftContentAdapter = {
+    buildPayload: buildDraftPayload,
+    applySnapshot: applyDraftWithoutTracking,
+    normalizeSnapshot: prepareRecoveredSnapshot,
+    recoverServerReferences,
+    canPersist: () => options.validateBeforeSave?.() !== false,
+    selectDetachedUploadIds: (payload) => {
+      const ownedFileIds = new Set(options.ownedUploadedFileIds.value)
+      return (payload.fileIds ?? []).filter((fileId) => ownedFileIds.has(fileId))
+    },
+  }
+
+  const handleLifecycleEvent = (event: DraftLifecycleEvent) => {
+    switch (event.type) {
+      case 'saved':
+        options.markCurrentSnapshotSaved()
+        break
+      case 'server-saved':
+        options.releaseUploadedFileOwnership(event.draft.fileIds ?? [])
+        break
+      case 'limit-evicted':
+        options.addToast(options.t('board.writePost.draftStatus.limitEvicted', {
+          count: event.count,
+        }), 'warning')
+        break
+      case 'references-removed':
+        options.addToast(options.t('board.writePost.draftStatus.referencesReset'), 'warning')
+        break
+      case 'local-snapshot-stored': {
+        options.durableDraftFileIds.value = [...(event.snapshot.fileIds ?? [])]
+        const currentPayload = buildDraftPayload()
+        if (hasSameDraftContent(event.snapshot, currentPayload)) {
+          lastStoredDraftSignature = JSON.stringify(currentPayload)
+        }
+        break
+      }
+      case 'local-snapshot-found':
+        options.durableDraftFileIds.value = [...(event.snapshot.fileIds ?? [])]
+        break
+      case 'local-snapshot-deleted':
+        options.durableDraftFileIds.value = []
+        break
+    }
+  }
+
   const {
     saveNow: saveDraftNow,
     retrySaveNow,
@@ -131,74 +215,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     resolveStorageKey: (resolvedDraftId) => `${legacyDraftStorageKey.value}:draft-${resolvedDraftId}`,
     ownerId: options.userId,
     preferredDraftId: options.preferredDraftId,
-    buildPayload: () => ({
-      ...options.buildPayload('draft'),
-      boardUrl: options.boardUrl.value,
-      originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
-    }),
-    applyDraft: applyDraftWithoutTracking,
-    prepareRecoveredSnapshot,
-    onSaved: options.markCurrentSnapshotSaved,
-    onServerSaved: (_payload, savedDraft) => {
-      options.releaseUploadedFileOwnership(savedDraft.fileIds ?? [])
-      if ((savedDraft.evictedDraftCount ?? 0) > 0) {
-        options.addToast(options.t('board.writePost.draftStatus.limitEvicted', {
-          count: savedDraft.evictedDraftCount,
-        }), 'warning')
-      }
-    },
-    onServerReferencesReset: (savedDraft, payload) => {
-      const currentPayload = options.buildPayload('draft')
-      const retainedFileIds = new Set(savedDraft.fileIds ?? [])
-      const removedFileIds = new Set([
-        ...(payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId)),
-        ...extractPostFileIdsFromContent(payload.contents ?? '')
-          .filter((fileId) => !retainedFileIds.has(fileId)),
-      ])
-      const categoryChangedSinceSave = (currentPayload.categoryId ?? null) !== (payload.categoryId ?? null)
-      const seriesChangedSinceSave = (currentPayload.seriesId ?? null) !== (payload.seriesId ?? null)
-      const recoveredPayload = {
-        ...currentPayload,
-        boardUrl: options.boardUrl.value,
-        originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
-        contents: removePostFileReferencesFromContent(currentPayload.contents, [...removedFileIds]),
-        categoryId: categoryChangedSinceSave
-          ? currentPayload.categoryId
-          : savedDraft.categoryId
-            ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
-        fileIds: (currentPayload.fileIds ?? []).filter((fileId) => !removedFileIds.has(fileId)),
-        seriesId: seriesChangedSinceSave ? currentPayload.seriesId : savedDraft.seriesId ?? null,
-      }
-      applyDraftWithoutTracking(recoveredPayload)
-      return recoveredPayload
-    },
-    prepareStaleSnapshot: prepareRecoveredSnapshot,
-    getDetachedDraftFileIdsToPreserve: (payload) => {
-      const ownedFileIds = new Set(options.ownedUploadedFileIds.value)
-      return (payload.fileIds ?? []).filter((fileId) => ownedFileIds.has(fileId))
-    },
-    onStaleReferencesReset: () => options.addToast(
-      options.t('board.writePost.draftStatus.referencesReset'),
-      'warning',
-    ),
-    onLocalSnapshotStored: (snapshot) => {
-      options.durableDraftFileIds.value = [...(snapshot.fileIds ?? [])]
-      const currentPayload = {
-        ...options.buildPayload('draft'),
-        boardUrl: options.boardUrl.value,
-        originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
-      }
-      if (hasSameDraftContent(snapshot, currentPayload)) {
-        lastStoredDraftSignature = JSON.stringify(currentPayload)
-      }
-    },
-    onLocalSnapshotAvailable: (snapshot) => {
-      options.durableDraftFileIds.value = [...(snapshot.fileIds ?? [])]
-    },
-    onLocalSnapshotRemoved: () => {
-      options.durableDraftFileIds.value = []
-    },
-    canPersist: options.validateBeforeSave,
+    content: contentAdapter,
+    onEvent: handleLifecycleEvent,
   })
 
   const draftStatusLabel = computed(() => {
@@ -329,10 +347,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
     try {
       const savedDraft = await retrySaveNow()
-      if (savedDraft) {
+      if (savedDraft.type === 'server') {
         options.markCurrentSnapshotSaved()
         options.addToast(options.t('board.writePost.draftStatus.saved'), 'success')
-      } else if (lastSaveScope.value === 'browser') {
+      } else if (savedDraft.type === 'browser') {
         options.addToast(options.t('board.writePost.draftStatus.savedBrowser'), 'success')
       }
     } catch (error) {
@@ -432,6 +450,29 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     options.addToast(options.t('board.writePost.draftStatus.discarded'), 'info')
   }
 
+  const executeDraftAction = async (action: DraftActionId) => {
+    switch (action) {
+      case 'save':
+        return handleSaveDraft()
+      case 'reload-server':
+        return handleReloadServerDraft()
+      case 'keep-local':
+        return handleKeepLocalDraft()
+      case 'retry-restore':
+        return handleRetryDraftRestore()
+      case 'save-as-new':
+        return draftDeleted.value
+          ? handleSaveDeletedDraftAsNew()
+          : handleSaveProtectedDraftAsNew()
+      case 'discard-local':
+        if (draftDeleted.value) handleDiscardDeletedDraft()
+        else handleDiscardProtectedDraft()
+        return
+      case 'open-scheduled':
+        return
+    }
+  }
+
   return {
     draftEnabled,
     draftStatusLabel,
@@ -447,6 +488,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     saveRetryScheduled,
     saveRetryExhausted,
     saveDraftNow,
+    executeDraftAction,
     handleSaveDraft,
     handleReloadServerDraft,
     handleKeepLocalDraft,

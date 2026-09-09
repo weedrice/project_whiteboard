@@ -89,17 +89,22 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
             composable = usePostDraft({
                 enabled: enabledRef,
                 storageKey: storageKeyRef,
-                resolveStorageKey,
-                ownerId: ownerIdRef,
-                buildPayload: () => payloadRef.value,
-                applyDraft: (draft) => appliedDrafts.push(draft),
-                onServerSaved,
-                onServerReferencesReset,
-                prepareRecoveredSnapshot,
-                canPersist,
-                getDetachedDraftFileIdsToPreserve,
-                onLocalSnapshotRemoved,
-                onLocalSnapshotAvailable,
+            resolveStorageKey,
+            ownerId: ownerIdRef,
+                content: {
+                    buildPayload: () => payloadRef.value,
+                    applySnapshot: (draft) => appliedDrafts.push(draft),
+                    normalizeSnapshot: (snapshot) => prepareRecoveredSnapshot?.(snapshot) ?? snapshot,
+                    recoverServerReferences: (savedDraft, payload) => onServerReferencesReset?.(savedDraft, payload),
+                    canPersist: () => canPersist?.() ?? true,
+                    selectDetachedUploadIds: (payload) => getDetachedDraftFileIdsToPreserve?.(payload) ?? [],
+                },
+                onEvent: (event) => {
+                    if (event.type === 'saved') return
+                    if (event.type === 'server-saved') onServerSaved?.(event.payload, event.draft)
+                    if (event.type === 'local-snapshot-found') onLocalSnapshotAvailable?.(event.snapshot)
+                    if (event.type === 'local-snapshot-deleted') onLocalSnapshotRemoved?.()
+                },
             })
             return () => h('div')
         },
@@ -218,7 +223,7 @@ describe('usePostDraft', () => {
 
         const savedDraft = await composable.saveNow()
 
-        expect(savedDraft?.draftId).toBe(91)
+        expect(savedDraft).toMatchObject({ type: 'server', draft: { draftId: 91 } })
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith({
             boardUrl: 'free',
             title: 'Draft title',
@@ -408,7 +413,7 @@ describe('usePostDraft', () => {
         composable.resetSession()
         expect(signal?.aborted).toBe(true)
         resolveSave({ data: { data: { draftId: 91 } } })
-        await expect(pendingSave).resolves.toBeNull()
+        await expect(pendingSave).resolves.toEqual({ type: 'skipped' })
     })
 
     it('aborts an in-flight draft recovery request when the draft session resets', async () => {
@@ -426,7 +431,7 @@ describe('usePostDraft', () => {
         composable.resetSession()
         expect(signal?.aborted).toBe(true)
         resolveMatch({ data: { data: { status: 'MISSING', staleCandidate: false } } })
-        await expect(pendingRestore).resolves.toBeUndefined()
+        await expect(pendingRestore).resolves.toEqual({ type: 'cancelled' })
     })
 
     it('does not report a canceled draft recovery as a restore failure', async () => {
@@ -807,7 +812,7 @@ describe('usePostDraft', () => {
 
         expect(composable.draftProtected.value).toBe(true)
         expect(composable.lastSaveFailed.value).toBe(false)
-        await expect(composable.saveNow()).resolves.toBeNull()
+        await expect(composable.saveNow()).resolves.toEqual({ type: 'skipped' })
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
     })
 
@@ -1083,7 +1088,7 @@ describe('usePostDraft', () => {
             },
         })
 
-        await expect(savePromise).resolves.toBeNull()
+        await expect(savePromise).resolves.toEqual({ type: 'skipped' })
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
         expect(onServerSaved).not.toHaveBeenCalled()
@@ -1175,7 +1180,7 @@ describe('usePostDraft', () => {
             },
         })
 
-        await expect(savePromise).resolves.toBeNull()
+        await expect(savePromise).resolves.toEqual({ type: 'skipped' })
         expect(Storage.get('noviis:test:draft')).toBeNull()
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
@@ -1195,7 +1200,7 @@ describe('usePostDraft', () => {
             response: { status: 409, data: { error: { code: 'P004' } } },
         })
 
-        await expect(savePromise).resolves.toBeNull()
+        await expect(savePromise).resolves.toEqual({ type: 'skipped' })
         expect(composable.draftConflict.value).toBe(false)
         expect(composable.lastSaveFailed.value).toBe(false)
     })
@@ -1378,7 +1383,7 @@ describe('usePostDraft', () => {
 
         expect(signal?.aborted).toBe(true)
         resolveSave({ data: { data: { draftId: 91, boardUrl: 'free' } } })
-        await expect(pendingSave).resolves.toBeNull()
+        await expect(pendingSave).resolves.toEqual({ type: 'skipped' })
         expect(onServerSaved).not.toHaveBeenCalled()
         expect(composable.draftId.value).toBeNull()
     })
@@ -1586,7 +1591,10 @@ describe('usePostDraft', () => {
             },
         })
 
-        await expect(composable.retrySaveNow()).resolves.toEqual(expect.objectContaining({ draftId: 91 }))
+        await expect(composable.retrySaveNow()).resolves.toEqual(expect.objectContaining({
+            type: 'server',
+            draft: expect.objectContaining({ draftId: 91 }),
+        }))
         expect(composable.saveRetryAttempt.value).toBe(0)
         expect(composable.saveRetryExhausted.value).toBe(false)
         random.mockRestore()
@@ -1649,7 +1657,10 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
         resolveDelete({ data: { data: null } })
 
-        await expect(pendingSave).resolves.toEqual(expect.objectContaining({ draftId: 91 }))
+        await expect(pendingSave).resolves.toEqual(expect.objectContaining({
+            type: 'server',
+            draft: expect.objectContaining({ draftId: 91 }),
+        }))
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
             draftId: undefined,
@@ -1858,8 +1869,9 @@ describe('usePostDraft', () => {
             originalPostId: undefined,
         }))
 
-        await composable.saveNow()
+        const result = await composable.saveNow()
 
+        expect(result).toEqual({ type: 'browser' })
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
         expect(mocks.deleteDraftMutateAsync).not.toHaveBeenCalled()
         expect(composable.lastSaveScope.value).toBe('browser')
@@ -1882,8 +1894,9 @@ describe('usePostDraft', () => {
             fileIds: [],
         }), undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, onLocalSnapshotRemoved)
 
-        await composable.saveNow()
+        const result = await composable.saveNow()
 
+        expect(result).toEqual({ type: 'cleared' })
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
         expect(Storage.get('noviis:test:draft')).toBeNull()
         expect(onLocalSnapshotRemoved).toHaveBeenCalledOnce()

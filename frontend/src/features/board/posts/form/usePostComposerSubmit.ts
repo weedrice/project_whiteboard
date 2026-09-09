@@ -3,6 +3,7 @@ import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
 import type { PollPayload, PostCreateResponse, ScheduledPost } from '@/api/post'
+import type { DraftSaveResult } from '@/features/board/posts/draft/postDraftContracts'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type PostComposerMode = 'create' | 'edit'
@@ -79,7 +80,7 @@ type UsePostComposerSubmitOptions = {
   draftEnabled: Ref<boolean>
   draftBlockReason: Ref<DraftSubmitBlockReason | null>
   draftId: Ref<number | null>
-  saveDraftNow: () => Promise<{ draftId?: number | null } | null>
+  saveDraftNow: () => Promise<DraftSaveResult>
   buildPayload: () => Omit<PostComposerPayload, 'draftId'>
   markCurrentSnapshotSaved: () => void
   cleanupPublishedDraft: () => void
@@ -206,8 +207,8 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       try {
         const savedDraft = await options.saveDraftNow()
         if (!isCurrentSubmission()) return
-        if (savedDraft?.draftId != null) {
-          currentDraftId = savedDraft.draftId
+        if (savedDraft.type === 'server') {
+          currentDraftId = savedDraft.draft.draftId
         }
       } catch (error) {
         if (!isCurrentSubmission()) return

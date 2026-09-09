@@ -16,51 +16,69 @@ import {
   isDraftDeletedLocally,
 } from '@/features/board/posts/draft/postDraftTombstone'
 import { cleanupExpiredDraftSnapshots } from '@/features/board/posts/draft/postDraftLifecycle'
+import type {
+  DraftContentAdapter,
+  DraftLifecycleEvent,
+  DraftRestoreResult,
+} from '@/features/board/posts/draft/postDraftContracts'
 
 interface DraftRecoveryCoordinatorOptions {
-  enabled: Ref<boolean>
-  ownerId?: Ref<string | number | null | undefined>
-  preferredDraftId?: Ref<number | null>
-  draftId: Ref<number | null>
-  draftVersion: Ref<number | null>
-  clientDraftKey: Ref<string>
-  updatedAt: Ref<string | null>
-  lastSavedAt: Ref<string | null>
-  lastSaveScope: Ref<'server' | 'browser' | null>
-  lastSaveFailed: Ref<boolean>
-  restoreFailed: Ref<boolean>
-  isRestoringDraft: Ref<boolean>
-  draftConflict: Ref<boolean>
-  draftProtected: Ref<boolean>
-  draftDeleted: Ref<boolean>
-  staleReferencesReset: Ref<boolean>
-  contractValidationFailed: Ref<boolean>
-  restoreSource: Ref<'idle' | 'local' | 'server'>
-  hasRestoredDraft: Ref<boolean>
-  getSessionGeneration: () => number
-  getLocalRevision: () => number
-  incrementLocalRevision: () => void
-  markCurrentRevisionPersisted: () => void
-  startRecoveryRequest: () => AbortController
-  finishRecoveryRequest: (controller: AbortController) => boolean
-  isRecoveryRequestCurrent: (controller: AbortController) => boolean
-  buildPayload: () => PostDraftData
-  applyDraft: (snapshot: DraftRecoverySnapshot) => void
-  prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
-  prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
-  onSaved?: () => void
-  onStaleReferencesReset?: () => void
-  onLocalSnapshotAvailable?: (snapshot: DraftRecoverySnapshot) => void
-  loadLocalSnapshot: () => DraftRecoverySnapshot | null
-  removeLocalSnapshot: () => boolean
-  storeLocalSnapshot: (snapshot: DraftRecoverySnapshot) => boolean
-  resetDraftTracking: () => void
-  transitionToProtectedDraft: () => void
-  scheduleAutosave: () => void
-  saveNow: () => Promise<DraftPost | null>
+  session: {
+    enabled: Ref<boolean>
+    ownerId?: Ref<string | number | null | undefined>
+    preferredDraftId?: Ref<number | null>
+    draftId: Ref<number | null>
+    draftVersion: Ref<number | null>
+    clientDraftKey: Ref<string>
+    updatedAt: Ref<string | null>
+    lastSavedAt: Ref<string | null>
+    lastSaveScope: Ref<'server' | 'browser' | null>
+    lastSaveFailed: Ref<boolean>
+    restoreFailed: Ref<boolean>
+    isRestoringDraft: Ref<boolean>
+    draftConflict: Ref<boolean>
+    draftProtected: Ref<boolean>
+    draftDeleted: Ref<boolean>
+    staleReferencesReset: Ref<boolean>
+    contractValidationFailed: Ref<boolean>
+    restoreSource: Ref<'idle' | 'local' | 'server'>
+    hasRestoredDraft: Ref<boolean>
+    getGeneration: () => number
+    getLocalRevision: () => number
+    incrementLocalRevision: () => void
+    markCurrentRevisionPersisted: () => void
+    startRecoveryRequest: () => AbortController
+    finishRecoveryRequest: (controller: AbortController) => boolean
+    isRecoveryRequestCurrent: (controller: AbortController) => boolean
+    resetDraftTracking: () => void
+  }
+  remote: {
+    loadById: typeof loadDraftById
+    resolve: typeof resolveServerDraftForRecovery
+  }
+  localStore: {
+    load: () => DraftRecoverySnapshot | null
+    remove: () => boolean
+    store: (snapshot: DraftRecoverySnapshot) => boolean
+  }
+  content: Pick<DraftContentAdapter, 'buildPayload' | 'applySnapshot' | 'normalizeSnapshot'>
+  workflow: {
+    transitionToProtectedDraft: () => void
+    scheduleAutosave: () => void
+    saveNow: () => Promise<DraftPost | null>
+  }
+  onEvent: (event: DraftLifecycleEvent) => void
 }
 
 export function createDraftRecoveryCoordinator({
+  session,
+  remote,
+  localStore,
+  content,
+  workflow,
+  onEvent,
+}: DraftRecoveryCoordinatorOptions) {
+  const {
   enabled,
   ownerId,
   preferredDraftId,
@@ -80,28 +98,26 @@ export function createDraftRecoveryCoordinator({
   contractValidationFailed,
   restoreSource,
   hasRestoredDraft,
-  getSessionGeneration,
+  getGeneration: getSessionGeneration,
   getLocalRevision,
   incrementLocalRevision,
   markCurrentRevisionPersisted,
   startRecoveryRequest,
   finishRecoveryRequest,
   isRecoveryRequestCurrent,
-  buildPayload,
-  applyDraft,
-  prepareRecoveredSnapshot,
-  prepareStaleSnapshot,
-  onSaved,
-  onStaleReferencesReset,
-  onLocalSnapshotAvailable,
-  loadLocalSnapshot,
-  removeLocalSnapshot,
-  storeLocalSnapshot,
   resetDraftTracking,
-  transitionToProtectedDraft,
-  scheduleAutosave,
-  saveNow,
-}: DraftRecoveryCoordinatorOptions) {
+  } = session
+  const { loadById, resolve: resolveServerDraft } = remote
+  const { load: loadLocalSnapshot, remove: removeLocalSnapshot, store: storeLocalSnapshot } = localStore
+  const { buildPayload, applySnapshot: applyDraft, normalizeSnapshot } = content
+  const { transitionToProtectedDraft, scheduleAutosave, saveNow } = workflow
+  const prepareRecoveredSnapshot = normalizeSnapshot
+  const prepareStaleSnapshot = normalizeSnapshot
+  const onSaved = () => onEvent({ type: 'saved', scope: lastSaveScope.value ?? 'browser' })
+  const onStaleReferencesReset = () => onEvent({ type: 'references-removed' })
+  const onLocalSnapshotAvailable = (snapshot: DraftRecoverySnapshot) => (
+    onEvent({ type: 'local-snapshot-found', snapshot })
+  )
   const requestIsCurrent = (generation: number, controller: AbortController) => (
     generation === getSessionGeneration() && isRecoveryRequestCurrent(controller)
   )
@@ -120,7 +136,7 @@ export function createDraftRecoveryCoordinator({
     const controller = startRecoveryRequest()
     isRestoringDraft.value = true
     try {
-      const latestDraft = await loadDraftById(currentDraftId, {
+      const latestDraft = await loadById(currentDraftId, {
         signal: controller.signal,
         skipGlobalErrorHandler: true,
       })
@@ -175,7 +191,7 @@ export function createDraftRecoveryCoordinator({
     const controller = startRecoveryRequest()
     isRestoringDraft.value = true
     try {
-      const latestDraft = await loadDraftById(currentDraftId, {
+      const latestDraft = await loadById(currentDraftId, {
         signal: controller.signal,
         skipGlobalErrorHandler: true,
       })
@@ -195,8 +211,8 @@ export function createDraftRecoveryCoordinator({
     }
   }
 
-  const restoreDraft = async () => {
-    if (hasRestoredDraft.value || !enabled.value) return
+  const restoreDraft = async (): Promise<DraftRestoreResult> => {
+    if (hasRestoredDraft.value || !enabled.value) return { type: 'cancelled' }
     const generation = getSessionGeneration()
     const revision = getLocalRevision()
     const controller = startRecoveryRequest()
@@ -216,7 +232,7 @@ export function createDraftRecoveryCoordinator({
         ? null
         : preferredDraftId?.value ?? null
       const payload = buildPayload()
-      const resolved = await resolveServerDraftForRecovery({
+      const resolved = await resolveServerDraft({
         payload,
         localSnapshot,
         preferredDraftId: preferredId,
@@ -230,10 +246,10 @@ export function createDraftRecoveryCoordinator({
           return preparedSnapshot
         },
       })
-      if (!requestIsCurrent(generation, controller)) return
+      if (!requestIsCurrent(generation, controller)) return { type: 'cancelled' }
       if (resolved.draftProtected) {
         transitionToProtectedDraft()
-        return
+        return { type: 'protected' }
       }
 
       const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
@@ -247,7 +263,11 @@ export function createDraftRecoveryCoordinator({
         && chosen != null
         && !hasSameDraftContent(chosen, resolved.serverDraft as unknown as PostDraftData)
       restoreFailed.value = resolved.recoveryFailed
-      if (!chosen) return
+      if (!chosen) {
+        if (resolved.recoveryFailed) return { type: 'failed' }
+        if (resolved.multipleMatchesFound) return { type: 'ambiguous' }
+        return { type: 'missing' }
+      }
 
       if (revision !== getLocalRevision()) {
         if (resolved.serverDraft) {
@@ -265,7 +285,7 @@ export function createDraftRecoveryCoordinator({
           draftId.value,
           updatedAt.value,
         ))
-        return
+        return { type: 'conflict' }
       }
 
       draftId.value = recovery.conflict && resolved.serverDraft
@@ -318,6 +338,9 @@ export function createDraftRecoveryCoordinator({
           scheduleAutosave()
         }
       }
+      return recovery.conflict
+        ? { type: 'conflict' }
+        : { type: 'applied', source: recovery.source as 'server' | 'local' }
     } finally {
       finishRequest(generation, controller)
     }
@@ -326,7 +349,7 @@ export function createDraftRecoveryCoordinator({
   const retryRestore = async () => {
     hasRestoredDraft.value = false
     restoreFailed.value = false
-    await restoreDraft()
+    return restoreDraft()
   }
 
   return {
