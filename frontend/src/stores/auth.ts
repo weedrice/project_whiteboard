@@ -335,6 +335,7 @@ export const useAuthStore = defineStore('auth', () => {
         config?: AxiosRequestConfig,
         expectedUserId?: number | null,
     ): Promise<UserHydrationResult> {
+        const generation = sessionGeneration.value
         const token = accessToken.value ?? getStoredAccessToken()
         if (!token) {
             clearSessionState()
@@ -345,7 +346,7 @@ export const useAuthStore = defineStore('auth', () => {
 
         try {
             const { data } = await authApi.getMe(config)
-            if (accessToken.value !== token) return 'stale'
+            if (sessionGeneration.value !== generation || accessToken.value !== token) return 'stale'
             if (!data.success) return 'transient-failure'
 
             const nextUser = unwrapApiData(data)
@@ -358,6 +359,7 @@ export const useAuthStore = defineStore('auth', () => {
             syncThemeFromUser(user.value)
             return 'success'
         } catch (error: unknown) {
+            if (sessionGeneration.value !== generation || accessToken.value !== token) return 'stale'
             logger.error('Fetch user failed:', error)
             const status = error && typeof error === 'object'
                 ? (error as { response?: { status?: number } }).response?.status

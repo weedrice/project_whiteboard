@@ -187,6 +187,57 @@ describe('Auth Store', () => {
         expect(store.user).toEqual(currentUser)
     })
 
+    it.each([401, 403])('preserves a replacement session after an old profile request fails with %s', async (status) => {
+        const pendingProfile = createDeferred<Awaited<ReturnType<typeof authApi.getMe>>>()
+        store.setTokens('old-token')
+        store.user = authUser({ userId: 1 })
+        vi.mocked(authApi.getMe).mockReturnValueOnce(pendingProfile.promise)
+
+        const pendingFetch = store.fetchUser({ skipAuthRefresh: true })
+        store.setTokens('new-token')
+        const currentUser = authUser({ userId: 2 })
+        store.user = currentUser
+        const currentGeneration = store.sessionGeneration
+        pendingProfile.reject({ response: { status } })
+
+        await expect(pendingFetch).resolves.toBe(true)
+        expect(store.accessToken).toBe('new-token')
+        expect(store.user).toEqual(currentUser)
+        expect(store.sessionGeneration).toBe(currentGeneration)
+    })
+
+    it('ignores a profile failure after token rotation within the same session', async () => {
+        const pendingProfile = createDeferred<Awaited<ReturnType<typeof authApi.getMe>>>()
+        store.setTokens('old-token')
+        store.user = authUser()
+        const generation = store.sessionGeneration
+        vi.mocked(authApi.getMe).mockReturnValueOnce(pendingProfile.promise)
+
+        const hydration = store.hydrateUser({ skipAuthRefresh: true })
+        expect(store.applyTokenIfCurrent(generation, 'old-token', 'rotated-token')).toBe(true)
+        pendingProfile.reject({ response: { status: 401 } })
+
+        await expect(hydration).resolves.toBe('stale')
+        expect(store.accessToken).toBe('rotated-token')
+        expect(store.sessionGeneration).toBe(generation)
+    })
+
+    it('ignores a profile failure after a session boundary reuses the same token', async () => {
+        const pendingProfile = createDeferred<Awaited<ReturnType<typeof authApi.getMe>>>()
+        store.setTokens('same-token')
+        store.user = authUser()
+        vi.mocked(authApi.getMe).mockReturnValueOnce(pendingProfile.promise)
+
+        const hydration = store.hydrateUser({ skipAuthRefresh: true })
+        store.setTokens('same-token')
+        const currentGeneration = store.sessionGeneration
+        pendingProfile.reject({ response: { status: 403 } })
+
+        await expect(hydration).resolves.toBe('stale')
+        expect(store.accessToken).toBe('same-token')
+        expect(store.sessionGeneration).toBe(currentGeneration)
+    })
+
     describe('logout', () => {
         beforeEach(() => {
             store.accessToken = 'token'

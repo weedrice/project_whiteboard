@@ -64,6 +64,18 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
     }
   }
 
+  const applyUpdateWhenSafe = () => {
+    let activation = Promise.resolve()
+    const appliedImmediately = whenPwaReloadSafe(() => {
+      activation = applyUpdate()
+    })
+    if (!appliedImmediately) {
+      updateStatus.value = 'deferred'
+      toastStore.addToast(t('common.pwa.updateDeferred'), 'info', 8000)
+    }
+    return activation
+  }
+
   retryUpdate = async () => {
     if (!navigator.onLine) {
       markFailed()
@@ -78,19 +90,13 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
         return
       }
     }
-    await applyUpdate()
+    await applyUpdateWhenSafe()
   }
 
   const updateServiceWorker = registerSW({
     immediate: true,
     onNeedRefresh() {
-      const appliedImmediately = whenPwaReloadSafe(() => {
-        void applyUpdate()
-      })
-      if (!appliedImmediately) {
-        updateStatus.value = 'deferred'
-        toastStore.addToast(t('common.pwa.updateDeferred'), 'info', 8000)
-      }
+      void applyUpdateWhenSafe()
     },
     onOfflineReady() {
       toastStore.addToast(t('common.pwa.offlineReady'), 'success')

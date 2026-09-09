@@ -120,6 +120,42 @@ describe('registerPwaAutoUpdate', () => {
     stop()
   })
 
+  it('keeps a waiting update deferred when a failed check is retried with unsaved input', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    const blocked = ref(true)
+    const scope = effectScope()
+    scope.run(() => usePwaReloadBlocker(blocked))
+    const registration = {
+      update: vi.fn()
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValueOnce(undefined),
+    } as unknown as ServiceWorkerRegistration
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    const options = getRegisterOptions()
+    options.onRegisteredSW?.('/service-worker.js', registration)
+
+    try {
+      options.onNeedRefresh?.()
+      expect(pwaUpdateStatus.value).toBe('deferred')
+      await vi.advanceTimersByTimeAsync(PWA_UPDATE_CHECK_INTERVAL_MS)
+      expect(pwaUpdateStatus.value).toBe('failed')
+
+      await retryPwaUpdate()
+
+      expect(registration.update).toHaveBeenCalledTimes(2)
+      expect(mocks.updateServiceWorker).not.toHaveBeenCalled()
+      expect(pwaUpdateStatus.value).toBe('deferred')
+
+      blocked.value = false
+      expect(mocks.updateServiceWorker).toHaveBeenCalledExactlyOnceWith(true)
+      expect(pwaUpdateStatus.value).toBe('applying')
+    } finally {
+      scope.stop()
+      stop()
+    }
+  })
+
   it('keeps failed activation retryable', async () => {
     mocks.updateServiceWorker
       .mockRejectedValueOnce(new Error('activation failed'))
