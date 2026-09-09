@@ -4,6 +4,7 @@ import type {
     ApiResponse,
     ActionMessageResponse,
     DraftPostListResponse,
+    DraftPost,
     MyComment,
     PointHistory,
     PointHistoryResponse,
@@ -29,6 +30,22 @@ import {
 export interface DraftMatchResponse {
     draftId: number | null
     multipleMatchesFound: boolean
+}
+
+export type DraftRecoveryStatus = 'AVAILABLE' | 'MISSING' | 'PROTECTED' | 'AMBIGUOUS'
+
+export interface DraftRecoveryResponse {
+    status: DraftRecoveryStatus
+    staleCandidate: boolean
+    draftId?: number | null
+    draft?: DraftPost | null
+}
+
+export interface DraftRecoveryParams {
+    boardUrl: string
+    originalPostId?: number
+    draftId?: number
+    clientDraftKey?: string
 }
 
 export interface PaginationParams {
@@ -116,6 +133,9 @@ export const userActivityApi = {
         config?: AxiosRequestConfig,
     ) {
         return api.get<ApiResponse<DraftMatchResponse>>('/users/me/drafts/match', { ...config, params })
+    },
+    resolveDraftRecovery(params: DraftRecoveryParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<DraftRecoveryResponse>>('/users/me/drafts/recovery', { ...config, params })
     },
     getRecentlyViewedPosts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/users/me/history/views', { ...config, params })

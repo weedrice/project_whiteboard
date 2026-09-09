@@ -3995,6 +3995,106 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("복구 판정은 대상이 일치하는 후보 ID를 최우선한다")
+    void resolveDraftRecovery_prefersCandidateId() {
+        DraftPost candidate = DraftPost.builder().user(user).board(board).title("candidate").build();
+        ReflectionTestUtils.setField(candidate, "draftId", 91L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserId(91L, user.getUserId()))
+                .thenReturn(Optional.of(candidate));
+
+        DraftRecoveryResponse response = postService.resolveDraftRecovery(
+                1L, "free", null, 91L, "client-draft-key-1234");
+
+        assertThat(response.getStatus()).isEqualTo(DraftRecoveryStatus.AVAILABLE);
+        assertThat(response.isStaleCandidate()).isFalse();
+        assertThat(response.getDraftId()).isEqualTo(91L);
+        assertThat(response.getDraft().getTitle()).isEqualTo("candidate");
+        verify(draftPostRepository, never()).findByUserIdAndClientDraftKey(anyLong(), anyString());
+        verify(draftPostRepository, never()).findMatchingByUserAndTarget(
+                anyLong(), anyString(), nullable(Long.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("복구 판정은 보호된 후보를 내용 없이 반환한다")
+    void resolveDraftRecovery_reportsProtectedCandidate() {
+        DraftPost candidate = DraftPost.builder().user(user).board(board).title("protected").build();
+        ReflectionTestUtils.setField(candidate, "draftId", 91L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserId(91L, user.getUserId()))
+                .thenReturn(Optional.of(candidate));
+        when(scheduledPostRepository.existsByDraftIdAndStatusIn(
+                91L, ScheduledPost.PROTECTED_DRAFT_STATUSES)).thenReturn(true);
+
+        DraftRecoveryResponse response = postService.resolveDraftRecovery(
+                1L, "free", null, 91L, null);
+
+        assertThat(response.getStatus()).isEqualTo(DraftRecoveryStatus.PROTECTED);
+        assertThat(response.getDraftId()).isEqualTo(91L);
+        assertThat(response.getDraft()).isNull();
+    }
+
+    @Test
+    @DisplayName("복구 판정은 오래된 후보를 버리고 정확한 clientDraftKey를 사용한다")
+    void resolveDraftRecovery_fallsBackFromStaleCandidateToClientKey() {
+        DraftPost exact = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("exact")
+                .build();
+        ReflectionTestUtils.setField(exact, "draftId", 92L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserId(91L, user.getUserId()))
+                .thenReturn(Optional.empty());
+        when(draftPostRepository.findByUserIdAndClientDraftKey(
+                user.getUserId(), "client-draft-key-1234"))
+                .thenReturn(Optional.of(exact));
+
+        DraftRecoveryResponse response = postService.resolveDraftRecovery(
+                1L, "free", null, 91L, "client-draft-key-1234");
+
+        assertThat(response.getStatus()).isEqualTo(DraftRecoveryStatus.AVAILABLE);
+        assertThat(response.isStaleCandidate()).isTrue();
+        assertThat(response.getDraftId()).isEqualTo(92L);
+    }
+
+    @Test
+    @DisplayName("복구 판정은 일반 후보가 복수이면 자동 선택하지 않는다")
+    void resolveDraftRecovery_reportsAmbiguousTarget() {
+        DraftPost first = DraftPost.builder().user(user).board(board).title("first").build();
+        DraftPost second = DraftPost.builder().user(user).board(board).title("second").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findMatchingByUserAndTarget(
+                eq(user.getUserId()), eq("free"), isNull(), any(Pageable.class)))
+                .thenReturn(List.of(first, second));
+
+        DraftRecoveryResponse response = postService.resolveDraftRecovery(
+                1L, "free", null, null, null);
+
+        assertThat(response.getStatus()).isEqualTo(DraftRecoveryStatus.AMBIGUOUS);
+        assertThat(response.getDraft()).isNull();
+    }
+
+    @Test
+    @DisplayName("복구 판정은 다른 사용자의 후보 존재 여부를 노출하지 않는다")
+    void resolveDraftRecovery_hidesForeignCandidate() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserId(91L, user.getUserId()))
+                .thenReturn(Optional.empty());
+        when(draftPostRepository.findMatchingByUserAndTarget(
+                eq(user.getUserId()), eq("free"), isNull(), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        DraftRecoveryResponse response = postService.resolveDraftRecovery(
+                1L, "free", null, 91L, null);
+
+        assertThat(response.getStatus()).isEqualTo(DraftRecoveryStatus.MISSING);
+        assertThat(response.isStaleCandidate()).isTrue();
+        assertThat(response.getDraftId()).isNull();
+    }
+
+    @Test
     @DisplayName("복구용 초안 조회는 잘못된 clientDraftKey를 저장소 조회 전에 거부한다")
     void getMatchingDraft_rejectsInvalidClientDraftKey() {
         assertThatThrownBy(() -> postService.getMatchingDraft(1L, "free", null, "invalid key"))

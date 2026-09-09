@@ -51,6 +51,7 @@
 | `DELETE` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 삭제 |
 | `GET` | `/api/v1/users/me/drafts` | 내 초안 목록 |
 | `GET` | `/api/v1/users/me/drafts/match` | 스페이스·원본 게시글·클라이언트 키 기준 초안 후보 조회 |
+| `GET` | `/api/v1/users/me/drafts/recovery` | 후보 ID·클라이언트 키·작성 대상 기준 복구 상태 판정 |
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
@@ -66,6 +67,7 @@
 - 프론트엔드는 사용자·작성 모드·스페이스·원본 게시글 단위 localStorage 키를 사용하고, 입력 변경 후 1.5초 debounce 자동 저장과 명시적 수동 저장을 제공한다.
 - 제목, 본문, 태그, 파일, 투표, 시리즈, 공지, NSFW, spoiler, 비밀 설정 중 하나라도 있으면 의미 있는 편집 상태로 본다. 카테고리는 localStorage 복구본에는 보존하지만 기본 카테고리 선택만으로 빈 서버 초안을 만들지 않는다.
 - 신규 저장은 `draftId` 없이 `clientDraftKey`를 보내며, 같은 키와 동일한 내용의 응답 유실 재시도만 멱등 처리한다. 내용이 바뀐 재시도는 충돌로 거부한다. 기존 초안 수정은 `draftId`와 마지막 응답의 `version`을 함께 보낸다.
+- 복구 판정은 명시한 후보 ID, 정확한 `clientDraftKey`, 동일 작성 대상의 단일 초안 순서로 선택한다. 보호 초안은 내용을 반환하지 않고 `PROTECTED`, 복수 후보는 `AMBIGUOUS`, 후보가 없으면 `MISSING`을 반환한다.
 - 서버는 숫자형 `version`을 우선 비교하고 구버전 요청은 `updatedAt`과 `modifiedAt`을 DB microsecond 정밀도로 비교한다. 불일치는 `DRAFT_OUTDATED`(`P004`, HTTP 409)이다.
 - 목록은 최근 수정 순(`modifiedAt DESC`, 동률이면 `draftId DESC`)이고 기본 페이지 크기는 20이다.
 - 저장 직후 사용자당 최근 100개만 유지하며 초과한 오래된 초안부터 정리한다. 매일 03:15(Asia/Seoul)에는 마지막 수정 후 90일이 지난 초안을 최대 100개 단위로 반복 정리한다.

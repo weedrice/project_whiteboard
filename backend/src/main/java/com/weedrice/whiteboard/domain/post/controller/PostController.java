@@ -300,6 +300,24 @@ public class PostController {
                 userId, boardUrl, originalPostId, clientDraftKey));
     }
 
+    @GetMapping("/users/me/drafts/recovery")
+    public ApiResponse<DraftRecoveryResponse> resolveDraftRecovery(
+            @RequestParam
+            @NotBlank
+            @Size(max = BoardUrlNormalizer.MAX_BOARD_URL_LENGTH)
+            @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
+            String boardUrl,
+            @RequestParam(required = false) Long originalPostId,
+            @RequestParam(required = false) Long draftId,
+            @RequestParam(required = false)
+            @Size(max = PostDraftPolicy.MAX_CLIENT_DRAFT_KEY_LENGTH)
+            @Pattern(regexp = PostDraftPolicy.CLIENT_DRAFT_KEY_PATTERN)
+            String clientDraftKey,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.resolveDraftRecovery(
+                userId, boardUrl, originalPostId, draftId, clientDraftKey));
+    }
+
     @GetMapping("/drafts/{draftId}")
     public ApiResponse<DraftResponse> getDraft(
             @PathVariable Long draftId,

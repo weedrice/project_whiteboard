@@ -98,6 +98,8 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
     }
 
     Optional<DraftPost> findByDraftIdAndUserId(Long draftId, Long userId);
+
+    Optional<DraftPost> findByUserIdAndClientDraftKey(Long userId, String clientDraftKey);
     default Optional<DraftPost> findByDraftIdAndUser(Long draftId, UserIdRef user) {
         return findByDraftIdAndUserId(draftId, user.getUserId());
     }

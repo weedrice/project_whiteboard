@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftMatchResponse;
+import com.weedrice.whiteboard.domain.post.dto.DraftRecoveryResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
@@ -279,6 +280,59 @@ public class PostDraftService {
                 .draftId(matches.size() == 1 ? matches.getFirst().getDraftId() : null)
                 .multipleMatchesFound(multipleMatchesFound)
                 .build();
+    }
+
+    public DraftRecoveryResponse resolveDraftRecovery(
+            @NonNull Long userId,
+            String boardUrl,
+            Long originalPostId,
+            Long candidateDraftId,
+            String clientDraftKey) {
+        if (clientDraftKey != null && !clientDraftKey.isBlank()
+                && !PostDraftPolicy.isValidClientDraftKey(clientDraftKey)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        boolean staleCandidate = candidateDraftId != null;
+
+        if (candidateDraftId != null) {
+            var candidate = draftPostRepository.findByDraftIdAndUserId(candidateDraftId, ownerUserId);
+            if (candidate.isPresent() && matchesDraftTarget(candidate.get(), normalizedBoardUrl, originalPostId)) {
+                return toRecoveryResponse(candidate.get(), false);
+            }
+        }
+
+        if (clientDraftKey != null && !clientDraftKey.isBlank()) {
+            var exactMatch = draftPostRepository.findByUserIdAndClientDraftKey(ownerUserId, clientDraftKey);
+            if (exactMatch.isPresent()
+                    && matchesDraftTarget(exactMatch.get(), normalizedBoardUrl, originalPostId)) {
+                return toRecoveryResponse(exactMatch.get(), staleCandidate);
+            }
+        }
+
+        List<DraftPost> matches = draftPostRepository.findMatchingByUserAndTarget(
+                ownerUserId, normalizedBoardUrl, originalPostId, PageRequest.of(0, 2));
+        if (matches.size() > 1) {
+            return DraftRecoveryResponse.ambiguous(staleCandidate);
+        }
+        if (matches.isEmpty()) {
+            return DraftRecoveryResponse.missing(staleCandidate);
+        }
+        return DraftRecoveryResponse.available(DraftResponse.from(matches.getFirst()), staleCandidate);
+    }
+
+    private DraftRecoveryResponse toRecoveryResponse(DraftPost draftPost, boolean staleCandidate) {
+        if (scheduledPostRepository.existsByDraftIdAndStatusIn(
+                draftPost.getDraftId(), ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
+            return DraftRecoveryResponse.protectedDraft(draftPost.getDraftId(), staleCandidate);
+        }
+        return DraftRecoveryResponse.available(DraftResponse.from(draftPost), staleCandidate);
+    }
+
+    private boolean matchesDraftTarget(DraftPost draftPost, String boardUrl, Long originalPostId) {
+        return Objects.equals(draftPost.getBoard().getBoardUrl(), boardUrl)
+                && Objects.equals(postId(draftPost.getOriginalPost()), originalPostId);
     }
 
     private boolean isMatchingIdempotentCreateRetry(DraftPost draftPost, PostDraftRequest request,

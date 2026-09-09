@@ -855,6 +855,48 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("임시저장 복구 상태를 단일 응답으로 조회한다")
+        void resolveDraftRecovery_success() throws Exception {
+            DraftResponse draft = DraftResponse.builder()
+                    .draftId(91L)
+                    .boardId(1L)
+                    .boardUrl("free")
+                    .boardName("Free")
+                    .build();
+            when(postService.resolveDraftRecovery(
+                    1L, "free", 7L, 91L, "client-draft-key-1234"))
+                    .thenReturn(DraftRecoveryResponse.available(draft, false));
+
+            mockMvc.perform(get("/api/v1/users/me/drafts/recovery")
+                            .param("boardUrl", "free")
+                            .param("originalPostId", "7")
+                            .param("draftId", "91")
+                            .param("clientDraftKey", "client-draft-key-1234")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("AVAILABLE"))
+                    .andExpect(jsonPath("$.data.staleCandidate").value(false))
+                    .andExpect(jsonPath("$.data.draftId").value(91))
+                    .andExpect(jsonPath("$.data.draft.draftId").value(91));
+        }
+
+        @Test
+        @DisplayName("임시저장 복구 조회는 잘못된 clientDraftKey를 거부한다")
+        void resolveDraftRecovery_rejectsInvalidClientDraftKey() throws Exception {
+            clearInvocations(postService);
+
+            mockMvc.perform(get("/api/v1/users/me/drafts/recovery")
+                            .param("boardUrl", "free")
+                            .param("clientDraftKey", "invalid key")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).resolveDraftRecovery(
+                    anyLong(), anyString(), any(), any(), anyString());
+        }
+
+        @Test
         @DisplayName("임시저장 단건 조회")
         void getDraft_success() throws Exception {
             Long draftId = 1L;

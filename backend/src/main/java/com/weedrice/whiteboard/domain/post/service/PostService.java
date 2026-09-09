@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftMatchResponse;
+import com.weedrice.whiteboard.domain.post.dto.DraftRecoveryResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
@@ -328,6 +329,16 @@ public class PostService {
     public DraftMatchResponse getMatchingDraft(
             @NonNull Long userId, String boardUrl, Long originalPostId, String clientDraftKey) {
         return postDraftService.getMatchingDraft(userId, boardUrl, originalPostId, clientDraftKey);
+    }
+
+    public DraftRecoveryResponse resolveDraftRecovery(
+            @NonNull Long userId,
+            String boardUrl,
+            Long originalPostId,
+            Long draftId,
+            String clientDraftKey) {
+        return postDraftService.resolveDraftRecovery(
+                userId, boardUrl, originalPostId, draftId, clientDraftKey);
     }
 
     @Transactional

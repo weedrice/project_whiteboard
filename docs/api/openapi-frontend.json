@@ -766,6 +766,20 @@
         },
         "type" : "object"
       },
+      "ApiResponseDraftRecoveryResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DraftRecoveryResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseDraftResponse" : {
         "properties" : {
           "data" : {
@@ -3262,6 +3276,25 @@
           },
           "multipleMatchesFound" : {
             "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "DraftRecoveryResponse" : {
+        "properties" : {
+          "draft" : {
+            "$ref" : "#/components/schemas/DraftResponse"
+          },
+          "draftId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "staleCandidate" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "enum" : [ "AVAILABLE", "MISSING", "PROTECTED", "AMBIGUOUS" ],
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -16523,6 +16556,69 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDraftMatchResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "post-controller" ]
+      }
+    },
+    "/api/v1/users/me/drafts/recovery" : {
+      "get" : {
+        "operationId" : "resolveDraftRecovery",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "boardUrl",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "pattern" : "^[a-z0-9_-]+$",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "originalPostId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "draftId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "clientDraftKey",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "[A-Za-z0-9_-]{8,64}",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDraftRecoveryResponse"
                 }
               }
             },

@@ -294,6 +294,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `DELETE` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 삭제 |
 | `GET` | `/api/v1/users/me/drafts` | 내 초안 목록 |
 | `GET` | `/api/v1/users/me/drafts/match` | 스페이스·원본 게시글·클라이언트 키 기준 초안 후보 조회 |
+| `GET` | `/api/v1/users/me/drafts/recovery` | 후보 ID·클라이언트 키·작성 대상 기준 초안 복구 상태 판정 |
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
@@ -334,6 +335,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `originalPostId` | 수정 초안에서 선택 | 원본 게시글은 현재 사용자 소유이고 삭제되지 않았으며 요청 스페이스와 일치해야 한다. |
 
 초안 단건 응답은 `draftId`, `clientDraftKey`, `version`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다.
+
+`GET /api/v1/users/me/drafts/recovery`는 `boardUrl`과 선택적인 `originalPostId`, `draftId`, `clientDraftKey`를 받아 한 번의 요청으로 복구 상태를 판정한다. 응답의 `status`는 `AVAILABLE`, `MISSING`, `PROTECTED`, `AMBIGUOUS` 중 하나다. `AVAILABLE`에는 `draft`, `AVAILABLE`과 `PROTECTED`에는 `draftId`가 포함된다. 전달한 후보 ID가 없거나 작성 대상과 일치하지 않아 대체 후보를 검색한 경우 `staleCandidate`가 `true`다. 다른 사용자 소유 후보 ID도 존재 여부를 노출하지 않고 stale 후보로 처리한다.
 
 - 기존 초안 수정에서 `version` 또는 호환용 `updatedAt`이 현재 버전과 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
 - 예약 발행이 보호하는 초안의 수정·삭제·일반 발행은 `409 Conflict`, 오류 코드 `P005`(`DRAFT_PROTECTED`)를 반환한다.

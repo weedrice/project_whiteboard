@@ -151,6 +151,12 @@ describe('userApi', () => {
             originalPostId: 7,
             clientDraftKey: 'client-draft-key-1234',
         })
+        userApi.resolveDraftRecovery({
+            boardUrl: 'free',
+            originalPostId: 7,
+            draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
+        })
         userApi.getRecentlyViewedPosts(params)
         userApi.getMySubscriptions(params)
         userApi.getMyPoint()
@@ -171,10 +177,18 @@ describe('userApi', () => {
                 clientDraftKey: 'client-draft-key-1234',
             },
         })
-        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/history/views', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/users/me/subscriptions', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(10, '/points/me')
-        expect(apiMock.get).toHaveBeenNthCalledWith(11, '/points/me/history', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/drafts/recovery', {
+            params: {
+                boardUrl: 'free',
+                originalPostId: 7,
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+            },
+        })
+        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/users/me/history/views', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(10, '/users/me/subscriptions', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(11, '/points/me')
+        expect(apiMock.get).toHaveBeenNthCalledWith(12, '/points/me/history', { params })
         expect(blockListResponse.data.data.number).toBe(1)
         expect(scrapsResponse.data.data.number).toBe(1)
         expect(pointResponse.data.data.number).toBe(1)

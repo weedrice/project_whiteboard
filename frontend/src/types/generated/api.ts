@@ -2756,6 +2756,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/drafts/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["resolveDraftRecovery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me/email-verification": {
         parameters: {
             query?: never;
@@ -3510,6 +3526,11 @@ export interface components {
         };
         ApiResponseDraftMatchResponse: {
             data?: components["schemas"]["DraftMatchResponse"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
+        ApiResponseDraftRecoveryResponse: {
+            data?: components["schemas"]["DraftRecoveryResponse"];
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
@@ -4379,6 +4400,14 @@ export interface components {
             /** Format: int64 */
             draftId?: number;
             multipleMatchesFound?: boolean;
+        };
+        DraftRecoveryResponse: {
+            draft?: components["schemas"]["DraftResponse"];
+            /** Format: int64 */
+            draftId?: number;
+            staleCandidate?: boolean;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "MISSING" | "PROTECTED" | "AMBIGUOUS";
         };
         DraftResponse: {
             /** Format: int64 */
@@ -11614,6 +11643,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseDraftMatchResponse"];
+                };
+            };
+        };
+    };
+    resolveDraftRecovery: {
+        parameters: {
+            query: {
+                boardUrl: string;
+                originalPostId?: number;
+                draftId?: number;
+                clientDraftKey?: string;
+                userId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDraftRecoveryResponse"];
                 };
             };
         };
