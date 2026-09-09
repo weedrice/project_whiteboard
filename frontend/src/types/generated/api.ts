@@ -4405,9 +4405,9 @@ export interface components {
             draft?: components["schemas"]["DraftResponse"];
             /** Format: int64 */
             draftId?: number;
-            staleCandidate?: boolean;
+            staleCandidate: boolean;
             /** @enum {string} */
-            status?: "AVAILABLE" | "MISSING" | "PROTECTED" | "AMBIGUOUS";
+            status: "AVAILABLE" | "MISSING" | "PROTECTED" | "AMBIGUOUS";
         };
         DraftResponse: {
             /** Format: int64 */

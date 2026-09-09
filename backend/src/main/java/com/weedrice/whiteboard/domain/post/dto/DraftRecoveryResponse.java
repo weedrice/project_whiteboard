@@ -1,12 +1,16 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
 @Builder
 public class DraftRecoveryResponse {
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private DraftRecoveryStatus status;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private boolean staleCandidate;
     private Long draftId;
     private DraftResponse draft;
