@@ -45,6 +45,23 @@ public class ContentRewardService {
         }
     }
 
+    @Transactional
+    public void rollbackCreateReward(Long userId, Long relatedId, ContentRewardPolicy policy) {
+        long rewardedAmount = pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                userId,
+                java.util.List.of(EARN_TYPE, REWARD_REVERSAL_TYPE),
+                policy.getRelatedType(),
+                relatedId);
+        if (rewardedAmount > 0) {
+            pointService.reverseRewardPoint(
+                    userId,
+                    Math.toIntExact(rewardedAmount),
+                    policy.getDeleteDescription(),
+                    relatedId,
+                    policy.getRelatedType());
+        }
+    }
+
     private int resolveCreateReward(ContentRewardPolicy policy) {
         String createRewardConfig = globalConfigService.getConfig(policy.getConfigKey());
         return GlobalConfigService.parseIntConfigOrDefault(

@@ -17,6 +17,7 @@ import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.port.UserActivityPort;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -56,6 +57,7 @@ class UserAdminQueryServiceTest {
     private UserAdminQueryService userAdminQueryService;
 
     @Mock private UserRepository userRepository;
+    @Mock private UserActivityPort userActivityPort;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private AdminRepository adminRepository;
@@ -379,8 +381,16 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserOrderByCreatedAtDescPostIdDesc(user, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(post), PageRequest.of(0, 10), 1));
+        AdminUserPostResponse activityItem = AdminUserPostResponse.builder()
+                .postId(21L)
+                .boardName("Free")
+                .deleted(true)
+                .notice(true)
+                .nsfw(true)
+                .secret(true)
+                .build();
+        when(userActivityPort.getPostsForAdmin(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(activityItem), PageRequest.of(0, 10), 1));
 
         Page<AdminUserPostResponse> response = userAdminQueryService.getUserPostsForAdmin(1L, PageRequest.of(0, 10));
 
@@ -431,8 +441,18 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(comment, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(user, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 10), 1));
+        AdminUserCommentResponse activityItem = AdminUserCommentResponse.builder()
+                .commentId(31L)
+                .deleted(true)
+                .depth(1)
+                .parentId(30L)
+                .post(AdminUserCommentResponse.PostInfo.builder()
+                        .deleted(true)
+                        .boardPublic(false)
+                        .build())
+                .build();
+        when(userActivityPort.getCommentsForAdmin(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(activityItem), PageRequest.of(0, 10), 1));
 
         Page<AdminUserCommentResponse> response = userAdminQueryService.getUserCommentsForAdmin(1L, PageRequest.of(0, 10));
 
@@ -525,7 +545,7 @@ class UserAdminQueryServiceTest {
         User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserOrderByCreatedAtDescPostIdDesc(eq(user), any()))
+        when(userActivityPort.getPostsForAdmin(eq(1L), any()))
                 .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
 
         userAdminQueryService.getUserPostsForAdmin(
@@ -533,7 +553,7 @@ class UserAdminQueryServiceTest {
                 PageRequest.of(3, 1000, Sort.by(Sort.Order.asc("title"))));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findByUserOrderByCreatedAtDescPostIdDesc(eq(user), pageableCaptor.capture());
+        verify(userActivityPort).getPostsForAdmin(eq(1L), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(3);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
@@ -546,13 +566,13 @@ class UserAdminQueryServiceTest {
         User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(eq(user), any()))
+        when(userActivityPort.getCommentsForAdmin(eq(1L), any()))
                 .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
 
         userAdminQueryService.getUserCommentsForAdmin(1L, Pageable.unpaged());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(commentRepository).findByUserOrderByCreatedAtDescCommentIdDesc(eq(user), pageableCaptor.capture());
+        verify(userActivityPort).getCommentsForAdmin(eq(1L), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isZero();
         assertThat(safePageable.getPageSize()).isEqualTo(20);

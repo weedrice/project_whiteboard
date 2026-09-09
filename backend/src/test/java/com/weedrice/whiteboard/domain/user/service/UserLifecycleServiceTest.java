@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
 import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
@@ -47,7 +47,7 @@ class UserLifecycleServiceTest {
     @Mock private SanctionRepository sanctionRepository;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
-    @Mock private AgentLifecycleService agentLifecycleService;
+    @Mock private UserAgentLifecyclePort agentLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
     @Mock private Clock clock;
@@ -71,7 +71,7 @@ class UserLifecycleServiceTest {
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
-        verify(agentLifecycleService).suspendAllForUser(user);
+        verify(agentLifecycleService).suspendAllForUser(user.getUserId());
     }
 
     @Test
@@ -86,7 +86,7 @@ class UserLifecycleServiceTest {
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user, 9L);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
-        verify(agentLifecycleService).suspendAllForUser(user);
+        verify(agentLifecycleService).suspendAllForUser(user.getUserId());
     }
 
     @Test
@@ -103,7 +103,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
-        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
     }
 
@@ -120,7 +120,7 @@ class UserLifecycleServiceTest {
         var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
-        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
     }
 
@@ -139,7 +139,7 @@ class UserLifecycleServiceTest {
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
-        verify(agentLifecycleService, never()).suspendAllForUser(user);
+        verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
     }
 
     @Test
@@ -160,7 +160,7 @@ class UserLifecycleServiceTest {
                 accountCredentialInvalidationService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
-        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         inOrder.verify(accountCredentialInvalidationService).invalidateForLockedUser(user);
     }
 
@@ -194,7 +194,7 @@ class UserLifecycleServiceTest {
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
-        verify(agentLifecycleService, never()).suspendAllForUser(user);
+        verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
         verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(user);
     }
 
@@ -213,7 +213,7 @@ class UserLifecycleServiceTest {
         verify(userRepository).findByIdForUpdate(1L);
         verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
-        verify(agentLifecycleService, never()).suspendAllForUser(user);
+        verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
     }
 
     @Test

@@ -1,12 +1,12 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.post.converter.LongListJsonConverter;
 import com.weedrice.whiteboard.domain.post.converter.PollRequestJsonConverter;
 import com.weedrice.whiteboard.domain.post.converter.StringListJsonConverter;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -48,9 +48,8 @@ public class DraftPost extends BaseTimeEntity {
     @Column(name = "client_draft_key", length = 64)
     private String clientDraftKey;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id", nullable = false)
@@ -99,11 +98,11 @@ public class DraftPost extends BaseTimeEntity {
     private Post originalPost;
 
     @Builder
-    public DraftPost(User user, Board board, BoardCategory category, String clientDraftKey,
+    public DraftPost(Long userId, Board board, BoardCategory category, String clientDraftKey,
             String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds,
             PollRequest poll, PostSeries series, Post originalPost) {
-        this.user = user;
+        this.userId = userId;
         this.board = board;
         this.clientDraftKey = clientDraftKey;
         this.category = category;
@@ -118,6 +117,13 @@ public class DraftPost extends BaseTimeEntity {
         this.poll = poll;
         this.series = series;
         this.originalPost = originalPost;
+    }
+
+    public static class DraftPostBuilder {
+        public DraftPostBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
     }
 
     public void adoptClientDraftKey(String clientDraftKey) {

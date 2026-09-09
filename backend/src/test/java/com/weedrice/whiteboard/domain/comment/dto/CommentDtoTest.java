@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.comment.dto;
 
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +45,7 @@ class CommentDtoTest {
         ReflectionTestUtils.setField(comment, "likeCount", 5);
 
         // when
-        CommentResponse response = CommentResponse.from(comment);
+        CommentResponse response = CommentResponse.from(comment, author(1L, "Test User", "profile.jpg"), post(post));
         response.setChildren(new ArrayList<>()); // Test setter
 
         // then
@@ -80,7 +82,7 @@ class CommentDtoTest {
         comment.deleteComment();
 
         // when
-        CommentResponse response = CommentResponse.from(comment);
+        CommentResponse response = CommentResponse.from(comment, null, post(post));
 
         // then
         assertThat(response.isDeleted()).isTrue();
@@ -105,7 +107,7 @@ class CommentDtoTest {
                 .build();
         comment.blind("AUTO_REPORT", LocalDateTime.now());
 
-        CommentResponse response = CommentResponse.from(comment);
+        CommentResponse response = CommentResponse.from(comment, author(null, "Hidden User", null), post(post));
 
         assertThat(response.isBlinded()).isTrue();
         assertThat(response.getContent()).isNull();
@@ -127,7 +129,9 @@ class CommentDtoTest {
         Page<Comment> page = new PageImpl<>(List.of(comment1, comment2), PageRequest.of(0, 10), 2);
 
         // when
-        CommentListResponse response = CommentListResponse.from(page);
+        Page<CommentResponse> responsePage = page.map(comment ->
+                CommentResponse.from(comment, author(null, "User", null), post(post)));
+        CommentListResponse response = CommentListResponse.fromResponses(responsePage);
 
         // then
         assertThat(response.getContent()).hasSize(2);
@@ -158,7 +162,7 @@ class CommentDtoTest {
         ReflectionTestUtils.setField(comment, "likeCount", 3);
 
         // when
-        MyCommentResponse response = MyCommentResponse.from(comment);
+        MyCommentResponse response = MyCommentResponse.from(comment, post(post));
 
         // then
         assertThat(response.getCommentId()).isEqualTo(10L);
@@ -186,9 +190,29 @@ class CommentDtoTest {
         // user is null
 
         // when
-        CommentResponse response = CommentResponse.from(comment);
+        CommentResponse response = CommentResponse.from(comment, null, post(post));
 
         // then
         assertThat(response.getAuthor()).isNull();
+    }
+
+    private AuthorSnapshot author(Long userId, String displayName, String profileImageUrl) {
+        return new AuthorSnapshot(userId, null, "USER", displayName, profileImageUrl, null);
+    }
+
+    private CommentPostSnapshot post(Post post) {
+        Board board = post.getBoard();
+        return new CommentPostSnapshot(
+                post.getPostId(),
+                board == null ? null : board.getBoardId(),
+                board == null ? null : board.getBoardUrl(),
+                board == null ? null : board.getBoardName(),
+                null,
+                post.getTitle(),
+                post.getUserId(),
+                post.getAgentId(),
+                Boolean.TRUE.equals(post.getIsDeleted()),
+                true,
+                true);
     }
 }

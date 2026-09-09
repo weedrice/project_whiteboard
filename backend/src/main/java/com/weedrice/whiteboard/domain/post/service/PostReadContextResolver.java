@@ -1,14 +1,10 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -24,25 +20,23 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 class PostReadContextResolver {
 
-    private final UserRepository userRepository;
-    private final UserBlockService userBlockService;
+    private final PostUserReadPort postUserReadPort;
     private final AdminRepository adminRepository;
 
     PostReadContext resolve(Long currentUserId) {
         if (currentUserId == null) {
             return PostReadContext.anonymous();
         }
-        User viewer = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        ActorUserPrincipal viewer = postUserReadPort.resolve(currentUserId);
         return resolveForResolvedUser(viewer);
     }
 
-    PostReadContext resolveForResolvedUser(User viewer) {
+    PostReadContext resolveForResolvedUser(ActorUserPrincipal viewer) {
         if (viewer == null || viewer.getUserId() == null) {
             return PostReadContext.anonymous();
         }
         Long currentUserId = viewer.getUserId();
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
+        List<Long> blockedUserIds = postUserReadPort.getBlockedUserIdsForExistingUser(currentUserId);
         return new PostReadContext(viewer, currentUserId, blockedUserIds, toBlockedUserIdSet(blockedUserIds),
                 Collections.emptySet());
     }
@@ -61,7 +55,7 @@ class PostReadContextResolver {
         }
         return PostReadContext.unresolvedUser(
                 currentUserId,
-                userBlockService.getBlockedUserIdsEitherDirection(currentUserId));
+                postUserReadPort.getBlockedUserIds(currentUserId));
     }
 
     PostReadContext resolveForExistingUserPosts(Long currentUserId, Collection<Post> posts) {
@@ -96,7 +90,7 @@ class PostReadContextResolver {
                 activeAdminBoardIds);
     }
 
-    private Set<Long> resolveActiveAdminBoardIds(User viewer, Collection<Board> boards) {
+    private Set<Long> resolveActiveAdminBoardIds(ActorUserPrincipal viewer, Collection<Board> boards) {
         List<Long> boardIds = boards.stream()
                 .filter(Objects::nonNull)
                 .filter(this::requiresAdminAccess)
@@ -108,15 +102,10 @@ class PostReadContextResolver {
             return Collections.emptySet();
         }
 
-        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(viewer, boardIds, true).stream()
-                .map(Admin::getBoard)
-                .filter(Objects::nonNull)
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        return Set.copyOf(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(viewer.getUserId(), boardIds));
     }
 
-    private Set<Long> resolveActiveAdminBoardIdsForPosts(User viewer, Collection<Post> posts) {
+    private Set<Long> resolveActiveAdminBoardIdsForPosts(ActorUserPrincipal viewer, Collection<Post> posts) {
         List<Long> boardIds = posts.stream()
                 .filter(Objects::nonNull)
                 .filter(this::requiresAdminAccess)
@@ -130,12 +119,7 @@ class PostReadContextResolver {
             return Collections.emptySet();
         }
 
-        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(viewer, boardIds, true).stream()
-                .map(Admin::getBoard)
-                .filter(Objects::nonNull)
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        return Set.copyOf(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(viewer.getUserId(), boardIds));
     }
 
     private boolean requiresAdminAccess(Post post) {

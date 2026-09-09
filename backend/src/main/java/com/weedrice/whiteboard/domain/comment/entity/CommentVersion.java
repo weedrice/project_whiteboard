@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.comment.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -28,9 +27,8 @@ public class CommentVersion {
     @JoinColumn(name = "comment_id", nullable = false)
     private Comment comment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "modifier_id", nullable = false)
-    private User modifier;
+    @Column(name = "modifier_id", nullable = false)
+    private Long modifierId;
 
     @Column(name = "version_type", nullable = false, length = 50)
     private String versionType; // CREATE, MODIFY, DELETE
@@ -47,9 +45,9 @@ public class CommentVersion {
     private LocalDateTime modifiedAt;
 
     @Builder
-    public CommentVersion(Comment comment, User modifier, String versionType, String originalContent) {
+    public CommentVersion(Comment comment, Long modifierId, String versionType, String originalContent) {
         this.comment = comment;
-        this.modifier = modifier;
+        this.modifierId = modifierId;
         this.versionType = versionType;
         this.originalContent = originalContent;
     }

@@ -89,14 +89,14 @@ class ScheduledPostRequestPolicyTest {
 
         assertError(() -> policy.validate(user, board, request), ErrorCode.FORBIDDEN);
 
-        verify(postSeriesRepository, never()).findBySeriesIdAndOwner_UserId(
+        verify(postSeriesRepository, never()).findBySeriesIdAndOwnerUserId(
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void rejectsSeriesNotOwnedByAuthor() {
         ScheduledPostRequest request = request(null, false, 30L);
-        when(postSeriesRepository.findBySeriesIdAndOwner_UserId(30L, 1L)).thenReturn(Optional.empty());
+        when(postSeriesRepository.findBySeriesIdAndOwnerUserId(30L, 1L)).thenReturn(Optional.empty());
 
         assertError(() -> policy.validate(user, board, request), ErrorCode.NOT_FOUND);
     }
@@ -109,13 +109,13 @@ class ScheduledPostRequestPolicyTest {
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(10L, 2L, true))
                 .thenReturn(Optional.of(category));
         when(boardAccessPolicy.hasBoardAdminAccess(board, user)).thenReturn(true);
-        when(postSeriesRepository.findBySeriesIdAndOwner_UserId(30L, 1L)).thenReturn(Optional.of(series));
+        when(postSeriesRepository.findBySeriesIdAndOwnerUserId(30L, 1L)).thenReturn(Optional.of(series));
 
         policy.validate(user, board, request);
 
         verify(postAuthorCommandPolicy).validateAppliedCategoryWriteRole(board, user, category);
         verify(boardAccessPolicy).hasBoardAdminAccess(board, user);
-        verify(postSeriesRepository).findBySeriesIdAndOwner_UserId(30L, 1L);
+        verify(postSeriesRepository).findBySeriesIdAndOwnerUserId(30L, 1L);
     }
 
     private ScheduledPostRequest request(Long categoryId, boolean notice, Long seriesId) {

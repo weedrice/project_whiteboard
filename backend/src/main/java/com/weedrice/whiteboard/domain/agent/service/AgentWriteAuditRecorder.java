@@ -13,7 +13,7 @@ class AgentWriteAuditRecorder {
     void recordPostCreated(Agent agent, Long postId, AgentRequestContext requestContext) {
         agentAuditService.saveLog(
                 agent,
-                agent.getUser(),
+                agent.getUserId(),
                 AgentAuditActionType.CREATE_POST,
                 AgentAuditTargetType.POST,
                 postId,
@@ -23,7 +23,7 @@ class AgentWriteAuditRecorder {
     void recordCommentCreated(Agent agent, Long commentId, AgentRequestContext requestContext) {
         agentAuditService.saveLog(
                 agent,
-                agent.getUser(),
+                agent.getUserId(),
                 AgentAuditActionType.CREATE_COMMENT,
                 AgentAuditTargetType.COMMENT,
                 commentId,

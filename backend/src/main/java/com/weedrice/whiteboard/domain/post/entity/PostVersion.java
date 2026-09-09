@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -26,9 +26,8 @@ public class PostVersion extends BaseTimeEntity {
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "modifier_id", nullable = false)
-    private User modifier;
+    @Column(name = "modifier_id", nullable = false)
+    private Long modifierId;
 
     @Column(name = "version_type", length = 50, nullable = false)
     private String versionType; // CREATE, MODIFY, DELETE
@@ -40,11 +39,18 @@ public class PostVersion extends BaseTimeEntity {
     private String originalContents;
 
     @Builder
-    public PostVersion(Post post, User modifier, String versionType, String originalTitle, String originalContents) {
+    public PostVersion(Post post, Long modifierId, String versionType, String originalTitle, String originalContents) {
         this.post = post;
-        this.modifier = modifier;
+        this.modifierId = modifierId;
         this.versionType = versionType;
         this.originalTitle = originalTitle;
         this.originalContents = originalContents;
+    }
+
+    public static class PostVersionBuilder {
+        public PostVersionBuilder modifier(UserIdRef modifier) {
+            this.modifierId = modifier == null ? null : modifier.getUserId();
+            return this;
+        }
     }
 }

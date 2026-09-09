@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class PostLatestReadService {
 
     private final PostRepository postRepository;
-    private final UserBlockService userBlockService;
+    private final PostUserReadPort postUserReadPort;
     private final PostSummaryAssembler postSummaryAssembler;
 
     public Map<Long, List<PostSummary>> getLatestPostsByBoards(
@@ -68,6 +68,6 @@ public class PostLatestReadService {
         if (currentUserId == null) {
             return null;
         }
-        return userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
+        return postUserReadPort.getBlockedUserIds(currentUserId);
     }
 }

@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.comment.service;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +15,9 @@ public class CommentLikeCommand {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
 
-    public CommentLikeResult like(User user, Comment comment, DuplicatePolicy duplicatePolicy) {
+    public CommentLikeResult like(Long userId, Comment comment, DuplicatePolicy duplicatePolicy) {
         Long commentId = comment.getCommentId();
-        boolean alreadyLiked = commentLikeRepository.insertIgnore(user.getUserId(), commentId) == 0;
+        boolean alreadyLiked = commentLikeRepository.insertIgnore(userId, commentId) == 0;
         if (alreadyLiked && duplicatePolicy == DuplicatePolicy.THROW_ALREADY_LIKED) {
             throw new BusinessException(ErrorCode.ALREADY_LIKED);
         }

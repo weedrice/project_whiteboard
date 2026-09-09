@@ -147,8 +147,8 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     @Query("""
             SELECT
-                (SELECT COUNT(p) FROM Post p WHERE p.user = u AND p.isDeleted = false) AS postCount,
-                (SELECT COUNT(c) FROM Comment c WHERE c.user = u AND c.isDeleted = false) AS commentCount,
+                (SELECT COUNT(p) FROM Post p WHERE p.userId = u.userId AND p.isDeleted = false) AS postCount,
+                (SELECT COUNT(c) FROM Comment c WHERE c.userId = u.userId AND c.isDeleted = false) AS commentCount,
                 (SELECT COUNT(bs) FROM BoardSubscription bs WHERE bs.user = u) AS subscriptionCount,
                 (SELECT COUNT(s) FROM Sanction s WHERE s.targetUser = u) AS sanctionCount,
                 (SELECT COUNT(r)

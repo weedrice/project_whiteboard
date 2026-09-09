@@ -7,8 +7,6 @@ import com.weedrice.whiteboard.domain.admin.service.AdminRolePriority;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
@@ -18,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.port.UserActivityPort;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -71,8 +70,7 @@ public class UserAdminQueryService {
             "isSuperAdmin");
 
     private final UserRepository userRepository;
-    private final PostRepository postRepository;
-    private final CommentRepository commentRepository;
+    private final UserActivityPort userActivityPort;
     private final AdminRepository adminRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final AdminUserDetailStatsReader adminUserDetailStatsReader;
@@ -194,15 +192,13 @@ public class UserAdminQueryService {
     public Page<AdminUserPostResponse> getUserPostsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
         Pageable safePageable = normalizeDetailPageable(pageable);
-        return postRepository.findByUserOrderByCreatedAtDescPostIdDesc(user, safePageable)
-                .map(AdminUserPostResponse::from);
+        return userActivityPort.getPostsForAdmin(user.getUserId(), safePageable);
     }
 
     public Page<AdminUserCommentResponse> getUserCommentsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
         Pageable safePageable = normalizeDetailPageable(pageable);
-        return commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(user, safePageable)
-                .map(AdminUserCommentResponse::from);
+        return userActivityPort.getCommentsForAdmin(user.getUserId(), safePageable);
     }
 
     public Page<AdminUserSubscriptionResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {

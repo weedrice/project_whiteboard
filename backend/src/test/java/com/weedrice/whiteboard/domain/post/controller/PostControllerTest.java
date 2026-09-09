@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
@@ -113,6 +114,10 @@ class PostControllerTest {
     private User user;
     private Board board;
     private Post post;
+
+    private AuthorSnapshot author() {
+        return new AuthorSnapshot(1L, null, "USER", "Test User", null, null);
+    }
     private BoardCategory category;
 
     @BeforeEach
@@ -161,7 +166,7 @@ class PostControllerTest {
         @DisplayName("게시글 목록 조회 성공")
         void getPosts_success() throws Exception {
             String boardUrl = "free";
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
@@ -178,7 +183,7 @@ class PostControllerTest {
         void getPosts_anonymous_withKeyword() throws Exception {
             String boardUrl = "free";
             String keyword = "test";
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
@@ -211,7 +216,7 @@ class PostControllerTest {
         @Test
         @DisplayName("인기 게시글 목록 조회 성공")
         void getTrendingPosts_success() throws Exception {
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             when(postService.getTrendingPostsPage(any(Pageable.class), any(), any()))
                     .thenReturn(new PageImpl<>(List.of(summary)));
 
@@ -227,7 +232,7 @@ class PostControllerTest {
         @Test
         @DisplayName("인기 게시글 목록 조회 성공 - 비인증 사용자")
         void getTrendingPosts_anonymous() throws Exception {
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             when(postService.getTrendingPostsPage(any(Pageable.class), isNull(), any()))
                     .thenReturn(new PageImpl<>(List.of(summary)));
 
@@ -238,7 +243,7 @@ class PostControllerTest {
         @Test
         @DisplayName("단일 게시글 조회 성공")
         void getTrendingPosts_forwardsPeriod() throws Exception {
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             when(postService.getTrendingPostsPage(any(Pageable.class), eq(1L), eq("30d")))
                     .thenReturn(new PageImpl<>(List.of(summary)));
 
@@ -255,7 +260,7 @@ class PostControllerTest {
         @Test
         @DisplayName("인기 게시글 목록 조회 - 페이지 크기는 최대 100으로 제한")
         void getTrendingPosts_clampsLargePageSize() throws Exception {
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, author(), null);
             when(postService.getTrendingPostsPage(any(Pageable.class), any(), any()))
                     .thenReturn(new PageImpl<>(List.of(summary)));
 
@@ -797,7 +802,8 @@ class PostControllerTest {
         @Test
         @DisplayName("내 스크랩 조회")
         void getMyScraps_success() throws Exception {
-            when(postService.getMyScraps(anyLong(), any())).thenReturn(ScrapListResponse.from(Page.empty()));
+            when(postService.getMyScraps(anyLong(), any()))
+                    .thenReturn(ScrapListResponse.from(Page.<Scrap>empty(), java.util.Map.of()));
             mockMvc.perform(get("/api/v1/users/me/scraps").with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }

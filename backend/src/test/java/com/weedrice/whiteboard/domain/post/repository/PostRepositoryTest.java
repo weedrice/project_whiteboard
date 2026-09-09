@@ -163,7 +163,7 @@ class PostRepositoryTest {
 
         // then
         assertThat(posts.getContent()).isNotEmpty();
-        assertThat(posts.getContent().get(0).getUser()).isEqualTo(user);
+        assertThat(posts.getContent().get(0).getUserId()).isEqualTo(user.getUserId());
     }
 
     @Test
@@ -1478,7 +1478,7 @@ class PostRepositoryTest {
         assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
         assertThat(entityGraph).isNotNull();
         assertThat(Arrays.asList(entityGraph.attributePaths()))
-                .containsExactlyInAnyOrder("user", "agent", "board", "category");
+                .containsExactlyInAnyOrder("board", "category");
     }
 
     @Test

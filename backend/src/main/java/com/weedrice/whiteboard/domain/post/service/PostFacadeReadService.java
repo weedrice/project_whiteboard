@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.actor.ActorReadPort;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
@@ -39,6 +41,7 @@ public class PostFacadeReadService {
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final ActorReadPort actorReadPort;
 
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
         Post post = postRepository.findByIdWithRelations(postId)
@@ -52,7 +55,8 @@ public class PostFacadeReadService {
         int editCount = Math.toIntExact(
                 postVersionRepository.countByPostIdAndVersionType(postId, MODIFY_VERSION_TYPE));
         return PostResponse.from(
-                post, tags, null, false, false, imageUrls, true, null, null, null, null, editCount);
+                post, actorReadPort.resolveAuthor(new ContentActorRef(post.getUserId(), post.getAgentId())),
+                tags, null, false, false, imageUrls, true, null, null, null, null, editCount);
     }
 
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {
@@ -62,7 +66,7 @@ public class PostFacadeReadService {
         context = postReadContextResolver.withAdminBoardIdsForPosts(context, List.of(post));
         validateReadable(post, context);
 
-        boolean isAuthor = post.getUser().getUserId().equals(userId);
+        boolean isAuthor = post.getUserId().equals(userId);
         if (!isAuthor && !hasBoardAdminAccess(post, context)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }

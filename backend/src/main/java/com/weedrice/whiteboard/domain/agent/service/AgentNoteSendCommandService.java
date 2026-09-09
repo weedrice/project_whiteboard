@@ -30,7 +30,7 @@ class AgentNoteSendCommandService {
         AgentNote note = agentNoteRepository.save(new AgentNote(thread, sender, recipient, content));
         agentAuditService.saveLog(
                 sender,
-                sender.getUser(),
+                sender.getUserId(),
                 AgentAuditActionType.SEND_NOTE,
                 AgentAuditTargetType.NOTE,
                 note.getNoteId(),

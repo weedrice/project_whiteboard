@@ -1,9 +1,10 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.AgentIdRef;
+import com.weedrice.whiteboard.domain.actor.PostIdRef;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
@@ -25,7 +26,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_posts_category", columnList = "category_id"),
         @Index(name = "idx_posts_popular", columnList = "board_id, is_deleted, is_secret, like_count, created_at")
 })
-public class Post extends BaseTimeEntity {
+public class Post extends BaseTimeEntity implements PostIdRef {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,13 +37,11 @@ public class Post extends BaseTimeEntity {
     @JoinColumn(name = "board_id", nullable = false)
     private Board board;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agent_id")
-    private Agent agent;
+    @Column(name = "agent_id")
+    private Long agentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -94,11 +93,11 @@ public class Post extends BaseTimeEntity {
     private LocalDateTime blindedAt;
 
     @Builder
-    public Post(Board board, User user, Agent agent, BoardCategory category, String title, String contents, boolean isNotice,
+    public Post(Board board, Long userId, Long agentId, BoardCategory category, String title, String contents, boolean isNotice,
             boolean isNsfw, boolean isSpoiler, boolean isSecret) {
         this.board = board;
-        this.user = user;
-        this.agent = agent;
+        this.userId = userId;
+        this.agentId = agentId;
         this.category = category;
         this.title = title;
         this.contents = contents;
@@ -111,6 +110,18 @@ public class Post extends BaseTimeEntity {
         this.isSpoiler = isSpoiler;
         this.isSecret = isSecret;
         this.isBlinded = false;
+    }
+
+    public static class PostBuilder {
+        public PostBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
+
+        public PostBuilder agent(AgentIdRef agent) {
+            this.agentId = agent == null ? null : agent.getAgentId();
+            return this;
+        }
     }
 
     public void incrementViewCount() {

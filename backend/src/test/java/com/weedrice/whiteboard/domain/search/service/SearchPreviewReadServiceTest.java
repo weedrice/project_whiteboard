@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.search.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
+import com.weedrice.whiteboard.domain.comment.service.CommentSummaryAssembler;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -13,6 +16,7 @@ import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.service.PostContentSummaryExtractorFixtures;
 import com.weedrice.whiteboard.domain.post.service.PostInteractionContextResolver;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
+import com.weedrice.whiteboard.domain.post.integration.PostCommentStatusIntegrationAdapter;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -72,6 +76,10 @@ class SearchPreviewReadServiceTest {
     private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock
     private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
+    @Mock
+    private CommentPostPort commentPostPort;
 
     private SearchPreviewReadService searchPreviewReadService;
     private User user;
@@ -83,14 +91,16 @@ class SearchPreviewReadServiceTest {
         BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostSummaryAssembler postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                commentRepository,
+                new PostCommentStatusIntegrationAdapter(commentRepository),
                 boardAccessPolicy,
                 new PostInteractionContextResolver(
-                        userRepository,
+                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                                userRepository, userBlockService),
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
         searchPreviewReadService = new SearchPreviewReadService(
                 userRepository,
                 postRepository,
@@ -101,7 +111,8 @@ class SearchPreviewReadServiceTest {
                 userBlockService,
                 postSummaryAssembler,
                 new IntegratedSearchAssembler(),
-                new SearchUserLookupPolicy(userRepository));
+                new SearchUserLookupPolicy(userRepository),
+                new CommentSummaryAssembler(actorBatchReadPort, commentPostPort));
     }
 
     @Test

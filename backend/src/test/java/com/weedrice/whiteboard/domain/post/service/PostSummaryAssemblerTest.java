@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -12,6 +15,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.post.integration.PostCommentStatusIntegrationAdapter;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,11 +30,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,6 +58,8 @@ class PostSummaryAssemblerTest {
     private CommentRepository commentRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
 
     private PostSummaryAssembler postSummaryAssembler;
     private FeedPostSummaryAssembler feedPostSummaryAssembler;
@@ -60,22 +68,38 @@ class PostSummaryAssemblerTest {
     void setUp() {
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                commentRepository,
+                new PostCommentStatusIntegrationAdapter(commentRepository),
                 new BoardAccessPolicy(adminRepository),
                 new PostInteractionContextResolver(
-                        userRepository,
+                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                                userRepository, org.mockito.Mockito.mock(
+                                        com.weedrice.whiteboard.domain.user.service.UserBlockService.class)),
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
         feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 new PostInteractionContextResolver(
-                        userRepository,
+                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                                userRepository, org.mockito.Mockito.mock(
+                                        com.weedrice.whiteboard.domain.user.service.UserBlockService.class)),
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
+        org.mockito.Mockito.lenient().when(actorBatchReadPort.resolveAuthors(anyCollection()))
+                .thenAnswer(invocation -> invocation.<Collection<ContentActorRef>>getArgument(0).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                ref -> ref,
+                                ref -> new AuthorSnapshot(ref.ownerUserId(), ref.agentId(),
+                                        ref.agentId() == null ? "USER" : "AGENT",
+                                        ref.agentId() == null ? "Author" : "Agent",
+                                        null,
+                                        null),
+                                (left, right) -> left)));
     }
 
     @Test
@@ -275,6 +299,7 @@ class PostSummaryAssemblerTest {
         List<FeedPostSummary> latest = feedPostSummaryAssembler.assembleLatestPosts(List.of(post), null);
         PostSummary listSummary = PostSummary.from(
                 post,
+                new AuthorSnapshot(author.getUserId(), null, "USER", author.getDisplayName(), null, null),
                 trending.get(0).getThumbnailUrl(),
                 board.getIconUrl(),
                 false,

@@ -62,7 +62,7 @@ class ViewHistoryCommandServiceTest {
     @Test
     @DisplayName("insert 후 조회 이력이 없으면 POST_NOT_FOUND 예외로 변환한다")
     void getOrCreate_insertedButMissing_throwsPostNotFound() {
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(1);
 
         assertThatThrownBy(() -> viewHistoryCommandService.getOrCreate(user, post))
@@ -87,7 +87,7 @@ class ViewHistoryCommandServiceTest {
         ViewHistory viewHistory = ViewHistory.builder().user(user).post(post).build();
         when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(0);
         when(viewHistoryRepository.touchModifiedAt(user.getUserId(), post.getPostId())).thenReturn(1);
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(viewHistory));
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.of(viewHistory));
 
         ViewHistory result = viewHistoryCommandService.touchAndLoadView(user, post);
 

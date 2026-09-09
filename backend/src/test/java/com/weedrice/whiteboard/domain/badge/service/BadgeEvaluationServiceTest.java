@@ -41,8 +41,9 @@ class BadgeEvaluationServiceTest {
     void evaluatesPostAndCommentThresholds() {
         User user = mock(User.class);
         when(users.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE)).thenReturn(Optional.of(user));
-        when(posts.countByUserAndIsDeleted(user, false)).thenReturn(100L);
-        when(comments.countByUserAndIsDeleted(user, false)).thenReturn(10L);
+        when(user.getUserId()).thenReturn(1L);
+        when(posts.countByUserIdAndIsDeleted(1L, false)).thenReturn(100L);
+        when(comments.countByUserIdAndIsDeleted(1L, false)).thenReturn(10L);
         when(awards.awardIfMissing(1L, BadgeCode.FIRST_POST)).thenReturn(true);
         when(awards.awardIfMissing(1L, BadgeCode.POSTS_10)).thenReturn(true);
         when(awards.awardIfMissing(1L, BadgeCode.POSTS_100)).thenReturn(false);

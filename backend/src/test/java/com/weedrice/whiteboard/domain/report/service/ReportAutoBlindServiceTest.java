@@ -122,7 +122,9 @@ class ReportAutoBlindServiceTest {
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 4L, Report.STATUS_PENDING)).thenReturn(5L);
         when(comments.findByIdWithRelationsForBlindUpdate(4L)).thenReturn(Optional.of(comment));
         when(comment.getCommentId()).thenReturn(4L);
-        when(comment.getPost()).thenReturn(post);
+        when(comment.getPostId()).thenReturn(3L);
+        when(posts.findByIdWithRelations(3L)).thenReturn(Optional.of(post));
+        when(post.getPostId()).thenReturn(3L);
         when(post.getBoard()).thenReturn(board);
         when(board.getBoardUrl()).thenReturn("free");
         when(comment.getIsDeleted()).thenReturn(false);
@@ -148,7 +150,8 @@ class ReportAutoBlindServiceTest {
         Board board = mock(Board.class);
         when(comments.findByIdWithRelationsForBlindUpdate(6L)).thenReturn(Optional.of(comment));
         when(comment.getCommentId()).thenReturn(6L);
-        when(comment.getPost()).thenReturn(post);
+        when(comment.getPostId()).thenReturn(3L);
+        when(posts.findByIdWithRelations(3L)).thenReturn(Optional.of(post));
         when(post.getPostId()).thenReturn(3L);
         when(post.getBoard()).thenReturn(board);
         when(board.getBoardUrl()).thenReturn("free");

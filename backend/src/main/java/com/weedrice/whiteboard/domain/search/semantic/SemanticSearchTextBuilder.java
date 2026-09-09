@@ -25,8 +25,7 @@ class SemanticSearchTextBuilder {
         return truncate(text, MAX_EMBEDDING_TEXT_LENGTH);
     }
 
-    String buildCommentText(Comment comment) {
-        Post post = comment.getPost();
+    String buildCommentText(Comment comment, Post post) {
         String text = joinParts(
                 "comment",
                 post != null && post.getBoard() != null ? post.getBoard().getBoardName() : null,

@@ -68,7 +68,7 @@ class BoardAccessPolicyTest {
         superAdmin.grantSuperAdminRole();
         superAdmin.suspend();
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(superAdmin, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(3L, 10L, true)).thenReturn(false);
 
         assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, superAdmin))
                 .isInstanceOf(BusinessException.class)
@@ -79,7 +79,7 @@ class BoardAccessPolicyTest {
     @DisplayName("Board admin validation rejects creator without active board admin role")
     void validateBoardAdmin_rejectsCreatorWithoutActiveBoardAdminRole() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(creator, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 10L, true)).thenReturn(false);
 
         assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, creator))
                 .isInstanceOf(BusinessException.class)
@@ -90,18 +90,18 @@ class BoardAccessPolicyTest {
     @DisplayName("Board admin validation accepts active board admin")
     void validateBoardAdmin_acceptsActiveBoardAdmin() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true)).thenReturn(true);
 
         boardAccessPolicy.validateBoardAdmin(board, manager);
 
-        verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+        verify(adminRepository).existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true);
     }
 
     @Test
     @DisplayName("Board admin validation rejects unrelated user")
     void validateBoardAdmin_rejectsUnrelatedUser() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true)).thenReturn(false);
 
         assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, manager))
                 .isInstanceOf(BusinessException.class)
@@ -139,12 +139,12 @@ class BoardAccessPolicyTest {
     @DisplayName("Private inactive board read checks admin access once")
     void canReadBoard_privateInactiveBoardChecksAdminAccessOnce() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true)).thenReturn(true);
 
         boolean readable = boardAccessPolicy.canReadBoard(board, manager);
 
         assertThat(readable).isTrue();
-        verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+        verify(adminRepository).existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true);
     }
 
     @Test
@@ -195,24 +195,24 @@ class BoardAccessPolicyTest {
     @DisplayName("Private inactive board write checks admin access once")
     void canWriteBoard_privateInactiveBoardChecksAdminAccessOnce() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true)).thenReturn(true);
 
         boolean writable = boardAccessPolicy.canWriteBoard(board, manager);
 
         assertThat(writable).isTrue();
-        verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+        verify(adminRepository).existsByUser_UserIdAndBoard_BoardIdAndIsActive(2L, 10L, true);
     }
 
     @Test
     @DisplayName("Secret posts are not visible to creator without active admin role")
     void canViewSecretPosts_deniesCreatorWithoutAdminRole() {
         Board board = board("hidden", false, false);
-        when(adminRepository.existsByUserAndBoardAndIsActive(creator, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 10L, true)).thenReturn(false);
 
         boolean canViewSecretPosts = boardAccessPolicy.canViewSecretPosts(board, creator);
 
         assertThat(canViewSecretPosts).isFalse();
-        verify(adminRepository).existsByUserAndBoardAndIsActive(creator, board, true);
+        verify(adminRepository).existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 10L, true);
     }
 
     @Test

@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
@@ -12,7 +15,7 @@ import com.weedrice.whiteboard.domain.post.entity.ScrapFolder;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
@@ -45,20 +48,21 @@ public class PostScrapService {
     private final ScrapFolderRepository scrapFolderRepository;
     private final ReactionWriter reactionWriter;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+    private final ActorBatchReadPort actorBatchReadPort;
 
     public boolean isScrappedBy(Long userId, Long postId) {
         return userId != null && scrapRepository.existsById(new ScrapId(userId, postId));
     }
 
     @Transactional
-    public void scrap(User user, Post post, String remark, Long folderId) {
+    public void scrap(UserIdRef user, Post post, String remark, Long folderId) {
         String normalizedRemark = normalizeRemark(remark);
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         ScrapFolder folder = folderId == null
                 ? null
                 : getOwnedScrapFolderForUpdate(user.getUserId(), folderId);
         Scrap scrap = Scrap.builder()
-                .user(user)
+                .userId(user.getUserId())
                 .post(post)
                 .remark(normalizedRemark)
                 .folder(folder)
@@ -74,7 +78,7 @@ public class PostScrapService {
 
     @Transactional
     public void unscrap(Long userId, Long postId) {
-        long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
+        long deletedCount = scrapRepository.deleteByUserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
         }
@@ -95,7 +99,7 @@ public class PostScrapService {
             Long folderId,
             String keyword,
             Pageable pageable) {
-        User user = context.viewer();
+        ActorUserPrincipal user = context.viewer();
         if (folderId != null) {
             validateScrapFolderOwner(userId, folderId);
         }
@@ -106,7 +110,7 @@ public class PostScrapService {
         if (normalizedKeyword == null) {
             scrapPage = folderId == null
                     ? scrapRepository.findPageByUserWithPostDetails(
-                            user,
+                            userId,
                             user.isUsableSuperAdmin(),
                             blockedUsers.empty(),
                             blockedUsers.ids(),
@@ -114,7 +118,7 @@ public class PostScrapService {
                             inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                             safePageable)
                     : scrapRepository.findPageByUserWithPostDetails(
-                            user,
+                            userId,
                             folderId,
                             user.isUsableSuperAdmin(),
                             blockedUsers.empty(),
@@ -124,7 +128,7 @@ public class PostScrapService {
                             safePageable);
         } else {
             scrapPage = scrapRepository.findPageByUserWithPostDetailsByKeyword(
-                    user,
+                    userId,
                     folderId,
                     toCaseInsensitiveLikePattern(normalizedKeyword),
                     user.isUsableSuperAdmin(),
@@ -134,23 +138,26 @@ public class PostScrapService {
                     inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
                     safePageable);
         }
-        return ScrapListResponse.from(scrapPage);
+        return ScrapListResponse.from(scrapPage, actorBatchReadPort.resolveAuthors(scrapPage.getContent().stream()
+                .map(Scrap::getPost)
+                .map(post -> new ContentActorRef(post.getUserId(), post.getAgentId()))
+                .collect(java.util.stream.Collectors.toSet())));
     }
 
     public List<ScrapFolderResponse> getFolders(Long userId) {
         return ScrapFolderResponse.listFrom(
-                scrapFolderRepository.findByUser_UserIdOrderBySortOrderAscFolderIdAsc(userId));
+                scrapFolderRepository.findByUserIdOrderBySortOrderAscFolderIdAsc(userId));
     }
 
     @Transactional
-    public ScrapFolderResponse createFolder(User user, ScrapFolderRequest request) {
+    public ScrapFolderResponse createFolder(UserIdRef user, ScrapFolderRequest request) {
         Long userId = user.getUserId();
         String name = normalizeFolderName(request != null ? request.getName() : null);
-        if (scrapFolderRepository.existsByUser_UserIdAndName(userId, name)) {
+        if (scrapFolderRepository.existsByUserIdAndName(userId, name)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         ScrapFolder folder = ScrapFolder.builder()
-                .user(user)
+                .userId(userId)
                 .name(name)
                 .sortOrder(request != null ? request.getSortOrder() : null)
                 .build();
@@ -169,7 +176,7 @@ public class PostScrapService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         if (name != null && !name.equals(folder.getName())
-                && scrapFolderRepository.existsByUser_UserIdAndName(userId, name)) {
+                && scrapFolderRepository.existsByUserIdAndName(userId, name)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         folder.update(name, request != null ? request.getSortOrder() : null);
@@ -203,7 +210,7 @@ public class PostScrapService {
     }
 
     private void validateScrapFolderOwner(Long userId, Long folderId) {
-        if (scrapFolderRepository.findByFolderIdAndUser_UserId(folderId, userId).isEmpty()) {
+        if (scrapFolderRepository.findByFolderIdAndUserId(folderId, userId).isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
     }

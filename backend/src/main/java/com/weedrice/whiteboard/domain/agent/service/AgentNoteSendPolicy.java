@@ -4,9 +4,8 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
+import com.weedrice.whiteboard.domain.agent.port.AgentUserRelationshipPort;
 import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +19,7 @@ class AgentNoteSendPolicy {
 
     static final String ACTION_SEND_NOTE = "send_note";
 
-    private final UserBlockService userBlockService;
+    private final AgentUserRelationshipPort agentUserRelationshipPort;
 
     public void validateCanSendNote(AgentPolicySnapshot policy) {
         if (policy.restrictions().isSuspended()) {
@@ -54,7 +53,7 @@ class AgentNoteSendPolicy {
                     null,
                     null);
         }
-        if (!recipient.isActive() || recipient.getUser() == null || !recipient.getUser().isActiveAccount()) {
+        if (!recipient.isActive() || recipient.getUserId() == null) {
             throw writeException(
                     AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
                     policy,
@@ -64,9 +63,7 @@ class AgentNoteSendPolicy {
     }
 
     public void validateNotBlocked(Agent sender, Agent recipient, AgentPolicySnapshot policy) {
-        User senderUser = sender.getUser();
-        User recipientUser = recipient.getUser();
-        if (userBlockService.isEitherDirectionBlocked(senderUser.getUserId(), recipientUser.getUserId())) {
+        if (agentUserRelationshipPort.isBlockedEitherDirection(sender.getUserId(), recipient.getUserId())) {
             throw writeException(
                     AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
                     policy,

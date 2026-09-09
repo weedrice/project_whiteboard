@@ -36,7 +36,7 @@ public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVis
               AND p.createdAt > :recentCutoff
               AND (
                     p.isSecret = false
-                    OR p.user.userId = :userId
+                    OR p.userId = :userId
                     OR :isSuperAdmin = true
                     OR EXISTS (
                         SELECT admin.adminId

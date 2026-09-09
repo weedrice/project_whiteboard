@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -45,6 +46,32 @@ public class MentionService {
     private final CommentRepository commentRepository;
     private final AdminRepository adminRepository;
     private final PostAccessPolicy postAccessPolicy;
+    private final AgentRepository agentRepository;
+
+    public void publishMentions(User actor, Long actorAgentId, NotificationSourceType sourceType, Long sourceId,
+            String html) {
+        publishMentionsWithAgent(actor, resolveActorAgent(actorAgentId), sourceType, sourceId, html);
+    }
+
+    public void publishMentions(User actor, Long actorAgentId, NotificationSourceType sourceType, Long sourceId,
+            Collection<Long> mentionedUserIds) {
+        publishMentionsWithAgent(actor, resolveActorAgent(actorAgentId), sourceType, sourceId, mentionedUserIds);
+    }
+
+    public void publishNewMentions(User actor, Long actorAgentId, NotificationSourceType sourceType, Long sourceId,
+            String previousHtml, String currentHtml) {
+        publishNewMentionsWithAgent(actor, resolveActorAgent(actorAgentId), sourceType, sourceId, previousHtml, currentHtml);
+    }
+
+    public void publishNewMentions(User actor, Long actorAgentId, NotificationSourceType sourceType, Long sourceId,
+            Collection<Long> previousMentionedUserIds, Collection<Long> currentMentionedUserIds) {
+        publishNewMentionsWithAgent(actor, resolveActorAgent(actorAgentId), sourceType, sourceId,
+                previousMentionedUserIds, currentMentionedUserIds);
+    }
+
+    private Agent resolveActorAgent(Long actorAgentId) {
+        return actorAgentId == null ? null : agentRepository.findById(actorAgentId).orElse(null);
+    }
 
     public List<MentionCandidateResponse> findCandidates(Long viewerUserId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.strip();
@@ -63,7 +90,7 @@ public class MentionService {
                 .toList();
     }
 
-    public void publishMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+    private void publishMentionsWithAgent(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
             String html) {
         if (actor == null || actor.getUserId() == null || sourceType == null || sourceId == null || html == null) {
             return;
@@ -74,10 +101,10 @@ public class MentionService {
             return;
         }
 
-        publishMentions(actor, actorAgent, sourceType, sourceId, mentionedUserIds);
+        publishMentionsWithAgent(actor, actorAgent, sourceType, sourceId, mentionedUserIds);
     }
 
-    public void publishMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+    private void publishMentionsWithAgent(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
             Collection<Long> mentionedUserIds) {
         if (actor == null || actor.getUserId() == null || sourceType == null || sourceId == null
                 || mentionedUserIds == null || mentionedUserIds.isEmpty()) {
@@ -133,9 +160,9 @@ public class MentionService {
                         actorName)));
     }
 
-    public void publishNewMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+    private void publishNewMentionsWithAgent(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
             String previousHtml, String currentHtml) {
-        publishNewMentions(
+        publishNewMentionsWithAgent(
                 actor,
                 actorAgent,
                 sourceType,
@@ -144,12 +171,12 @@ public class MentionService {
                 extractMentionUserIds(currentHtml));
     }
 
-    public void publishNewMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+    private void publishNewMentionsWithAgent(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
             Collection<Long> previousMentionedUserIds, Collection<Long> currentMentionedUserIds) {
         Set<Long> previousIds = normalizeMentionUserIds(previousMentionedUserIds);
         Set<Long> addedIds = normalizeMentionUserIds(currentMentionedUserIds);
         addedIds.removeAll(previousIds);
-        publishMentions(actor, actorAgent, sourceType, sourceId, addedIds);
+        publishMentionsWithAgent(actor, actorAgent, sourceType, sourceId, addedIds);
     }
 
     private Map<Long, Set<Long>> resolveActiveAdminBoardIdsByUser(Post sourcePost, List<Long> candidateUserIds) {
@@ -178,7 +205,7 @@ public class MentionService {
         }
         return commentRepository.findNonDeletedByIdWithRelations(sourceId)
                 .filter(comment -> !Boolean.TRUE.equals(comment.getIsBlinded()))
-                .map(Comment::getPost)
+                .flatMap(comment -> postRepository.findByIdWithRelations(comment.getPostId()))
                 .orElse(null);
     }
 

@@ -224,10 +224,10 @@ class FileAccessService {
     }
 
     private boolean isBlockedBetweenAuthorAndViewer(Post post, User viewer) {
-        if (post == null || post.getUser() == null || viewer == null) {
+        if (post == null || post.getUserId() == null || viewer == null) {
             return false;
         }
-        Long authorUserId = post.getUser().getUserId();
+        Long authorUserId = post.getUserId();
         Long viewerUserId = viewer.getUserId();
         if (authorUserId == null || viewerUserId == null) {
             return false;

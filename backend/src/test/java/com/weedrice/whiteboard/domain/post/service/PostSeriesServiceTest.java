@@ -45,7 +45,7 @@ class PostSeriesServiceTest {
     private ScheduledPostRepository scheduledPostRepository;
 
     @Mock
-    private UserWritableResolver userWritableResolver;
+    private com.weedrice.whiteboard.domain.post.port.PostUserWritePort userWritableResolver;
 
     @Mock
     private PostReadContextResolver postReadContextResolver;
@@ -156,13 +156,13 @@ class PostSeriesServiceTest {
         Post post = createPost(100L, createBoard("free"), owner, "Post");
         when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
                 .thenReturn(List.of(series));
-        when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
+        when(postSeriesItemRepository.findByPost_PostIdAndSeries_OwnerUserId(100L, 1L))
                 .thenReturn(Optional.empty());
         when(postSeriesItemRepository.findMaxSortOrder(10L)).thenReturn(4);
 
         service.attachPostToSeries(1L, post, 10L);
 
-        verify(userWritableResolver).resolveForUpdate(1L);
+        verify(userWritableResolver).validateForUpdate(1L);
         verify(postSeriesRepository).findAllOwnedByIdsForUpdate(1L, List.of(10L));
         verify(postSeriesItemRepository).save(org.mockito.ArgumentMatchers.argThat(item ->
                 item.getSeries() == series && item.getPost() == post && item.getSortOrder() == 5));
@@ -184,7 +184,7 @@ class PostSeriesServiceTest {
         PostSeriesItem item = createItem(1L, series, post, 3);
         when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
                 .thenReturn(List.of(series));
-        when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
+        when(postSeriesItemRepository.findByPost_PostIdAndSeries_OwnerUserId(100L, 1L))
                 .thenReturn(Optional.of(item));
 
         service.attachPostToSeries(1L, post, 10L);
@@ -207,7 +207,7 @@ class PostSeriesServiceTest {
         User owner = createUser(1L);
         Post post = createPost(100L, createBoard("free"), owner, "Post");
         PostSeriesItem item = createItem(1L, createSeries(10L, owner, "Series"), post, 0);
-        when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
+        when(postSeriesItemRepository.findByPost_PostIdAndSeries_OwnerUserId(100L, 1L))
                 .thenReturn(Optional.of(item));
         when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
                 .thenReturn(List.of(item.getSeries()));
@@ -240,7 +240,7 @@ class PostSeriesServiceTest {
 
         service.deleteSeries(1L, 10L);
 
-        inOrder.verify(userWritableResolver).resolveForUpdate(1L);
+        inOrder.verify(userWritableResolver).validateForUpdate(1L);
         inOrder.verify(postSeriesRepository).findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L);
         inOrder.verify(postSeriesItemRepository).deleteAllBySeriesId(10L);
         inOrder.verify(draftPostRepository).clearSeriesReference(10L);

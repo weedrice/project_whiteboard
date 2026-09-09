@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -19,6 +20,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,6 +36,8 @@ class ReportTargetPolicyTest {
     private PostAccessPolicy postAccessPolicy;
     @Mock
     private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+    @Mock
+    private PostRepository postRepository;
 
     @InjectMocks
     private ReportTargetPolicy reportTargetPolicy;
@@ -123,7 +128,7 @@ class ReportTargetPolicyTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
-        verify(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
+        verify(postAccessPolicy).validateReadable(postRepository.findByIdWithRelations(10L).orElseThrow(), reporter, false);
     }
 
     @Test
@@ -138,7 +143,7 @@ class ReportTargetPolicyTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
 
-        verify(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
+        verify(postAccessPolicy).validateReadable(postRepository.findByIdWithRelations(10L).orElseThrow(), reporter, false);
         verify(userBlockService, never()).isEitherDirectionBlocked(1L, 1L);
     }
 
@@ -151,7 +156,7 @@ class ReportTargetPolicyTest {
         Comment comment = comment(post(postAuthor), commentAuthor);
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
         doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
-                .when(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
+                .when(postAccessPolicy).validateReadable(any(Post.class), eq(reporter), eq(false));
 
         assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
                 .isInstanceOf(BusinessException.class)
@@ -171,7 +176,7 @@ class ReportTargetPolicyTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
-        verify(postAccessPolicy, never()).validateReadable(comment.getPost(), reporter, false);
+        verify(postAccessPolicy, never()).validateReadable(postRepository.findByIdWithRelations(10L).orElseThrow(), reporter, false);
         verify(userBlockService, never()).isEitherDirectionBlocked(1L, 2L);
         verify(userBlockService, never()).isEitherDirectionBlocked(1L, 3L);
     }
@@ -202,6 +207,8 @@ class ReportTargetPolicyTest {
     }
 
     private Comment comment(Post post, User author) {
+        org.mockito.Mockito.lenient().when(postRepository.findByIdWithRelations(10L))
+                .thenReturn(java.util.Optional.of(post));
         return Comment.builder()
                 .post(post)
                 .user(author)

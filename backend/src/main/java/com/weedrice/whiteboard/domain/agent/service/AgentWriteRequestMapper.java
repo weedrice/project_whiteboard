@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
-class AgentWriteRequestMapper {
+public class AgentWriteRequestMapper {
 
-    PostCreateRequest toPostCreateRequest(AgentPostCreateRequest request) {
+    public PostCreateRequest toPostCreateRequest(AgentPostCreateRequest request) {
         Long imageFileId = request.getImageFileId();
         return new PostCreateRequest(
                 request.getCategoryId(),

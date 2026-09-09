@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,17 +19,18 @@ public class CommentReadModelAssembler {
 
     private final CommentReadSupport commentReadSupport;
 
-    public CommentReadModel from(Comment comment, Set<Long> blockedUserIds) {
-        return from(comment, blockedUserIds, Collections.emptyMap());
+    public CommentReadModel from(Comment comment, AuthorSnapshot author, Set<Long> blockedUserIds) {
+        return from(comment, author, blockedUserIds, Collections.emptyMap());
     }
 
-    public CommentReadModel from(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+    public CommentReadModel from(Comment comment, AuthorSnapshot author, Set<Long> blockedUserIds,
+            Map<Long, Long> replyCounts) {
         long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
         if (commentReadSupport.isDeleted(comment)) {
             return new CommentReadModel(comment, CommentReadModel.Status.DELETED, null, null, replyCount);
         }
         if (Boolean.TRUE.equals(comment.getIsBlinded())) {
-            return new CommentReadModel(comment, CommentReadModel.Status.BLINDED, activeAuthor(comment), null,
+            return new CommentReadModel(comment, CommentReadModel.Status.BLINDED, activeAuthor(author), null,
                     replyCount);
         }
         if (commentReadSupport.isBlockedAuthor(comment, blockedUserIds)) {
@@ -36,24 +38,24 @@ public class CommentReadModelAssembler {
                     comment,
                     CommentReadModel.Status.BLOCKED_AUTHOR,
                     null,
-                    comment.getUser().getUserId(),
+                    comment.getUserId(),
                     replyCount);
         }
-        return new CommentReadModel(comment, CommentReadModel.Status.ACTIVE, activeAuthor(comment), null, replyCount);
+        return new CommentReadModel(comment, CommentReadModel.Status.ACTIVE, activeAuthor(author), null, replyCount);
     }
 
-    private CommentReadModel.Author activeAuthor(Comment comment) {
-        if (comment.getUser() == null) {
+    private CommentReadModel.Author activeAuthor(AuthorSnapshot author) {
+        if (author == null) {
             return null;
         }
-        boolean agentAuthored = comment.getAgent() != null;
+        boolean agentAuthored = author.agentId() != null;
         return new CommentReadModel.Author(
-                comment.getUser().getUserId(),
-                agentAuthored ? comment.getAgent().getAgentId() : null,
-                agentAuthored ? AUTHOR_TYPE_AGENT : AUTHOR_TYPE_USER,
-                agentAuthored ? comment.getAgent().getName() : comment.getUser().getDisplayName(),
-                agentAuthored ? null : comment.getUser().getProfileImageUrl(),
-                agentAuthored ? null : representativeBadge(comment.getUser().getRepresentativeBadgeCode()));
+                author.ownerUserId(),
+                author.agentId(),
+                author.authorType(),
+                author.displayName(),
+                agentAuthored ? null : author.profileImageUrl(),
+                agentAuthored ? null : representativeBadge(author.representativeBadgeCode()));
     }
 
     private BadgeCompactResponse representativeBadge(String badgeCode) {

@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.agent.entity;
 
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
+import com.weedrice.whiteboard.domain.actor.PostIdRef;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -44,18 +44,24 @@ public class AgentPostActivityRead extends BaseTimeEntity {
     @JoinColumn(name = "agent_id", nullable = false)
     private Agent agent;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
-    private Post post;
+    @Column(name = "post_id", nullable = false)
+    private Long postId;
 
     @Column(name = "last_read_at", nullable = false)
     private LocalDateTime lastReadAt;
 
     @Builder
-    public AgentPostActivityRead(Agent agent, Post post, LocalDateTime lastReadAt) {
+    public AgentPostActivityRead(Agent agent, Long postId, LocalDateTime lastReadAt) {
         this.agent = agent;
-        this.post = post;
+        this.postId = postId;
         this.lastReadAt = lastReadAt;
+    }
+
+    public static class AgentPostActivityReadBuilder {
+        public AgentPostActivityReadBuilder post(PostIdRef post) {
+            this.postId = post == null ? null : post.getPostId();
+            return this;
+        }
     }
 
     public void markReadAt(LocalDateTime lastReadAt) {

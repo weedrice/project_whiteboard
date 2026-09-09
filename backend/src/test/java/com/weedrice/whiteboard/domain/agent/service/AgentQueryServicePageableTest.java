@@ -3,6 +3,10 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.port.AgentContentPort;
+import com.weedrice.whiteboard.domain.agent.integration.AgentBoardAccessService;
+import com.weedrice.whiteboard.domain.agent.integration.AgentHomeReadModelService;
+import com.weedrice.whiteboard.domain.agent.integration.AgentPostListItemAssembler;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -61,6 +65,9 @@ class AgentQueryServicePageableTest {
     @Mock private PostService postService;
     @Mock private UserBlockService userBlockService;
     @Mock private AgentOwnershipService agentOwnershipService;
+    @Mock private AgentContentPort agentContentPort;
+    @Mock private AgentPolicyService agentPolicyService;
+    @Mock private AgentBoardListReadService agentBoardListReadService;
     @Mock private AgentBoardAccessService agentBoardAccessService;
     @Mock private AgentPostListItemAssembler agentPostListItemAssembler;
     @Mock private AgentNoteService agentNoteService;
@@ -76,48 +83,16 @@ class AgentQueryServicePageableTest {
 
     @BeforeEach
     void setUp() {
-        commentReadSupport = new CommentReadSupport(commentRepository);
-        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
-        PostAccessPolicy postAccessPolicy = new PostAccessPolicy(
-                new BoardAccessPolicy(adminRepository),
-                mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
-        AgentPolicyService agentPolicyService = new AgentPolicyService(
-                postRepository,
-                commentRepository,
-                sanctionRepository,
-                agentQuotaService,
-                Clock.system(java.time.ZoneId.of("Asia/Seoul")));
-        AgentBoardListReadService agentBoardListReadService = new AgentBoardListReadService(
-                boardRepository,
-                boardAiInfoRepository,
-                postRepository,
-                agentBoardAccessService);
-        agentHomeReadModelService = new AgentHomeReadModelService(
-                postRepository,
-                commentRepository,
-                userBlockService,
-                agentBoardAccessService,
-                agentBoardListReadService,
-                agentPostListItemAssembler,
-                agentNoteService);
+        agentHomeReadModelService = mock(AgentHomeReadModelService.class);
         agentHomeResponseAssembler = new AgentHomeResponseAssembler();
         agentQueryService = new AgentQueryService(
-                boardRepository,
                 agentRepository,
-                postRepository,
-                commentRepository,
-                postService,
-                postAccessPolicy,
-                userBlockService,
                 agentOwnershipService,
-                agentBoardAccessService,
                 agentBoardListReadService,
-                agentPostListItemAssembler,
-                commentReadSupport,
-                commentReadModelAssembler,
                 agentPolicyService,
                 agentHomeReadModelService,
-                agentHomeResponseAssembler);
+                agentHomeResponseAssembler,
+                agentContentPort);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -140,19 +115,13 @@ class AgentQueryServicePageableTest {
     @Test
     void getFeed_limitsSizeAndForcesCreatedAtDescPostIdDesc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
-        when(agentBoardAccessService.getAccessibleFeedBoards(agent, null)).thenReturn(List.of(board));
-        when(agentBoardAccessService.resolveBoardAdminIds(eq(user), eq(List.of(board)), eq(List.of(10L))))
-                .thenReturn(java.util.Set.of());
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(postRepository.findAgentFeedByBoardIds(any(), any(), any(), eq(1L), any()))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
-        when(agentPostListItemAssembler.fromPosts(any(), eq(7L))).thenAnswer(invocation -> Page.empty(
-                invocation.<Page<Post>>getArgument(0).getPageable()));
+        when(agentContentPort.getFeed(eq(agent), isNull(), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(2)));
 
         agentQueryService.getFeed(7L, null, PageRequest.of(3, 100, Sort.by("likeCount")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findAgentFeedByBoardIds(any(), any(), any(), eq(1L), pageableCaptor.capture());
+        verify(agentContentPort).getFeed(eq(agent), isNull(), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(3);
         assertThat(pageable.getPageSize()).isEqualTo(10);
@@ -162,18 +131,13 @@ class AgentQueryServicePageableTest {
     @Test
     void getMyPosts_limitsSizeAndIgnoresInvalidSort() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
-        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any()))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(2)));
-        when(agentPostListItemAssembler.fromPosts(any(), eq(7L))).thenAnswer(invocation -> Page.empty(
-                invocation.<Page<Post>>getArgument(0).getPageable()));
+        when(agentContentPort.getMyPosts(eq(agent), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
 
         agentQueryService.getMyPosts(7L, PageRequest.of(1, 100, Sort.by("displayName")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findByAgent_AgentIdAndIsDeleted(
-                eq(7L),
-                eq(false),
-                pageableCaptor.capture());
+        verify(agentContentPort).getMyPosts(eq(agent), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(1);
         assertThat(pageable.getPageSize()).isEqualTo(20);
@@ -183,25 +147,14 @@ class AgentQueryServicePageableTest {
     @Test
     void getBoardPosts_limitsSizeAndKeepsAllowedSortOnly() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
-        when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(board));
-        when(agentBoardAccessService.canViewSecretPosts(agent, board)).thenReturn(true);
-        when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), anyBoolean(), any()))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
-        when(agentPostListItemAssembler.fromPosts(any(), eq(7L))).thenAnswer(invocation -> Page.empty(
-                invocation.<Page<Post>>getArgument(0).getPageable()));
+        when(agentContentPort.getBoardPosts(eq(agent), eq(10L), eq(9L), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(3)));
 
         Sort requestedSort = Sort.by(Sort.Order.asc("displayName"), Sort.Order.desc("likeCount"));
         agentQueryService.getBoardPosts(7L, 10L, 9L, PageRequest.of(2, 100, requestedSort));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postService).getPosts(
-                eq(10L),
-                eq(9L),
-                isNull(),
-                isNull(),
-                eq(1L),
-                eq(true),
-                pageableCaptor.capture());
+        verify(agentContentPort).getBoardPosts(eq(agent), eq(10L), eq(9L), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(20);
@@ -211,10 +164,8 @@ class AgentQueryServicePageableTest {
     @Test
     void getPostComments_limitsSizeAndForcesCreatedAtAscCommentIdAsc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(eq(100L), eq(true), eq(NO_BLOCKED_USER_IDS), any()))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(3)));
+        when(agentContentPort.getPostComments(eq(agent), eq(100L), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(2)));
 
         Page<AgentCommentItem> response = agentQueryService.getPostComments(
                 7L,
@@ -222,11 +173,7 @@ class AgentQueryServicePageableTest {
                 PageRequest.of(4, 100, Sort.by(Sort.Direction.DESC, "likeCount")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(commentRepository).findParentsWithChildrenOrNotDeleted(
-                eq(100L),
-                eq(true),
-                eq(NO_BLOCKED_USER_IDS),
-                pageableCaptor.capture());
+        verify(agentContentPort).getPostComments(eq(agent), eq(100L), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(4);
         assertThat(pageable.getPageSize()).isEqualTo(20);

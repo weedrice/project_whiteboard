@@ -6,10 +6,12 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceTy
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
+import com.weedrice.whiteboard.domain.post.integration.PostNotificationIntegrationAdapter;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -42,6 +44,7 @@ class ScheduledPostPublishWorkerTest {
     @Mock ScheduledPostPayloadMapper payloadMapper;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock ScheduledPostFileService scheduledPostFileService;
+    @Mock UserRepository userRepository;
 
     @Test
     void scheduledPayloadCarriesSourceDraftIdToPublication() {
@@ -171,8 +174,12 @@ class ScheduledPostPublishWorkerTest {
 
     private ScheduledPostPublishWorker worker() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-14T12:01:00Z"), ZoneOffset.UTC);
+        org.mockito.Mockito.lenient().when(userRepository.findById(any()))
+                .thenReturn(Optional.of(User.builder().displayName("scheduled-user").build()));
         return new ScheduledPostPublishWorker(
-                repository, postCommandService, payloadMapper, eventPublisher, clock, scheduledPostFileService);
+                repository, postCommandService, payloadMapper,
+                new PostNotificationIntegrationAdapter(userRepository, eventPublisher),
+                clock, scheduledPostFileService);
     }
 
     private ScheduledPost scheduledPost() {

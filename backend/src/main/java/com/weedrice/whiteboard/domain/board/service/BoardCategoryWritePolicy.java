@@ -2,8 +2,8 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,21 +17,23 @@ public class BoardCategoryWritePolicy {
 
     private final BoardAccessPolicy boardAccessPolicy;
 
-    public void validateWriteRole(Board board, User user, String minWriteRole) {
+    public void validateWriteRole(Board board, ActorUserPrincipal user, String minWriteRole) {
         if (!canWriteResolvedRole(board, user, minWriteRole)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
-    public boolean canWriteResolvedRole(Board board, User user, String minWriteRole) {
+    public boolean canWriteResolvedRole(Board board, ActorUserPrincipal user, String minWriteRole) {
         return canWriteRole(board, user, BoardCategory.resolveMinWriteRole(minWriteRole), null);
     }
 
-    public boolean canWriteResolvedRole(Board board, User user, String minWriteRole, Set<Long> activeAdminBoardIds) {
+    public boolean canWriteResolvedRole(
+            Board board, ActorUserPrincipal user, String minWriteRole, Set<Long> activeAdminBoardIds) {
         return canWriteRole(board, user, BoardCategory.resolveMinWriteRole(minWriteRole), activeAdminBoardIds);
     }
 
-    public boolean canWriteLenientRole(Board board, User user, String minWriteRole, Set<Long> activeAdminBoardIds) {
+    public boolean canWriteLenientRole(
+            Board board, ActorUserPrincipal user, String minWriteRole, Set<Long> activeAdminBoardIds) {
         if (Role.SUPER_ADMIN.equals(minWriteRole)) {
             return user != null && user.isUsableSuperAdmin();
         }
@@ -41,7 +43,8 @@ public class BoardCategoryWritePolicy {
         return true;
     }
 
-    private boolean canWriteRole(Board board, User user, String resolvedMinWriteRole, Set<Long> activeAdminBoardIds) {
+    private boolean canWriteRole(
+            Board board, ActorUserPrincipal user, String resolvedMinWriteRole, Set<Long> activeAdminBoardIds) {
         return switch (resolvedMinWriteRole) {
             case Role.USER -> true;
             case Role.BOARD_ADMIN -> boardAccessPolicy.hasBoardAdminAccess(board, user, activeAdminBoardIds);

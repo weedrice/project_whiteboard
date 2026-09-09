@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.scheduled.entity;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
@@ -40,9 +40,8 @@ public class ScheduledPost extends BaseTimeEntity {
     @Column(name = "scheduled_post_id")
     private Long scheduledPostId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id", nullable = false)
@@ -110,11 +109,11 @@ public class ScheduledPost extends BaseTimeEntity {
     private LocalDateTime canceledAt;
 
     @Builder
-    public ScheduledPost(User user, Board board, Long categoryId, String title, String contents,
+    public ScheduledPost(Long userId, Board board, Long categoryId, String title, String contents,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret,
             String tagsJson, String fileIdsJson, String pollJson, Long seriesId, Long draftId,
             LocalDateTime scheduledAt) {
-        this.user = user;
+        this.userId = userId;
         this.board = board;
         this.categoryId = categoryId;
         this.title = title;
@@ -130,6 +129,13 @@ public class ScheduledPost extends BaseTimeEntity {
         this.draftId = draftId;
         this.scheduledAt = scheduledAt;
         this.status = STATUS_SCHEDULED;
+    }
+
+    public static class ScheduledPostBuilder {
+        public ScheduledPostBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
     }
 
     public void update(Long categoryId, String title, String contents, boolean isNotice, boolean isNsfw,

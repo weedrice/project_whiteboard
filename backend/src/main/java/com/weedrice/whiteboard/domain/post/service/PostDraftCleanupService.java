@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,14 +30,14 @@ public class PostDraftCleanupService {
     private final PostDraftCleanupBatchService cleanupBatchService;
     private final MeterRegistry meterRegistry;
 
-    public int enforceUserDraftLimit(User user) {
-        long excessCount = draftPostRepository.countDeletableByUser(user) - PostDraftPolicy.MAX_DRAFTS_PER_USER;
+    public int enforceUserDraftLimit(UserIdRef user) {
+        long excessCount = draftPostRepository.countDeletableByUser(user.getUserId()) - PostDraftPolicy.MAX_DRAFTS_PER_USER;
         int deletedCount = 0;
 
         while (excessCount > 0) {
             int batchSize = (int) Math.min(excessCount, CLEANUP_BATCH_SIZE);
             List<DraftPost> oldestDrafts = draftPostRepository.findOldestByUser(
-                    user,
+                    user.getUserId(),
                     PageRequest.of(0, batchSize));
             if (oldestDrafts.isEmpty()) {
                 break;

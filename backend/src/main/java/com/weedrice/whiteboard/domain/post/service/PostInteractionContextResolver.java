@@ -4,9 +4,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionReposito
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +16,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostInteractionContextResolver {
 
-    private final UserRepository userRepository;
+    private final PostUserReadPort postUserReadPort;
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
@@ -28,8 +26,7 @@ public class PostInteractionContextResolver {
             return PostUserInteractionContext.empty();
         }
 
-        userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        postUserReadPort.resolve(currentUserId);
 
         return resolveInteractions(posts, currentUserId, true);
     }

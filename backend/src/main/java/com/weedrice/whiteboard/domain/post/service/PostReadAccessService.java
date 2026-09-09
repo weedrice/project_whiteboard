@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,14 +18,14 @@ public class PostReadAccessService {
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
 
-    public boolean isReadable(Post post, User viewer) {
+    public boolean isReadable(Post post, ActorUserPrincipal viewer) {
         if (post == null) {
             return false;
         }
         return findReadablePostIds(viewer, List.of(post)).contains(post.getPostId());
     }
 
-    public Set<Long> findReadablePostIds(User viewer, Collection<Post> posts) {
+    public Set<Long> findReadablePostIds(ActorUserPrincipal viewer, Collection<Post> posts) {
         if (posts == null || posts.isEmpty()) {
             return Set.of();
         }

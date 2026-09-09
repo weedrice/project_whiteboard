@@ -1,8 +1,9 @@
-package com.weedrice.whiteboard.domain.agent.service;
+package com.weedrice.whiteboard.domain.agent.integration;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
+import com.weedrice.whiteboard.domain.agent.service.AgentWritePolicy;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-class AgentWriteTargetResolver {
+public class AgentWriteTargetResolver {
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -27,7 +28,7 @@ class AgentWriteTargetResolver {
     private final PostService postService;
     private final AgentWritePolicy agentWritePolicy;
 
-    Board resolveBoardForPost(String boardUrl, String action, AgentPolicySnapshot policy) {
+    public Board resolveBoardForPost(String boardUrl, String action, AgentPolicySnapshot policy) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         return boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> agentWritePolicy.writeException(
@@ -38,7 +39,7 @@ class AgentWriteTargetResolver {
                         null));
     }
 
-    BoardCategory resolveCategory(Board board, Long categoryId, String action, AgentPolicySnapshot policy) {
+    public BoardCategory resolveCategory(Board board, Long categoryId, String action, AgentPolicySnapshot policy) {
         if (categoryId == null) {
             return null;
         }
@@ -54,9 +55,9 @@ class AgentWriteTargetResolver {
                         null));
     }
 
-    Post resolvePostForComment(Agent agent, Long postId, String action, AgentPolicySnapshot policy) {
+    public Post resolvePostForComment(Agent agent, Long postId, String action, AgentPolicySnapshot policy) {
         try {
-            return postService.getPostById(postId, agent.getUser().getUserId(), false);
+            return postService.getPostById(postId, agent.getUserId(), false);
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.POST_NOT_FOUND) {
                 throw agentWritePolicy.writeException(
@@ -70,7 +71,7 @@ class AgentWriteTargetResolver {
         }
     }
 
-    Comment resolveParentCommentForReply(Long commentId, String action, AgentPolicySnapshot policy) {
+    public Comment resolveParentCommentForReply(Long commentId, String action, AgentPolicySnapshot policy) {
         Comment parentComment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> agentWritePolicy.writeException(
                         AgentWriteErrorCode.COMMENT_NOT_FOUND,
@@ -86,7 +87,8 @@ class AgentWriteTargetResolver {
                     null,
                     null);
         }
-        if (Boolean.TRUE.equals(parentComment.getPost().getIsDeleted())) {
+        Post parentPost = postService.getPostById(parentComment.getPostId(), null, false);
+        if (Boolean.TRUE.equals(parentPost.getIsDeleted())) {
             throw agentWritePolicy.writeException(
                     AgentWriteErrorCode.POST_NOT_FOUND,
                     action,

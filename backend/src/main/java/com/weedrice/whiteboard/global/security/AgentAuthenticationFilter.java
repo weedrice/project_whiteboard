@@ -59,7 +59,7 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
             Agent agent = agentAuthService.authenticate(rawToken);
             AgentPrincipal principal = new AgentPrincipal(
                     agent.getAgentId(),
-                    agent.getUser() != null ? agent.getUser().getUserId() : null,
+                    agent.getUserId(),
                     agent.getName(),
                     agent.getStatus());
             SecurityContextHolder.getContext().setAuthentication(new AgentAuthenticationToken(principal));

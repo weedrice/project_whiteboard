@@ -119,8 +119,8 @@ public class ReportRepositoryCustomImpl implements ReportRepositoryCustom {
         BooleanExpression reportedCommentInBoard = report.targetType.eq("COMMENT")
                 .and(report.targetId.in(
                         com.querydsl.jpa.JPAExpressions.select(comment.commentId)
-                                .from(comment)
-                                .where(comment.post.board.boardId.eq(boardId))));
+                                .from(comment, post)
+                                .where(comment.postId.eq(post.postId), post.board.boardId.eq(boardId))));
         return reportedPostInBoard.or(reportedCommentInBoard);
     }
 

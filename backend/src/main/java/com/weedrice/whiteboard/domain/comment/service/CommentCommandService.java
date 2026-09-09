@@ -1,9 +1,8 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.actor.ActorWritePort;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -14,23 +13,16 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
-import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
+import com.weedrice.whiteboard.domain.comment.port.CommentNotificationPort;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
+import com.weedrice.whiteboard.domain.comment.port.CommentUserWritePort;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamEventDispatcher;
-import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
@@ -53,28 +45,20 @@ public class CommentCommandService {
     private static final int MAX_COMMENT_DEPTH = 5;
 
     private final CommentRepository commentRepository;
-    private final PostRepository postRepository;
-    private final BoardRepository boardRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final CommentVersionRepository commentVersionRepository;
     private final CommentClosureRepository commentClosureRepository;
     private final CommentMentionRepository commentMentionRepository;
-    private final UserRepository userRepository;
-    private final UserBlockRepository userBlockRepository;
-    private final AgentOwnershipService agentOwnershipService;
-    private final UserWritableResolver userWritableResolver;
-    private final SanctionService sanctionService;
-    private final CommentPostAccessService commentPostAccessService;
-    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final ActorWritePort actorWritePort;
+    private final CommentUserWritePort commentUserWritePort;
+    private final CommentPostPort commentPostPort;
     private final ContentRewardService contentRewardService;
-    private final CommentNotificationService commentNotificationService;
-    private final MentionService mentionService;
+    private final CommentNotificationPort commentNotificationPort;
     private final CommentStreamEventDispatcher commentStreamEventDispatcher;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
     private final BadgeEvaluationService badgeEvaluationService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
-    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
     public Long createComment(CommentCreateCommand command) {
@@ -83,7 +67,7 @@ public class CommentCommandService {
 
     @Transactional
     public void lockAuthorForWrite(Long userId) {
-        userWritableResolver.resolveForUpdate(userId);
+        commentUserWritePort.validateWritable(userId);
     }
 
     @Transactional
@@ -96,15 +80,13 @@ public class CommentCommandService {
         CommentCreateContext context = command.context();
         Collection<Long> mentionedUserIds = command.mentionedUserIds();
 
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        Agent agent = resolveAgent(userId, agentId, context);
-        Post post = resolvePostForCreate(postId, context);
-        inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
+        commentUserWritePort.validateWritable(userId);
+        resolveActor(userId, agentId, context);
+        CommentPostSnapshot post = resolvePostForCreate(postId, context);
         if (context == null || !context.postReadablePrevalidated()) {
-            validatePostReadable(post, user);
+            validatePostReadable(post.postId(), userId);
         }
-        postAuthorCommandPolicy.validateWritableCommand(post, user, post.getCategory());
+        commentPostPort.validateWritable(post.postId(), userId);
 
         Comment parentComment = null;
         int depth = 0;
@@ -116,17 +98,17 @@ public class CommentCommandService {
         String sanitizedContent = sanitizeCommentContent(content);
 
         Comment comment = Comment.builder()
-                .post(post)
-                .user(user)
-                .agent(agent)
+                .postId(post.postId())
+                .userId(userId)
+                .agentId(agentId)
                 .parent(parentComment)
                 .depth(depth)
                 .content(sanitizedContent)
                 .build();
 
         Comment savedComment = commentRepository.save(comment);
-        incrementPostCommentCount(post.getPostId());
-        saveCommentVersion(savedComment, user, "CREATE", null);
+        commentPostPort.incrementCommentCount(post.postId());
+        saveCommentVersion(savedComment, userId, "CREATE", null);
         replaceCommentMentions(savedComment, userId, mentionedUserIds);
 
         if (parentId != null) {
@@ -138,14 +120,15 @@ public class CommentCommandService {
         int earnedPoints = contentRewardService.rewardCreate(userId, savedComment.getCommentId(),
                 ContentRewardPolicy.COMMENT);
         if (parentComment != null) {
-            commentNotificationService.publishReplyNotification(user, agent, parentComment, parentId);
+            commentNotificationPort.publishReply(userId, agentId, parentComment.getUserId(), parentId);
         } else {
-            commentNotificationService.publishCreateNotification(user, agent, post, postId);
+            commentNotificationPort.publishCreate(userId, agentId, post.ownerUserId(), postId);
         }
-        publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
+        commentUserWritePort.publishMentions(
+                userId, agentId, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
-        publishCommentStreamEvent("CREATED", post.getPostId(), savedComment.getCommentId(), userId);
-        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
+        publishCommentStreamEvent("CREATED", post.postId(), savedComment.getCommentId(), userId);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.boardUrl());
         badgeEvaluationService.evaluateCommentCountBadges(userId);
 
         return CommentCreateResponse.builder()
@@ -154,59 +137,25 @@ public class CommentCommandService {
                 .build();
     }
 
-    private void publishMentionNotifications(User user, Agent agent, Long commentId, String content,
-            Collection<Long> mentionedUserIds) {
-        if (mentionedUserIds != null && !mentionedUserIds.isEmpty()) {
-            mentionService.publishMentions(user, agent, NotificationSourceType.COMMENT, commentId, mentionedUserIds);
-            return;
-        }
-        mentionService.publishMentions(user, agent, NotificationSourceType.COMMENT, commentId, content);
-    }
-
-    private Agent resolveAgent(Long userId, Long agentId, CommentCreateContext context) {
-        if (context != null && context.agent() != null) {
-            Agent contextAgent = context.agent();
-            if (!Objects.equals(contextAgent.getAgentId(), agentId)
-                    || contextAgent.getUser() == null
-                    || !Objects.equals(contextAgent.getUser().getUserId(), userId)) {
+    private void resolveActor(Long userId, Long agentId, CommentCreateContext context) {
+        if (context != null && context.agentId() != null) {
+            if (!Objects.equals(context.agentId(), agentId)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
-            return context.agent();
         }
-        return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
+        actorWritePort.validateForWrite(new ContentActorRef(userId, agentId));
     }
 
-    private Post lockPostAndBoard(Long postId) {
-        Post initialPost = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        if (initialPost.getBoard() == null) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-        Long boardId = initialPost.getBoard().getBoardId();
-        if (boardId != null) {
-            boardRepository.findByIdForUpdate(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        }
-        Post lockedPost = postRepository.findByIdWithRelationsForUpdate(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        if (lockedPost.getBoard() == null
-                || !Objects.equals(boardId, lockedPost.getBoard().getBoardId())) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-        return lockedPost;
-    }
-
-    private Post resolvePostForCreate(Long postId, CommentCreateContext context) {
-        if (context != null && context.post() != null) {
-            if (!Objects.equals(context.post().getPostId(), postId)) {
+    private CommentPostSnapshot resolvePostForCreate(Long postId, CommentCreateContext context) {
+        if (context != null && context.postId() != null) {
+            if (!Objects.equals(context.postId(), postId)) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
-            return context.post();
         }
-        return lockPostAndBoard(postId);
+        return commentPostPort.lockForWrite(postId);
     }
 
-    private Comment resolveParentComment(Long parentId, Post post, CommentCreateContext context) {
+    private Comment resolveParentComment(Long parentId, CommentPostSnapshot post, CommentCreateContext context) {
         Comment parentComment = context != null && context.parentComment() != null
                 ? context.parentComment()
                 : commentRepository.findByIdWithRelationsForUpdate(parentId)
@@ -216,13 +165,12 @@ public class CommentCommandService {
         return parentComment;
     }
 
-    private void validateParentComment(Comment parentComment, Long parentId, Post post) {
+    private void validateParentComment(Comment parentComment, Long parentId, CommentPostSnapshot post) {
         if (parentComment == null
                 || !Objects.equals(parentComment.getCommentId(), parentId)
                 || parentComment.getIsDeleted()
                 || Boolean.TRUE.equals(parentComment.getIsBlinded())
-                || parentComment.getPost() == null
-                || !Objects.equals(parentComment.getPost().getPostId(), post.getPostId())) {
+                || !Objects.equals(parentComment.getPostId(), post.postId())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
@@ -238,55 +186,53 @@ public class CommentCommandService {
         String content = command.content();
         Collection<Long> mentionedUserIds = command.mentionedUserIds();
 
-        User user = userWritableResolver.resolveForUpdate(userId);
+        commentUserWritePort.validateWritable(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
-        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
         Comment comment = target.comment();
-        sanctionService.validateNotMuted(user);
-        validateReadableActiveComment(target.post(), comment, user);
+        commentPostPort.validateWritable(target.post().postId(), userId);
+        validateReadableActiveComment(target.post().postId(), comment, userId);
         validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
         String sanitizedContent = sanitizeCommentContent(content);
         comment.updateContent(sanitizedContent);
 
-        saveCommentVersion(comment, user, "MODIFY", originalContent);
+        saveCommentVersion(comment, userId, "MODIFY", originalContent);
         if (mentionedUserIds != null) {
             Set<Long> previousMentionedUserIds = loadStoredMentionUserIds(comment.getCommentId());
-            List<User> storedMentionedUsers = replaceCommentMentions(comment, userId, mentionedUserIds);
-            mentionService.publishNewMentions(
-                    user,
-                    comment.getAgent(),
-                    NotificationSourceType.COMMENT,
+            List<Long> storedMentionedUserIds = replaceCommentMentions(comment, userId, mentionedUserIds);
+            commentUserWritePort.publishNewMentions(
+                    userId,
+                    comment.getAgentId(),
                     comment.getCommentId(),
                     previousMentionedUserIds,
-                    storedMentionedUsers.stream().map(User::getUserId).toList());
+                    storedMentionedUserIds);
         }
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
-        publishCommentStreamEvent("UPDATED", target.post().getPostId(), comment.getCommentId(), userId);
+        publishCommentStreamEvent("UPDATED", target.post().postId(), comment.getCommentId(), userId);
         return comment.getCommentId();
     }
 
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
+        commentUserWritePort.validateWritable(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
-        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
         Comment comment = target.comment();
-        validateReadableExistingComment(target.post(), comment, user);
+        commentPostPort.validateWritable(target.post().postId(), userId);
+        validateReadableExistingComment(target.post().postId(), comment, userId);
         validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
         comment.deleteComment();
-        Long postId = comment.getPost().getPostId();
-        decrementPostCommentCount(postId);
+        Long postId = comment.getPostId();
+        commentPostPort.decrementCommentCount(postId);
 
-        saveCommentVersion(comment, user, "DELETE", originalContent);
-        contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
+        saveCommentVersion(comment, userId, "DELETE", originalContent);
+        contentRewardService.rollbackCreateReward(userId, commentId, ContentRewardPolicy.COMMENT);
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         publishCommentStreamEvent("DELETED", postId, comment.getCommentId(), userId);
         anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
-                target.post().getBoard().getBoardUrl());
+                target.post().boardUrl());
     }
 
     private void publishCommentStreamEvent(String action, Long postId, Long commentId, Long actorUserId) {
@@ -299,37 +245,23 @@ public class CommentCommandService {
                 .build());
     }
 
-    private void incrementPostCommentCount(Long postId) {
-        if (postRepository.incrementCommentCount(postId) == 0) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-    }
-
-    private void decrementPostCommentCount(Long postId) {
-        if (postRepository.decrementCommentCount(postId) == 0) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-    }
-
     @Transactional
     public void likeComment(Long userId, Long commentId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        commentUserWritePort.validateWritable(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
-        validateReadableActiveComment(target.post(), target.comment(), user);
-        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
+        commentPostPort.validateWritable(target.post().postId(), userId);
+        validateReadableActiveComment(target.post().postId(), target.comment(), userId);
 
-        commentLikeCommand.like(user, target.comment(), CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
-        commentNotificationService.publishLikeNotification(user, target.comment(), commentId);
+        commentLikeCommand.like(userId, target.comment(), CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
+        commentNotificationPort.publishLike(userId, target.comment().getUserId(), commentId);
     }
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        commentUserWritePort.validateWritable(userId);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
-        validateReadableExistingComment(target.post(), target.comment(), user);
-        inquiryLegacyWritePolicy.requireBoardWritable(target.post().getBoard());
+        commentPostPort.validateWritable(target.post().postId(), userId);
+        validateReadableExistingComment(target.post().postId(), target.comment(), userId);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {
@@ -348,44 +280,32 @@ public class CommentCommandService {
     private LockedCommentTarget loadCommentTargetForUpdate(Long commentId) {
         Comment initialComment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        if (initialComment.getPost() == null || initialComment.getPost().getBoard() == null) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-        Long postId = initialComment.getPost().getPostId();
-        Long boardId = initialComment.getPost().getBoard().getBoardId();
-        if (boardId != null) {
-            boardRepository.findByIdForUpdate(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        }
-        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        if (post.getBoard() == null || !Objects.equals(boardId, post.getBoard().getBoardId())) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
+        Long postId = initialComment.getPostId();
+        CommentPostSnapshot post = commentPostPort.lockForWrite(postId);
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        if (comment.getPost() == null || !Objects.equals(comment.getPost().getPostId(), post.getPostId())) {
+        if (!Objects.equals(comment.getPostId(), post.postId())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
         return new LockedCommentTarget(post, comment);
     }
 
-    private void validateReadableActiveComment(Post lockedPost, Comment comment, User user) {
-        validateReadableExistingComment(lockedPost, comment, user);
+    private void validateReadableActiveComment(Long postId, Comment comment, Long userId) {
+        validateReadableExistingComment(postId, comment, userId);
         if (Boolean.TRUE.equals(comment.getIsBlinded())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
     }
 
-    private void validateReadableExistingComment(Post lockedPost, Comment comment, User user) {
-        validatePostReadable(lockedPost, user);
+    private void validateReadableExistingComment(Long postId, Comment comment, Long userId) {
+        validatePostReadable(postId, userId);
         if (Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
     }
 
     private void validateCommentOwner(Comment comment, Long userId) {
-        if (!comment.getUser().getUserId().equals(userId)) {
+        if (!comment.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
@@ -399,65 +319,44 @@ public class CommentCommandService {
         return sanitizedContent;
     }
 
-    private void saveCommentVersion(Comment comment, User modifier, String versionType, String originalContent) {
+    private void saveCommentVersion(Comment comment, Long modifierUserId, String versionType, String originalContent) {
         CommentVersion commentVersion = CommentVersion.builder()
                 .comment(comment)
-                .modifier(modifier)
+                .modifierId(modifierUserId)
                 .versionType(versionType)
                 .originalContent(originalContent)
                 .build();
         commentVersionRepository.save(commentVersion);
     }
 
-    private List<User> replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
+    private List<Long> replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
         commentMentionRepository.deleteByCommentCommentId(comment.getCommentId());
-        List<User> mentionedUsers = loadMentionedUsers(authorUserId, mentionedUserIds);
-        if (mentionedUsers.isEmpty()) {
+        List<Long> resolvedMentionedUserIds = commentUserWritePort.resolveMentionedUserIds(
+                authorUserId, mentionedUserIds);
+        if (resolvedMentionedUserIds.isEmpty()) {
             return List.of();
         }
-        List<CommentMention> mentions = mentionedUsers.stream()
-                .map(user -> CommentMention.builder()
+        List<CommentMention> mentions = resolvedMentionedUserIds.stream()
+                .map(userId -> CommentMention.builder()
                         .comment(comment)
-                        .user(user)
+                        .userId(userId)
                         .build())
                 .toList();
         commentMentionRepository.saveAll(mentions);
-        return mentionedUsers;
+        return resolvedMentionedUserIds;
     }
 
     private Set<Long> loadStoredMentionUserIds(Long commentId) {
         return commentMentionRepository.findByCommentCommentIdIn(List.of(commentId)).stream()
-                .map(CommentMention::getUser)
-                .filter(Objects::nonNull)
-                .map(User::getUserId)
+                .map(CommentMention::getUserId)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private List<User> loadMentionedUsers(Long authorUserId, Collection<Long> mentionedUserIds) {
-        if (mentionedUserIds == null || mentionedUserIds.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> uniqueIds = mentionedUserIds.stream()
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        if (uniqueIds.isEmpty()) {
-            return List.of();
-        }
-        List<Long> blockedIds = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(authorUserId);
-        Set<Long> blockedUserIds = blockedIds == null ? Set.of() : Set.copyOf(blockedIds);
-        return userRepository.findAllById(uniqueIds).stream()
-                .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
-                .filter(user -> user.getDeletedAt() == null)
-                .filter(user -> !blockedUserIds.contains(user.getUserId()))
-                .limit(10)
-                .toList();
+    private void validatePostReadable(Long postId, Long viewerUserId) {
+        commentPostPort.validateReadable(postId, viewerUserId);
     }
 
-    private void validatePostReadable(Post post, User viewer) {
-        commentPostAccessService.validateReadable(post, commentPostAccessService.resolveReadContext(viewer));
-    }
-
-    private record LockedCommentTarget(Post post, Comment comment) {
+    private record LockedCommentTarget(CommentPostSnapshot post, Comment comment) {
     }
 }

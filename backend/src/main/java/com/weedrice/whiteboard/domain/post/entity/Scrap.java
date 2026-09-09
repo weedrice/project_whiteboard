@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -17,9 +17,8 @@ import jakarta.persistence.*;
 public class Scrap extends BaseTimeEntity {
 
     @Id
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Id
     @ManyToOne(fetch = FetchType.LAZY)
@@ -34,11 +33,18 @@ public class Scrap extends BaseTimeEntity {
     private ScrapFolder folder;
 
     @Builder
-    public Scrap(User user, Post post, String remark, ScrapFolder folder) {
-        this.user = user;
+    public Scrap(Long userId, Post post, String remark, ScrapFolder folder) {
+        this.userId = userId;
         this.post = post;
         this.remark = remark;
         this.folder = folder;
+    }
+
+    public static class ScrapBuilder {
+        public ScrapBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
     }
 
     public void moveToFolder(ScrapFolder folder) {

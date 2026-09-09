@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.dto.PostSummaryFields;
@@ -23,6 +26,7 @@ class FeedPostSummaryAssembler {
     private final FileService fileService;
     private final PostInteractionContextResolver interactionContextResolver;
     private final PostContentSummaryExtractor contentSummaryExtractor;
+    private final ActorBatchReadPort actorBatchReadPort;
 
     List<FeedPostSummary> assembleTrendingPosts(List<Post> posts, Long currentUserId) {
         return assembleFeedPosts(posts, currentUserId, true, true);
@@ -42,22 +46,27 @@ class FeedPostSummaryAssembler {
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
+        Map<ContentActorRef, AuthorSnapshot> authors = actorBatchReadPort.resolveAuthors(posts.stream()
+                .map(post -> new ContentActorRef(post.getUserId(), post.getAgentId()))
+                .collect(Collectors.toSet()));
 
         return posts.stream()
                 .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
+                        authors.get(new ContentActorRef(post.getUserId(), post.getAgentId())),
                         includeContentsExcerpt, includeFirstMedia))
                 .collect(Collectors.toList());
     }
 
     private FeedPostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages,
             Map<Long, Long> thumbnailFileIdsByPostId, PostUserInteractionContext interactionContext,
+            AuthorSnapshot author,
             boolean includeContentsExcerpt, boolean includeFirstMedia) {
         String summaryText = contentSummaryExtractor.extractSummary(post);
         PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
                 post,
                 postIdsWithImages,
                 thumbnailFileIdsByPostId);
-        PostSummaryFields fields = PostSummaryFields.from(post, post.getBoard().getIconUrl());
+        PostSummaryFields fields = PostSummaryFields.from(post, author, post.getBoard().getIconUrl());
 
         String firstMediaType = null;
         String firstMediaUrl = null;

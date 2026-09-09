@@ -7,9 +7,13 @@ import com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFan
 import com.weedrice.whiteboard.domain.notification.entity.UserKeywordSubscription;
 import com.weedrice.whiteboard.domain.notification.repository.KeywordNotificationFanoutJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.UserKeywordSubscriptionRepository;
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +37,8 @@ public class KeywordNotificationFanoutProcessor {
     private final KeywordNotificationFanoutJobRepository jobRepository;
     private final UserKeywordSubscriptionRepository subscriptionRepository;
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
+    private final AgentRepository agentRepository;
     private final NotificationDeliveryJobService deliveryJobService;
     private final UserBlockService userBlockService;
     private final Clock clock;
@@ -72,11 +78,13 @@ public class KeywordNotificationFanoutProcessor {
         List<UserKeywordSubscription> subscriptions = subscriptionRepository.findMatchingTitleAfter(
                 post.getTitle(), job.getLastSubscriptionId(), PageRequest.of(0, BATCH_SIZE));
         Set<Long> blocked = resolveBlockedUserIds(post);
+        User author = userRepository.findById(post.getUserId()).orElse(null);
+        Agent authorAgent = post.getAgentId() == null ? null : agentRepository.findById(post.getAgentId()).orElse(null);
         LocalDateTime cooldown = now().minusMinutes(COOLDOWN_MINUTES);
         for (UserKeywordSubscription subscription : subscriptions) {
             if (isEligible(subscription, post, blocked, cooldown)) {
                 NotificationEvent event = NotificationEvent.localized(
-                        subscription.getUser(), post.getUser(), post.getAgent(),
+                        subscription.getUser(), author, authorAgent,
                         NotificationType.KEYWORD, NotificationSourceType.POST, post.getPostId(),
                         "notification.keyword.matched", post.getTitle());
                 if (deliveryJobService.enqueue(event) != null) subscription.markNotified(now());
@@ -109,13 +117,13 @@ public class KeywordNotificationFanoutProcessor {
     private boolean isEligible(UserKeywordSubscription s, Post p, Set<Long> blocked, LocalDateTime cooldown) {
         Long userId = s.getUser() == null ? null : s.getUser().getUserId();
         return userId != null
-                && (p.getUser() == null || !userId.equals(p.getUser().getUserId()))
+                && !userId.equals(p.getUserId())
                 && !blocked.contains(userId)
                 && (s.getLastNotifiedAt() == null || !s.getLastNotifiedAt().isAfter(cooldown));
     }
     private Set<Long> resolveBlockedUserIds(Post post) {
-        if (post.getUser() == null || post.getUser().getUserId() == null) return Set.of();
-        return Set.copyOf(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(post.getUser().getUserId()));
+        if (post.getUserId() == null) return Set.of();
+        return Set.copyOf(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(post.getUserId()));
     }
     private LocalDateTime now() { return LocalDateTime.now(clock); }
 }

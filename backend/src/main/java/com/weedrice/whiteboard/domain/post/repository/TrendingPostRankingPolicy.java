@@ -7,7 +7,7 @@ import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.entity.QFile;
 import com.weedrice.whiteboard.domain.post.entity.QPost;
 
-final class TrendingPostRankingPolicy {
+public final class TrendingPostRankingPolicy {
 
     private static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
     private static final String IMAGE_MIME_PATTERN = "image/%";
@@ -19,7 +19,7 @@ final class TrendingPostRankingPolicy {
     private TrendingPostRankingPolicy() {
     }
 
-    static BooleanExpression mediaCondition(QPost post, QFile file) {
+    public static BooleanExpression mediaCondition(QPost post, QFile file) {
         BooleanExpression hasAttachedImage = JPAExpressions.selectOne()
                 .from(file)
                 .where(
@@ -39,7 +39,7 @@ final class TrendingPostRankingPolicy {
                 .or(file.storageStatus.isNull());
     }
 
-    static NumberExpression<Integer> score(QPost post) {
+    public static NumberExpression<Integer> score(QPost post) {
         return post.viewCount.multiply(VIEW_SCORE_WEIGHT)
                 .add(post.likeCount.multiply(LIKE_SCORE_WEIGHT));
     }

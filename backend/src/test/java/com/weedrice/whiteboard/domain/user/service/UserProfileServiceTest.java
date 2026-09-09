@@ -17,6 +17,7 @@ import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryReposito
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.integration.UserActivityIntegrationAdapter;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -82,9 +83,12 @@ class UserProfileServiceTest {
         userProfileService = new UserProfileService(
                 userRepository,
                 currentUserSummaryAssembler,
-                commentRepository,
                 displayNameHistoryRepository,
-                postRepository,
+                new UserActivityIntegrationAdapter(
+                        postRepository,
+                        commentRepository,
+                        org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.actor.ActorBatchReadPort.class),
+                        org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.comment.port.CommentPostPort.class)),
                 userBlockRepository,
                 fileService,
                 pointService,
@@ -169,8 +173,8 @@ class UserProfileServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
-        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(5L);
-        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(7L);
+        when(postRepository.countPublicProfilePostsByUserId(1L)).thenReturn(5L);
+        when(commentRepository.countPublicProfileCommentsByUser(1L)).thenReturn(7L);
 
         UserProfileResponse response = userProfileService.getUserProfile(1L);
 
@@ -178,11 +182,11 @@ class UserProfileServiceTest {
         assertThat(response.getDisplayName()).isEqualTo("tester");
         assertThat(response.getPostCount()).isEqualTo(5L);
         assertThat(response.getCommentCount()).isEqualTo(7L);
-        verify(postRepository).countPublicProfilePostsByUser(user);
-        verify(commentRepository).countPublicProfileCommentsByUser(user);
+        verify(postRepository).countPublicProfilePostsByUserId(1L);
+        verify(commentRepository).countPublicProfileCommentsByUser(1L);
         verify(userBlockRepository, never()).existsEitherDirection(any(), any());
-        verify(postRepository, never()).countByUserAndIsDeleted(user, false);
-        verify(commentRepository, never()).countByUserAndIsDeleted(user, false);
+        verify(postRepository, never()).countByUserIdAndIsDeleted(1L, false);
+        verify(commentRepository, never()).countByUserIdAndIsDeleted(1L, false);
     }
 
     @Test
@@ -379,8 +383,8 @@ class UserProfileServiceTest {
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
         when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(false);
-        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(3L);
-        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(4L);
+        when(postRepository.countPublicProfilePostsByUserId(2L)).thenReturn(3L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L)).thenReturn(4L);
 
         UserProfileResponse response = userProfileService.getUserProfile(2L, 1L);
 
@@ -389,8 +393,8 @@ class UserProfileServiceTest {
         assertThat(response.getPostCount()).isEqualTo(3L);
         assertThat(response.getCommentCount()).isEqualTo(4L);
         verify(userBlockRepository).existsEitherDirection(1L, 2L);
-        verify(postRepository).countPublicProfilePostsByUser(user);
-        verify(commentRepository).countPublicProfileCommentsByUser(user);
+        verify(postRepository).countPublicProfilePostsByUserId(2L);
+        verify(commentRepository).countPublicProfileCommentsByUser(2L);
     }
 
     @Test
@@ -411,8 +415,8 @@ class UserProfileServiceTest {
         assertThat(response.getPostCount()).isZero();
         assertThat(response.getCommentCount()).isZero();
         verify(userBlockRepository).existsEitherDirection(1L, 2L);
-        verify(postRepository, never()).countPublicProfilePostsByUser(any());
-        verify(commentRepository, never()).countPublicProfileCommentsByUser(any());
+        verify(postRepository, never()).countPublicProfilePostsByUserId(any());
+        verify(commentRepository, never()).countPublicProfileCommentsByUser(anyLong());
     }
 
     @Test
@@ -422,8 +426,8 @@ class UserProfileServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
-        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(5L);
-        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(7L);
+        when(postRepository.countPublicProfilePostsByUserId(1L)).thenReturn(5L);
+        when(commentRepository.countPublicProfileCommentsByUser(1L)).thenReturn(7L);
 
         UserProfileResponse response = userProfileService.getUserProfile(1L, 1L);
 

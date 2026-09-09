@@ -7,6 +7,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.integration.PostAuthorQueryIntegration;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,7 +29,7 @@ import static com.weedrice.whiteboard.domain.tag.entity.QPostTag.postTag;
 @RequiredArgsConstructor
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
-    static final int POST_LIST_CONTENT_PREVIEW_LENGTH = 4096;
+    public static final int POST_LIST_CONTENT_PREVIEW_LENGTH = 4096;
 
     private final JPAQueryFactory queryFactory;
     private final EntityManager entityManager;
@@ -38,8 +39,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
         List<Post> content = queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -83,18 +82,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Boolean includeSecret,
             Long viewerUserId,
             @NonNull Pageable pageable) {
-        List<PostListSummaryProjection> content = queryFactory
+        var contentQuery = queryFactory
                 .select(Projections.constructor(
                         PostListSummaryProjection.class,
                         post.postId,
                         post.board.boardId,
                         post.category.categoryId,
                         post.title,
-                        post.user.userId,
-                        post.agent.agentId,
-                        post.user.displayName,
-                        post.user.profileImageUrl,
-                        post.agent.name,
+                        post.userId,
+                        post.agentId,
+                        PostAuthorQueryIntegration.userDisplayName(),
+                        PostAuthorQueryIntegration.userProfileImageUrl(),
+                        PostAuthorQueryIntegration.agentName(),
                         post.category.name,
                         post.viewCount,
                         post.likeCount,
@@ -111,9 +110,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                 "substring({0}, 1, {1})",
                                 post.contents,
                                 POST_LIST_CONTENT_PREVIEW_LENGTH)))
-                .from(post)
-                .join(post.user)
-                .leftJoin(post.agent)
+                .from(post);
+        PostAuthorQueryIntegration.joinAuthors(contentQuery, post.userId, post.agentId);
+        List<PostListSummaryProjection> content = contentQuery
                 .join(post.board)
                 .leftJoin(post.category)
                 .where(
@@ -179,8 +178,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
         List<Post> content = queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -240,10 +237,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         BooleanExpression createdFromCondition = createdFrom != null ? post.createdAt.goe(createdFrom) : null;
         BooleanExpression createdToCondition = createdTo != null ? post.createdAt.lt(createdTo) : null;
 
-        List<Post> content = queryFactory
-                .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
+        var contentQuery = queryFactory.selectFrom(post);
+        PostAuthorQueryIntegration.joinAuthors(contentQuery, post.userId, post.agentId);
+        List<Post> content = contentQuery
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -264,10 +260,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .orderBy(getOrderSpecifiers(pageable))
                 .fetch();
 
-        Long total = queryFactory
+        var countQuery = queryFactory
                 .select(post.count())
-                .from(post)
-                .leftJoin(post.agent)
+                .from(post);
+        PostAuthorQueryIntegration.joinAuthors(countQuery, post.userId, post.agentId);
+        Long total = countQuery
                 .where(
                         searchCondition,
                         boardCondition,
@@ -292,8 +289,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .select(post)
                 .from(postTag)
                 .join(postTag.post, post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -332,8 +327,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId) {
         return queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -352,8 +345,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Boolean includeSecret, Long viewerUserId, Pageable pageable) {
         return queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -377,8 +368,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, long offset, int limit) {
         return queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(trendingPostConditions(since, blockedUserIds))
@@ -406,8 +395,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Pageable pageable) {
         return queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(publicLandingLatestPostConditions(inquiryBoardUrl, blockedUserIds))
@@ -426,8 +413,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
         List<Post> content = queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -510,14 +495,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     private BooleanExpression notBlockedCondition(List<Long> blockedUserIds) {
-        return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? post.user.userId.notIn(blockedUserIds) : null;
+        return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? post.userId.notIn(blockedUserIds) : null;
     }
 
     private BooleanExpression agentFeedSecretCondition(Collection<Long> secretVisibleBoardIds, Long viewerUserId) {
         BooleanExpression expression = post.isSecret.eq(false);
 
         if (viewerUserId != null) {
-            expression = expression.or(post.user.userId.eq(viewerUserId));
+            expression = expression.or(post.userId.eq(viewerUserId));
         }
         if (secretVisibleBoardIds != null && !secretVisibleBoardIds.isEmpty()) {
             expression = expression.or(post.board.boardId.in(secretVisibleBoardIds));
@@ -547,7 +532,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression notBlockedPostTagCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty())
-                ? postTag.post.user.userId.notIn(blockedUserIds)
+                ? postTag.post.userId.notIn(blockedUserIds)
                 : null;
     }
 
@@ -562,8 +547,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     private BooleanExpression displayAuthorContains(String keyword) {
-        return post.user.displayName.containsIgnoreCase(keyword)
-                .or(post.agent.name.containsIgnoreCase(keyword));
+        return PostAuthorQueryIntegration.displayAuthorContains(keyword);
     }
 
     private BooleanExpression minLikesGoe(Integer minLikes) {
@@ -604,7 +588,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             return null;
         }
         if (viewerUserId != null) {
-            return post.isSecret.eq(false).or(post.user.userId.eq(viewerUserId));
+            return post.isSecret.eq(false).or(post.userId.eq(viewerUserId));
         }
         return post.isSecret.eq(false);
     }
@@ -636,8 +620,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     public java.util.Optional<Post> findByIdWithRelations(@NonNull Long postId) {
         Post result = queryFactory
                 .selectFrom(post)
-                .join(post.user).fetchJoin()
-                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(post.postId.eq(postId))

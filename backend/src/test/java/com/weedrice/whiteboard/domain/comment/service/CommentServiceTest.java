@@ -2,7 +2,12 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.ActorWritePort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -18,6 +23,12 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.comment.integration.CommentNotificationIntegrationAdapter;
+import com.weedrice.whiteboard.domain.comment.integration.CommentPostIntegrationAdapter;
+import com.weedrice.whiteboard.domain.comment.integration.CommentUserIntegrationAdapter;
+import com.weedrice.whiteboard.domain.comment.integration.CommentUserWriteIntegrationAdapter;
+import com.weedrice.whiteboard.domain.comment.port.CommentNotificationPort;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
@@ -62,6 +73,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -129,6 +142,12 @@ class CommentServiceTest {
     @Mock
     private AgentOwnershipService agentOwnershipService;
     @Mock
+    private AgentRepository agentRepository;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
+    @Mock
+    private ActorWritePort actorWritePort;
+    @Mock
     private SanctionService sanctionService;
     @Mock
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
@@ -149,6 +168,20 @@ class CommentServiceTest {
         Map<Long, Comment> lockedCommentTargets = new HashMap<>();
         lenient().when(userRepository.findByIdForUpdate(anyLong()))
                 .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
+        lenient().when(postRepository.findByIdWithRelations(nullable(Long.class)))
+                .thenAnswer(invocation -> Optional.of(defaultPost(invocation.getArgument(0))));
+        lenient().when(boardRepository.findByIdForUpdate(nullable(Long.class)))
+                .thenAnswer(invocation -> Optional.of(defaultBoard(invocation.getArgument(0))));
+        lenient().when(actorWritePort.validateForWrite(any(ContentActorRef.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(actorBatchReadPort.resolveAuthors(any())).thenAnswer(invocation -> {
+            Collection<ContentActorRef> refs = invocation.getArgument(0);
+            Map<ContentActorRef, AuthorSnapshot> snapshots = new LinkedHashMap<>();
+            refs.forEach(ref -> snapshots.put(ref, new AuthorSnapshot(
+                    ref.ownerUserId(), ref.agentId(), ref.isAgentAuthored() ? "AGENT" : "USER",
+                    ref.isAgentAuthored() ? "Agent" : "User", null, null)));
+            return snapshots;
+        });
         lenient().when(commentRepository.findByIdWithRelations(anyLong()))
                 .thenAnswer(invocation -> {
                     Long commentId = invocation.getArgument(0);
@@ -162,13 +195,7 @@ class CommentServiceTest {
         lenient().when(postRepository.findByIdWithRelationsForUpdate(nullable(Long.class)))
                 .thenAnswer(invocation -> {
                     Long postId = invocation.getArgument(0);
-                    Optional<Post> cachedPost = lockedCommentTargets.values().stream()
-                            .map(Comment::getPost)
-                            .filter(post -> java.util.Objects.equals(post.getPostId(), postId))
-                            .findFirst();
-                    return cachedPost.isPresent()
-                            ? cachedPost
-                            : postRepository.findByIdWithRelations(postId);
+                    return postRepository.findByIdWithRelations(postId);
                 });
         lenient().when(commentRepository.findByIdWithRelationsForUpdate(anyLong()))
                 .thenAnswer(invocation -> {
@@ -178,57 +205,80 @@ class CommentServiceTest {
                 });
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy, inquiryLegacyWritePolicy);
-        CommentPostAccessService commentPostAccessService = new CommentPostAccessService(userBlockService, postAccessPolicy);
         CommentReadSupport commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
-        CommentQueryService commentQueryService = new CommentQueryService(
-                commentRepository,
-                inquiryLegacyWritePolicy,
-                postRepository,
-                userBlockRepository,
-                new UserReadableResolver(userRepository),
-                commentPostAccessService,
-                commentReadSupport,
-                commentReadModelAssembler,
-                commentMentionRepository,
-                new StaticMessageSource());
-        ContentRewardService contentRewardService = new ContentRewardService(
-                pointService,
-                pointHistoryRepository,
-                globalConfigService);
-        CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
-        CommentLikeCommand commentLikeCommand = new CommentLikeCommand(commentRepository, commentLikeRepository);
+        UserReadableResolver userReadableResolver = new UserReadableResolver(userRepository);
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         BoardCategoryWritePolicy boardCategoryWritePolicy = new BoardCategoryWritePolicy(boardAccessPolicy);
         PostAuthorCommandPolicy postAuthorCommandPolicy = new PostAuthorCommandPolicy(
                 boardAccessPolicy,
                 boardCategoryRepository,
                 boardCategoryWritePolicy);
-        CommentCommandService commentCommandService = new CommentCommandService(
-                commentRepository,
+        CommentPostPort commentPostPort = new CommentPostIntegrationAdapter(
                 postRepository,
                 boardRepository,
+                postAccessPolicy,
+                postAuthorCommandPolicy,
+                inquiryLegacyWritePolicy,
+                userReadableResolver,
+                userWritableResolver,
+                userBlockService);
+        CommentQueryService commentQueryService = new CommentQueryService(
+                commentRepository,
+                inquiryLegacyWritePolicy,
+                commentPostPort,
+                new CommentUserIntegrationAdapter(userReadableResolver, userBlockService, userBlockRepository),
+                commentReadSupport,
+                commentReadModelAssembler,
+                commentMentionRepository,
+                new StaticMessageSource(),
+                actorBatchReadPort);
+        ContentRewardService contentRewardService = new ContentRewardService(
+                pointService,
+                pointHistoryRepository,
+                globalConfigService);
+        CommentNotificationPort commentNotificationService = new CommentNotificationIntegrationAdapter(
+                eventPublisher, userRepository, agentRepository);
+        CommentLikeCommand commentLikeCommand = new CommentLikeCommand(commentRepository, commentLikeRepository);
+        CommentUserWriteIntegrationAdapter commentUserWritePort = new CommentUserWriteIntegrationAdapter(
+                userRepository,
+                userBlockRepository,
+                userWritableResolver,
+                sanctionService,
+                mentionService);
+        CommentCommandService commentCommandService = new CommentCommandService(
+                commentRepository,
                 commentLikeRepository,
                 commentVersionRepository,
                 commentClosureRepository,
                 commentMentionRepository,
-                userRepository,
-                userBlockRepository,
-                agentOwnershipService,
-                userWritableResolver,
-                sanctionService,
-                commentPostAccessService,
-                postAuthorCommandPolicy,
+                actorWritePort,
+                commentUserWritePort,
+                commentPostPort,
                 contentRewardService,
                 commentNotificationService,
-                mentionService,
                 commentStreamEventDispatcher,
                 semanticSearchEventPublisher,
                 commentLikeCommand,
                 badgeEvaluationService,
-                anonymousReadCacheInvalidator,
-                inquiryLegacyWritePolicy);
+                anonymousReadCacheInvalidator);
         commentService = new CommentService(commentQueryService, commentCommandService);
+    }
+
+    private Board defaultBoard(Long boardId) {
+        Board fallback = Board.builder().boardName("Board").boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(fallback, "boardId", boardId == null ? 1L : boardId);
+        ReflectionTestUtils.setField(fallback, "isActive", true);
+        return fallback;
+    }
+
+    private Post defaultPost(Long postId) {
+        User owner = User.builder().displayName("Owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+        Post fallback = Post.builder().user(owner).board(defaultBoard(1L)).title("Post").build();
+        ReflectionTestUtils.setField(fallback, "postId", postId);
+        ReflectionTestUtils.setField(fallback, "isDeleted", false);
+        return fallback;
     }
 
     @Test
@@ -354,7 +404,7 @@ class CommentServiceTest {
         ArgumentCaptor<List<CommentMention>> mentionsCaptor = ArgumentCaptor.forClass(List.class);
         verify(commentMentionRepository).saveAll(mentionsCaptor.capture());
         assertThat(mentionsCaptor.getValue())
-                .extracting(mention -> mention.getUser().getUserId())
+                .extracting(CommentMention::getUserId)
                 .containsExactly(2L);
         verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
     }
@@ -366,9 +416,6 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(actor, "userId", 2L);
         User agentOwner = User.builder().displayName("Agent Owner").build();
         ReflectionTestUtils.setField(agentOwner, "userId", 3L);
-        User legacyAuthor = User.builder().displayName("Legacy Author").build();
-        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
-
         Agent targetAgent = Agent.builder()
                 .user(agentOwner)
                 .agentTokenHash("hash")
@@ -378,10 +425,11 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
 
         Board board = Board.builder().boardUrl("free").build();
-        Post post = Post.builder().user(legacyAuthor).agent(targetAgent).board(board).build();
+        Post post = Post.builder().user(agentOwner).agent(targetAgent).board(board).build();
         ReflectionTestUtils.setField(post, "postId", 1L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(agentOwner));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(postRepository.incrementCommentCount(1L)).thenReturn(1);
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
@@ -514,7 +562,7 @@ class CommentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
-        verify(adminRepository).existsByUserAndBoardAndIsActive(user, board, true);
+        verify(adminRepository).existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 1L, true);
         verify(commentRepository, never()).save(any(Comment.class));
     }
 
@@ -676,9 +724,6 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(actor, "userId", 2L);
         User agentOwner = User.builder().displayName("Agent Owner").build();
         ReflectionTestUtils.setField(agentOwner, "userId", 3L);
-        User legacyAuthor = User.builder().displayName("Legacy Author").build();
-        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
-
         Agent targetAgent = Agent.builder()
                 .user(agentOwner)
                 .agentTokenHash("hash")
@@ -688,18 +733,19 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
 
         Board board = Board.builder().boardUrl("free").build();
-        Post post = Post.builder().board(board).user(legacyAuthor).build();
+        Post post = Post.builder().board(board).user(agentOwner).build();
         ReflectionTestUtils.setField(post, "postId", 1L);
 
         Comment parent = Comment.builder()
                 .depth(0)
-                .user(legacyAuthor)
+                .user(agentOwner)
                 .agent(targetAgent)
                 .post(post)
                 .build();
         ReflectionTestUtils.setField(parent, "commentId", 5L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(agentOwner));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(postRepository.incrementCommentCount(1L)).thenReturn(1);
         when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
@@ -822,8 +868,8 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L))
-                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN)).when(actorWritePort)
+                .validateForWrite(new ContentActorRef(1L, 10L));
 
         assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "content"))
                 .isInstanceOf(BusinessException.class)
@@ -848,7 +894,6 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(post, "postId", 1L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(agent);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "<span></span>"))
@@ -885,7 +930,8 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(parent, "commentId", 5L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
-        when(agentOwnershipService.resolveOwnedActiveAgent(2L, 99L)).thenReturn(agent);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(agentRepository.findById(99L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(postRepository.incrementCommentCount(1L)).thenReturn(1);
         when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
@@ -1157,6 +1203,10 @@ class CommentServiceTest {
                 .thenReturn(new PageImpl<>(List.of(comment)));
         when(commentMentionRepository.findByCommentCommentIdIn(List.of(10L)))
                 .thenReturn(List.of(blockedRow, inactiveRow));
+        ContentActorRef blockedMentionRef = ContentActorRef.user(3L);
+        doReturn(Map.of(blockedMentionRef, new AuthorSnapshot(3L, null, "USER", "Blocked Mention", null, null)))
+                .when(actorBatchReadPort).resolveAuthors(eq(Set.of(
+                        blockedMentionRef, ContentActorRef.user(4L))));
 
         Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
 
@@ -1306,7 +1356,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findVisibleMyComments(
-                user,
+                user.getUserId(),
                 false,
                 true,
                 NO_BLOCKED_USER_IDS,
@@ -1318,7 +1368,7 @@ class CommentServiceTest {
         commentService.getMyComments(1L, requested);
 
         verify(commentRepository).findVisibleMyComments(
-                user,
+                user.getUserId(),
                 false,
                 true,
                 NO_BLOCKED_USER_IDS,
@@ -1631,10 +1681,12 @@ class CommentServiceTest {
         Board board = Board.builder().boardUrl("inquiry").isPublic(true).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
                 .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
 
@@ -1653,9 +1705,6 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(actor, "userId", 2L);
         User agentOwner = User.builder().displayName("Agent Owner").build();
         ReflectionTestUtils.setField(agentOwner, "userId", 3L);
-        User legacyAuthor = User.builder().displayName("Legacy Author").build();
-        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
-
         Agent targetAgent = Agent.builder()
                 .user(agentOwner)
                 .agentTokenHash("hash")
@@ -1665,15 +1714,16 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
 
         Board board = Board.builder().boardUrl("free").build();
-        Post post = Post.builder().board(board).user(legacyAuthor).build();
+        Post post = Post.builder().board(board).user(agentOwner).build();
         Comment comment = Comment.builder()
-                .user(legacyAuthor)
+                .user(agentOwner)
                 .agent(targetAgent)
                 .post(post)
                 .build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(agentOwner));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
         when(commentLikeRepository.insertIgnore(2L, 10L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
@@ -1870,10 +1920,12 @@ class CommentServiceTest {
         Board board = Board.builder().boardUrl("inquiry").isPublic(true).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
         Comment comment = Comment.builder().user(user).post(post).build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.LEGACY_INQUIRY_READ_ONLY))
                 .when(inquiryLegacyWritePolicy).requireBoardWritable(board);
 
@@ -2057,6 +2109,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(board, "isPublic", true);
 
         Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
         ReflectionTestUtils.setField(post, "isSecret", true);
 
         Comment comment = Comment.builder().user(owner).post(post).build();
@@ -2064,6 +2117,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> commentService.likeComment(2L, 10L))
@@ -2118,6 +2172,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
         when(commentRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(post));
         when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
         doReturn(Optional.of(post)).when(postRepository).findByIdWithRelationsForUpdate(2L);
         doReturn(Optional.of(comment)).when(commentRepository).findByIdWithRelationsForUpdate(10L);
@@ -2332,8 +2387,8 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user,
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                1L,
                 List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
@@ -2403,8 +2458,8 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user,
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                1L,
                 List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
@@ -2431,8 +2486,8 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user,
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                1L,
                 List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))

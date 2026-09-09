@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -29,44 +28,51 @@ public class ViewHistory extends BaseTimeEntity {
     @Column(name = "view_history_id")
     private Long viewHistoryId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "last_read_comment_id")
-    private Comment lastReadComment;
+    @Column(name = "last_read_comment_id")
+    private Long lastReadCommentId;
 
     @Column(name = "duration_ms", nullable = false)
     private Long durationMs;
 
     @Builder
-    public ViewHistory(User user, Post post) {
-        this.user = user;
+    public ViewHistory(Long userId, Post post) {
+        this.userId = userId;
         this.post = post;
         this.durationMs = 0L;
     }
 
-    public void updateView(Comment lastReadComment, long durationMs) {
-        if (shouldAdvanceLastReadComment(lastReadComment)) {
-            this.lastReadComment = lastReadComment;
+    public ViewHistory(UserIdRef user, Post post) {
+        this(user == null ? null : user.getUserId(), post);
+    }
+
+    public static class ViewHistoryBuilder {
+        public ViewHistoryBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
+    }
+
+    public void updateView(Long lastReadCommentId, long durationMs) {
+        if (shouldAdvanceLastReadComment(lastReadCommentId)) {
+            this.lastReadCommentId = lastReadCommentId;
         }
         this.durationMs += durationMs;
     }
 
-    private boolean shouldAdvanceLastReadComment(Comment candidate) {
-        if (candidate == null) {
+    private boolean shouldAdvanceLastReadComment(Long candidateCommentId) {
+        if (candidateCommentId == null) {
             return false;
         }
-        if (this.lastReadComment == null) {
+        if (this.lastReadCommentId == null) {
             return true;
         }
-        Long currentCommentId = this.lastReadComment.getCommentId();
-        Long candidateCommentId = candidate.getCommentId();
-        return currentCommentId == null || candidateCommentId != null && candidateCommentId > currentCommentId;
+        return candidateCommentId > this.lastReadCommentId;
     }
 }

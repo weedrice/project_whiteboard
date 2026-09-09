@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,8 @@ class PostInteractionContextResolverTest {
     private ScrapRepository scrapRepository;
     @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private UserBlockService userBlockService;
 
     private PostInteractionContextResolver resolver;
 
@@ -46,7 +49,8 @@ class PostInteractionContextResolverTest {
     @BeforeEach
     void setUp() {
         resolver = new PostInteractionContextResolver(
-                userRepository,
+                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                        userRepository, userBlockService),
                 postLikeRepository,
                 scrapRepository,
                 boardSubscriptionRepository);

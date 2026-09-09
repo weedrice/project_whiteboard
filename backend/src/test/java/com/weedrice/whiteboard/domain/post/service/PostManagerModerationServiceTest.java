@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.integration.PostModerationAuditIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
@@ -40,6 +42,7 @@ class PostManagerModerationServiceTest {
     @Mock PostRepository posts;
     @Mock BoardRepository boards;
     @Mock UserRepository users;
+    @Mock PostUserWritePort postUserWritePort;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock ModerationAuditLogService audits;
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
@@ -53,7 +56,13 @@ class PostManagerModerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PostManagerModerationService(posts, boards, users, accessPolicy, audits, semanticSearchEvents,
+        service = new PostManagerModerationService(
+                posts,
+                boards,
+                postUserWritePort,
+                accessPolicy,
+                new PostModerationAuditIntegrationAdapter(users, audits),
+                semanticSearchEvents,
                 notificationAccessInvalidationService,
                 anonymousReadCacheInvalidator,
                 inquiryLegacyWritePolicy,
@@ -61,7 +70,9 @@ class PostManagerModerationServiceTest {
         manager = mock(User.class);
         post = mock(Post.class);
         board = mock(Board.class);
-        when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(manager));
+        when(postUserWritePort.validateForUpdate(1L)).thenReturn(manager);
+        when(manager.getUserId()).thenReturn(1L);
+        when(users.findById(1L)).thenReturn(Optional.of(manager));
         when(posts.findBoardIdByPostId(2L)).thenReturn(Optional.of(10L));
         when(boards.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(posts.findByIdWithRelationsForBlindUpdate(2L)).thenReturn(Optional.of(post));
@@ -119,7 +130,8 @@ class PostManagerModerationServiceTest {
 
     @Test
     void missingManagerPostOrDeletedPostIsRejected() {
-        when(users.findByIdForUpdate(9L)).thenReturn(Optional.empty());
+        when(postUserWritePort.validateForUpdate(9L)).thenThrow(new BusinessException(
+                com.weedrice.whiteboard.global.exception.ErrorCode.USER_NOT_FOUND));
         assertThrows(BusinessException.class, () -> service.blindPost(9L, 2L, null));
 
         when(posts.findByIdWithRelationsForBlindUpdate(8L)).thenReturn(Optional.empty());

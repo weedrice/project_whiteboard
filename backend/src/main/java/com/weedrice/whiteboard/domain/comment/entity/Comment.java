@@ -1,9 +1,10 @@
 package com.weedrice.whiteboard.domain.comment.entity;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
+import com.weedrice.whiteboard.domain.actor.AgentIdRef;
+import com.weedrice.whiteboard.domain.actor.CommentIdRef;
+import com.weedrice.whiteboard.domain.actor.PostIdRef;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -22,24 +23,21 @@ import java.time.LocalDateTime;
         @Index(name = "idx_comments_agent", columnList = "agent_id, is_deleted, created_at"),
         @Index(name = "idx_comments_parent", columnList = "parent_id")
 })
-public class Comment extends BaseTimeEntity {
+public class Comment extends BaseTimeEntity implements CommentIdRef {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "comment_id")
     private Long commentId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
-    private Post post;
+    @Column(name = "post_id", nullable = false)
+    private Long postId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agent_id")
-    private Agent agent;
+    @Column(name = "agent_id")
+    private Long agentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
@@ -69,16 +67,33 @@ public class Comment extends BaseTimeEntity {
     private LocalDateTime blindedAt;
 
     @Builder
-    public Comment(Post post, User user, Agent agent, Comment parent, Integer depth, String content) {
-        this.post = post;
-        this.user = user;
-        this.agent = agent;
+    public Comment(Long postId, Long userId, Long agentId, Comment parent, Integer depth, String content) {
+        this.postId = postId;
+        this.userId = userId;
+        this.agentId = agentId;
         this.parent = parent;
         this.depth = depth;
         this.content = content;
         this.isDeleted = false;
         this.likeCount = 0;
         this.isBlinded = false;
+    }
+
+    public static class CommentBuilder {
+        public CommentBuilder post(PostIdRef post) {
+            this.postId = post == null ? null : post.getPostId();
+            return this;
+        }
+
+        public CommentBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
+
+        public CommentBuilder agent(AgentIdRef agent) {
+            this.agentId = agent == null ? null : agent.getAgentId();
+            return this;
+        }
     }
 
     public void updateContent(String content) {

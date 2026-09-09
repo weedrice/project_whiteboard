@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -21,10 +22,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -60,7 +59,7 @@ public class PostDraftService {
             Sort.Order.desc("modifiedAt"),
             Sort.Order.desc("draftId"));
 
-    private final UserRepository userRepository;
+    private final PostUserReadPort postUserReadPort;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final PostRepository postRepository;
@@ -68,24 +67,21 @@ public class PostDraftService {
     private final DraftPostRepository draftPostRepository;
     private final ScheduledPostRepository scheduledPostRepository;
     private final FileService fileService;
-    private final UserWritableResolver userWritableResolver;
-    private final SanctionService sanctionService;
+    private final PostUserWritePort postUserWritePort;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostDraftCleanupService postDraftCleanupService;
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_DRAFT_PAGE_SIZE, DEFAULT_DRAFT_SORT);
-        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, safePageable);
+        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(ownerUserId, safePageable);
         return DraftListResponse.from(draftPage);
     }
 
     public DraftResponse getDraftPost(@NonNull Long userId, @NonNull Long draftId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
+        Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserId(draftId, ownerUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(
                 draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
@@ -96,8 +92,7 @@ public class PostDraftService {
 
     @Transactional
     public DraftResponse saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(request.getBoardUrl());
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -128,7 +123,7 @@ public class PostDraftService {
 
         PostSeries series = null;
         if (request.getSeriesId() != null) {
-            series = postSeriesRepository.findBySeriesIdAndOwner_UserId(request.getSeriesId(), userId)
+            series = postSeriesRepository.findBySeriesIdAndOwnerUserId(request.getSeriesId(), userId)
                     .orElse(null);
             staleReferencesReset |= series == null;
         }
@@ -169,8 +164,8 @@ public class PostDraftService {
 
     @Transactional
     public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId, Long expectedVersion) {
-        User user = userWritableResolver.resolve(userId);
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
+        ActorUserPrincipal user = postUserWritePort.validate(userId);
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (expectedVersion != null && !expectedVersion.equals(draftPost.getVersion())) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
@@ -182,16 +177,16 @@ public class PostDraftService {
         draftPostRepository.delete(draftPost);
     }
 
-    private DraftResolution resolveDraftPost(User user, PostDraftRequest request, Board board,
+    private DraftResolution resolveDraftPost(ActorUserPrincipal user, PostDraftRequest request, Board board,
                                        BoardCategory category, PostSeries series, Post originalPost,
                                        PollRequest normalizedPoll) {
         String sanitizedContents = sanitizeDraftContents(request.getContents());
         DraftPost draftPost = null;
         if (request.getDraftId() != null) {
-            draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
+            draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user.getUserId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         } else if (request.getClientDraftKey() != null && !request.getClientDraftKey().isBlank()) {
-            draftPost = draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, request.getClientDraftKey())
+            draftPost = draftPostRepository.findByUserAndClientDraftKeyForUpdate(user.getUserId(), request.getClientDraftKey())
                     .orElse(null);
         }
 
@@ -203,7 +198,7 @@ public class PostDraftService {
 
         if (draftPost == null) {
             return new DraftResolution(DraftPost.builder()
-                    .user(user)
+                    .userId(user.getUserId())
                     .board(board)
                     .category(category)
                     .clientDraftKey(request.getClientDraftKey())
@@ -265,12 +260,11 @@ public class PostDraftService {
                 && !PostDraftPolicy.isValidClientDraftKey(clientDraftKey)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         if (clientDraftKey != null && !clientDraftKey.isBlank()) {
             var exactMatch = draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
-                    user, clientDraftKey, normalizedBoardUrl, originalPostId);
+                    ownerUserId, clientDraftKey, normalizedBoardUrl, originalPostId);
             if (exactMatch.isPresent()) {
                 return DraftMatchResponse.builder()
                         .draftId(exactMatch.get().getDraftId())
@@ -279,7 +273,7 @@ public class PostDraftService {
             }
         }
         List<DraftPost> matches = draftPostRepository.findMatchingByUserAndTarget(
-                user, normalizedBoardUrl, originalPostId, PageRequest.of(0, 2));
+                ownerUserId, normalizedBoardUrl, originalPostId, PageRequest.of(0, 2));
         boolean multipleMatchesFound = matches.size() > 1;
         return DraftMatchResponse.builder()
                 .draftId(matches.size() == 1 ? matches.getFirst().getDraftId() : null)
@@ -407,7 +401,8 @@ public class PostDraftService {
         }
     }
 
-    private void validateOriginalPostForDraft(Post originalPost, User user, Board board, BoardCategory category) {
+    private void validateOriginalPostForDraft(
+            Post originalPost, ActorUserPrincipal user, Board board, BoardCategory category) {
         postAuthorCommandPolicy.validateAuthorCommand(originalPost, user);
         if (!Objects.equals(originalPost.getBoard().getBoardId(), board.getBoardId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

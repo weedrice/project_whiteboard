@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.agent.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,9 +34,8 @@ public class AgentActivityLog extends BaseTimeEntity {
     @JoinColumn(name = "agent_id", nullable = false)
     private Agent agent;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "action_type", nullable = false, length = 30)
     private String actionType;
@@ -55,10 +53,10 @@ public class AgentActivityLog extends BaseTimeEntity {
     private String requestPath;
 
     @Builder
-    public AgentActivityLog(Agent agent, User user, String actionType, String targetType, Long targetId,
+    public AgentActivityLog(Agent agent, Long userId, String actionType, String targetType, Long targetId,
             String requestIp, String requestPath) {
         this.agent = agent;
-        this.user = user;
+        this.userId = userId;
         this.actionType = actionType;
         this.targetType = targetType;
         this.targetId = targetId;

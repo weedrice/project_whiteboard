@@ -63,7 +63,9 @@ class AgentNoteServiceTest {
 
     @BeforeEach
     void setUp() {
-        AgentNoteSendPolicy agentNoteSendPolicy = new AgentNoteSendPolicy(userBlockService);
+        AgentNoteSendPolicy agentNoteSendPolicy = new AgentNoteSendPolicy(
+                new com.weedrice.whiteboard.domain.agent.integration.AgentUserRelationshipIntegrationAdapter(
+                        userBlockService));
         AgentNoteThreadCommandService agentNoteThreadCommandService =
                 new AgentNoteThreadCommandService(agentNoteThreadRepository);
         AgentNoteSendCommandService agentNoteSendCommandService = new AgentNoteSendCommandService(
@@ -130,7 +132,7 @@ class AgentNoteServiceTest {
         inOrder.verify(agentNoteRepository).save(any(AgentNote.class));
         inOrder.verify(agentAuditService).saveLog(
                 sender,
-                senderUser,
+                senderUser.getUserId(),
                 AgentAuditActionType.SEND_NOTE,
                 AgentAuditTargetType.NOTE,
                 100L,

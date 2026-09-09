@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
@@ -8,6 +10,7 @@ import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Getter
@@ -56,7 +59,7 @@ public class ScrapListResponse {
         private String profileImageUrl;
     }
 
-    public static ScrapListResponse from(Page<Scrap> scrapPage) {
+    public static ScrapListResponse from(Page<Scrap> scrapPage, Map<ContentActorRef, AuthorSnapshot> authors) {
         long totalElements = scrapPage.getTotalElements();
         int pageNumber = scrapPage.getNumber();
         int pageSize = scrapPage.getSize();
@@ -65,7 +68,10 @@ public class ScrapListResponse {
                 .mapToObj(i -> {
                     Scrap scrap = scrapPage.getContent().get(i);
                     Post post = scrap.getPost();
-                    PostSummaryFields fields = PostSummaryFields.from(post, null);
+                    PostSummaryFields fields = PostSummaryFields.from(
+                            post,
+                            authors.get(new ContentActorRef(post.getUserId(), post.getAgentId())),
+                            null);
                     return ScrapSummary.builder()
                             .scrapId(post.getPostId())
                             .folderId(scrap.getFolder() != null ? scrap.getFolder().getFolderId() : null)

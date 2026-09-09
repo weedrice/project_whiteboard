@@ -1,7 +1,8 @@
-package com.weedrice.whiteboard.domain.agent.service;
+package com.weedrice.whiteboard.domain.agent.integration;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -10,6 +11,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,24 +28,25 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class AgentBoardAccessService {
+public class AgentBoardAccessService implements AgentBoardAccessPort {
 
     private final AdminRepository adminRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final UserRepository userRepository;
 
     public Set<Long> resolveWritableBoardIds(Agent agent, List<Board> boards,
             Map<Long, List<CategoryResponse>> categoriesByBoardId) {
-        if (agent == null || agent.getUser() == null || boards == null || boards.isEmpty()) {
+        if (agent == null || agent.getUserId() == null || boards == null || boards.isEmpty()) {
             return Collections.emptySet();
         }
 
-        User user = agent.getUser();
+        User user = resolveOwner(agent);
         List<Long> boardIds = boards.stream()
                 .map(Board::getBoardId)
                 .toList();
-        Set<Long> boardAdminIds = resolveBoardAdminIds(user, boards, boardIds);
+        Set<Long> boardAdminIds = resolveBoardAdminIds(agent, boards, boardIds);
 
         return boards.stream()
                 .filter(board -> Boolean.TRUE.equals(board.getIsActive()))
@@ -74,13 +77,10 @@ public class AgentBoardAccessService {
     }
 
     public boolean canViewSecretPosts(Agent agent, Board board) {
-        if (agent == null || agent.getUser() == null || board == null || board.getBoardId() == null) {
+        if (agent == null || agent.getUserId() == null || board == null || board.getBoardId() == null) {
             return false;
         }
-        return resolveBoardAdminIds(
-                agent.getUser(),
-                List.of(board),
-                List.of(board.getBoardId()))
+        return resolveBoardAdminIds(agent, List.of(board), List.of(board.getBoardId()))
                 .contains(board.getBoardId());
     }
 
@@ -121,7 +121,8 @@ public class AgentBoardAccessService {
                         Collectors.mapping(CategoryResponse::new, Collectors.toList())));
     }
 
-    public Set<Long> resolveBoardAdminIds(User user, List<Board> boards, List<Long> boardIds) {
+    public Set<Long> resolveBoardAdminIds(Agent agent, List<Board> boards, List<Long> boardIds) {
+        User user = agent == null || agent.getUserId() == null ? null : resolveOwner(agent);
         if (user == null || boards == null || boards.isEmpty()) {
             return Collections.emptySet();
         }
@@ -151,7 +152,7 @@ public class AgentBoardAccessService {
     }
 
     private boolean canAgentWriteBoard(Agent agent, Board board, BoardCategory category) {
-        if (agent == null || agent.getUser() == null || board == null) {
+        if (agent == null || agent.getUserId() == null || board == null) {
             return false;
         }
         if (!Boolean.TRUE.equals(board.getIsActive())
@@ -168,8 +169,8 @@ public class AgentBoardAccessService {
             return false;
         }
         return postAuthorCommandPolicy.canWriteBoardWithRole(
-                board, agent.getUser(), category.getMinWriteRole(),
-                resolveBoardAdminIds(agent.getUser(), List.of(board), List.of(board.getBoardId())));
+                board, resolveOwner(agent), category.getMinWriteRole(),
+                resolveBoardAdminIds(agent, List.of(board), List.of(board.getBoardId())));
     }
 
     private boolean canAgentWriteBoard(Agent agent, Board board) {
@@ -183,16 +184,21 @@ public class AgentBoardAccessService {
         }
         return postAuthorCommandPolicy.canWriteBoardWithDefaultCategory(
                 board,
-                agent.getUser(),
-                resolveBoardAdminIds(agent.getUser(), List.of(board), List.of(board.getBoardId())));
+                resolveOwner(agent),
+                resolveBoardAdminIds(agent, List.of(board), List.of(board.getBoardId())));
     }
 
     private boolean canAgentReadBoard(Agent agent, Board board) {
         return agent != null
-                && agent.getUser() != null
+                && agent.getUserId() != null
                 && board != null
                 && Boolean.TRUE.equals(board.getIsActive())
                 && Boolean.TRUE.equals(board.getIsPublic())
                 && board.isAgentEnabled();
+    }
+
+    private User resolveOwner(Agent agent) {
+        return userRepository.findById(agent.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }

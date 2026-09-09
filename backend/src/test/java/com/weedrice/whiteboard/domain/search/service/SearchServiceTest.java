@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.search.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -15,6 +18,7 @@ import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.service.PostContentSummaryExtractorFixtures;
 import com.weedrice.whiteboard.domain.post.service.PostInteractionContextResolver;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
+import com.weedrice.whiteboard.domain.post.integration.PostCommentStatusIntegrationAdapter;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
@@ -42,7 +46,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,6 +93,8 @@ class SearchServiceTest {
     private SearchUserLookupPolicy searchUserLookupPolicy;
     @Mock
     private com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
     private BoardAccessPolicy boardAccessPolicy;
 
     private SearchService searchService;
@@ -100,14 +108,16 @@ class SearchServiceTest {
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostSummaryAssembler postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                commentRepository,
+                new PostCommentStatusIntegrationAdapter(commentRepository),
                 boardAccessPolicy,
                 new PostInteractionContextResolver(
-                        userRepository,
+                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                        userRepository, userBlockService),
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
         searchService = new SearchService(
                 searchStatisticRepository,
                 searchStatisticCommandService,
@@ -121,6 +131,18 @@ class SearchServiceTest {
                 inquiryLegacyWritePolicy,
                 searchRecordEventPublisher,
                 searchUserLookupPolicy);
+        lenient().when(actorBatchReadPort.resolveAuthors(anyCollection()))
+                .thenAnswer(invocation -> invocation.<Collection<ContentActorRef>>getArgument(0).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                ref -> ref,
+                                ref -> new AuthorSnapshot(
+                                        ref.ownerUserId(),
+                                        ref.agentId(),
+                                        ref.agentId() == null ? "USER" : "AGENT",
+                                        ref.agentId() == null ? "Author" : "Agent",
+                                        null,
+                                        null),
+                                (left, right) -> left)));
     }
 
     @Test
@@ -379,7 +401,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), privateBoard.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
@@ -399,7 +421,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("inactive")).thenReturn(Optional.of(inactiveBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, inactiveBoard, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), inactiveBoard.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "inactive", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
@@ -420,7 +442,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), privateBoard.getBoardId(), true)).thenReturn(true);
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
@@ -442,7 +464,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), privateBoard.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", pageable, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -473,7 +495,7 @@ class SearchServiceTest {
 
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
         verify(userBlockService, never()).getBlockedUserIdsEitherDirection(1L);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(any(), any(), anyBoolean());
         verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
     }

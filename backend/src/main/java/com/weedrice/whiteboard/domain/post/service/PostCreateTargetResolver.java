@@ -1,14 +1,12 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.post.port.PostAgentWritePort;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,25 +20,22 @@ class PostCreateTargetResolver {
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
-    private final AgentOwnershipService agentOwnershipService;
-    private final UserWritableResolver userWritableResolver;
-    private final SanctionService sanctionService;
+    private final PostAgentWritePort postAgentWritePort;
+    private final PostUserWritePort postUserWritePort;
 
     public PostCreateTarget resolveTarget(Long userId, Long agentId, Long boardId, PostCreateContext context) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        Agent agent = resolveAgent(userId, agentId, context);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
+        Long resolvedAgentId = resolveAgent(userId, agentId, context);
         Board board = resolveBoard(boardId, context);
-        return new PostCreateTarget(user, agent, board, isBoardWritablePrevalidated(context));
+        return new PostCreateTarget(user, resolvedAgentId, board, isBoardWritablePrevalidated(context));
     }
 
     public PostCreateTarget resolveTargetByBoardUrl(Long userId, Long agentId, String boardUrl) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        Agent agent = resolveAgent(userId, agentId, null);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
+        Long resolvedAgentId = resolveAgent(userId, agentId, null);
         Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return new PostCreateTarget(user, agent, board, false);
+        return new PostCreateTarget(user, resolvedAgentId, board, false);
     }
 
     public PostCreateCategoryTarget resolveCategory(Board board, Long categoryId, PostCreateContext context) {
@@ -68,20 +63,19 @@ class PostCreateTargetResolver {
                 && Objects.equals(context.category().getCategoryId(), category.getCategoryId());
     }
 
-    private Agent resolveAgent(Long userId, Long agentId, PostCreateContext context) {
-        if (context != null && context.agent() != null) {
-            Agent contextAgent = context.agent();
-            if (!Objects.equals(contextAgent.getAgentId(), agentId)
-                    || contextAgent.getUser() == null
-                    || !Objects.equals(contextAgent.getUser().getUserId(), userId)) {
+    private Long resolveAgent(Long userId, Long agentId, PostCreateContext context) {
+        if (context != null && context.agentId() != null) {
+            if (!Objects.equals(context.agentId(), agentId)
+                    || context.ownerUserId() == null
+                    || !Objects.equals(context.ownerUserId(), userId)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
-            return contextAgent;
+            return context.agentId();
         }
         if (agentId == null) {
             return null;
         }
-        return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
+        return postAgentWritePort.resolveOwnedActiveAgentId(userId, agentId);
     }
 
     private Board resolveBoard(Long boardId, PostCreateContext context) {

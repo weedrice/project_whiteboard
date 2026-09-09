@@ -16,10 +16,13 @@ public interface PollVoteRepository extends JpaRepository<PollVote, Long> {
         Long getVoteCount();
     }
 
-    List<PollVote> findByPoll_PollIdAndUser_UserId(Long pollId, Long userId);
+    List<PollVote> findByPoll_PollIdAndUserId(Long pollId, Long userId);
 
     @Modifying
-    void deleteByPoll_PollIdAndUser_UserId(Long pollId, Long userId);
+    void deleteByPoll_PollIdAndUserId(Long pollId, Long userId);
+    default void deleteByPoll_PollIdAndUser_UserId(Long pollId, Long userId) {
+        deleteByPoll_PollIdAndUserId(pollId, userId);
+    }
 
     @Query("""
             SELECT vote.option.optionId AS optionId, COUNT(vote) AS voteCount
@@ -33,7 +36,7 @@ public interface PollVoteRepository extends JpaRepository<PollVote, Long> {
             SELECT vote.option.optionId
             FROM PollVote vote
             WHERE vote.poll.pollId = :pollId
-              AND vote.user.userId = :userId
+              AND vote.userId = :userId
             """)
     List<Long> findSelectedOptionIds(@Param("pollId") Long pollId, @Param("userId") Long userId);
 

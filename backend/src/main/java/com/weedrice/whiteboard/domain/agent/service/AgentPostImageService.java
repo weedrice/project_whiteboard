@@ -19,7 +19,7 @@ public class AgentPostImageService {
     public AgentPostImageUploadResponse uploadPostImage(Long agentId, MultipartFile image) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         FileSimpleResponse uploaded = fileService.uploadSimpleFile(
-                agent.getUser().getUserId(),
+                agent.getUserId(),
                 image,
                 FileUploadTarget.POST_CONTENT);
         return new AgentPostImageUploadResponse(uploaded.getFileId(), uploaded.getUrl());

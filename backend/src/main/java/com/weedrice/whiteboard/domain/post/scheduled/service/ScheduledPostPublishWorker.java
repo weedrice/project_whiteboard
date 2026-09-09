@@ -1,16 +1,14 @@
 package com.weedrice.whiteboard.domain.post.scheduled.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
+import com.weedrice.whiteboard.domain.post.port.PostNotificationPort;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +27,7 @@ public class ScheduledPostPublishWorker {
     private final ScheduledPostRepository scheduledPostRepository;
     private final PostCommandService postCommandService;
     private final ScheduledPostPayloadMapper payloadMapper;
-    private final ApplicationEventPublisher eventPublisher;
+    private final PostNotificationPort postNotificationPort;
     private final Clock clock;
     private final ScheduledPostFileService scheduledPostFileService;
 
@@ -42,7 +40,7 @@ public class ScheduledPostPublishWorker {
     public void publishClaimed(Long scheduledPostId, LocalDateTime claimedAt) {
         ScheduledPost scheduledPost = loadClaimed(scheduledPostId, claimedAt);
         PostCreateResponse created = postCommandService.createScheduledPostWithResponse(
-                scheduledPost.getUser().getUserId(),
+                scheduledPost.getUserId(),
                 scheduledPost.getBoard().getBoardUrl(),
                 payloadMapper.toPostCreateRequest(scheduledPost),
                 scheduledPostId);
@@ -102,13 +100,11 @@ public class ScheduledPostPublishWorker {
             NotificationSourceType sourceType,
             Long sourceId,
             String messageKey) {
-        eventPublisher.publishEvent(NotificationEvent.localized(
-                scheduledPost.getUser(),
-                null,
-                NotificationType.SYSTEM,
+        postNotificationPort.publishSystemNotification(
+                scheduledPost.getUserId(),
                 sourceType,
                 sourceId,
                 messageKey,
-                scheduledPost.getTitle()));
+                scheduledPost.getTitle());
     }
 }

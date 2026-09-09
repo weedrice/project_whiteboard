@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -36,7 +37,7 @@ class CommentReadModelAssemblerTest {
         User user = user(1L, "writer", "profile.png");
         Comment comment = comment(10L, user, null);
 
-        CommentReadModel model = assembler.from(comment, Set.of(), Map.of(10L, 2L));
+        CommentReadModel model = assembler.from(comment, author(user, null), Set.of(), Map.of(10L, 2L));
 
         assertThat(model.status()).isEqualTo(CommentReadModel.Status.ACTIVE);
         assertThat(model.replyCount()).isEqualTo(2L);
@@ -54,7 +55,7 @@ class CommentReadModelAssemblerTest {
         Agent agent = agent(7L, user, "agent-writer");
         Comment comment = comment(10L, user, agent);
 
-        CommentReadModel model = assembler.from(comment, Set.of(), Map.of());
+        CommentReadModel model = assembler.from(comment, author(user, agent), Set.of(), Map.of());
 
         assertThat(model.status()).isEqualTo(CommentReadModel.Status.ACTIVE);
         assertThat(model.replyCount()).isZero();
@@ -71,7 +72,7 @@ class CommentReadModelAssemblerTest {
         User user = user(1L, "blocked", "profile.png");
         Comment comment = comment(10L, user, null);
 
-        CommentReadModel model = assembler.from(comment, Set.of(1L), Map.of(10L, 1L));
+        CommentReadModel model = assembler.from(comment, author(user, null), Set.of(1L), Map.of(10L, 1L));
 
         assertThat(model.status()).isEqualTo(CommentReadModel.Status.BLOCKED_AUTHOR);
         assertThat(model.author()).isNull();
@@ -86,7 +87,7 @@ class CommentReadModelAssemblerTest {
         Comment comment = comment(10L, user, null);
         comment.deleteComment();
 
-        CommentReadModel model = assembler.from(comment, Set.of(1L), Map.of(10L, 1L));
+        CommentReadModel model = assembler.from(comment, author(user, null), Set.of(1L), Map.of(10L, 1L));
 
         assertThat(model.status()).isEqualTo(CommentReadModel.Status.DELETED);
         assertThat(model.author()).isNull();
@@ -140,5 +141,15 @@ class CommentReadModelAssemblerTest {
                 .build();
         ReflectionTestUtils.setField(agent, "agentId", agentId);
         return agent;
+    }
+
+    private AuthorSnapshot author(User user, Agent agent) {
+        return new AuthorSnapshot(
+                user.getUserId(),
+                agent == null ? null : agent.getAgentId(),
+                agent == null ? "USER" : "AGENT",
+                agent == null ? user.getDisplayName() : agent.getName(),
+                user.getProfileImageUrl(),
+                null);
     }
 }

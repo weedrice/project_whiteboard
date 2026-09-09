@@ -70,10 +70,8 @@ class CommentTopicAccessServiceTest {
         when(postRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(post));
         when(post.getBoard()).thenReturn(board);
         when(board.getBoardId()).thenReturn(3L);
-        when(post.getUser()).thenReturn(author);
+        when(post.getUserId()).thenReturn(4L);
         when(viewer.getUserId()).thenReturn(1L);
-        when(author.getUserId()).thenReturn(4L);
-
         service.subscribeReadable(1L, 2L, "connection-1");
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(

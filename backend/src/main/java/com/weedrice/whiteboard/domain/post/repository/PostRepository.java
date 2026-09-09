@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -112,18 +112,32 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 @Param("dailySince") LocalDateTime dailySince,
                 @Param("weeklySince") LocalDateTime weeklySince,
                 @Param("rankingLimit") int rankingLimit);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
-        Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
-        Page<Post> findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
-                User user, Boolean isDeleted, String excludedBoardUrl, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
-        Page<Post> findByUserOrderByCreatedAtDescPostIdDesc(User user, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
-        Page<Post> findByAgent_AgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
-        Page<Post> findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(Long agentId, Boolean isDeleted, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByUserIdAndIsDeleted(Long userId, Boolean isDeleted, Pageable pageable);
+        default Page<Post> findByUserAndIsDeleted(UserIdRef user, Boolean isDeleted, Pageable pageable) {
+                return findByUserIdAndIsDeleted(user.getUserId(), isDeleted, pageable);
+        }
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                Long userId, Boolean isDeleted, String excludedBoardUrl, Pageable pageable);
+        default Page<Post> findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                UserIdRef user, Boolean isDeleted, String excludedBoardUrl, Pageable pageable) {
+                return findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                        user.getUserId(), isDeleted, excludedBoardUrl, pageable);
+        }
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByUserIdOrderByCreatedAtDescPostIdDesc(Long userId, Pageable pageable);
+        default Page<Post> findByUserOrderByCreatedAtDescPostIdDesc(UserIdRef user, Pageable pageable) {
+                return findByUserIdOrderByCreatedAtDescPostIdDesc(user.getUserId(), pageable);
+        }
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByAgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable);
+        default Page<Post> findByAgent_AgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable) {
+                return findByAgentIdAndIsDeleted(agentId, isDeleted, pageable);
+        }
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByAgentIdAndIsDeletedOrderByCreatedAtDesc(Long agentId, Boolean isDeleted, Pageable pageable);
+        @EntityGraph(attributePaths = {"board", "category"})
         Page<Post> findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(List<Long> boardIds, Pageable pageable);
         long countByBoard_BoardIdAndIsDeleted(Long boardId, Boolean isDeleted);
         @Query("""
@@ -213,27 +227,27 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 @Param("start") LocalDateTime start,
                 @Param("end") LocalDateTime end,
                 @Param("inquiryBoardUrl") String inquiryBoardUrl);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         Page<Post> findByBoard_BoardIdAndIsDeletedFalse(Long boardId, Pageable pageable);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         List<Post> findByPostIdIn(Collection<Long> postIds);
         @Query("""
                 SELECT p.postId AS targetId,
                        u.userId AS targetUserId,
                        u.displayName AS targetDisplayName,
                        u.loginId AS targetLoginId
-                FROM Post p
-                JOIN p.user u
-                WHERE p.postId IN :postIds
+                FROM Post p, User u
+                WHERE u.userId = p.userId
+                  AND p.postId IN :postIds
                 """)
         List<ReportTargetMetadataProjection> findReportTargetMetadataByPostIds(
                 @Param("postIds") Collection<Long> postIds);
-        @EntityGraph(attributePaths = {"user", "agent", "board", "board.creator", "category"})
+        @EntityGraph(attributePaths = {"board", "board.creator", "category"})
         List<Post> findByPostIdInAndIsDeletedFalse(Collection<Long> postIds);
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "board.creator", "category"})
+        @EntityGraph(attributePaths = {"board", "board.creator", "category"})
         List<Post> findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(Collection<Long> postIds);
 
         @Query("SELECT p.board.boardId FROM Post p WHERE p.postId = :postId")
@@ -243,7 +257,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdWithRelationsForBlindUpdate(@Param("postId") Long postId);
@@ -260,24 +274,27 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 @Param("postId") Long postId,
                 @Param("boardId") Long boardId);
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdWithRelationsForUpdate(@Param("postId") Long postId);
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         @Lock(LockModeType.PESSIMISTIC_WRITE)
-        @Query("SELECT p FROM Comment c JOIN c.post p WHERE c.commentId = :commentId")
+        @Query("SELECT p FROM Post p, Comment c WHERE c.postId = p.postId AND c.commentId = :commentId")
         Optional<Post> findByCommentIdWithRelationsForUpdate(@Param("commentId") Long commentId);
     
-        long countByUserAndIsDeleted(User user, Boolean isDeleted);
+        long countByUserIdAndIsDeleted(Long userId, Boolean isDeleted);
+        default long countByUserAndIsDeleted(UserIdRef user, Boolean isDeleted) {
+                return countByUserIdAndIsDeleted(user.getUserId(), isDeleted);
+        }
 
         @Query("""
-                SELECT p.user.userId AS userId, COUNT(p) AS postCount
+                SELECT p.userId AS userId, COUNT(p) AS postCount
                 FROM Post p
-                WHERE p.user.userId IN :userIds
+                WHERE p.userId IN :userIds
                   AND p.isDeleted = false
-                GROUP BY p.user.userId
+                GROUP BY p.userId
                 """)
         List<UserPostCountProjection> countActiveByUserIds(@Param("userIds") Collection<Long> userIds);
 
@@ -285,7 +302,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 SELECT COUNT(p)
                 FROM Post p
                 JOIN p.board b
-                WHERE p.user = :user
+                WHERE p.userId = :userId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false
@@ -293,14 +310,17 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND b.isPublic = true
                   AND (b.isListed = true OR b.isListed IS NULL)
                 """)
-        long countPublicProfilePostsByUser(@Param("user") User user);
+        long countPublicProfilePostsByUserId(@Param("userId") Long userId);
+        default long countPublicProfilePostsByUser(UserIdRef user) {
+                return countPublicProfilePostsByUserId(user.getUserId());
+        }
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         @Query("""
                 SELECT p
                 FROM Post p
                 JOIN p.board b
-                WHERE p.user = :user
+                WHERE p.userId = :userId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false
@@ -308,17 +328,21 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND b.isPublic = true
                   AND (b.isListed = true OR b.isListed IS NULL)
                 """)
-        Page<Post> findPublicProfilePostsByUser(@Param("user") User user, Pageable pageable);
+        Page<Post> findPublicProfilePostsByUserId(@Param("userId") Long userId, Pageable pageable);
 
-        long countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+        long countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 Long agentId,
                 LocalDateTime start,
                 LocalDateTime end);
+        default long countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                Long agentId, LocalDateTime start, LocalDateTime end) {
+                return countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end);
+        }
         @Query("""
                 SELECT COUNT(p)
                 FROM Post p
                 JOIN p.board b
-                WHERE p.agent.agentId = :agentId
+                WHERE p.agentId = :agentId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false
@@ -333,7 +357,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 SELECT COALESCE(SUM(p.likeCount), 0)
                 FROM Post p
                 JOIN p.board b
-                WHERE p.agent.agentId = :agentId
+                WHERE p.agentId = :agentId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false
@@ -344,12 +368,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 """)
         long sumPublicProfilePostLikesByAgentId(@Param("agentId") Long agentId);
 
-        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @EntityGraph(attributePaths = {"board", "category"})
         @Query("""
                 SELECT p
                 FROM Post p
                 JOIN p.board b
-                WHERE p.agent.agentId = :agentId
+                WHERE p.agentId = :agentId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false
@@ -368,7 +392,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                        COUNT(p) AS activityCount
                 FROM Post p
                 JOIN p.board b
-                WHERE p.agent.agentId = :agentId
+                WHERE p.agentId = :agentId
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                   AND p.isSecret = false

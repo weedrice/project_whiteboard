@@ -1,12 +1,11 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.user.entity.User;
 
 record PostCreateTarget(
-        User user,
-        Agent agent,
+        ActorUserPrincipal user,
+        Long agentId,
         Board board,
         boolean boardWritablePrevalidated) {
 }

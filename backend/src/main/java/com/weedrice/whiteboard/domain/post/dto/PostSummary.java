@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
@@ -66,17 +67,13 @@ public class PostSummary {
         private String name;
     }
 
-    public static PostSummary from(Post post) {
-        return from(post, null);
+    public static PostSummary from(Post post, AuthorSnapshot author, String summary) {
+        return from(post, author, null, null, false, false, false, false, summary);
     }
 
-    public static PostSummary from(Post post, String summary) {
-        return from(post, null, null, false, false, false, false, summary);
-    }
-
-    public static PostSummary from(Post post, String thumbnailUrl, String boardIconUrl, boolean isLiked,
+    public static PostSummary from(Post post, AuthorSnapshot author, String thumbnailUrl, String boardIconUrl, boolean isLiked,
             boolean isScrapped, boolean isSubscribed, boolean hasImage, String summary) {
-        PostSummaryFields fields = PostSummaryFields.from(post, boardIconUrl);
+        PostSummaryFields fields = PostSummaryFields.from(post, author, boardIconUrl);
         return PostSummary.builder()
                 .postId(fields.postId())
                 .boardId(fields.boardId())

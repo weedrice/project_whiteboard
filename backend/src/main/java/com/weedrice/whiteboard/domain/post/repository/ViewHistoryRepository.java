@@ -1,12 +1,11 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,14 +16,16 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> {
-    @EntityGraph(attributePaths = "lastReadComment")
-    Optional<ViewHistory> findByUserAndPost(User user, Post post);
+    Optional<ViewHistory> findByUserIdAndPost(Long userId, Post post);
+    default Optional<ViewHistory> findByUserAndPost(UserIdRef user, Post post) {
+        return findByUserIdAndPost(user.getUserId(), post);
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT vh
             FROM ViewHistory vh
-            WHERE vh.user.userId = :userId
+            WHERE vh.userId = :userId
               AND vh.post.postId = :postId
             """)
     Optional<ViewHistory> findByUserAndPostForUpdate(@Param("userId") Long userId, @Param("postId") Long postId);

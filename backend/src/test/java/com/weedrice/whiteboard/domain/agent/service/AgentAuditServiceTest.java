@@ -40,7 +40,7 @@ class AgentAuditServiceTest {
         Agent agent = agent(7L);
         User user = user(1L);
 
-        agentAuditService.saveLog(agent, user, AgentAuditActionType.LIKE_POST, AgentAuditTargetType.POST, 100L,
+        agentAuditService.saveLog(agent, user.getUserId(), AgentAuditActionType.LIKE_POST, AgentAuditTargetType.POST, 100L,
                 new AgentRequestContext("127.0.0.1", "/agents/7/posts/100/like"));
 
         verify(agentAuditLogWriter).saveLog(7L, 1L, AgentAuditActionType.LIKE_POST, AgentAuditTargetType.POST, 100L,
@@ -52,7 +52,7 @@ class AgentAuditServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        agentAuditService.saveLog(agent(7L), user(1L), AgentAuditActionType.CREATE_POST, AgentAuditTargetType.POST,
+        agentAuditService.saveLog(agent(7L), 1L, AgentAuditActionType.CREATE_POST, AgentAuditTargetType.POST,
                 100L, null);
 
         verifyNoInteractions(agentAuditLogWriter);

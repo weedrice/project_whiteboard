@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -10,7 +12,6 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
-import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
@@ -19,12 +20,11 @@ import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.post.port.PostMentionPort;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
@@ -47,8 +47,7 @@ public class PostCommandService {
     private final TagAssignmentService tagAssignmentService;
     private final ContentRewardService contentRewardService;
     private final FileService fileService;
-    private final UserWritableResolver userWritableResolver;
-    private final SanctionService sanctionService;
+    private final PostUserWritePort postUserWritePort;
     private final PostCreateTargetResolver postCreateTargetResolver;
     private final PostCreatePolicyValidator postCreatePolicyValidator;
     private final PostVersionRecorder postVersionRecorder;
@@ -59,7 +58,7 @@ public class PostCommandService {
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final PostSeriesService postSeriesService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
-    private final MentionService mentionService;
+    private final PostMentionPort postMentionPort;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
@@ -138,8 +137,8 @@ public class PostCommandService {
 
         Post post = Post.builder()
                 .board(target.board())
-                .user(target.user())
-                .agent(target.agent())
+                .userId(target.user().getUserId())
+                .agentId(target.agentId())
                 .category(categoryTarget.category())
                 .title(request.getTitle())
                 .contents(sanitizedContents)
@@ -170,8 +169,7 @@ public class PostCommandService {
         if (request.getPoll() != null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        User modifier = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(modifier);
+        ActorUserPrincipal modifier = postUserWritePort.validateContentWriteForUpdate(userId);
         Long boardId = postRepository.findBoardIdByPostId(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         Board board = boardRepository.findByIdForUpdate(boardId)
@@ -201,7 +199,7 @@ public class PostCommandService {
                 request.isSpoiler(), isSecret);
         tagAssignmentService.assignTags(post, request.getTags());
         if (request.isSeriesIdPresent()) {
-            postSeriesService.updatePostSeries(post.getUser().getUserId(), post, request.getSeriesId());
+            postSeriesService.updatePostSeries(post.getUserId(), post, request.getSeriesId());
         }
 
         DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
@@ -219,9 +217,9 @@ public class PostCommandService {
         if (!originalSecret && Boolean.TRUE.equals(post.getIsSecret())) {
             notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         }
-        mentionService.publishNewMentions(
-                modifier,
-                post.getAgent(),
+        postMentionPort.publishNewMentions(
+                modifier.getUserId(),
+                post.getAgentId(),
                 NotificationSourceType.POST,
                 post.getPostId(),
                 originalContents,
@@ -231,7 +229,7 @@ public class PostCommandService {
         return post.getPostId();
     }
 
-    private boolean resolveUpdatedNotice(Post post, User modifier, Boolean requestedNotice) {
+    private boolean resolveUpdatedNotice(Post post, ActorUserPrincipal modifier, Boolean requestedNotice) {
         boolean currentNotice = Boolean.TRUE.equals(post.getIsNotice());
         if (requestedNotice == null) {
             return currentNotice;
@@ -246,7 +244,7 @@ public class PostCommandService {
 
     @Transactional
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
-        User modifier = userWritableResolver.resolveForUpdate(userId);
+        ActorUserPrincipal modifier = postUserWritePort.validateForUpdate(userId);
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -257,24 +255,24 @@ public class PostCommandService {
     }
 
     @Transactional
-    public void deleteAgentOwnedPost(@NonNull Post post, @NonNull Long agentId, @NonNull User modifier) {
+    public void deleteAgentOwnedPost(@NonNull Post post, @NonNull Long agentId, @NonNull UserIdRef modifier) {
         if (Boolean.TRUE.equals(post.getIsDeleted())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
-        if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {
+        if (post.getAgentId() == null || !Objects.equals(post.getAgentId(), agentId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         deletePostWithSideEffects(post, modifier);
     }
 
-    private void deletePostWithSideEffects(Post post, User modifier) {
+    private void deletePostWithSideEffects(Post post, UserIdRef modifier) {
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         post.deletePost();
         tagAssignmentService.clearTags(post);
         postVersionRecorder.record(post, modifier, "DELETE", post.getTitle(), post.getContents());
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
-        contentRewardService.rollbackCreateReward(modifier, post.getPostId(), ContentRewardPolicy.POST);
+        contentRewardService.rollbackCreateReward(modifier.getUserId(), post.getPostId(), ContentRewardPolicy.POST);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
         anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
     }

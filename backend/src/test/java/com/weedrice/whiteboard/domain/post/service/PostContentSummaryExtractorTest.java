@@ -202,7 +202,7 @@ class PostContentSummaryExtractorTest {
         Post htmlPost = Post.builder()
                 .title("title")
                 .contents("<p>첫 문단</p><p>둘째 문단</p><ul><li>목록 하나</li><li>목록 둘</li></ul>")
-                .user(post.getUser())
+                .userId(post.getUserId())
                 .board(post.getBoard())
                 .build();
 

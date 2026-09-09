@@ -288,7 +288,7 @@ class BoardServiceTest {
                         .board(board)
                         .role("BOARD_ADMIN")
                         .build()));
-        lenient().when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true))
+        lenient().when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(true);
     }
 
@@ -535,7 +535,7 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
         when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(99L, 1L, true)).thenReturn(false);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getBoardManagerCandidates("test-board", 99L, null, PageRequest.of(0, 10)));
@@ -731,7 +731,7 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
         when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(99L, 1L, true)).thenReturn(false);
 
         BusinessException exception;
         exception = assertThrows(BusinessException.class,
@@ -1748,7 +1748,7 @@ class BoardServiceTest {
     @Test
     @DisplayName("일반 로그인 사용자는 공개 인기 노드 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
                 .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
@@ -1756,7 +1756,7 @@ class BoardServiceTest {
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
-        verify(adminRepository).existsByUserAndIsActive(user, true);
+        verify(adminRepository).existsByUser_UserIdAndIsActive(1L, true);
         verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
@@ -1767,7 +1767,7 @@ class BoardServiceTest {
     @DisplayName("userId 기반 인기 노드 조회는 principal 해석 없이 사용자 ID로 조회한다")
     void getTopBoards_userIdUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
                 .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
@@ -1784,7 +1784,7 @@ class BoardServiceTest {
     @DisplayName("userId 기반 인기 노드 조회는 요청 limit을 공개 노드 쿼리에 전달한다")
     void getTopBoardsByUserId_usesRequestedLimitForPublicQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardPostCounts(anyString(), any())).thenReturn(List.of());
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
@@ -1820,7 +1820,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(true);
         when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
                 .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
@@ -1840,7 +1840,7 @@ class BoardServiceTest {
     @DisplayName("userId 기반 인기 노드 조회는 요청 limit을 readable 노드 쿼리에 전달한다")
     void getTopBoardsByUserId_usesRequestedLimitForReadableQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(true);
         when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
                 .thenReturn(List.of());
 
@@ -1867,7 +1867,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "boardId", 2L);
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
 
-        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndIsActive(1L, true)).thenReturn(true);
         when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
                 .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
@@ -1876,7 +1876,7 @@ class BoardServiceTest {
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
         assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(5L);
-        verify(adminRepository).existsByUserAndIsActive(user, true);
+        verify(adminRepository).existsByUser_UserIdAndIsActive(1L, true);
         verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any());
         verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
@@ -2949,7 +2949,8 @@ class BoardServiceTest {
                 eq(user),
                 argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),
                 eq(true));
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(eq(user), any(Board.class), eq(true));
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                eq(1L), any(Long.class), eq(true));
         verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 

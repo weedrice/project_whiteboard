@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
@@ -292,7 +294,10 @@ class UserControllerTest {
                         ReflectionTestUtils.setField(post, "isNsfw", false);
                         ReflectionTestUtils.setField(post, "isSpoiler", false);
 
-                        PostSummary postSummary = PostSummary.from(post);
+                        PostSummary postSummary = PostSummary.from(
+                                        post,
+                                        new AuthorSnapshot(USER_ID, null, "USER", testUser.getDisplayName(), null, null),
+                                        null);
                         Page<PostSummary> postPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
                         given(postListReadService.getMyPosts(USER_ID, pageable)).willReturn(postPage);
@@ -348,7 +353,20 @@ class UserControllerTest {
                         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
                         ReflectionTestUtils.setField(comment, "likeCount", 0);
 
-                        MyCommentResponse myCommentResponse = MyCommentResponse.from(comment);
+                        MyCommentResponse myCommentResponse = MyCommentResponse.from(
+                                        comment,
+                                        new CommentPostSnapshot(
+                                                        post.getPostId(),
+                                                        board.getBoardId(),
+                                                        board.getBoardUrl(),
+                                                        board.getBoardName(),
+                                                        null,
+                                                        post.getTitle(),
+                                                        post.getUserId(),
+                                                        post.getAgentId(),
+                                                        false,
+                                                        true,
+                                                        true));
                         Page<MyCommentResponse> commentPage = new PageImpl<>(List.of(myCommentResponse), pageable, 1);
 
                         given(commentService.getMyComments(USER_ID, pageable)).willReturn(commentPage);

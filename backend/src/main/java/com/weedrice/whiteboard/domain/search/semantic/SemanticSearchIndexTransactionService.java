@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ class SemanticSearchIndexTransactionService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository;
+    private final UserRepository userRepository;
     private final SemanticSearchTextBuilder textBuilder;
     private final SemanticSearchEmbeddingRepository embeddingRepository;
 
@@ -31,8 +34,8 @@ class SemanticSearchIndexTransactionService {
         return new SemanticSearchPostIndexPayload(
                 post.getPostId(),
                 post.getBoard().getBoardId(),
-                post.getUser().getUserId(),
-                post.getAgent() != null ? post.getAgent().getAgentId() : null,
+                post.getUserId(),
+                post.getAgentId(),
                 embeddingText,
                 textBuilder.hash(embeddingText));
     }
@@ -40,16 +43,17 @@ class SemanticSearchIndexTransactionService {
     @Transactional(readOnly = true)
     public SemanticSearchCommentIndexPayload loadCommentIndexPayload(Long commentId) {
         Comment comment = commentRepository.findByIdWithRelations(commentId).orElse(null);
-        if (!isIndexableComment(comment)) {
+        Post post = comment == null ? null : postRepository.findByIdWithRelations(comment.getPostId()).orElse(null);
+        if (!isIndexableComment(comment, post)) {
             return null;
         }
-        String embeddingText = textBuilder.buildCommentText(comment);
+        String embeddingText = textBuilder.buildCommentText(comment, post);
         return new SemanticSearchCommentIndexPayload(
                 comment.getCommentId(),
-                comment.getPost().getPostId(),
-                comment.getPost().getBoard().getBoardId(),
-                comment.getUser().getUserId(),
-                comment.getAgent() != null ? comment.getAgent().getAgentId() : null,
+                comment.getPostId(),
+                post.getBoard().getBoardId(),
+                comment.getUserId(),
+                comment.getAgentId(),
                 embeddingText,
                 textBuilder.hash(embeddingText));
     }
@@ -83,11 +87,11 @@ class SemanticSearchIndexTransactionService {
             return;
         }
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(payload.commentId()).orElse(null);
-        if (!isIndexableComment(comment)) {
+        if (!isIndexableComment(comment, post)) {
             tombstoneComment(payload.commentId());
             return;
         }
-        validateCurrentCommentPayload(payload, comment);
+        validateCurrentCommentPayload(payload, comment, post);
         embeddingRepository.upsertComment(
                 payload.commentId(),
                 payload.postId(),
@@ -119,12 +123,12 @@ class SemanticSearchIndexTransactionService {
         }
     }
 
-    private boolean isIndexableComment(Comment comment) {
+    private boolean isIndexableComment(Comment comment, Post post) {
         return comment != null
                 && !Boolean.TRUE.equals(comment.getIsDeleted())
                 && !Boolean.TRUE.equals(comment.getIsBlinded())
-                && isIndexableUser(comment.getUser())
-                && isIndexablePost(comment.getPost());
+                && isIndexableUser(comment.getUserId())
+                && isIndexablePost(post);
     }
 
     private boolean isIndexablePost(Post post) {
@@ -133,7 +137,7 @@ class SemanticSearchIndexTransactionService {
                 && !Boolean.TRUE.equals(post.getIsBlinded())
                 && !Boolean.TRUE.equals(post.getIsSecret())
                 && isIndexableBoard(post.getBoard())
-                && isIndexableUser(post.getUser());
+                && isIndexableUser(post.getUserId());
     }
 
     private boolean isIndexableBoard(com.weedrice.whiteboard.domain.board.entity.Board board) {
@@ -142,26 +146,27 @@ class SemanticSearchIndexTransactionService {
                 && Boolean.TRUE.equals(board.getIsPublic());
     }
 
-    private boolean isIndexableUser(com.weedrice.whiteboard.domain.user.entity.User user) {
-        return user != null && user.isActiveAccount();
+    private boolean isIndexableUser(Long userId) {
+        return userId != null && userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
+                .isPresent();
     }
 
     private void validateCurrentPostPayload(SemanticSearchPostIndexPayload payload, Post post) {
         String currentEmbeddingText = textBuilder.buildPostText(post);
         if (!Objects.equals(payload.boardId(), post.getBoard().getBoardId())
-                || !Objects.equals(payload.authorUserId(), post.getUser().getUserId())
-                || !Objects.equals(payload.authorAgentId(), post.getAgent() != null ? post.getAgent().getAgentId() : null)
+                || !Objects.equals(payload.authorUserId(), post.getUserId())
+                || !Objects.equals(payload.authorAgentId(), post.getAgentId())
                 || !Objects.equals(payload.embeddingHash(), textBuilder.hash(currentEmbeddingText))) {
             throw new IllegalStateException("Semantic search post payload changed before write");
         }
     }
 
-    private void validateCurrentCommentPayload(SemanticSearchCommentIndexPayload payload, Comment comment) {
-        String currentEmbeddingText = textBuilder.buildCommentText(comment);
-        if (!Objects.equals(payload.postId(), comment.getPost().getPostId())
-                || !Objects.equals(payload.boardId(), comment.getPost().getBoard().getBoardId())
-                || !Objects.equals(payload.authorUserId(), comment.getUser().getUserId())
-                || !Objects.equals(payload.authorAgentId(), comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
+    private void validateCurrentCommentPayload(SemanticSearchCommentIndexPayload payload, Comment comment, Post post) {
+        String currentEmbeddingText = textBuilder.buildCommentText(comment, post);
+        if (!Objects.equals(payload.postId(), comment.getPostId())
+                || !Objects.equals(payload.boardId(), post.getBoard().getBoardId())
+                || !Objects.equals(payload.authorUserId(), comment.getUserId())
+                || !Objects.equals(payload.authorAgentId(), comment.getAgentId())
                 || !Objects.equals(payload.embeddingHash(), textBuilder.hash(currentEmbeddingText))) {
             throw new IllegalStateException("Semantic search comment payload changed before write");
         }

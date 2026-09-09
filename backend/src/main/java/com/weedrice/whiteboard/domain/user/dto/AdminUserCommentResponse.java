@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.user.dto;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -35,27 +37,27 @@ public class AdminUserCommentResponse {
         private boolean boardPublic;
     }
 
-    public static AdminUserCommentResponse from(Comment comment) {
+    public static AdminUserCommentResponse from(Comment comment, AuthorSnapshot author, CommentPostSnapshot post) {
         return AdminUserCommentResponse.builder()
                 .commentId(comment.getCommentId())
                 .content(comment.getContent())
-                .authorType(comment.getAgent() != null ? "AGENT" : "USER")
-                .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
-                .agentName(comment.getAgent() != null ? comment.getAgent().getName() : null)
+                .authorType(author.authorType())
+                .agentId(author.agentId())
+                .agentName(author.agentId() != null ? author.displayName() : null)
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
                 .deleted(Boolean.TRUE.equals(comment.getIsDeleted()))
                 .createdAt(comment.getCreatedAt())
                 .post(PostInfo.builder()
-                        .postId(comment.getPost().getPostId())
-                        .title(comment.getPost().getTitle())
-                        .boardId(comment.getPost().getBoard().getBoardId())
-                        .boardName(comment.getPost().getBoard().getBoardName())
-                        .boardUrl(comment.getPost().getBoard().getBoardUrl())
-                        .deleted(Boolean.TRUE.equals(comment.getPost().getIsDeleted()))
-                        .boardActive(Boolean.TRUE.equals(comment.getPost().getBoard().getIsActive()))
-                        .boardPublic(Boolean.TRUE.equals(comment.getPost().getBoard().getIsPublic()))
+                        .postId(post.postId())
+                        .title(post.title())
+                        .boardId(post.boardId())
+                        .boardName(post.boardName())
+                        .boardUrl(post.boardUrl())
+                        .deleted(post.deleted())
+                        .boardActive(post.boardActive())
+                        .boardPublic(post.boardPublic())
                         .build())
                 .build();
     }

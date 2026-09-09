@@ -53,9 +53,9 @@ public class CommentReadSupport {
     }
 
     public boolean isBlockedAuthor(Comment comment, Set<Long> blockedUserIds) {
-        if (comment.getUser() == null || blockedUserIds == null || blockedUserIds.isEmpty()) {
+        if (comment.getUserId() == null || blockedUserIds == null || blockedUserIds.isEmpty()) {
             return false;
         }
-        return blockedUserIds.contains(comment.getUser().getUserId());
+        return blockedUserIds.contains(comment.getUserId());
     }
 }

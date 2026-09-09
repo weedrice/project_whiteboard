@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.dto;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -24,15 +25,15 @@ public class MyCommentResponse {
         private String boardName;
     }
 
-    public static MyCommentResponse from(Comment comment) {
+    public static MyCommentResponse from(Comment comment, CommentPostSnapshot post) {
         return MyCommentResponse.builder()
                 .commentId(comment.getCommentId())
                 .content(comment.getContent())
                 .post(PostInfo.builder()
-                        .postId(comment.getPost().getPostId())
-                        .title(comment.getPost().getTitle())
-                        .boardUrl(comment.getPost().getBoard().getBoardUrl())
-                        .boardName(comment.getPost().getBoard().getBoardName())
+                        .postId(post.postId())
+                        .title(post.title())
+                        .boardUrl(post.boardUrl())
+                        .boardName(post.boardName())
                         .build())
                 .likeCount(comment.getLikeCount())
                 .createdAt(comment.getCreatedAt())

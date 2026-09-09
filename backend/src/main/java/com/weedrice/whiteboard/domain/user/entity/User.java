@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -21,7 +22,7 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User extends BaseTimeEntity {
+public class User extends BaseTimeEntity implements UserIdRef, com.weedrice.whiteboard.domain.actor.ActorUserPrincipal {
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_SUSPENDED = "SUSPENDED";
     public static final String STATUS_DELETED = "DELETED";

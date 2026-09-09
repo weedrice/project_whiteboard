@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
@@ -11,9 +11,8 @@ import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.post.port.PostAgentWritePort;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -25,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -37,12 +35,11 @@ public class PostInteractionService {
     private final PostScrapService postScrapService;
     private final PostViewHistoryService postViewHistoryService;
     private final PostReadContextResolver postReadContextResolver;
-    private final AgentOwnershipService agentOwnershipService;
-    private final UserWritableResolver userWritableResolver;
+    private final PostAgentWritePort postAgentWritePort;
+    private final PostUserWritePort postUserWritePort;
     private final PostAccessPolicy postAccessPolicy;
     private final PostViewCountWriter postViewCountWriter;
     private final EntityManager entityManager;
-    private final SanctionService sanctionService;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
@@ -53,7 +50,7 @@ public class PostInteractionService {
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
-        User viewer = context.viewer();
+        ActorUserPrincipal viewer = context.viewer();
         Post post = getReadablePost(postId, context);
 
         if (incrementView) {
@@ -84,7 +81,7 @@ public class PostInteractionService {
             return null;
         }
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
-        User user = context.viewer();
+        ActorUserPrincipal user = context.viewer();
         Post post = getReadablePost(postId, context);
         return postViewHistoryService.get(user, post);
     }
@@ -92,7 +89,7 @@ public class PostInteractionService {
     @Transactional
     public void updateViewHistory(@NonNull Long userId, @NonNull Long postId, ViewHistoryRequest request) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
-        User user = context.viewer();
+        ActorUserPrincipal user = context.viewer();
         Post post = getReadablePost(postId, context);
         postViewHistoryService.update(user, post, request);
     }
@@ -115,36 +112,24 @@ public class PostInteractionService {
 
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
+        Long resolvedAgentId = postAgentWritePort.resolveOwnedActiveAgentId(userId, actorAgentId);
         Post post = getReadablePostForResolvedUser(postId, user);
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
-        return postReactionService.like(user, actorAgent, post);
+        return postReactionService.like(new ContentActorRef(userId, resolvedAgentId), post);
     }
 
     @Transactional
-    int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        validateResolvedActorAgent(userId, actorAgent);
+    int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Post post) {
+        postUserWritePort.validateContentWriteForUpdate(userId);
+        Long resolvedAgentId = postAgentWritePort.resolveOwnedActiveAgentId(userId, actorAgentId);
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
-        return postReactionService.like(user, actorAgent, post);
-    }
-
-    private void validateResolvedActorAgent(Long userId, Agent actorAgent) {
-        if (actorAgent == null) {
-            return;
-        }
-        if (actorAgent.getUser() == null || !Objects.equals(actorAgent.getUser().getUserId(), userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        return postReactionService.like(new ContentActorRef(userId, resolvedAgentId), post);
     }
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
         Post post = getReadablePostForResolvedUser(postId, user);
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
 
@@ -159,14 +144,14 @@ public class PostInteractionService {
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark, Long folderId) {
         String normalizedRemark = postScrapService.normalizeRemark(remark);
-        User user = userWritableResolver.resolveForUpdate(userId);
+        ActorUserPrincipal user = postUserWritePort.validateForUpdate(userId);
         Post post = getReadablePostForResolvedUser(postId, user);
         postScrapService.scrap(user, post, normalizedRemark, folderId);
     }
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
+        ActorUserPrincipal user = postUserWritePort.validateForUpdate(userId);
         Post post = getReadablePostForResolvedUser(postId, user);
         inquiryLegacyWritePolicy.requireBoardWritable(post.getBoard());
         postScrapService.unscrap(userId, postId);
@@ -174,7 +159,7 @@ public class PostInteractionService {
 
     @Transactional
     public void moveScrap(@NonNull Long userId, @NonNull Long postId, Long folderId) {
-        userWritableResolver.resolveForUpdate(userId);
+        postUserWritePort.validateForUpdate(userId);
         postScrapService.move(userId, postId, folderId);
     }
 
@@ -189,26 +174,26 @@ public class PostInteractionService {
     }
 
     public List<ScrapFolderResponse> getScrapFolders(@NonNull Long userId) {
-        userWritableResolver.resolve(userId);
+        postUserWritePort.validate(userId);
         return postScrapService.getFolders(userId);
     }
 
     @Transactional
     public ScrapFolderResponse createScrapFolder(@NonNull Long userId, ScrapFolderRequest request) {
-        User user = userWritableResolver.resolveForUpdate(userId);
+        ActorUserPrincipal user = postUserWritePort.validateForUpdate(userId);
         return postScrapService.createFolder(user, request);
     }
 
     @Transactional
     public ScrapFolderResponse updateScrapFolder(@NonNull Long userId, @NonNull Long folderId,
             ScrapFolderRequest request) {
-        userWritableResolver.resolveForUpdate(userId);
+        postUserWritePort.validateForUpdate(userId);
         return postScrapService.updateFolder(userId, folderId, request);
     }
 
     @Transactional
     public void deleteScrapFolder(@NonNull Long userId, @NonNull Long folderId) {
-        userWritableResolver.resolveForUpdate(userId);
+        postUserWritePort.validateForUpdate(userId);
         postScrapService.deleteFolder(userId, folderId);
     }
 
@@ -225,7 +210,7 @@ public class PostInteractionService {
         return post;
     }
 
-    private Post getReadablePostForResolvedUser(@NonNull Long postId, User user) {
+    private Post getReadablePostForResolvedUser(@NonNull Long postId, ActorUserPrincipal user) {
         return getReadablePost(postId, postReadContextResolver.resolveForResolvedUser(user));
     }
 

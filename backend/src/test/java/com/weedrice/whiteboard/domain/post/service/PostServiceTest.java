@@ -2,6 +2,10 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.ActorReadPort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
@@ -28,6 +32,14 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.post.integration.PostCommentStatusIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.integration.PostAgentWriteIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.integration.PostLikeNotificationIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.integration.PostMentionIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.integration.PostUserWriteIntegrationAdapter;
+import com.weedrice.whiteboard.domain.post.port.PostCommentStatusPort;
+import com.weedrice.whiteboard.domain.post.port.PostMentionPort;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -147,6 +159,10 @@ class PostServiceTest {
     private PostManagerModerationService postManagerModerationService;
     @Mock
     private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
+    @Mock
+    private ActorReadPort actorReadPort;
     private PostDraftCleanupService postDraftCleanupService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
@@ -178,27 +194,30 @@ class PostServiceTest {
                 .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostInteractionContextResolver postInteractionContextResolver = new PostInteractionContextResolver(
-                userRepository,
+                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                        userRepository, userBlockService),
                 postLikeRepository,
                 scrapRepository,
                 boardSubscriptionRepository);
+        PostCommentStatusPort postCommentStatusPort = new PostCommentStatusIntegrationAdapter(commentRepository);
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                commentRepository,
+                postCommentStatusPort,
                 boardAccessPolicy,
                 postInteractionContextResolver,
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
         FeedPostSummaryAssembler feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 postInteractionContextResolver,
-                PostContentSummaryExtractorFixtures.withNoviisCdn());
+                PostContentSummaryExtractorFixtures.withNoviisCdn(),
+                actorBatchReadPort);
         inquiryLegacyWritePolicy = mock(
                 com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class);
         lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy, inquiryLegacyWritePolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
-                userRepository,
-                userBlockService,
+                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
                 adminRepository);
         PostDetailContextResolver postDetailContextResolver = new PostDetailContextResolver(
                 postRepository,
@@ -223,7 +242,8 @@ class PostServiceTest {
         PostReactionService postReactionService = new PostReactionService(
                 postRepository,
                 postLikeRepository,
-                eventPublisher,
+                new PostLikeNotificationIntegrationAdapter(
+                        userRepository, agentOwnershipService, eventPublisher),
                 reactionWriter,
                 badgeEvaluationService,
                 anonymousReadCacheInvalidator);
@@ -231,11 +251,12 @@ class PostServiceTest {
                 scrapRepository,
                 mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
                 reactionWriter,
-                inquiryLegacyWritePolicy);
+                inquiryLegacyWritePolicy,
+                actorBatchReadPort);
         PostViewHistoryService postViewHistoryService = new PostViewHistoryService(
                 viewHistoryRepository,
                 viewHistoryCommandService,
-                commentRepository,
+                postCommentStatusPort,
                 postRepository,
                 postSummaryAssembler,
                 inquiryLegacyWritePolicy);
@@ -248,14 +269,15 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postDetailContextResolver,
                 pollService,
-                mock(PostSeriesService.class));
+                mock(PostSeriesService.class),
+                actorReadPort);
         postDetailViewCommandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
                 postDetailContextResolver,
                 postViewCountWriter);
         postDraftService = new PostDraftService(
-                userRepository,
+                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
                 boardRepository,
                 boardCategoryRepository,
                 postRepository,
@@ -263,8 +285,7 @@ class PostServiceTest {
                 draftPostRepository,
                 scheduledPostRepository,
                 fileService,
-                userWritableResolver,
-                sanctionService,
+                new PostUserWriteIntegrationAdapter(userWritableResolver, sanctionService),
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postDraftCleanupService);
@@ -278,22 +299,20 @@ class PostServiceTest {
                 postScrapService,
                 postViewHistoryService,
                 postReadContextResolver,
-                agentOwnershipService,
-                userWritableResolver,
+                new PostAgentWriteIntegrationAdapter(agentOwnershipService),
+                new PostUserWriteIntegrationAdapter(userWritableResolver, sanctionService),
                 postAccessPolicy,
                 postViewCountWriter,
                 entityManager,
-                sanctionService,
                 inquiryLegacyWritePolicy);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
-                userBlockService,
+                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
                 postSummaryAssembler);
         postListReadService = new PostListReadService(
                 postRepository,
                 boardRepository,
-                userRepository,
-                userBlockRepository,
+                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
                 postReadContextResolver,
                 postSummaryAssembler,
                 feedPostSummaryAssembler,
@@ -311,9 +330,8 @@ class PostServiceTest {
         PostCreateTargetResolver postCreateTargetResolver = new PostCreateTargetResolver(
                 boardRepository,
                 boardCategoryRepository,
-                agentOwnershipService,
-                userWritableResolver,
-                sanctionService);
+                new PostAgentWriteIntegrationAdapter(agentOwnershipService),
+                new PostUserWriteIntegrationAdapter(userWritableResolver, sanctionService));
         PostCreatePolicyValidator postCreatePolicyValidator = new PostCreatePolicyValidator(
                 boardAccessPolicy,
                 postAuthorCommandPolicy);
@@ -322,6 +340,7 @@ class PostServiceTest {
                 draftPostRepository,
                 scheduledPostRepository,
                 fileService);
+        PostMentionPort postMentionPort = new PostMentionIntegrationAdapter(userRepository, mentionService);
         PostCreateSideEffectService postCreateSideEffectService = new PostCreateSideEffectService(
                 tagAssignmentService,
                 eventPublisher,
@@ -330,7 +349,7 @@ class PostServiceTest {
                 semanticSearchEventPublisher,
                 postVersionRecorder,
                 postDraftPublicationService,
-                mentionService,
+                postMentionPort,
                 pollService,
                 badgeEvaluationService);
         postCommandService = new PostCommandService(
@@ -340,8 +359,7 @@ class PostServiceTest {
                 tagAssignmentService,
                 contentRewardService,
                 fileService,
-                userWritableResolver,
-                sanctionService,
+                new PostUserWriteIntegrationAdapter(userWritableResolver, sanctionService),
                 postCreateTargetResolver,
                 postCreatePolicyValidator,
                 postVersionRecorder,
@@ -352,7 +370,7 @@ class PostServiceTest {
                 semanticSearchEventPublisher,
                 mock(PostSeriesService.class),
                 mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
-                mentionService,
+                postMentionPort,
                 anonymousReadCacheInvalidator,
                 inquiryLegacyWritePolicy);
         postFacadeReadService = new PostFacadeReadService(
@@ -363,10 +381,11 @@ class PostServiceTest {
                 postReadContextResolver,
                 postSummaryAssembler,
                 postAccessPolicy,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                actorReadPort);
         postService = new PostService(
                 boardRepository,
-                userRepository,
+                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
                 postDetailReadService,
                 postDetailViewCommandService,
                 postDraftService,
@@ -392,6 +411,14 @@ class PostServiceTest {
 
         user = User.builder().loginId("testuser").displayName("Test User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        lenient().when(actorReadPort.resolveAuthor(any(ContentActorRef.class)))
+                .thenAnswer(invocation -> authorSnapshot(invocation.getArgument(0)));
+        lenient().when(actorBatchReadPort.resolveAuthors(any())).thenAnswer(invocation -> {
+            Collection<ContentActorRef> refs = invocation.getArgument(0);
+            Map<ContentActorRef, AuthorSnapshot> snapshots = new LinkedHashMap<>();
+            refs.forEach(ref -> snapshots.put(ref, authorSnapshot(ref)));
+            return snapshots;
+        });
 
         board = Board.builder().boardName("Test Board").creator(user).build();
         ReflectionTestUtils.setField(board, "boardId", 1L);
@@ -418,12 +445,22 @@ class PostServiceTest {
         lenient().when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(1L));
     }
 
+    private AuthorSnapshot authorSnapshot(ContentActorRef ref) {
+        return new AuthorSnapshot(
+                ref.ownerUserId(),
+                ref.agentId(),
+                ref.isAgentAuthored() ? "AGENT" : "USER",
+                ref.isAgentAuthored() ? "Agent" : "Test User",
+                null,
+                null);
+    }
+
     private void assertDeleteVersionRecorded(User modifier) {
         ArgumentCaptor<PostVersion> versionCaptor = ArgumentCaptor.forClass(PostVersion.class);
         verify(postVersionRepository).save(versionCaptor.capture());
         PostVersion version = versionCaptor.getValue();
         assertThat(version.getPost()).isSameAs(post);
-        assertThat(version.getModifier()).isSameAs(modifier);
+        assertThat(version.getModifierId()).isEqualTo(modifier.getUserId());
         assertThat(version.getVersionType()).isEqualTo("DELETE");
         assertThat(version.getOriginalTitle()).isEqualTo("Test Post");
         assertThat(version.getOriginalContents()).isEqualTo("Test Contents");
@@ -474,13 +511,13 @@ class PostServiceTest {
             ReflectionTestUtils.setField(p, "postId", 100L);
             return p;
         });
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         postService.createPost(1L, "free", request);
 
         verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
         InOrder inOrder = inOrder(draftPostRepository, fileService);
-        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user);
+        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user.getUserId());
         inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
         inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
         inOrder.verify(draftPostRepository).delete(existingDraft);
@@ -502,7 +539,7 @@ class PostServiceTest {
             ReflectionTestUtils.setField(saved, "postId", 100L);
             return saved;
         });
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.createPost(1L, "free", request))
                 .isInstanceOf(BusinessException.class)
@@ -527,7 +564,7 @@ class PostServiceTest {
             ReflectionTestUtils.setField(saved, "postId", 100L);
             return saved;
         });
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(scheduledPostRepository.existsByDraftIdAndStatusIn(55L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
                 .thenReturn(true);
 
@@ -554,7 +591,7 @@ class PostServiceTest {
             ReflectionTestUtils.setField(saved, "postId", 100L);
             return saved;
         });
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(scheduledPostRepository.existsByDraftIdAndStatusIn(55L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
                 .thenReturn(true);
         when(scheduledPostRepository.existsByScheduledPostIdAndDraftIdAndStatus(
@@ -582,7 +619,7 @@ class PostServiceTest {
             ReflectionTestUtils.setField(p, "postId", 100L);
             return p;
         });
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         postService.createPost(1L, "free", request);
 
@@ -825,7 +862,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -862,7 +899,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -898,7 +935,7 @@ class PostServiceTest {
         when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(agent);
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
                 .thenReturn(List.of(generalCategory));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPostAsAgent(1L, 10L, "free", request))
                 .isInstanceOf(BusinessException.class)
@@ -927,13 +964,13 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(10L, 1L, true))
                 .thenReturn(Optional.of(restrictedCategory));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPostAsAgent(
                 1L,
                 10L,
                 request,
-                PostCreateContext.agent(agent, board, null)))
+                PostCreateContext.agent(agent.getUserId(), agent.getAgentId(), board, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
@@ -975,7 +1012,7 @@ class PostServiceTest {
         assertThat(result).isEqualTo(post);
         verify(viewHistoryRepository).insertIgnore(1L, 1L);
         verify(viewHistoryRepository).touchModifiedAt(1L, 1L);
-        verify(viewHistoryRepository, never()).findByUserAndPost(user, post);
+        verify(viewHistoryRepository, never()).findByUserIdAndPost(user.getUserId(), post);
     }
 
     @Test
@@ -1013,7 +1050,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(otherUser.getUserId(), List.of(1L)))
                 .thenReturn(Collections.emptyList());
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
@@ -1362,7 +1399,7 @@ class PostServiceTest {
         postService.updatePost(1L, 1L, request);
 
         assertThat(post.getIsNotice()).isTrue();
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(any(), any(), anyBoolean());
     }
 
     @Test
@@ -1374,7 +1411,7 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(true);
 
         postService.updatePost(1L, 1L, request);
 
@@ -1409,13 +1446,13 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         postService.updatePost(1L, 1L, request);
 
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
         InOrder inOrder = inOrder(draftPostRepository, fileService);
-        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user);
+        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user.getUserId());
         inOrder.verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
         inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
         inOrder.verify(draftPostRepository).delete(existingDraft);
@@ -1576,8 +1613,8 @@ class PostServiceTest {
     void deletePost_success() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                user.getUserId(), List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(50L);
 
         postService.deletePost(1L, 1L);
@@ -1603,9 +1640,9 @@ class PostServiceTest {
                 .status(Agent.STATUS_ACTIVE)
                 .build();
         ReflectionTestUtils.setField(agent, "agentId", 7L);
-        ReflectionTestUtils.setField(post, "agent", agent);
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
+        ReflectionTestUtils.setField(post, "agentId", agent.getAgentId());
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                user.getUserId(), List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(50L);
 
         postCommandService.deleteAgentOwnedPost(post, 7L, user);
@@ -1623,8 +1660,8 @@ class PostServiceTest {
     void deletePost_withoutRewardHistory_skipsPointRollback() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                user.getUserId(), List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
@@ -1665,7 +1702,7 @@ class PostServiceTest {
         verify(postLikeRepository).saveAndFlush(any(PostLike.class));
         verify(postRepository).incrementLikeCount(1L);
         verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
-        verify(userRepository).findById(1L);
+        verify(userRepository, times(2)).findById(1L);
         assertThat(likeCount).isEqualTo(1);
     }
 
@@ -1782,8 +1819,10 @@ class PostServiceTest {
         ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
-        assertThatThrownBy(() -> postService.likePost(1L, foreignAgent, post))
+        assertThatThrownBy(() -> postService.likePost(1L, foreignAgent.getAgentId(), post))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
@@ -1851,9 +1890,6 @@ class PostServiceTest {
         User agentOwner = User.builder().displayName("agent-owner").build();
         ReflectionTestUtils.setField(agentOwner, "userId", 3L);
 
-        User legacyAuthor = User.builder().displayName("legacy-author").build();
-        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
-
         Agent targetAgent = Agent.builder()
                 .user(agentOwner)
                 .agentTokenHash("hash")
@@ -1862,10 +1898,11 @@ class PostServiceTest {
                 .status(Agent.STATUS_ACTIVE)
                 .build();
         ReflectionTestUtils.setField(targetAgent, "agentId", 20L);
-        ReflectionTestUtils.setField(post, "user", legacyAuthor);
-        ReflectionTestUtils.setField(post, "agent", targetAgent);
+        ReflectionTestUtils.setField(post, "userId", agentOwner.getUserId());
+        ReflectionTestUtils.setField(post, "agentId", targetAgent.getAgentId());
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(actorUser));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(agentOwner));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.saveAndFlush(any(PostLike.class)))
@@ -1971,12 +2008,12 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(1L);
+        when(scrapRepository.deleteByUserIdAndPost_PostId(1L, 1L)).thenReturn(1L);
 
         postService.unscrapPost(1L, 1L);
 
         verify(postRepository).findByIdWithRelations(1L);
-        verify(scrapRepository).deleteByUser_UserIdAndPost_PostId(1L, 1L);
+        verify(scrapRepository).deleteByUserIdAndPost_PostId(1L, 1L);
         verify(userRepository).findById(1L);
     }
 
@@ -1990,7 +2027,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(scrapRepository, never()).deleteByUser_UserIdAndPost_PostId(anyLong(), anyLong());
+        verify(scrapRepository, never()).deleteByUserIdAndPost_PostId(anyLong(), anyLong());
     }
 
     @Test
@@ -2029,7 +2066,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(0L);
+        when(scrapRepository.deleteByUserIdAndPost_PostId(1L, 1L)).thenReturn(0L);
 
         assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -2049,7 +2086,7 @@ class PostServiceTest {
                 .build();
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
@@ -2057,7 +2094,6 @@ class PostServiceTest {
                 eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
-
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
@@ -2067,7 +2103,7 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getPost().getAuthor().getAuthorType()).isEqualTo("USER");
         assertThat(response.getContent().getFirst().getPost().getAuthor().getAgentId()).isNull();
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
@@ -2105,7 +2141,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
@@ -2113,6 +2149,10 @@ class PostServiceTest {
                 eq(true),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
+        ContentActorRef agentAuthorRef = new ContentActorRef(1L, 7L);
+        doReturn(Map.of(agentAuthorRef, new AuthorSnapshot(
+                1L, 7L, "AGENT", "Helper Agent", null, null)))
+                .when(actorBatchReadPort).resolveAuthors(eq(Set.of(agentAuthorRef)));
 
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
 
@@ -2130,7 +2170,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(false),
                 eq(List.of(99L)),
@@ -2143,7 +2183,7 @@ class PostServiceTest {
 
         assertThat(response.getContent()).isEmpty();
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(false),
                 eq(List.of(99L)),
@@ -2158,7 +2198,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
@@ -2171,7 +2211,7 @@ class PostServiceTest {
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user),
+                eq(user.getUserId()),
                 eq(false),
                 eq(true),
                 eq(NO_BLOCKED_USER_IDS),
@@ -2192,7 +2232,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetailsByKeyword(
-                eq(user),
+                eq(user.getUserId()),
                 isNull(),
                 eq("%test%"),
                 eq(false),
@@ -2207,7 +2247,7 @@ class PostServiceTest {
 
         assertThat(response.getContent()).isEmpty();
         verify(scrapRepository).findPageByUserWithPostDetailsByKeyword(
-                eq(user),
+                eq(user.getUserId()),
                 isNull(),
                 eq("%test%"),
                 eq(false),
@@ -2224,7 +2264,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetailsByKeyword(
-                eq(user),
+                eq(user.getUserId()),
                 isNull(),
                 eq("%!%a!_!!%"),
                 eq(false),
@@ -2238,7 +2278,7 @@ class PostServiceTest {
         postService.getMyScraps(1L, null, "%A_!", PageRequest.of(0, 10));
 
         verify(scrapRepository).findPageByUserWithPostDetailsByKeyword(
-                eq(user),
+                eq(user.getUserId()),
                 isNull(),
                 eq("%!%a!_!!%"),
                 eq(false),
@@ -2322,7 +2362,8 @@ class PostServiceTest {
             ReflectionTestUtils.setField(draftPost, "draftId", 22L);
             return draftPost;
         });
-        doReturn(2).when(postDraftCleanupService).enforceUserDraftLimit(user);
+        doReturn(2).when(postDraftCleanupService).enforceUserDraftLimit(
+                any(com.weedrice.whiteboard.domain.actor.UserIdRef.class));
 
         DraftResponse draft = postService.saveDraftPost(1L, request);
 
@@ -2350,7 +2391,7 @@ class PostServiceTest {
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postSeriesRepository.findBySeriesIdAndOwner_UserId(99L, 1L)).thenReturn(Optional.empty());
+        when(postSeriesRepository.findBySeriesIdAndOwnerUserId(99L, 1L)).thenReturn(Optional.empty());
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
             DraftPost saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "draftId", 23L);
@@ -2399,7 +2440,7 @@ class PostServiceTest {
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
 
         DraftResponse response = postService.saveDraftPost(1L, request);
@@ -2481,7 +2522,7 @@ class PostServiceTest {
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -2502,7 +2543,7 @@ class PostServiceTest {
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(true);
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
             DraftPost saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "draftId", 24L);
@@ -2533,7 +2574,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
         DraftResponse draft = postService.saveDraftPost(1L, request);
@@ -2561,7 +2602,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(scheduledPostRepository.existsByDraftIdAndStatusIn(10L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
                 .thenReturn(true);
 
@@ -2594,7 +2635,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user.getUserId(), "client-draft-key-1234"))
                 .thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
 
@@ -2628,7 +2669,7 @@ class PostServiceTest {
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user.getUserId(), "client-draft-key-1234"))
                 .thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
         when(fileService.retainValidDraftFileIds(List.of(11L, 12L), 1L, 10L))
@@ -2665,7 +2706,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user.getUserId(), "client-draft-key-1234"))
                 .thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
@@ -2692,7 +2733,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -2719,7 +2760,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
         DraftResponse draft = postService.saveDraftPost(1L, request);
@@ -2880,7 +2921,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -2907,7 +2948,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
         DraftResponse draft = postService.saveDraftPost(1L, request);
@@ -2930,7 +2971,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -2954,7 +2995,7 @@ class PostServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -3102,7 +3143,7 @@ class PostServiceTest {
         DraftPost existingDraft = DraftPost.builder().user(user).build();
         ReflectionTestUtils.setField(existingDraft, "version", 3L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         postService.deleteDraftPost(1L, 10L, 3L);
 
@@ -3116,7 +3157,7 @@ class PostServiceTest {
         DraftPost existingDraft = DraftPost.builder().user(user).build();
         ReflectionTestUtils.setField(existingDraft, "version", 4L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user.getUserId())).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.deleteDraftPost(1L, 10L, 3L))
                 .isInstanceOf(BusinessException.class)
@@ -3151,8 +3192,10 @@ class PostServiceTest {
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
-        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(100L, 1L))
-                .thenReturn(Optional.of(Comment.builder().post(post).build()));
+        Comment activeComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(activeComment, "commentId", 100L);
+        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(100L, 1L))
+                .thenReturn(Optional.of(activeComment));
 
         postService.updateViewHistory(1L, 1L, request);
 
@@ -3171,8 +3214,10 @@ class PostServiceTest {
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
-        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(100L, 1L))
-                .thenReturn(Optional.of(Comment.builder().post(post).build()));
+        Comment activeComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(activeComment, "commentId", 100L);
+        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(100L, 1L))
+                .thenReturn(Optional.of(activeComment));
 
         postService.updateViewHistory(1L, 1L, request);
 
@@ -3390,7 +3435,7 @@ class PostServiceTest {
     @DisplayName("내 게시글 조회")
     void getMyPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class)))
+        when(postRepository.findByUserIdAndIsDeleted(eq(user.getUserId()), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
@@ -3399,8 +3444,8 @@ class PostServiceTest {
 
         postListReadService.getMyPosts(1L, Pageable.unpaged());
 
-        verify(postRepository).findByUserAndIsDeleted(
-                eq(user), eq(false), pageableCaptor.capture());
+        verify(postRepository).findByUserIdAndIsDeleted(
+                eq(user.getUserId()), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isZero();
         assertThat(safePageable.getPageSize()).isEqualTo(20);
@@ -3414,21 +3459,21 @@ class PostServiceTest {
     void getMyPosts_legacyInquiryReadOnly_excludesInquiryBoard() {
         when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(false);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
-                eq(user), eq(false), eq("inquiry"), any(Pageable.class)))
+        when(postRepository.findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                eq(user.getUserId()), eq(false), eq("inquiry"), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         postListReadService.getMyPosts(1L, Pageable.unpaged());
 
-        verify(postRepository).findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
-                eq(user), eq(false), eq("inquiry"), any(Pageable.class));
+        verify(postRepository).findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                eq(user.getUserId()), eq(false), eq("inquiry"), any(Pageable.class));
     }
 
     @Test
     @DisplayName("내 게시글 조회는 페이지 크기와 정렬 필드를 제한한다")
     void getMyPosts_normalizesPageable() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class)))
+        when(postRepository.findByUserIdAndIsDeleted(eq(user.getUserId()), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
@@ -3436,8 +3481,8 @@ class PostServiceTest {
                 1L,
                 PageRequest.of(2, 250, Sort.by(Sort.Order.asc("commentCount"))));
 
-        verify(postRepository).findByUserAndIsDeleted(
-                eq(user), eq(false), pageableCaptor.capture());
+        verify(postRepository).findByUserIdAndIsDeleted(
+                eq(user.getUserId()), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
@@ -3483,7 +3528,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(otherUser.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.getPostVersions(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -3500,7 +3545,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(adminUser, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(adminUser.getUserId(), board.getBoardId(), true)).thenReturn(true);
         when(postVersionRepository.findVersionResponsesByPostId(1L)).thenReturn(Collections.emptyList());
 
         postService.getPostVersions(1L, 2L);
@@ -3519,18 +3564,16 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(secretPost));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(adminUser, List.of(board.getBoardId()), true))
-                .thenReturn(List.of(Admin.builder()
-                        .user(adminUser)
-                        .board(board)
-                        .role("BOARD_ADMIN")
-                        .build()));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(
+                adminUser.getUserId(), List.of(board.getBoardId())))
+                .thenReturn(List.of(board.getBoardId()));
         when(postVersionRepository.findVersionResponsesByPostId(1L)).thenReturn(Collections.emptyList());
 
         postService.getPostVersions(1L, 2L);
 
         verify(postVersionRepository).findVersionResponsesByPostId(1L);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(adminUser, board, true);
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                adminUser.getUserId(), board.getBoardId(), true);
     }
 
     // --- PostResponse ---
@@ -3543,7 +3586,7 @@ class PostServiceTest {
                 .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        lenient().when(viewHistoryRepository.findByUserAndPost(user, post))
+        lenient().when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post))
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         lenient().when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
@@ -3624,7 +3667,7 @@ class PostServiceTest {
         Comment lastReadComment = Comment.builder().post(post).build();
         ReflectionTestUtils.setField(lastReadComment, "commentId", 100L);
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
-        existing.updateView(lastReadComment, 0);
+        existing.updateView(lastReadComment.getCommentId(), 0);
         LocalDateTime previousViewedAt = LocalDateTime.now().minusHours(2);
         ReflectionTestUtils.setField(existing, "modifiedAt", previousViewedAt);
 
@@ -3634,7 +3677,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
         when(viewHistoryRepository.touchModifiedAt(1L, 1L)).thenReturn(1);
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(existing));
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.of(existing));
         when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
                 .thenReturn(Collections.emptyList());
@@ -3661,7 +3704,7 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(1L)).thenReturn(0);
 
         assertThatThrownBy(() -> postService.getPostResponse(1L, 1L))
@@ -3694,7 +3737,7 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        lenient().when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
                 .thenReturn(Collections.emptyList());
@@ -3717,7 +3760,7 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        lenient().when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
                 .thenReturn(Collections.emptyList());
@@ -3750,7 +3793,7 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        lenient().when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
@@ -3778,7 +3821,7 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(viewHistory));
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.of(viewHistory));
 
         ViewHistory result = postService.getViewHistory(1L, 1L);
 
@@ -3801,7 +3844,7 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
 
         ViewHistory result = postService.getViewHistory(1L, 1L);
 
@@ -3821,7 +3864,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(viewHistoryRepository, never()).findByUserAndPost(any(), any());
+        verify(viewHistoryRepository, never()).findByUserIdAndPost(anyLong(), any());
     }
 
     @Test
@@ -3860,7 +3903,7 @@ class PostServiceTest {
                 .build();
         ReflectionTestUtils.setField(draft, "draftId", 11L);
         ReflectionTestUtils.setField(draft, "version", 4L);
-        when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
+        when(draftPostRepository.findPageByUserWithBoard(eq(user.getUserId()), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(draft), PageRequest.of(0, 10), 1));
 
         DraftListResponse response = postService.getDraftPosts(1L, PageRequest.of(0, 10));
@@ -3871,20 +3914,20 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getBoardName()).isEqualTo("Test Board");
         assertThat(response.getRetentionDays()).isEqualTo(90);
         assertThat(response.getMaxDraftsPerUser()).isEqualTo(100);
-        verify(draftPostRepository).findPageByUserWithBoard(eq(user), any(Pageable.class));
+        verify(draftPostRepository).findPageByUserWithBoard(eq(user.getUserId()), any(Pageable.class));
     }
 
     @Test
     @DisplayName("초안 목록 조회 - pageable 정규화")
     void getDraftPosts_normalizesPageable() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
+        when(draftPostRepository.findPageByUserWithBoard(eq(user.getUserId()), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
 
         postService.getDraftPosts(1L, PageRequest.of(1, 1000, Sort.by(Sort.Order.asc("createdAt"))));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(draftPostRepository).findPageByUserWithBoard(eq(user), pageableCaptor.capture());
+        verify(draftPostRepository).findPageByUserWithBoard(eq(user.getUserId()), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(1);
         assertThat(pageable.getPageSize()).isEqualTo(100);
@@ -3900,7 +3943,7 @@ class PostServiceTest {
         DraftPost second = DraftPost.builder().user(user).board(board).title("second").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findMatchingByUserAndTarget(
-                eq(user), eq("free"), isNull(), any(Pageable.class)))
+                        eq(user.getUserId()), eq("free"), isNull(), any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 
         DraftMatchResponse response = postService.getMatchingDraft(1L, "free", null, null);
@@ -3908,7 +3951,7 @@ class PostServiceTest {
         assertThat(response.getDraftId()).isNull();
         assertThat(response.isMultipleMatchesFound()).isTrue();
         verify(draftPostRepository).findMatchingByUserAndTarget(
-                eq(user), eq("free"), isNull(), argThat(pageable -> pageable.getPageSize() == 2));
+                        eq(user.getUserId()), eq("free"), isNull(), argThat(pageable -> pageable.getPageSize() == 2));
     }
 
     @Test
@@ -3918,7 +3961,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(draft, "draftId", 91L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findMatchingByUserAndTarget(
-                eq(user), eq("free"), eq(7L), any(Pageable.class)))
+                        eq(user.getUserId()), eq("free"), eq(7L), any(Pageable.class)))
                 .thenReturn(List.of(draft));
 
         DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L, null);
@@ -3939,7 +3982,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(draft, "draftId", 91L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
-                user, "client-draft-key-1234", "free", 7L))
+                        user.getUserId(), "client-draft-key-1234", "free", 7L))
                 .thenReturn(Optional.of(draft));
 
         DraftMatchResponse response = postService.getMatchingDraft(
@@ -3948,7 +3991,7 @@ class PostServiceTest {
         assertThat(response.getDraftId()).isEqualTo(91L);
         assertThat(response.isMultipleMatchesFound()).isFalse();
         verify(draftPostRepository, never()).findMatchingByUserAndTarget(
-                any(), anyString(), any(), any(Pageable.class));
+                anyLong(), anyString(), nullable(Long.class), any(Pageable.class));
     }
 
     @Test
@@ -3969,7 +4012,7 @@ class PostServiceTest {
         DraftPost second = DraftPost.builder().user(user).board(board).title("second edit").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findMatchingByUserAndTarget(
-                eq(user), eq("free"), eq(7L), any(Pageable.class)))
+                        eq(user.getUserId()), eq("free"), eq(7L), any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 
         DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L, null);
@@ -3983,7 +4026,7 @@ class PostServiceTest {
     void getDraftPost_success() {
         DraftPost draft = DraftPost.builder().user(user).board(board).title("Draft").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(draft));
+        when(draftPostRepository.findByDraftIdAndUserId(10L, user.getUserId())).thenReturn(Optional.of(draft));
 
         DraftResponse response = postService.getDraftPost(1L, 10L);
 
@@ -3995,7 +4038,7 @@ class PostServiceTest {
     @DisplayName("초안 조회 실패 - 존재하지 않음")
     void getDraftPost_notFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.empty());
+        when(draftPostRepository.findByDraftIdAndUserId(10L, user.getUserId())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.getDraftPost(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -4007,7 +4050,7 @@ class PostServiceTest {
     void getDraftPost_rejectsProtectedDraft() {
         DraftPost draft = DraftPost.builder().user(user).board(board).title("Draft").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(draft));
+        when(draftPostRepository.findByDraftIdAndUserId(10L, user.getUserId())).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.existsByDraftIdAndStatusIn(
                 10L, ScheduledPost.PROTECTED_DRAFT_STATUSES)).thenReturn(true);
 
@@ -4051,7 +4094,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", boardOwner);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(true);
 
         boolean result = postService.isBoardAdmin(1L, 1L);
 
@@ -4066,7 +4109,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", boardOwner);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         boolean result = postService.isBoardAdmin(1L, 1L);
 
@@ -4230,7 +4273,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -4270,7 +4313,7 @@ class PostServiceTest {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(user.getUserId(), board.getBoardId(), true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -4444,8 +4487,8 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                user.getUserId(), List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
@@ -4453,8 +4496,8 @@ class PostServiceTest {
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
         verify(fileService).markPostContentFilesDeletionPending(1L);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -4467,8 +4510,8 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
-                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+                user.getUserId(), List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
@@ -4476,8 +4519,8 @@ class PostServiceTest {
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
         verify(fileService).markPostContentFilesDeletionPending(1L);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -4498,7 +4541,7 @@ class PostServiceTest {
     void likePost_asAgent_notificationUsesAgentName() {
         User postOwner = User.builder().displayName("post-owner").build();
         ReflectionTestUtils.setField(postOwner, "userId", 3L);
-        ReflectionTestUtils.setField(post, "user", postOwner);
+        ReflectionTestUtils.setField(post, "userId", postOwner.getUserId());
 
         User actorUser = User.builder().displayName("user-owner").build();
         ReflectionTestUtils.setField(actorUser, "userId", 1L);
@@ -4513,6 +4556,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(actorAgent, "agentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(actorUser));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(postOwner));
         when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(actorAgent);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
@@ -4574,7 +4618,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(scrapRepository, never()).deleteByUser_UserIdAndPost_PostId(anyLong(), anyLong());
+        verify(scrapRepository, never()).deleteByUserIdAndPost_PostId(anyLong(), anyLong());
     }
 
     @Test
@@ -4620,8 +4664,8 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
-                .thenReturn(List.of(admin));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(otherUser.getUserId(), List.of(1L)))
+                .thenReturn(List.of(1L));
         when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(2L, 1L)).thenReturn(1);
 
@@ -4794,7 +4838,7 @@ class PostServiceTest {
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(commentRepository, never()).findByCommentIdAndPost_PostIdAndIsDeletedFalse(anyLong(), anyLong());
+        verify(commentRepository, never()).findByCommentIdAndPostIdAndIsDeletedFalse(anyLong(), anyLong());
     }
 
     @Test
@@ -4856,7 +4900,7 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(200L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
+        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -4869,13 +4913,13 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(200L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
+        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(commentRepository).findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L);
+        verify(commentRepository).findByCommentIdAndPostIdAndIsDeletedFalse(200L, 1L);
         verify(viewHistoryRepository, never()).insertIgnore(anyLong(), anyLong());
         verify(viewHistoryRepository, never()).findByUserAndPostForUpdate(anyLong(), anyLong());
     }
@@ -4940,8 +4984,8 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L, 200L)))
                 .thenReturn(List.of(adminPost, privatePost));
-        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true))
-                .thenReturn(List.of(admin));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(user.getUserId(), List.of(10L, 20L)))
+                .thenReturn(List.of(10L));
         stubSummaryInteractions(user);
 
         Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(
@@ -4949,9 +4993,9 @@ class PostServiceTest {
                 1L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
-        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository).findActiveBoardIdsByUserIdAndBoardIds(user.getUserId(), List.of(10L, 20L));
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -4979,10 +5023,10 @@ class PostServiceTest {
         assertThat(summaries.keySet()).containsExactly(100L);
         verify(userRepository, never()).findById(1L);
         verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(1L);
-        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
-                any(User.class), anyCollection(), anyBoolean());
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).findActiveBoardIdsByUserIdAndBoardIds(
+                anyLong(), anyCollection());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -4994,15 +5038,15 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(creatorPost));
-        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true))
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(user.getUserId(), List.of(10L)))
                 .thenReturn(Collections.emptyList());
 
         Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries).isEmpty();
-        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true);
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository).findActiveBoardIdsByUserIdAndBoardIds(user.getUserId(), List.of(10L));
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -5021,10 +5065,10 @@ class PostServiceTest {
         Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 3L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
-        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
-                any(User.class), anyCollection(), anyBoolean());
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).findActiveBoardIdsByUserIdAndBoardIds(
+                anyLong(), anyCollection());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -5042,10 +5086,10 @@ class PostServiceTest {
 
         assertThat(summaries).isEmpty();
         verify(postLikeRepository, never()).findPostIdsByUserIdAndPostIdIn(any(), any());
-        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
-                any(User.class), anyCollection(), anyBoolean());
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).findActiveBoardIdsByUserIdAndBoardIds(
+                anyLong(), anyCollection());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -5063,10 +5107,10 @@ class PostServiceTest {
         Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
-        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
-                any(User.class), anyCollection(), anyBoolean());
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
-                any(User.class), any(Board.class), anyBoolean());
+        verify(adminRepository, never()).findActiveBoardIdsByUserIdAndBoardIds(
+                anyLong(), anyCollection());
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(
+                anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -5143,7 +5187,7 @@ class PostServiceTest {
         Comment existingLastReadComment = Comment.builder().post(post).build();
         ReflectionTestUtils.setField(existingLastReadComment, "commentId", 100L);
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
-        existing.updateView(existingLastReadComment, 500L);
+        existing.updateView(existingLastReadComment.getCommentId(), 500L);
         ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
@@ -5151,9 +5195,9 @@ class PostServiceTest {
 
         postService.updateViewHistory(1L, 1L, request);
 
-        assertThat(existing.getLastReadComment()).isSameAs(existingLastReadComment);
+        assertThat(existing.getLastReadCommentId()).isEqualTo(existingLastReadComment.getCommentId());
         assertThat(existing.getDurationMs()).isEqualTo(1500L);
-        verify(commentRepository, never()).findByCommentIdAndPost_PostIdAndIsDeletedFalse(anyLong(), anyLong());
+        verify(commentRepository, never()).findByCommentIdAndPostIdAndIsDeletedFalse(anyLong(), anyLong());
     }
 
     @Test
@@ -5163,17 +5207,17 @@ class PostServiceTest {
         Comment staleLastReadComment = Comment.builder().post(post).build();
         ReflectionTestUtils.setField(staleLastReadComment, "commentId", 50L);
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
-        existing.updateView(existingLastReadComment, 500L);
+        existing.updateView(existingLastReadComment.getCommentId(), 500L);
         ViewHistoryRequest request = new ViewHistoryRequest(50L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(50L, 1L))
+        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(50L, 1L))
                 .thenReturn(Optional.of(staleLastReadComment));
         when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
 
         postService.updateViewHistory(1L, 1L, request);
 
-        assertThat(existing.getLastReadComment()).isSameAs(existingLastReadComment);
+        assertThat(existing.getLastReadCommentId()).isEqualTo(existingLastReadComment.getCommentId());
         assertThat(existing.getDurationMs()).isEqualTo(1500L);
     }
 

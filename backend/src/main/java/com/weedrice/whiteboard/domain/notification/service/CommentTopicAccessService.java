@@ -33,7 +33,7 @@ public class CommentTopicAccessService {
         Post initialPost = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         Long boardId = initialPost.getBoard().getBoardId();
-        Long authorId = initialPost.getUser().getUserId();
+        Long authorId = initialPost.getUserId();
         UserWritableResolver.LockedUserPair lockedUsers =
                 userWritableResolver.lockUserPairForUpdate(userId, authorId);
         boardRepository.findByIdForUpdate(boardId)
@@ -41,7 +41,7 @@ public class CommentTopicAccessService {
         Post lockedPost = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         if (!boardId.equals(lockedPost.getBoard().getBoardId())
-                || !authorId.equals(lockedPost.getUser().getUserId())) {
+                || !authorId.equals(lockedPost.getUserId())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         validateReadable(lockedUsers.firstUser(), lockedPost);
@@ -63,7 +63,7 @@ public class CommentTopicAccessService {
         }
         boolean authorBlocked = userBlockService.isEitherDirectionBlocked(
                 viewer.getUserId(),
-                post.getUser().getUserId());
+                post.getUserId());
         postAccessPolicy.validateReadable(post, viewer, authorBlocked);
     }
 }

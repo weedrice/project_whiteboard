@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -10,7 +10,7 @@ import java.util.Set;
 
 public final class PostSummaryReadContext {
 
-    private final User viewer;
+    private final ActorUserPrincipal viewer;
     private final Long currentUserId;
     private final List<Long> blockedUserIds;
     private final Set<Long> blockedUserIdSet;
@@ -18,7 +18,7 @@ public final class PostSummaryReadContext {
 
     private PostSummaryReadContext(
             Long currentUserId,
-            User viewer,
+            ActorUserPrincipal viewer,
             Collection<Long> blockedUserIds,
             Collection<Long> activeAdminBoardIds) {
         this.viewer = viewer;
@@ -30,13 +30,13 @@ public final class PostSummaryReadContext {
 
     public static PostSummaryReadContext of(
             Long currentUserId,
-            User viewer,
+            ActorUserPrincipal viewer,
             Collection<Long> blockedUserIds,
             Collection<Long> activeAdminBoardIds) {
         return new PostSummaryReadContext(currentUserId, viewer, blockedUserIds, activeAdminBoardIds);
     }
 
-    public User viewer() {
+    public ActorUserPrincipal viewer() {
         return viewer;
     }
 

@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.comment.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -67,17 +69,17 @@ public class CommentResponse {
         private String profileImageUrl;
     }
 
-    public static CommentResponse from(Comment comment) {
+    public static CommentResponse from(Comment comment, AuthorSnapshot author, CommentPostSnapshot post) {
         boolean blinded = Boolean.TRUE.equals(comment.getIsBlinded());
         AuthorInfo authorInfo = null;
-        if (comment.getUser() != null && !comment.getIsDeleted() && !blinded) {
+        if (author != null && !comment.getIsDeleted() && !blinded) {
             authorInfo = AuthorInfo.builder()
-                    .userId(comment.getUser().getUserId())
-                    .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
-                    .authorType(comment.getAgent() != null ? "AGENT" : "USER")
-                    .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
-                    .profileImageUrl(comment.getAgent() != null ? null : comment.getUser().getProfileImageUrl())
-                    .representativeBadge(comment.getAgent() != null ? null : representativeBadge(comment.getUser().getRepresentativeBadgeCode()))
+                    .userId(author.ownerUserId())
+                    .agentId(author.agentId())
+                    .authorType(author.authorType())
+                    .displayName(author.displayName())
+                    .profileImageUrl(author.agentId() != null ? null : author.profileImageUrl())
+                    .representativeBadge(author.agentId() != null ? null : representativeBadge(author.representativeBadgeCode()))
                     .build();
         }
 
@@ -94,9 +96,9 @@ public class CommentResponse {
                 .blindReason(comment.getBlindReason())
                 .maskedAuthorId(null)
                 .createdAt(comment.getCreatedAt())
-                .postId(comment.getPost().getPostId())
-                .boardUrl(comment.getPost().getBoard().getBoardUrl())
-                .postTitle(comment.getPost().getTitle())
+                .postId(post.postId())
+                .boardUrl(post.boardUrl())
+                .postTitle(post.title())
                 .build();
     }
 

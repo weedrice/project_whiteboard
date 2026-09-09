@@ -5,11 +5,7 @@ final class CommentThreadQueries {
     static final String ROOT_CONTENT = """
             SELECT DISTINCT c
             FROM Comment c
-            JOIN FETCH c.user
-            LEFT JOIN FETCH c.agent
-            JOIN FETCH c.post p
-            JOIN FETCH p.board
-            WHERE c.post.postId = :postId
+            WHERE c.postId = :postId
               AND c.parent IS NULL
               AND (
                     c.isDeleted = false
@@ -21,7 +17,7 @@ final class CommentThreadQueries {
                               AND cc.depth > 0
                               AND descendant.isDeleted = false
                               AND (:blockedUserIdsEmpty = true
-                                   OR descendant.user.userId NOT IN (:blockedUserIds))
+                                   OR descendant.userId NOT IN (:blockedUserIds))
                     )
               )
             """;
@@ -29,7 +25,7 @@ final class CommentThreadQueries {
     static final String ROOT_COUNT = """
             SELECT COUNT(DISTINCT c)
             FROM Comment c
-            WHERE c.post.postId = :postId
+            WHERE c.postId = :postId
               AND c.parent IS NULL
               AND (
                     c.isDeleted = false
@@ -41,7 +37,7 @@ final class CommentThreadQueries {
                               AND cc.depth > 0
                               AND descendant.isDeleted = false
                               AND (:blockedUserIdsEmpty = true
-                                   OR descendant.user.userId NOT IN (:blockedUserIds))
+                                   OR descendant.userId NOT IN (:blockedUserIds))
                     )
               )
             """;

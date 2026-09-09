@@ -1,9 +1,8 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.port.UserActivityPort;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
@@ -43,9 +42,8 @@ public class UserProfileService {
 
     private final UserRepository userRepository;
     private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
-    private final CommentRepository commentRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
-    private final PostRepository postRepository;
+    private final UserActivityPort userActivityPort;
     private final UserBlockRepository userBlockRepository;
     private final FileService fileService;
     private final PointService pointService;
@@ -97,16 +95,15 @@ public class UserProfileService {
             return restrictedProfile(user.getUserId());
         }
 
-        long postCount = postRepository.countPublicProfilePostsByUser(user);
-        long commentCount = commentRepository.countPublicProfileCommentsByUser(user);
+        UserActivityPort.PublicActivityCounts activity = userActivityPort.getPublicActivityCounts(user.getUserId());
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
-                .postCount(postCount)
-                .commentCount(commentCount)
+                .postCount(activity.postCount())
+                .commentCount(activity.commentCount())
                 .build();
     }
 

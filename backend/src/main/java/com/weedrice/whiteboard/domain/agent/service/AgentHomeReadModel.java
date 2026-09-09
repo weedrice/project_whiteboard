@@ -5,7 +5,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
 
 import java.util.List;
 
-record AgentHomeReadModel(
+public record AgentHomeReadModel(
         boolean hasWritableBoardPermission,
         AgentNoteResponses.Summary noteSummary,
         List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts,
@@ -13,7 +13,7 @@ record AgentHomeReadModel(
         List<AgentHomeResponse.RecommendedBoard> recommendedBoards,
         List<AgentHomeResponse.RecentFeedItem> recentFeed) {
 
-    static AgentHomeReadModel empty() {
+    public static AgentHomeReadModel empty() {
         return new AgentHomeReadModel(
                 false,
                 AgentNoteResponses.Summary.builder()

@@ -127,15 +127,16 @@ class ReportAutoBlindService {
             return;
         }
         comment.unblind();
-        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
+        Post post = getPost(comment);
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
-                comment.getPost().getBoard().getBoardUrl());
+                post.getBoard().getBoardUrl());
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,
                 comment.getCommentId(),
-                comment.getPost().getBoard(),
+                post.getBoard(),
                 AUTO_REPORT_REASON);
     }
 
@@ -182,20 +183,26 @@ class ReportAutoBlindService {
             return;
         }
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
-        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
+        Post post = getPost(comment);
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
-                comment.getPost().getBoard().getBoardUrl());
+                post.getBoard().getBoardUrl());
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,
                 comment.getCommentId(),
-                comment.getPost().getBoard(),
+                post.getBoard(),
                 AUTO_REPORT_REASON);
     }
 
     private long pendingReportCount(ReportTargetType targetType, Long targetId) {
         return reportRepository.countByTargetTypeAndTargetIdAndStatus(
                 targetType.name(), targetId, Report.STATUS_PENDING);
+    }
+
+    private Post getPost(Comment comment) {
+        return postRepository.findByIdWithRelations(comment.getPostId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
     }
 }

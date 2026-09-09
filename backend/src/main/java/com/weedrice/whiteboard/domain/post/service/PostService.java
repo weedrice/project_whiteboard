@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.admin.dto.AdminInquirySummaryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -23,8 +23,7 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -47,7 +46,7 @@ public class PostService {
     private static final int DEFAULT_BOARD_POST_PAGE_SIZE = 20;
 
     private final BoardRepository boardRepository;
-    private final UserRepository userRepository;
+    private final PostUserReadPort postUserReadPort;
     private final PostDetailReadService postDetailReadService;
     private final PostDetailViewCommandService postDetailViewCommandService;
     private final PostDraftService postDraftService;
@@ -240,8 +239,8 @@ public class PostService {
     }
 
     @Transactional
-    public int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
-        return postInteractionService.likePost(userId, actorAgent, post);
+    public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Post post) {
+        return postInteractionService.likePost(userId, actorAgentId, post);
     }
 
     @Transactional
@@ -361,7 +360,7 @@ public class PostService {
         if (userId == null) {
             return false;
         }
-        User user = userRepository.findById(userId).orElse(null);
+        ActorUserPrincipal user = postUserReadPort.findOrNull(userId);
         if (user == null) {
             return false;
         }
@@ -377,7 +376,7 @@ public class PostService {
             return false;
         }
 
-        User user = userRepository.findById(userId).orElse(null);
+        ActorUserPrincipal user = postUserReadPort.findOrNull(userId);
         if (user == null) {
             return false;
         }
@@ -403,4 +402,3 @@ public class PostService {
     }
 
 }
-

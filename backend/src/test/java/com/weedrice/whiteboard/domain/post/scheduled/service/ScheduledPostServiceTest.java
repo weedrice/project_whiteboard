@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.integration.PostUserWriteIntegrationAdapter;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
@@ -67,8 +68,7 @@ class ScheduledPostServiceTest {
                 scheduledPostRepository,
                 draftPostRepository,
                 boardRepository,
-                userWritableResolver,
-                sanctionService,
+                new PostUserWriteIntegrationAdapter(userWritableResolver, sanctionService),
                 postAuthorCommandPolicy,
                 scheduledPostRequestPolicy,
                 payloadMapper,
@@ -89,7 +89,7 @@ class ScheduledPostServiceTest {
         ReflectionTestUtils.setField(request, "fileIds", List.of(10L, 11L));
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user.getUserId())).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.saveAndFlush(any(ScheduledPost.class)))
                 .thenAnswer(invocation -> {
                     ScheduledPost saved = invocation.getArgument(0);
@@ -103,7 +103,7 @@ class ScheduledPostServiceTest {
         var lockOrder = org.mockito.Mockito.inOrder(userWritableResolver, boardRepository);
         lockOrder.verify(userWritableResolver).resolveForUpdate(1L);
         lockOrder.verify(boardRepository).findByBoardUrl("scheduled-board");
-        verify(draftPostRepository).findByDraftIdAndUserForUpdate(77L, user);
+        verify(draftPostRepository).findByDraftIdAndUserForUpdate(77L, user.getUserId());
         verify(scheduledPostRepository).existsByDraftId(77L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L, 11L));
     }
@@ -112,7 +112,7 @@ class ScheduledPostServiceTest {
     void createRejectsWhenProtectedScheduleLimitIsReached() {
         ScheduledPostRequest request = requestWithDraft(null);
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
-        when(scheduledPostRepository.countByUser_UserIdAndStatusIn(
+        when(scheduledPostRepository.countByUserIdAndStatusIn(
                 1L, ScheduledPost.PROTECTED_DRAFT_STATUSES)).thenReturn(100L);
 
         assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
@@ -129,7 +129,7 @@ class ScheduledPostServiceTest {
         ScheduledPostRequest request = requestWithDraft(77L);
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user.getUserId())).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.existsByDraftId(77L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
@@ -193,7 +193,7 @@ class ScheduledPostServiceTest {
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
         doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
                 com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
-                .when(scheduledPostRequestPolicy).validate(user, board, request);
+                .when(scheduledPostRequestPolicy).validate(any(), eq(board), eq(request));
 
         assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
@@ -214,7 +214,7 @@ class ScheduledPostServiceTest {
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L))
                 .thenReturn(Optional.of(scheduledPost));
-        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user.getUserId())).thenReturn(Optional.of(draft));
 
         var response = service.update(1L, 9L, request);
 
@@ -260,7 +260,7 @@ class ScheduledPostServiceTest {
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
         doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
                 com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
-                .when(scheduledPostRequestPolicy).validate(user, board, request);
+                .when(scheduledPostRequestPolicy).validate(any(), eq(board), eq(request));
 
         assertThatThrownBy(() -> service.update(1L, 9L, request))
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)

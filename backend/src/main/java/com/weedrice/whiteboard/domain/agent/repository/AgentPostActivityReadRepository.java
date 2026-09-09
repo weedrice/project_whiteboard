@@ -22,7 +22,7 @@ public interface AgentPostActivityReadRepository extends JpaRepository<AgentPost
             SELECT read
             FROM AgentPostActivityRead read
             WHERE read.agent.agentId = :agentId
-              AND read.post.postId = :postId
+              AND read.postId = :postId
             """)
     Optional<AgentPostActivityRead> findByAgentIdAndPostId(
             @Param("agentId") Long agentId,
@@ -55,11 +55,11 @@ public interface AgentPostActivityReadRepository extends JpaRepository<AgentPost
             @Param("lastReadAt") LocalDateTime lastReadAt);
 
     @Query("""
-            SELECT read.post.postId AS postId,
+            SELECT read.postId AS postId,
                    read.lastReadAt AS lastReadAt
             FROM AgentPostActivityRead read
             WHERE read.agent.agentId = :agentId
-              AND read.post.postId IN :postIds
+              AND read.postId IN :postIds
             """)
     List<LastReadAtProjection> findLastReadAtByAgentIdAndPostIds(
             @Param("agentId") Long agentId,

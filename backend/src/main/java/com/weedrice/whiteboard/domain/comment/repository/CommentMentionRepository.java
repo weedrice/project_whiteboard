@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.List;
 
 public interface CommentMentionRepository extends JpaRepository<CommentMention, Long> {
-    @EntityGraph(attributePaths = {"comment", "user"})
+    @EntityGraph(attributePaths = "comment")
     List<CommentMention> findByCommentCommentIdIn(Collection<Long> commentIds);
 
     void deleteByCommentCommentId(Long commentId);

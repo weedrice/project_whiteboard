@@ -57,15 +57,17 @@ class SanctionTargetResolver {
         if (Boolean.TRUE.equals(post.getIsDeleted())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
-        validateSameTarget(post.getUser(), targetUser);
+        validateSameTarget(post.getUserId(), targetUser);
     }
 
     private void validateCommentTarget(Long commentId, User targetUser) {
         Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
-        if (Boolean.TRUE.equals(comment.getPost().getIsDeleted())) {
+        Post post = postRepository.findById(comment.getPostId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (Boolean.TRUE.equals(post.getIsDeleted())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
-        validateSameTarget(comment.getUser(), targetUser);
+        validateSameTarget(comment.getUserId(), targetUser);
     }
 
     private void validateUserContentTarget(Long userId, User targetUser) {
@@ -74,14 +76,11 @@ class SanctionTargetResolver {
         if (!contentUser.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
-        validateSameTarget(contentUser, targetUser);
+        validateSameTarget(contentUser.getUserId(), targetUser);
     }
 
-    private void validateSameTarget(User contentOwner, User targetUser) {
-        if (!contentOwner.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
-        if (!contentOwner.getUserId().equals(targetUser.getUserId())) {
+    private void validateSameTarget(Long contentOwnerUserId, User targetUser) {
+        if (!contentOwnerUserId.equals(targetUser.getUserId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

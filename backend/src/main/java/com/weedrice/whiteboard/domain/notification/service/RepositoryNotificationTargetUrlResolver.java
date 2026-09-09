@@ -71,9 +71,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                         .collect(Collectors.toMap(Comment::getCommentId, Function.identity()));
         Set<Long> targetPostIds = new java.util.HashSet<>(postIds);
         commentsById.values().stream()
-                .map(Comment::getPost)
-                .filter(Objects::nonNull)
-                .map(Post::getPostId)
+                .map(Comment::getPostId)
                 .filter(Objects::nonNull)
                 .forEach(targetPostIds::add);
         Map<Long, Post> postsById = targetPostIds.isEmpty()
@@ -151,8 +149,8 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
 
         if (isSourceType(notification, NotificationSourceType.COMMENT)) {
             Comment comment = commentsById.get(notification.getSourceId());
-            Post post = comment != null && comment.getPost() != null
-                    ? postsById.get(comment.getPost().getPostId())
+            Post post = comment != null && comment.getPostId() != null
+                    ? postsById.get(comment.getPostId())
                     : null;
             return post != null && readablePostIds.contains(post.getPostId())
                     ? buildCommentTargetUrl(comment, post)
@@ -183,8 +181,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                     : null;
             if (scheduledPost != null
                     && scheduledPost.isEditable()
-                    && scheduledPost.getUser() != null
-                    && Objects.equals(receiverUserId, scheduledPost.getUser().getUserId())) {
+                    && Objects.equals(receiverUserId, scheduledPost.getUserId())) {
                 return "/scheduled-posts/%d/edit".formatted(scheduledPost.getScheduledPostId());
             }
         }

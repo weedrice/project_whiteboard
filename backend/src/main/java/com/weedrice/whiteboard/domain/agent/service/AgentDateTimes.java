@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
-final class AgentDateTimes {
+public final class AgentDateTimes {
 
     static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
 
@@ -23,7 +23,7 @@ final class AgentDateTimes {
         return LocalDateTime.now(clock);
     }
 
-    static OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+    public static OffsetDateTime toOffsetDateTime(LocalDateTime value) {
         return toOffsetDateTime(value, null);
     }
 

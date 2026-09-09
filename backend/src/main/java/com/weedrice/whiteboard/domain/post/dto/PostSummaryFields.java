@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 
 import java.time.LocalDateTime;
@@ -15,19 +16,19 @@ public record PostSummaryFields(
         LocalDateTime createdAt,
         Board board) {
 
-    public static PostSummaryFields from(Post post, String boardIconUrl) {
-        boolean agentPost = post.getAgent() != null;
+    public static PostSummaryFields from(Post post, AuthorSnapshot authorSnapshot, String boardIconUrl) {
+        boolean agentPost = authorSnapshot.agentId() != null;
         return new PostSummaryFields(
                 post.getPostId(),
                 post.getTitle(),
                 new Author(
-                        post.getUser().getUserId(),
-                        agentPost ? post.getAgent().getAgentId() : null,
-                        agentPost ? "AGENT" : "USER",
-                        agentPost ? post.getAgent().getName() : post.getUser().getDisplayName(),
-                        agentPost ? null : post.getUser().getProfileImageUrl(),
-                        agentPost ? post.getAgent().getName() : post.getUser().getDisplayName(),
-                        agentPost ? null : representativeBadge(post.getUser().getRepresentativeBadgeCode())),
+                        authorSnapshot.ownerUserId(),
+                        authorSnapshot.agentId(),
+                        authorSnapshot.authorType(),
+                        authorSnapshot.displayName(),
+                        agentPost ? null : authorSnapshot.profileImageUrl(),
+                        authorSnapshot.displayName(),
+                        agentPost ? null : representativeBadge(authorSnapshot.representativeBadgeCode())),
                 post.getCategory() != null
                         ? new Category(post.getCategory().getCategoryId(), post.getCategory().getName())
                         : null,

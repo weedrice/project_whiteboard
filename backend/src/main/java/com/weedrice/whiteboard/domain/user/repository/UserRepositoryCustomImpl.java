@@ -1,18 +1,13 @@
 package com.weedrice.whiteboard.domain.user.repository;
 
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.admin.entity.QAdmin;
 import com.weedrice.whiteboard.domain.admin.entity.AdminRoles;
-import com.weedrice.whiteboard.domain.comment.entity.QComment;
-import com.weedrice.whiteboard.domain.post.entity.QPost;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.QUser;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -184,10 +179,6 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
             builder.and(user.lastLoginAt.lt(filters.lastLoginTo()));
         }
 
-        if (filters.minActivityCount() != null) {
-            builder.and(totalActivityCountExpression(user).goe(filters.minActivityCount()));
-        }
-
         applyRoleFilter(builder, user, filters.role());
 
         return builder;
@@ -308,23 +299,6 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
             default:
                 throw new IllegalArgumentException("Unsupported role filter: " + role);
         }
-    }
-
-    private NumberExpression<Long> totalActivityCountExpression(QUser user) {
-        QPost post = QPost.post;
-        QComment comment = QComment.comment;
-
-        Expression<Long> postCount = JPAExpressions
-                .select(post.count())
-                .from(post)
-                .where(post.user.eq(user), post.isDeleted.eq(false));
-
-        Expression<Long> commentCount = JPAExpressions
-                .select(comment.count())
-                .from(comment)
-                .where(comment.user.eq(user), comment.isDeleted.eq(false));
-
-        return Expressions.numberTemplate(Long.class, "({0} + {1})", postCount, commentCount);
     }
 
     private long fetchNativeCount(NativeAdminQueryParts queryParts) {

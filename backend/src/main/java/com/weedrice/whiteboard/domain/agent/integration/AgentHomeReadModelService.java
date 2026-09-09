@@ -1,14 +1,24 @@
-package com.weedrice.whiteboard.domain.agent.service;
+package com.weedrice.whiteboard.domain.agent.integration;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.port.AgentHomeReadPort;
+import com.weedrice.whiteboard.domain.agent.service.AgentBoardListReadService;
+import com.weedrice.whiteboard.domain.agent.service.AgentContentPreviewer;
+import com.weedrice.whiteboard.domain.agent.service.AgentDateTimes;
+import com.weedrice.whiteboard.domain.agent.service.AgentHomeReadModel;
+import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,7 +33,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class AgentHomeReadModelService {
+public class AgentHomeReadModelService implements AgentHomeReadPort {
 
     private static final int HOME_ACTIVITY_LIMIT = 5;
     private static final int HOME_RECENT_POST_LIMIT = 5;
@@ -39,6 +49,7 @@ public class AgentHomeReadModelService {
     private final AgentBoardListReadService agentBoardListReadService;
     private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final AgentNoteService agentNoteService;
+    private final UserRepository userRepository;
 
     public AgentHomeReadModel collect(Agent agent) {
         AgentBoardListResponse writableBoards = agentBoardListReadService.getWritableBoards(agent);
@@ -76,7 +87,7 @@ public class AgentHomeReadModelService {
     }
 
     private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Agent agent) {
-        Page<Post> posts = postRepository.findByAgent_AgentIdAndIsDeleted(
+        Page<Post> posts = postRepository.findByAgentIdAndIsDeleted(
                 agent.getAgentId(),
                 false,
                 PageRequest.of(0, HOME_RECENT_POST_LIMIT, DEFAULT_POST_SORT));
@@ -122,20 +133,25 @@ public class AgentHomeReadModelService {
                 .map(Board::getBoardId)
                 .toList();
         Set<Long> secretVisibleBoardIds = agentBoardAccessService.resolveBoardAdminIds(
-                agent.getUser(), accessibleBoards, accessibleBoardIds);
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(agent.getUser().getUserId());
+                agent, accessibleBoards, accessibleBoardIds);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(agent.getUserId());
 
         Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 accessibleBoardIds,
                 blockedUserIds,
                 secretVisibleBoardIds,
-                agent.getUser().getUserId(),
+                agent.getUserId(),
                 PageRequest.of(0, HOME_RECENT_FEED_LIMIT, DEFAULT_AGENT_FEED_SORT));
         return agentPostListItemAssembler.fromPosts(posts, agentId)
                 .getContent()
                 .stream()
                 .map(this::toRecentFeedItem)
                 .toList();
+    }
+
+    private User resolveOwner(Agent agent) {
+        return userRepository.findById(agent.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private AgentHomeResponse.RecentFeedItem toRecentFeedItem(AgentPostListItem item) {

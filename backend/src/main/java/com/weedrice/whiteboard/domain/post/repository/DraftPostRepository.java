@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +22,7 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
     @Query(value = """
             SELECT d
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND NOT EXISTS (
                   SELECT s.scheduledPostId
                   FROM ScheduledPost s
@@ -33,7 +33,7 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             """, countQuery = """
             SELECT COUNT(d)
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND NOT EXISTS (
                   SELECT s.scheduledPostId
                   FROM ScheduledPost s
@@ -41,12 +41,15 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
                     AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
               )
             """)
-    Page<DraftPost> findPageByUserWithBoard(@Param("user") User user, Pageable pageable);
+    Page<DraftPost> findPageByUserWithBoard(@Param("userId") Long userId, Pageable pageable);
+    default Page<DraftPost> findPageByUserWithBoard(UserIdRef user, Pageable pageable) {
+        return findPageByUserWithBoard(user.getUserId(), pageable);
+    }
 
     @Query("""
             SELECT d
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND d.board.boardUrl = :boardUrl
               AND ((:originalPostId IS NULL AND d.originalPost IS NULL)
                    OR d.originalPost.postId = :originalPostId)
@@ -59,15 +62,19 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             ORDER BY d.modifiedAt DESC, d.draftId DESC
             """)
     List<DraftPost> findMatchingByUserAndTarget(
-            @Param("user") User user,
+            @Param("userId") Long userId,
             @Param("boardUrl") String boardUrl,
             @Param("originalPostId") Long originalPostId,
             Pageable pageable);
+    default List<DraftPost> findMatchingByUserAndTarget(
+            UserIdRef user, String boardUrl, Long originalPostId, Pageable pageable) {
+        return findMatchingByUserAndTarget(user.getUserId(), boardUrl, originalPostId, pageable);
+    }
 
     @Query("""
             SELECT d
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND d.clientDraftKey = :clientDraftKey
               AND d.board.boardUrl = :boardUrl
               AND ((:originalPostId IS NULL AND d.originalPost IS NULL)
@@ -80,27 +87,42 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
               )
             """)
     Optional<DraftPost> findRecoverableByUserAndClientDraftKeyAndTarget(
-            @Param("user") User user,
+            @Param("userId") Long userId,
             @Param("clientDraftKey") String clientDraftKey,
             @Param("boardUrl") String boardUrl,
             @Param("originalPostId") Long originalPostId);
+    default Optional<DraftPost> findRecoverableByUserAndClientDraftKeyAndTarget(
+            UserIdRef user, String clientDraftKey, String boardUrl, Long originalPostId) {
+        return findRecoverableByUserAndClientDraftKeyAndTarget(
+                user.getUserId(), clientDraftKey, boardUrl, originalPostId);
+    }
 
-    Optional<DraftPost> findByDraftIdAndUser(Long draftId, User user);
+    Optional<DraftPost> findByDraftIdAndUserId(Long draftId, Long userId);
+    default Optional<DraftPost> findByDraftIdAndUser(Long draftId, UserIdRef user) {
+        return findByDraftIdAndUserId(draftId, user.getUserId());
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT d FROM DraftPost d WHERE d.user = :user AND d.clientDraftKey = :clientDraftKey")
+    @Query("SELECT d FROM DraftPost d WHERE d.userId = :userId AND d.clientDraftKey = :clientDraftKey")
     Optional<DraftPost> findByUserAndClientDraftKeyForUpdate(
-            @Param("user") User user,
+            @Param("userId") Long userId,
             @Param("clientDraftKey") String clientDraftKey);
+    default Optional<DraftPost> findByUserAndClientDraftKeyForUpdate(
+            UserIdRef user, String clientDraftKey) {
+        return findByUserAndClientDraftKeyForUpdate(user.getUserId(), clientDraftKey);
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT d FROM DraftPost d WHERE d.draftId = :draftId AND d.user = :user")
-    Optional<DraftPost> findByDraftIdAndUserForUpdate(@Param("draftId") Long draftId, @Param("user") User user);
+    @Query("SELECT d FROM DraftPost d WHERE d.draftId = :draftId AND d.userId = :userId")
+    Optional<DraftPost> findByDraftIdAndUserForUpdate(@Param("draftId") Long draftId, @Param("userId") Long userId);
+    default Optional<DraftPost> findByDraftIdAndUserForUpdate(Long draftId, UserIdRef user) {
+        return findByDraftIdAndUserForUpdate(draftId, user.getUserId());
+    }
 
     @Query("""
             SELECT COUNT(d)
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND NOT EXISTS (
                   SELECT s.scheduledPostId
                   FROM ScheduledPost s
@@ -108,13 +130,16 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
                     AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
               )
             """)
-    long countDeletableByUser(@Param("user") User user);
+    long countDeletableByUser(@Param("userId") Long userId);
+    default long countDeletableByUser(UserIdRef user) {
+        return countDeletableByUser(user.getUserId());
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT d
             FROM DraftPost d
-            WHERE d.user = :user
+            WHERE d.userId = :userId
               AND NOT EXISTS (
                   SELECT s.scheduledPostId
                   FROM ScheduledPost s
@@ -123,7 +148,10 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
               )
             ORDER BY d.modifiedAt ASC, d.draftId ASC
             """)
-    List<DraftPost> findOldestByUser(@Param("user") User user, Pageable pageable);
+    List<DraftPost> findOldestByUser(@Param("userId") Long userId, Pageable pageable);
+    default List<DraftPost> findOldestByUser(UserIdRef user, Pageable pageable) {
+        return findOldestByUser(user.getUserId(), pageable);
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

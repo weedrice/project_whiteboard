@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -8,12 +11,10 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
+import com.weedrice.whiteboard.domain.comment.port.CommentPostSnapshot;
+import com.weedrice.whiteboard.domain.comment.port.CommentUserPort;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
-import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -48,22 +49,20 @@ public class CommentQueryService {
 
     private final CommentRepository commentRepository;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
-    private final PostRepository postRepository;
-    private final UserBlockRepository userBlockRepository;
-    private final UserReadableResolver userReadableResolver;
-    private final CommentPostAccessService commentPostAccessService;
+    private final CommentPostPort commentPostPort;
+    private final CommentUserPort commentUserPort;
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
     private final CommentMentionRepository commentMentionRepository;
     private final MessageSource messageSource;
+    private final ActorBatchReadPort actorBatchReadPort;
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
-        Post post = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        CommentPostSnapshot post = commentPostPort.getRequired(postId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostAccessService.validateReadable(post, context);
+        commentPostPort.validateReadable(postId, currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         Page<Comment> parentComments = findParentComments(
@@ -78,11 +77,13 @@ public class CommentQueryService {
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
                 parentComments.getContent(),
                 context.blockedUserIds());
+        Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(parentComments.getContent());
         List<CommentResponse> responseContent = parentComments.getContent().stream()
                 .map(comment -> toCommentResponse(commentReadModelAssembler.from(
                         comment,
+                        authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts)))
+                        replyCounts), post))
                 .toList();
         attachMentions(responseContent, context.blockedUserIds());
 
@@ -90,10 +91,9 @@ public class CommentQueryService {
     }
 
     public List<CommentResponse> getBestComments(Long postId, Long currentUserId) {
-        Post post = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        CommentPostSnapshot post = commentPostPort.getRequired(postId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostAccessService.validateReadable(post, context);
+        commentPostPort.validateReadable(postId, currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         List<Comment> comments = commentRepository.findBestRootComments(
@@ -105,11 +105,13 @@ public class CommentQueryService {
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
                 comments,
                 context.blockedUserIds());
+        Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(comments);
         List<CommentResponse> responseContent = comments.stream()
                 .map(comment -> toCommentResponse(commentReadModelAssembler.from(
                         comment,
+                        authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts)))
+                        replyCounts), post))
                 .toList();
         attachMentions(responseContent, context.blockedUserIds());
         return responseContent;
@@ -143,7 +145,8 @@ public class CommentQueryService {
         Comment parentComment = commentRepository.findByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostAccessService.validateReadable(parentComment.getPost(), context);
+        CommentPostSnapshot post = commentPostPort.getRequired(parentComment.getPostId());
+        commentPostPort.validateReadable(parentComment.getPostId(), currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         Page<Comment> replies = commentRepository.findRepliesWithRelations(
@@ -160,11 +163,13 @@ public class CommentQueryService {
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
                 replies.getContent(),
                 context.blockedUserIds());
+        Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(replies.getContent());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
                 .map(comment -> toCommentResponse(commentReadModelAssembler.from(
                         comment,
+                        authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts)))
+                        replyCounts), post))
                 .toList();
         attachMentions(maskedReplies, context.blockedUserIds());
 
@@ -182,43 +187,47 @@ public class CommentQueryService {
     public CommentResponse getComment(Long commentId, Long currentUserId) {
         Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostAccessService.validateReadable(comment.getPost(), context);
-        CommentResponse response = toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
+        CommentPostSnapshot post = commentPostPort.getRequired(comment.getPostId());
+        commentPostPort.validateReadable(comment.getPostId(), currentUserId, context.blockedUserIds());
+        AuthorSnapshot author = actorBatchReadPort.resolveAuthors(List.of(actorRef(comment))).get(actorRef(comment));
+        CommentResponse response = toCommentResponse(
+                commentReadModelAssembler.from(comment, author, context.blockedUserIds()), post);
         attachMentions(List.of(response), context.blockedUserIds());
         return response;
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
-        User user = userReadableResolver.resolve(userId);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
-        CommentReadContext context = resolveReadContext(user);
+        CommentReadContext context = resolveReadContext(userId);
         Set<Long> blockedUserIds = context.blockedUserIds();
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
-        return commentRepository.findVisibleMyComments(
-                user,
-                user.isUsableSuperAdmin(),
+        Page<Comment> comments = commentRepository.findVisibleMyComments(
+                context.viewerUserId(),
+                context.viewerIsSuperAdmin(),
                 blockedUserIdsParameter.empty(),
                 blockedUserIdsParameter.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 inquiryLegacyWritePolicy.areLegacyWritesEnabled(),
-                safePageable)
-                .map(MyCommentResponse::from);
+                safePageable);
+        Map<Long, CommentPostSnapshot> posts = resolvePosts(comments.getContent());
+        return comments.map(comment -> MyCommentResponse.from(comment, posts.get(comment.getPostId())));
     }
 
     public Page<MyCommentResponse> getPublicProfileComments(Long targetUserId, Long viewerUserId, Pageable pageable) {
-        User user = userReadableResolver.resolveActive(targetUserId);
+        commentUserPort.validateActive(targetUserId);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
         if (isRestrictedByBlock(targetUserId, viewerUserId)) {
             return Page.empty(safePageable);
         }
-        return commentRepository.findPublicProfileCommentsByUser(user, safePageable)
-                .map(MyCommentResponse::from);
+        Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(targetUserId, safePageable);
+        Map<Long, CommentPostSnapshot> posts = resolvePosts(comments.getContent());
+        return comments.map(comment -> MyCommentResponse.from(comment, posts.get(comment.getPostId())));
     }
 
     private boolean isRestrictedByBlock(Long targetUserId, Long viewerUserId) {
         return viewerUserId != null
                 && !viewerUserId.equals(targetUserId)
-                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId);
+                && commentUserPort.isEitherDirectionBlocked(viewerUserId, targetUserId);
     }
 
     private boolean hasVisibleReply(Comment parentComment, Set<Long> blockedUserIds) {
@@ -231,16 +240,13 @@ public class CommentQueryService {
 
     private CommentReadContext resolveReadContext(Long currentUserId) {
         if (currentUserId == null) {
-            return new CommentReadContext(null, Set.of());
+            return CommentReadContext.anonymous();
         }
-        return resolveReadContext(userReadableResolver.resolve(currentUserId));
+        CommentUserPort.UserReadContext context = commentUserPort.resolveReadContext(currentUserId);
+        return new CommentReadContext(context.userId(), context.superAdmin(), context.blockedUserIds());
     }
 
-    private CommentReadContext resolveReadContext(User viewer) {
-        return commentPostAccessService.resolveReadContext(viewer);
-    }
-
-    private CommentResponse toCommentResponse(CommentReadModel model) {
+    private CommentResponse toCommentResponse(CommentReadModel model, CommentPostSnapshot post) {
         Comment comment = model.comment();
         CommentReadModel.Author author = model.author();
         boolean deleted = model.status() == CommentReadModel.Status.DELETED;
@@ -260,9 +266,9 @@ public class CommentQueryService {
                 .blindReason(blinded ? comment.getBlindReason() : null)
                 .maskedAuthorId(blockedAuthor ? model.maskedAuthorId() : null)
                 .createdAt(comment.getCreatedAt())
-                .postId(comment.getPost().getPostId())
-                .boardUrl(comment.getPost().getBoard().getBoardUrl())
-                .postTitle(comment.getPost().getTitle())
+                .postId(post.postId())
+                .boardUrl(post.boardUrl())
+                .postTitle(post.title())
                 .replyCount(model.replyCount())
                 .hasReplies(model.hasReplies())
                 .build();
@@ -310,26 +316,50 @@ public class CommentQueryService {
             return;
         }
 
+        Map<ContentActorRef, AuthorSnapshot> mentionedUsers = actorBatchReadPort.resolveAuthors(mentionRows.stream()
+                .map(CommentMention::getUserId)
+                .filter(Objects::nonNull)
+                .map(ContentActorRef::user)
+                .collect(java.util.stream.Collectors.toSet()));
         Map<Long, List<CommentResponse.MentionInfo>> mentionsByCommentId = mentionRows.stream()
                 .filter(mention -> mention.getComment() != null && mention.getComment().getCommentId() != null)
-                .filter(mention -> mention.getUser() != null)
-                .filter(mention -> User.STATUS_ACTIVE.equals(mention.getUser().getStatus()))
-                .filter(mention -> mention.getUser().getDeletedAt() == null)
-                .filter(mention -> !blockedUserIds.contains(mention.getUser().getUserId()))
+                .filter(mention -> mention.getUserId() != null)
+                .filter(mention -> mentionedUsers.containsKey(ContentActorRef.user(mention.getUserId())))
+                .filter(mention -> !blockedUserIds.contains(mention.getUserId()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         mention -> mention.getComment().getCommentId(),
-                        java.util.stream.Collectors.mapping(this::toMentionInfo, java.util.stream.Collectors.toList())));
+                        java.util.stream.Collectors.mapping(
+                                mention -> toMentionInfo(mention,
+                                        mentionedUsers.get(ContentActorRef.user(mention.getUserId()))),
+                                java.util.stream.Collectors.toList())));
 
         responses.forEach(response -> response.setMentions(
                 mentionsByCommentId.getOrDefault(response.getCommentId(), List.of())));
     }
 
-    private CommentResponse.MentionInfo toMentionInfo(CommentMention mention) {
-        User user = mention.getUser();
+    private CommentResponse.MentionInfo toMentionInfo(CommentMention mention, AuthorSnapshot user) {
         return CommentResponse.MentionInfo.builder()
-                .userId(user.getUserId())
-                .displayName(user.getDisplayName())
-                .profileImageUrl(user.getProfileImageUrl())
+                .userId(user.ownerUserId())
+                .displayName(user.displayName())
+                .profileImageUrl(user.profileImageUrl())
                 .build();
+    }
+
+    private Map<ContentActorRef, AuthorSnapshot> resolveAuthors(List<Comment> comments) {
+        return actorBatchReadPort.resolveAuthors(comments.stream()
+                .map(this::actorRef)
+                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    private AuthorSnapshot authorOf(Comment comment, Map<ContentActorRef, AuthorSnapshot> authors) {
+        return authors.get(actorRef(comment));
+    }
+
+    private ContentActorRef actorRef(Comment comment) {
+        return new ContentActorRef(comment.getUserId(), comment.getAgentId());
+    }
+
+    private Map<Long, CommentPostSnapshot> resolvePosts(List<Comment> comments) {
+        return commentPostPort.getAll(comments.stream().map(Comment::getPostId).collect(java.util.stream.Collectors.toSet()));
     }
 }

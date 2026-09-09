@@ -10,11 +10,9 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -68,8 +66,7 @@ public class PostListReadService {
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
-    private final UserRepository userRepository;
-    private final UserBlockRepository userBlockRepository;
+    private final PostUserReadPort postUserReadPort;
     private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
     private final FeedPostSummaryAssembler feedPostSummaryAssembler;
@@ -172,9 +169,7 @@ public class PostListReadService {
     }
 
     private List<PostSummary> toNoticeSummaries(List<Post> notices) {
-        return notices.stream()
-                .map(PostSummary::from)
-                .collect(Collectors.toList());
+        return postSummaryAssembler.assembleLatestPosts(notices, null);
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
@@ -185,23 +180,21 @@ public class PostListReadService {
     }
 
     public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_BOARD_POST_PAGE_SIZE,
                 DEFAULT_MY_POST_SORT,
                 MY_POST_SORT_PROPERTIES);
         Page<Post> posts = inquiryLegacyWritePolicy.areLegacyWritesEnabled()
-                ? postRepository.findByUserAndIsDeleted(user, false, safePageable)
-                : postRepository.findByUserAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
-                        user, false, boardAccessPolicy.getInquiryBoardUrl(), safePageable);
+                ? postRepository.findByUserIdAndIsDeleted(ownerUserId, false, safePageable)
+                : postRepository.findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
+                        ownerUserId, false, boardAccessPolicy.getInquiryBoardUrl(), safePageable);
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
     }
 
     public Page<PostSummary> getPublicProfilePosts(Long targetUserId, Long viewerUserId, @NonNull Pageable pageable) {
-        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Long activeTargetUserId = postUserReadPort.requireActiveUserId(targetUserId);
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_BOARD_POST_PAGE_SIZE,
@@ -210,7 +203,7 @@ public class PostListReadService {
         if (isRestrictedByBlock(targetUserId, viewerUserId)) {
             return Page.empty(safePageable);
         }
-        Page<Post> posts = postRepository.findPublicProfilePostsByUser(user, safePageable);
+        Page<Post> posts = postRepository.findPublicProfilePostsByUserId(activeTargetUserId, safePageable);
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, false);
     }
 
@@ -328,7 +321,7 @@ public class PostListReadService {
     private boolean isRestrictedByBlock(Long targetUserId, Long viewerUserId) {
         return viewerUserId != null
                 && !viewerUserId.equals(targetUserId)
-                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId);
+                && postUserReadPort.isBlockedEitherDirection(viewerUserId, targetUserId);
     }
 
     private void publishSearchRecord(Long currentUserId, String keyword) {

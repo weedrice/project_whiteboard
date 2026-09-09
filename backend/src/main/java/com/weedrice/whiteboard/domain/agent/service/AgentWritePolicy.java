@@ -3,12 +3,13 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
+import com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
-import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.validation.NoHtmlValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,12 +17,14 @@ import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
-class AgentWritePolicy {
+public class AgentWritePolicy {
 
-    private final AgentBoardAccessService agentBoardAccessService;
+    private static final int MAX_POST_TITLE_LENGTH = 200;
+
+    private final AgentBoardAccessPort agentBoardAccessService;
     private final AgentQuotaService agentQuotaService;
 
-    void validateCanPost(Agent agent, AgentPolicySnapshot policy, String action) {
+    public void validateCanPost(Agent agent, AgentPolicySnapshot policy, String action) {
         validateAgentStatus(agent, policy, action);
         if (policy.limits().getPostsRemaining() <= 0) {
             throw writeException(
@@ -33,7 +36,7 @@ class AgentWritePolicy {
         }
     }
 
-    void validateCanComment(Agent agent, AgentPolicySnapshot policy, String action) {
+    public void validateCanComment(Agent agent, AgentPolicySnapshot policy, String action) {
         validateAgentStatus(agent, policy, action);
         if (isCommentRestricted(policy)) {
             throw writeException(
@@ -54,7 +57,7 @@ class AgentWritePolicy {
         }
     }
 
-    void validateBoardReadable(Agent agent, Board board, String action, AgentPolicySnapshot policy) {
+    public void validateBoardReadable(Agent agent, Board board, String action, AgentPolicySnapshot policy) {
         try {
             agentBoardAccessService.validateAgentBoardReadable(agent, board);
         } catch (BusinessException e) {
@@ -70,7 +73,7 @@ class AgentWritePolicy {
         }
     }
 
-    void validateBoardWritable(Agent agent, Board board, BoardCategory category, String action,
+    public void validateBoardWritable(Agent agent, Board board, BoardCategory category, String action,
             AgentPolicySnapshot policy) {
         if (category != null) {
             validateBoardReadable(agent, board, action, policy);
@@ -95,9 +98,9 @@ class AgentWritePolicy {
         }
     }
 
-    void validatePostTitle(String title, String action, AgentPolicySnapshot policy) {
+    public void validatePostTitle(String title, String action, AgentPolicySnapshot policy) {
         try {
-            PostTitleValidator.validate(title);
+            validatePostTitleValue(title);
         } catch (BusinessException e) {
             throw writeException(
                     AgentWriteErrorCode.VALIDATION_FAILED,
@@ -109,7 +112,16 @@ class AgentWritePolicy {
         }
     }
 
-    void validateEncoding(String action, AgentPolicySnapshot policy, String... values) {
+    private void validatePostTitleValue(String title) {
+        if (title == null
+                || title.isBlank()
+                || title.length() > MAX_POST_TITLE_LENGTH
+                || NoHtmlValidator.containsUnsafeHtml(title)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+    }
+
+    public void validateEncoding(String action, AgentPolicySnapshot policy, String... values) {
         for (String value : values) {
             if (AgentContentEncodingValidator.isInvalid(value)) {
                 throw writeException(
@@ -122,7 +134,7 @@ class AgentWritePolicy {
         }
     }
 
-    void reservePostCreation(Agent agent, String action, AgentPolicySnapshot policy) {
+    public void reservePostCreation(Agent agent, String action, AgentPolicySnapshot policy) {
         try {
             agentQuotaService.reservePostCreation(agent);
         } catch (BusinessException e) {
@@ -139,7 +151,7 @@ class AgentWritePolicy {
         }
     }
 
-    void reserveCommentCreation(Agent agent, String action, AgentPolicySnapshot policy) {
+    public void reserveCommentCreation(Agent agent, String action, AgentPolicySnapshot policy) {
         try {
             agentQuotaService.reserveCommentCreation(agent);
         } catch (BusinessException e) {
@@ -156,12 +168,12 @@ class AgentWritePolicy {
         }
     }
 
-    AgentWriteException writeException(AgentWriteErrorCode errorCode, String action,
+    public AgentWriteException writeException(AgentWriteErrorCode errorCode, String action,
             AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
         return writeException(errorCode, null, action, policy, resetAt, nextAllowedAt);
     }
 
-    AgentWriteException writeException(AgentWriteErrorCode errorCode, String message, String action,
+    public AgentWriteException writeException(AgentWriteErrorCode errorCode, String message, String action,
             AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
         return new AgentWriteException(
                 errorCode,
@@ -181,7 +193,7 @@ class AgentWritePolicy {
     }
 
     private void validateAgentStatus(Agent agent, AgentPolicySnapshot policy, String action) {
-        if (agent.getUser() == null || !agent.getUser().isActiveAccount()) {
+        if (agent.getUserId() == null) {
             throw writeException(
                     AgentWriteErrorCode.AGENT_INACTIVE,
                     action,

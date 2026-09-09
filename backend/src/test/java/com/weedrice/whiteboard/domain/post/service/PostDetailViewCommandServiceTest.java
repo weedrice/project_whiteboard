@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
+import com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -25,6 +26,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -61,7 +64,8 @@ class PostDetailViewCommandServiceTest {
     void setUp() {
         BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostReadContextResolver postReadContextResolver =
-                new PostReadContextResolver(userRepository, userBlockService, adminRepository);
+                new PostReadContextResolver(
+                        new PostUserReadIntegrationAdapter(userRepository, userBlockService), adminRepository);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(
                 boardAccessPolicy,
                 mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
@@ -98,14 +102,13 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(1);
         when(postRepository.findViewCountByPostId(100L)).thenReturn(11);
 
         int viewCount = commandService.recordReadableView(100L, 1L);
 
         assertThat(viewCount).isEqualTo(11);
-        verify(viewHistoryCommandService).touchView(user, post);
+        verify(viewHistoryCommandService).touchView(argThat(viewer -> viewer.getUserId().equals(1L)), eq(post));
     }
 
     @Test
@@ -144,7 +147,6 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(0);
 
         assertThatThrownBy(() -> commandService.recordReadableView(100L, 1L))
@@ -162,7 +164,6 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(1);
         when(postRepository.findViewCountByPostId(100L)).thenReturn(null);
 
@@ -170,6 +171,6 @@ class PostDetailViewCommandServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(viewHistoryCommandService).touchView(user, post);
+        verify(viewHistoryCommandService).touchView(argThat(viewer -> viewer.getUserId().equals(1L)), eq(post));
     }
 }

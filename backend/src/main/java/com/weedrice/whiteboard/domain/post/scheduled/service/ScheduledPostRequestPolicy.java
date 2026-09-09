@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.scheduled.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -7,7 +8,6 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ class ScheduledPostRequestPolicy {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostSeriesRepository postSeriesRepository;
 
-    void validate(User user, Board board, ScheduledPostRequest request) {
+    void validate(ActorUserPrincipal user, Board board, ScheduledPostRequest request) {
         BoardCategory category = resolveActiveCategory(board, request.getCategoryId());
         postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
         validateNoticePermission(user, board, request.isNotice());
@@ -40,17 +40,17 @@ class ScheduledPostRequestPolicy {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
-    private void validateNoticePermission(User user, Board board, boolean notice) {
+    private void validateNoticePermission(ActorUserPrincipal user, Board board, boolean notice) {
         if (notice && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
-    private void validateSeriesOwnership(User user, Long seriesId) {
+    private void validateSeriesOwnership(ActorUserPrincipal user, Long seriesId) {
         if (seriesId == null) {
             return;
         }
-        postSeriesRepository.findBySeriesIdAndOwner_UserId(seriesId, user.getUserId())
+        postSeriesRepository.findBySeriesIdAndOwnerUserId(seriesId, user.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 }

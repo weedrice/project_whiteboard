@@ -49,6 +49,7 @@ class PostDraftCleanupServiceTest {
         cleanupService = new PostDraftCleanupService(
                 draftPostRepository, fileService, clock, cleanupBatchService, meterRegistry);
         user = User.builder().email("draft@example.com").displayName("draft-user").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
         board = Board.builder().boardName("Draft Board").boardUrl("draft-board").build();
     }
 
@@ -57,8 +58,8 @@ class PostDraftCleanupServiceTest {
     void enforceUserDraftLimit_deletesOldestDraftsWithFiles() {
         DraftPost first = draft(1L, "first");
         DraftPost second = draft(2L, "second");
-        when(draftPostRepository.countDeletableByUser(user)).thenReturn(102L);
-        when(draftPostRepository.findOldestByUser(eq(user), any(Pageable.class)))
+        when(draftPostRepository.countDeletableByUser(1L)).thenReturn(102L);
+        when(draftPostRepository.findOldestByUser(eq(1L), any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 
         int deleted = cleanupService.enforceUserDraftLimit(user);

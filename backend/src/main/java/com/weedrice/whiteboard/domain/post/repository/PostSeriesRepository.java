@@ -11,12 +11,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PostSeriesRepository extends JpaRepository<PostSeries, Long> {
-    List<PostSeries> findByOwner_UserIdOrderBySeriesIdDesc(Long ownerUserId);
+    List<PostSeries> findByOwnerUserIdOrderBySeriesIdDesc(Long ownerUserId);
 
-    Optional<PostSeries> findBySeriesIdAndOwner_UserId(Long seriesId, Long ownerUserId);
+    Optional<PostSeries> findBySeriesIdAndOwnerUserId(Long seriesId, Long ownerUserId);
+    default Optional<PostSeries> findBySeriesIdAndOwner_UserId(Long seriesId, Long ownerUserId) {
+        return findBySeriesIdAndOwnerUserId(seriesId, ownerUserId);
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM PostSeries s JOIN FETCH s.owner WHERE s.seriesId = :seriesId AND s.owner.userId = :ownerUserId")
+    @Query("SELECT s FROM PostSeries s WHERE s.seriesId = :seriesId AND s.ownerUserId = :ownerUserId")
     Optional<PostSeries> findBySeriesIdAndOwnerUserIdForUpdate(
             @Param("seriesId") Long seriesId,
             @Param("ownerUserId") Long ownerUserId);
@@ -25,8 +28,7 @@ public interface PostSeriesRepository extends JpaRepository<PostSeries, Long> {
     @Query("""
             SELECT s
             FROM PostSeries s
-            JOIN FETCH s.owner
-            WHERE s.owner.userId = :ownerUserId
+            WHERE s.ownerUserId = :ownerUserId
               AND s.seriesId IN :seriesIds
             ORDER BY s.seriesId ASC
             """)

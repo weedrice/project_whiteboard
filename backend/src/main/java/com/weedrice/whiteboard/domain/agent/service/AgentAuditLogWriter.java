@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentActivityLog;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -31,14 +30,13 @@ public class AgentAuditLogWriter {
     public void saveLog(Long agentId, Long userId, AgentAuditActionType actionType, AgentAuditTargetType targetType,
             Long targetId, String requestIp, String requestPath) {
         Agent agent = agentId != null ? entityManager.getReference(Agent.class, agentId) : null;
-        User user = userId != null ? entityManager.getReference(User.class, userId) : null;
         String normalizedRequestIp = normalizeRequestMetadata(requestIp, MAX_REQUEST_IP_LENGTH, "requestIp");
         String normalizedRequestPath = normalizeRequestMetadata(requestPath, MAX_REQUEST_PATH_LENGTH, "requestPath");
         AgentAuditActionType safeActionType = Objects.requireNonNull(actionType, "actionType must not be null");
         AgentAuditTargetType safeTargetType = Objects.requireNonNull(targetType, "targetType must not be null");
         agentActivityLogRepository.saveAndFlush(AgentActivityLog.builder()
                 .agent(agent)
-                .user(user)
+                .userId(userId)
                 .actionType(safeActionType.getCode())
                 .targetType(safeTargetType.getCode())
                 .targetId(targetId)

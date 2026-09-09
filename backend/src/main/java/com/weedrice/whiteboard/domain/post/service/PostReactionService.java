@@ -1,22 +1,18 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostLike;
 import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.post.port.PostLikeNotificationPort;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +23,7 @@ public class PostReactionService {
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final PostLikeNotificationPort postLikeNotificationPort;
     private final ReactionWriter reactionWriter;
     private final BadgeEvaluationService badgeEvaluationService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
@@ -37,11 +33,10 @@ public class PostReactionService {
     }
 
     @Transactional
-    public int like(User user, Agent actorAgent, Post post) {
-        User postOwner = resolvePostOwner(post);
+    public int like(ContentActorRef actor, Post post) {
         Long postId = post.getPostId();
         PostLike postLike = PostLike.builder()
-                .user(user)
+                .userId(actor.ownerUserId())
                 .post(post)
                 .build();
         reactionWriter.insertOrThrowDuplicate(
@@ -50,17 +45,8 @@ public class PostReactionService {
 
         incrementPostLikeCount(postId);
         int likeCount = getPostLikeCount(postId);
-        NotificationEvent event = NotificationEvent.localized(
-                postOwner,
-                user,
-                actorAgent,
-                NotificationType.LIKE,
-                NotificationSourceType.POST,
-                postId,
-                "notification.post.liked",
-                resolveNotificationActorName(user, actorAgent));
-        eventPublisher.publishEvent(event);
-        badgeEvaluationService.evaluatePopularPostBadges(postOwner.getUserId(), likeCount);
+        postLikeNotificationPort.publishPostLiked(post.getUserId(), actor, postId);
+        badgeEvaluationService.evaluatePopularPostBadges(post.getUserId(), likeCount);
         anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
         return likeCount;
     }
@@ -98,14 +84,4 @@ public class PostReactionService {
         }
     }
 
-    private User resolvePostOwner(Post post) {
-        return post.getAgent() != null ? post.getAgent().getUser() : post.getUser();
-    }
-
-    private String resolveNotificationActorName(User user, Agent actorAgent) {
-        if (actorAgent != null && actorAgent.getName() != null && !actorAgent.getName().isBlank()) {
-            return actorAgent.getName();
-        }
-        return user.getDisplayName();
-    }
 }

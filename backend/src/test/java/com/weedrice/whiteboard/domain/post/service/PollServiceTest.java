@@ -55,7 +55,15 @@ class PollServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, sanctions,
+        User defaultUser = mock(User.class);
+        org.mockito.Mockito.lenient().when(defaultUser.getUserId()).thenReturn(1L);
+        org.mockito.Mockito.lenient().when(users.resolveForUpdate(any())).thenReturn(defaultUser);
+        service = new PollService(
+                polls,
+                votes,
+                new com.weedrice.whiteboard.domain.post.integration.PostUserWriteIntegrationAdapter(users, sanctions),
+                postReadContextResolver,
+                postAccessPolicy,
                 inquiryLegacyWritePolicy, CLOCK);
         PostReadContext context = PostReadContext.anonymous();
         when(postReadContextResolver.resolveForResolvedUser(any())).thenReturn(context);
@@ -107,7 +115,8 @@ class PollServiceTest {
     void voteReplacesPriorVotes() {
         User user = mock(User.class);
         Poll poll = poll(true, null);
-        when(users.resolve(7L)).thenReturn(user);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
+        when(user.getUserId()).thenReturn(7L);
         when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
         when(votes.countByOption(20L)).thenReturn(List.of());
         when(votes.findSelectedOptionIds(20L, 7L)).thenReturn(List.of(101L, 102L));
@@ -115,19 +124,19 @@ class PollServiceTest {
         var response = service.vote(7L, 2L, List.of(101L, 102L));
 
         assertEquals(2, response.getOptions().stream().filter(option -> option.isSelected()).count());
-        verify(votes).deleteByPoll_PollIdAndUser_UserId(20L, 7L);
+        verify(votes).deleteByPoll_PollIdAndUserId(20L, 7L);
         verify(votes, org.mockito.Mockito.times(2)).save(any());
     }
 
     @Test
     void voteRejectsDuplicateSelections() {
-        when(users.resolve(7L)).thenReturn(mock(User.class));
+        when(users.resolveForUpdate(7L)).thenReturn(mock(User.class));
         Poll poll = poll(true, null);
         when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
 
         assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L, 101L)));
 
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     @Test
@@ -140,21 +149,21 @@ class PollServiceTest {
         assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L)));
 
         verify(polls, never()).findByPostIdForUpdate(any());
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     @Test
     void voteRejectsUnreadablePostBeforeMutation() {
         User user = mock(User.class);
         Poll poll = poll(true, null);
-        when(users.resolve(7L)).thenReturn(user);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
         when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
         doThrow(new BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.POST_NOT_FOUND))
                 .when(postAccessPolicy).validateReadable(any(), any(), eq(false), any());
 
         assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L)));
 
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     @Test
@@ -175,7 +184,7 @@ class PollServiceTest {
 
         assertSame(com.weedrice.whiteboard.global.exception.ErrorCode.LEGACY_INQUIRY_READ_ONLY,
                 exception.getErrorCode());
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
         verify(votes, never()).save(any());
     }
 
@@ -184,7 +193,7 @@ class PollServiceTest {
         User user = mock(User.class);
         Poll poll = poll(true, null);
         when(poll.getPost().getIsBlinded()).thenReturn(true);
-        when(users.resolve(7L)).thenReturn(user);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
         when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
 
         BusinessException exception = assertThrows(
@@ -193,7 +202,7 @@ class PollServiceTest {
 
         assertSame(com.weedrice.whiteboard.global.exception.ErrorCode.POST_NOT_FOUND, exception.getErrorCode());
         verify(postAccessPolicy, never()).validateReadable(any(), any(), any(Boolean.class), any());
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     @Test
@@ -220,7 +229,7 @@ class PollServiceTest {
         when(votes.findSelectedOptionIds(20L, 1L)).thenReturn(List.of());
 
         service.deleteVote(1L, 5L);
-        verify(votes).deleteByPoll_PollIdAndUser_UserId(20L, 1L);
+        verify(votes).deleteByPoll_PollIdAndUserId(20L, 1L);
     }
 
     @Test
@@ -230,7 +239,7 @@ class PollServiceTest {
 
         assertThrows(BusinessException.class, () -> service.deleteVote(1L, 5L));
 
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     @Test
@@ -243,7 +252,7 @@ class PollServiceTest {
         assertThrows(BusinessException.class, () -> service.deleteVote(7L, 2L));
 
         verify(polls, never()).findByPostIdForUpdate(any());
-        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUserId(any(), any());
     }
 
     private static PollRequest request(String question, List<String> options, boolean multiple, LocalDateTime closesAt) {

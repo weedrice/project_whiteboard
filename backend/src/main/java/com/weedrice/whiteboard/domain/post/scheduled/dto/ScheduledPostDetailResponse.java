@@ -57,7 +57,7 @@ public class ScheduledPostDetailResponse {
         return ScheduledPostDetailResponse.builder()
                 .scheduledPostId(scheduledPost.getScheduledPostId())
                 .status(scheduledPost.getStatus())
-                .userId(scheduledPost.getUser().getUserId())
+                .userId(scheduledPost.getUserId())
                 .boardId(scheduledPost.getBoard().getBoardId())
                 .boardUrl(scheduledPost.getBoard().getBoardUrl())
                 .boardName(scheduledPost.getBoard().getBoardName())

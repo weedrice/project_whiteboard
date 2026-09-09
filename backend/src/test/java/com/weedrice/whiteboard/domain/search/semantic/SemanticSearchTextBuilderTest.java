@@ -43,7 +43,7 @@ class SemanticSearchTextBuilderTest {
                 .content("<span>comment content</span>")
                 .build();
 
-        String result = textBuilder.buildCommentText(comment);
+        String result = textBuilder.buildCommentText(comment, post);
 
         assertThat(result).contains("comment", "qna", "post title", "comment content");
         assertThat(result).doesNotContain("<span>");

@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -24,6 +25,7 @@ class SemanticSearchIndexTransactionServiceTest {
     private PostRepository postRepository;
     private CommentRepository commentRepository;
     private BoardRepository boardRepository;
+    private UserRepository userRepository;
     private SemanticSearchEmbeddingRepository embeddingRepository;
     private SemanticSearchTextBuilder textBuilder;
     private SemanticSearchIndexTransactionService transactionService;
@@ -33,12 +35,14 @@ class SemanticSearchIndexTransactionServiceTest {
         postRepository = mock(PostRepository.class);
         commentRepository = mock(CommentRepository.class);
         boardRepository = mock(BoardRepository.class);
+        userRepository = mock(UserRepository.class);
         embeddingRepository = mock(SemanticSearchEmbeddingRepository.class);
         textBuilder = new SemanticSearchTextBuilder();
         transactionService = new SemanticSearchIndexTransactionService(
                 postRepository,
                 commentRepository,
                 boardRepository,
+                userRepository,
                 textBuilder,
                 embeddingRepository);
     }
@@ -74,7 +78,7 @@ class SemanticSearchIndexTransactionServiceTest {
         Post post = post("title", "body");
         Comment currentComment = Comment.builder()
                 .post(post)
-                .user(post.getUser())
+                .userId(post.getUserId())
                 .content("new comment")
                 .build();
         ReflectionTestUtils.setField(currentComment, "commentId", 2L);
@@ -94,7 +98,7 @@ class SemanticSearchIndexTransactionServiceTest {
     void upsertCommentRejectsPayloadWhenCommentRelationshipChangedAfterEmbedding() {
         Post indexedPost = post("title", "body");
         Comment indexedComment = comment(indexedPost, "comment");
-        String embeddingText = textBuilder.buildCommentText(indexedComment);
+        String embeddingText = textBuilder.buildCommentText(indexedComment, indexedPost);
         SemanticSearchCommentIndexPayload payload = new SemanticSearchCommentIndexPayload(
                 2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
 
@@ -135,11 +139,11 @@ class SemanticSearchIndexTransactionServiceTest {
         Post post = post("title", "body");
         Comment comment = Comment.builder()
                 .post(post)
-                .user(post.getUser())
+                .userId(post.getUserId())
                 .content("comment")
                 .build();
         ReflectionTestUtils.setField(comment, "commentId", 2L);
-        String embeddingText = textBuilder.buildCommentText(comment);
+        String embeddingText = textBuilder.buildCommentText(comment, post);
         SemanticSearchCommentIndexPayload payload =
                 new SemanticSearchCommentIndexPayload(
                         2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
@@ -187,7 +191,8 @@ class SemanticSearchIndexTransactionServiceTest {
     @Test
     void loadPostIndexPayloadSkipsInactiveAuthorBeforeEmbedding() {
         Post post = post("title", "inactive author body");
-        ReflectionTestUtils.setField(post.getUser(), "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
@@ -233,7 +238,8 @@ class SemanticSearchIndexTransactionServiceTest {
     void loadCommentIndexPayloadSkipsInactiveCommentAuthorBeforeEmbedding() {
         Post post = post("title", "body");
         Comment comment = comment(post, "hidden comment");
-        ReflectionTestUtils.setField(comment.getUser(), "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
         when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
 
         assertThat(transactionService.loadCommentIndexPayload(2L)).isNull();
@@ -243,7 +249,7 @@ class SemanticSearchIndexTransactionServiceTest {
     void upsertCommentTombstonesWhenParentPostBecameUnindexableAfterEmbedding() {
         Post post = post("title", "body");
         Comment comment = comment(post, "comment");
-        String embeddingText = textBuilder.buildCommentText(comment);
+        String embeddingText = textBuilder.buildCommentText(comment, post);
         SemanticSearchCommentIndexPayload payload =
                 new SemanticSearchCommentIndexPayload(
                         2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
@@ -265,6 +271,8 @@ class SemanticSearchIndexTransactionServiceTest {
     private Post post(String title, String contents) {
         User user = User.builder().displayName("writer").build();
         ReflectionTestUtils.setField(user, "userId", 100L);
+        lenient().when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(user));
         Board board = Board.builder().boardName("board").boardUrl("board").creator(user).build();
         ReflectionTestUtils.setField(board, "boardId", 10L);
         Post post = Post.builder()
@@ -280,7 +288,7 @@ class SemanticSearchIndexTransactionServiceTest {
     private Comment comment(Post post, String content) {
         Comment comment = Comment.builder()
                 .post(post)
-                .user(post.getUser())
+                .userId(post.getUserId())
                 .content(content)
                 .build();
         ReflectionTestUtils.setField(comment, "commentId", 2L);

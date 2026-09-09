@@ -10,6 +10,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class CommentLikeId implements Serializable {
-    private Long user;
+    private Long userId;
     private Long comment;
 }

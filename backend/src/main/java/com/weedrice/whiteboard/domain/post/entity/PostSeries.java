@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -18,9 +18,8 @@ public class PostSeries extends BaseTimeEntity {
     @Column(name = "series_id")
     private Long seriesId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_user_id", nullable = false)
-    private User owner;
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
 
     @Column(name = "title", nullable = false, length = 120)
     private String title;
@@ -29,10 +28,17 @@ public class PostSeries extends BaseTimeEntity {
     private String description;
 
     @Builder
-    public PostSeries(User owner, String title, String description) {
-        this.owner = owner;
+    public PostSeries(Long ownerUserId, String title, String description) {
+        this.ownerUserId = ownerUserId;
         this.title = title;
         this.description = description;
+    }
+
+    public static class PostSeriesBuilder {
+        public PostSeriesBuilder owner(UserIdRef owner) {
+            this.ownerUserId = owner == null ? null : owner.getUserId();
+            return this;
+        }
     }
 
     public void update(String title, String description) {

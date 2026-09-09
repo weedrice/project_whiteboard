@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +16,7 @@ public class AgentAuditService {
 
     private final AgentAuditLogWriter agentAuditLogWriter;
 
-    public void saveLog(Agent agent, User user, AgentAuditActionType actionType, AgentAuditTargetType targetType,
+    public void saveLog(Agent agent, Long userId, AgentAuditActionType actionType, AgentAuditTargetType targetType,
             Long targetId,
             AgentRequestContext context) {
         AgentAuditActionType safeActionType = Objects.requireNonNull(actionType, "actionType must not be null");
@@ -25,7 +24,7 @@ public class AgentAuditService {
         AgentRequestContext safeContext = context != null ? context : AgentRequestContext.empty();
         AgentAuditCommand command = new AgentAuditCommand(
                 agent != null ? agent.getAgentId() : null,
-                user != null ? user.getUserId() : null,
+                userId,
                 safeActionType,
                 safeTargetType,
                 targetId,

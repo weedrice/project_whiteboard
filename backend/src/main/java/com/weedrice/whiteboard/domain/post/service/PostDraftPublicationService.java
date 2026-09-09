@@ -6,7 +6,7 @@ import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +22,12 @@ class PostDraftPublicationService {
     private final ScheduledPostRepository scheduledPostRepository;
     private final FileService fileService;
 
-    DraftPost lockAndValidateForPublication(Long draftId, User user, Board targetBoard, Long targetPostId,
+    DraftPost lockAndValidateForPublication(Long draftId, UserIdRef user, Board targetBoard, Long targetPostId,
             Long publishingScheduledPostId) {
         if (draftId == null) {
             return null;
         }
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (!Objects.equals(draftPost.getBoard().getBoardId(), targetBoard.getBoardId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

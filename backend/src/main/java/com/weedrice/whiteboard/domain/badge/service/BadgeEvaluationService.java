@@ -32,7 +32,7 @@ public class BadgeEvaluationService {
         if (user == null) {
             return 0;
         }
-        long count = postRepository.countByUserAndIsDeleted(user, false);
+        long count = postRepository.countByUserIdAndIsDeleted(user.getUserId(), false);
         return awardPostCountBadges(userId, count);
     }
 
@@ -42,7 +42,7 @@ public class BadgeEvaluationService {
         if (user == null) {
             return 0;
         }
-        long count = commentRepository.countByUserAndIsDeleted(user, false);
+        long count = commentRepository.countByUserIdAndIsDeleted(user.getUserId(), false);
         return awardCommentCountBadges(userId, count);
     }
 

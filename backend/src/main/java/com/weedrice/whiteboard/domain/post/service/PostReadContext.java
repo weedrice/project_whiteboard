@@ -3,14 +3,14 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 record PostReadContext(
-        User viewer,
+        ActorUserPrincipal viewer,
         Long currentUserId,
         List<Long> blockedUserIds,
         Set<Long> blockedUserIdSet,
@@ -55,8 +55,8 @@ record PostReadContext(
     boolean isAuthorBlocked(Post post) {
         return viewer != null
                 && post != null
-                && post.getUser() != null
-                && blockedUserIdSet.contains(post.getUser().getUserId());
+                && post.getUserId() != null
+                && blockedUserIdSet.contains(post.getUserId());
     }
 
     boolean canViewSecretPosts(Board board, BoardAccessPolicy boardAccessPolicy) {

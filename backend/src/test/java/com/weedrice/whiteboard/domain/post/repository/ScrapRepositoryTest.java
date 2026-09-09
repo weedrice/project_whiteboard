@@ -108,7 +108,7 @@ class ScrapRepositoryTest {
         assertThat(persistenceUnitUtil.isLoaded(scrap.getPost(), "board")).isTrue();
         assertThat(persistenceUnitUtil.isLoaded(scrap.getPost(), "user")).isTrue();
         assertThat(scrap.getPost().getBoard().getBoardName()).isEqualTo("free");
-        assertThat(scrap.getPost().getUser().getDisplayName()).isEqualTo("작성자");
+        assertThat(scrap.getPost().getUserId()).isEqualTo(author.getUserId());
     }
 
     @Test

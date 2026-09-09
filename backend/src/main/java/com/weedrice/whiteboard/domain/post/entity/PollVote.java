@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,14 +35,20 @@ public class PollVote extends BaseTimeEntity {
     @JoinColumn(name = "option_id", nullable = false)
     private PollOption option;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Builder
-    public PollVote(Poll poll, PollOption option, User user) {
+    public PollVote(Poll poll, PollOption option, Long userId) {
         this.poll = poll;
         this.option = option;
-        this.user = user;
+        this.userId = userId;
+    }
+
+    public static class PollVoteBuilder {
+        public PollVoteBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
     }
 }

@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentSummaryAssembler;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -48,6 +49,7 @@ public class SearchPreviewReadService {
     private final PostSummaryAssembler postSummaryAssembler;
     private final IntegratedSearchAssembler integratedSearchAssembler;
     private final SearchUserLookupPolicy searchUserLookupPolicy;
+    private final CommentSummaryAssembler commentSummaryAssembler;
 
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         return integratedSearch(keyword, 0, SEARCH_PREVIEW_LIMIT, currentUserId);
@@ -70,9 +72,8 @@ public class SearchPreviewReadService {
                 blockedUserIds, currentUserId, previewPageable);
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
-        Page<CommentResponse> comments = commentRepository
-                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)
-                .map(CommentResponse::from);
+        Page<CommentResponse> comments = commentSummaryAssembler.assemble(commentRepository
+                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable));
 
         Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
                 .map(UserSummary::from);
@@ -129,15 +130,14 @@ public class SearchPreviewReadService {
 
         Page<CommentResponse> comments = hasPostOnlyFilters
                 ? Page.empty(commentPreviewPageable)
-                : commentRepository
+                : commentSummaryAssembler.assemble(commentRepository
                         .searchCommentsByKeyword(
                                 canonicalKeyword,
                                 boardContext.boardUrl(),
                                 blockedUserIds,
                                 boardContext.includeSecret(),
                                 currentUserId,
-                                commentPreviewPageable)
-                        .map(CommentResponse::from);
+                                commentPreviewPageable));
 
         boolean boardScoped = boardContext.boardUrl() != null;
         Page<UserSummary> users = hasPostOnlyFilters || boardScoped

@@ -29,6 +29,7 @@ class PostSeriesRepositoryTest {
         EntityGraph entityGraph = method.getAnnotation(EntityGraph.class);
 
         assertThat(entityGraph).isNotNull();
-        assertThat(entityGraph.attributePaths()).contains("post", "post.board", "post.user");
+        assertThat(entityGraph.attributePaths()).contains("post", "post.board");
+        assertThat(entityGraph.attributePaths()).doesNotContain("post.user");
     }
 }

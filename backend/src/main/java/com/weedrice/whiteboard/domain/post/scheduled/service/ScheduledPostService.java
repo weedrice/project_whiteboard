@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.scheduled.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
@@ -11,10 +12,8 @@ import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -52,8 +51,7 @@ public class ScheduledPostService {
     private final ScheduledPostRepository scheduledPostRepository;
     private final DraftPostRepository draftPostRepository;
     private final BoardRepository boardRepository;
-    private final UserWritableResolver userWritableResolver;
-    private final SanctionService sanctionService;
+    private final PostUserWritePort postUserWritePort;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final ScheduledPostRequestPolicy scheduledPostRequestPolicy;
     private final ScheduledPostPayloadMapper payloadMapper;
@@ -63,9 +61,8 @@ public class ScheduledPostService {
 
     @Transactional
     public ScheduledPostResponse create(Long userId, String boardUrl, ScheduledPostRequest request) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
-        if (scheduledPostRepository.countByUser_UserIdAndStatusIn(
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
+        if (scheduledPostRepository.countByUserIdAndStatusIn(
                 userId, ScheduledPost.PROTECTED_DRAFT_STATUSES) >= MAX_PROTECTED_SCHEDULED_POSTS_PER_USER) {
             throw new BusinessException(ErrorCode.SCHEDULED_POST_LIMIT_EXCEEDED);
         }
@@ -79,7 +76,7 @@ public class ScheduledPostService {
         validateDraftAvailability(request.getDraftId(), null);
 
         ScheduledPost scheduledPost = ScheduledPost.builder()
-                .user(user)
+                .userId(user.getUserId())
                 .board(board)
                 .categoryId(request.getCategoryId())
                 .title(request.getTitle())
@@ -106,9 +103,9 @@ public class ScheduledPostService {
     }
 
     public Page<ScheduledPostResponse> getMine(Long userId, Pageable pageable) {
-        userWritableResolver.resolve(userId);
+        postUserWritePort.validate(userId);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_PAGE_SIZE, DEFAULT_SORT);
-        return scheduledPostRepository.findByUser_UserIdOrderByScheduledAtDescScheduledPostIdDesc(userId, safePageable)
+        return scheduledPostRepository.findByUserIdOrderByScheduledAtDescScheduledPostIdDesc(userId, safePageable)
                 .map(ScheduledPostResponse::from);
     }
 
@@ -118,8 +115,7 @@ public class ScheduledPostService {
 
     @Transactional
     public ScheduledPostResponse update(Long userId, Long scheduledPostId, ScheduledPostRequest request) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
         ScheduledPost scheduledPost = loadOwnedForUpdate(userId, scheduledPostId);
         if (!scheduledPost.isEditable()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -155,7 +151,7 @@ public class ScheduledPostService {
 
     @Transactional
     public void cancel(Long userId, Long scheduledPostId) {
-        userWritableResolver.resolve(userId);
+        postUserWritePort.validate(userId);
         int updated = scheduledPostRepository.cancelOwned(scheduledPostId, userId, now());
         if (updated == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -198,7 +194,7 @@ public class ScheduledPostService {
     }
 
     private ScheduledPost loadOwned(Long userId, Long scheduledPostId) {
-        return scheduledPostRepository.findByScheduledPostIdAndUser_UserId(scheduledPostId, userId)
+        return scheduledPostRepository.findByScheduledPostIdAndUserId(scheduledPostId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
@@ -237,11 +233,11 @@ public class ScheduledPostService {
         }
     }
 
-    private void validateDraftReference(Long draftId, User user, Board board) {
+    private void validateDraftReference(Long draftId, ActorUserPrincipal user, Board board) {
         if (draftId == null) {
             return;
         }
-        DraftPost draft = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
+        DraftPost draft = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (!draft.getBoard().getBoardId().equals(board.getBoardId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

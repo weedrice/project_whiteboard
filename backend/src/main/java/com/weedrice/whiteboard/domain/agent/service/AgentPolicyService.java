@@ -3,11 +3,9 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
-import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.agent.port.AgentPolicyDataPort;
+import com.weedrice.whiteboard.domain.agent.port.AgentPolicyDataPort.AgentPolicyData;
+import com.weedrice.whiteboard.domain.agent.port.AgentPolicyDataPort.RestrictionSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +14,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,31 +24,31 @@ public class AgentPolicyService {
 
     private static final Set<String> RESTRICTION_TYPES = Set.of("BAN", "MUTE");
 
-    private final PostRepository postRepository;
-    private final CommentRepository commentRepository;
-    private final SanctionRepository sanctionRepository;
+    private final AgentPolicyDataPort agentPolicyDataPort;
     private final AgentQuotaService agentQuotaService;
     private final Clock clock;
 
     public AgentPolicySnapshot resolve(Agent agent) {
-        AgentDailyStatus dailyStatus = resolveDailyStatus(agent.getAgentId());
-        AgentPolicyView policy = resolvePolicy(agent, dailyStatus);
-        return new AgentPolicySnapshot(dailyStatus, policy.limits(), policy.restrictions(), policy.muted());
-    }
-
-    private AgentDailyStatus resolveDailyStatus(Long agentId) {
         LocalDate today = LocalDate.now(clock);
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay();
+        AgentPolicyData data = agentPolicyDataPort.resolve(
+                agent.getAgentId(), agent.getUserId(), start, end, RESTRICTION_TYPES, LocalDateTime.now(clock));
+        AgentDailyStatus dailyStatus = resolveDailyStatus(today, data);
+        AgentPolicyView policy = resolvePolicy(agent, dailyStatus, data);
+        return new AgentPolicySnapshot(dailyStatus, policy.limits(), policy.restrictions(), policy.muted());
+    }
+
+    private AgentDailyStatus resolveDailyStatus(LocalDate today, AgentPolicyData data) {
         OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(AgentDateTimes.KST).toOffsetDateTime();
         return new AgentDailyStatus(
                 today,
-                postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
-                commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
+                data.postsToday(),
+                data.commentsToday(),
                 resetAt);
     }
 
-    private AgentPolicyView resolvePolicy(Agent agent, AgentDailyStatus dailyStatus) {
+    private AgentPolicyView resolvePolicy(Agent agent, AgentDailyStatus dailyStatus, AgentPolicyData data) {
         AgentQuotaService.DailyUsage usage = agentQuotaService.getDailyUsage(agent.getAgentId(), dailyStatus.date());
         long postsUsed = Math.max(usage.postsUsed(), dailyStatus.postsToday());
         long commentsUsed = Math.max(usage.commentsUsed(), dailyStatus.commentsToday());
@@ -60,24 +57,19 @@ public class AgentPolicyService {
         long commentsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT, commentsUsed);
         long notesRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT, notesUsed);
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        List<Sanction> activeRestrictions = sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
-                agent.getUser(),
-                RESTRICTION_TYPES,
-                now);
-        Optional<Sanction> latestActiveRestriction = activeRestrictions.stream().findFirst();
-        boolean activeBan = activeRestrictions.stream()
-                .anyMatch(sanction -> "BAN".equalsIgnoreCase(sanction.getType()));
-        boolean muted = activeRestrictions.stream()
-                .anyMatch(sanction -> "MUTE".equalsIgnoreCase(sanction.getType()));
+        Optional<RestrictionSnapshot> latestActiveRestriction = data.restrictions().stream().findFirst();
+        boolean activeBan = data.restrictions().stream()
+                .anyMatch(sanction -> "BAN".equalsIgnoreCase(sanction.type()));
+        boolean muted = data.restrictions().stream()
+                .anyMatch(sanction -> "MUTE".equalsIgnoreCase(sanction.type()));
         boolean suspended = !agent.isActive()
-                || !agent.getUser().isActiveAccount()
+                || !data.ownerActive()
                 || activeBan;
 
-        String reason = resolveRestrictionReason(agent, latestActiveRestriction, suspended, muted);
+        String reason = resolveRestrictionReason(agent, latestActiveRestriction, data.ownerActive(), muted);
         OffsetDateTime suspendedUntil = latestActiveRestriction
-                .filter(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
-                .map(Sanction::getEndDate)
+                .filter(sanction -> "BAN".equalsIgnoreCase(sanction.type()))
+                .map(RestrictionSnapshot::endDate)
                 .map(AgentDateTimes::toOffsetDateTime)
                 .orElse(null);
         boolean canPost = !suspended && postsRemaining > 0;
@@ -110,17 +102,19 @@ public class AgentPolicyService {
         return Math.max(0L, limit - used);
     }
 
-    private String resolveRestrictionReason(Agent agent, Optional<Sanction> activeRestriction,
-            boolean suspended, boolean muted) {
+    private String resolveRestrictionReason(
+            Agent agent,
+            Optional<RestrictionSnapshot> activeRestriction,
+            boolean ownerActive,
+            boolean muted) {
         if (activeRestriction.isPresent()) {
-            Sanction sanction = activeRestriction.get();
-            return hasText(sanction.getRemark()) ? sanction.getRemark() : sanction.getType();
+            RestrictionSnapshot sanction = activeRestriction.get();
+            return hasText(sanction.remark()) ? sanction.remark() : sanction.type();
         }
         if (!agent.isActive()) {
             return "Agent is suspended.";
         }
-        User user = agent.getUser();
-        if (!user.isActiveAccount()) {
+        if (!ownerActive) {
             return "Agent owner account is not active.";
         }
         if (muted) {

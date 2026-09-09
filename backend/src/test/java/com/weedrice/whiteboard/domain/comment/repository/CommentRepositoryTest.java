@@ -113,7 +113,7 @@ class CommentRepositoryTest {
 
         // then
         assertThat(comments.getContent()).isNotEmpty();
-        assertThat(comments.getContent().get(0).getPost()).isEqualTo(post);
+        assertThat(comments.getContent().get(0).getPostId()).isEqualTo(post.getPostId());
     }
 
     @Test
@@ -155,8 +155,8 @@ class CommentRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Comment> result = commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(
-                user,
+        Page<Comment> result = commentRepository.findByUserIdOrderByCreatedAtDescCommentIdDesc(
+                user.getUserId(),
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -702,7 +702,7 @@ class CommentRepositoryTest {
         entityManager.clear();
 
         Page<Comment> result = commentRepository.findVisibleMyComments(
-                user,
+                user.getUserId(),
                 false,
                 true,
                 NO_BLOCKED_USER_IDS,
@@ -712,8 +712,8 @@ class CommentRepositoryTest {
 
         assertThat(result.getTotalElements()).isEqualTo(4L);
         assertThat(result.getContent())
-                .extracting(comment -> comment.getPost().getTitle())
-                .containsExactlyInAnyOrder("Test Post", "Visible Post", "Own Secret Post", "Own Inquiry Post");
+                .extracting(Comment::getContent)
+                .containsExactlyInAnyOrder("Test Comment", "Visible Comment", "Own Secret Comment", "Own Inquiry Comment");
     }
 
     @Test
@@ -726,7 +726,7 @@ class CommentRepositoryTest {
         entityManager.clear();
 
         Page<Comment> result = commentRepository.findVisibleMyComments(
-                user,
+                user.getUserId(),
                 false,
                 false,
                 List.of(blockedAuthor.getUserId()),
@@ -735,8 +735,8 @@ class CommentRepositoryTest {
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
-                .extracting(comment -> comment.getPost().getTitle())
-                .doesNotContain("Blocked Author Post");
+                .extracting(Comment::getContent)
+                .doesNotContain("Blocked Author Comment");
     }
 
     @Test
@@ -755,7 +755,7 @@ class CommentRepositoryTest {
         entityManager.clear();
 
         Page<Comment> result = commentRepository.findVisibleMyComments(
-                user,
+                user.getUserId(),
                 false,
                 true,
                 NO_BLOCKED_USER_IDS,
@@ -764,8 +764,8 @@ class CommentRepositoryTest {
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
-                .extracting(comment -> comment.getPost().getTitle())
-                .contains("Managed Private Post");
+                .extracting(Comment::getContent)
+                .contains("Managed Private Comment");
     }
 
     @Test
@@ -773,7 +773,7 @@ class CommentRepositoryTest {
     void findVisibleMyComments_declaresStableOrdering() throws NoSuchMethodException {
         var method = CommentRepository.class.getMethod(
                 "findVisibleMyComments",
-                User.class,
+                Long.class,
                 boolean.class,
                 boolean.class,
                 Collection.class,
@@ -788,8 +788,8 @@ class CommentRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금과 관계 조회를 선언한다")
-    void findByIdWithRelationsForUpdate_declaresPessimisticWriteLockAndEntityGraph()
+    @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금을 선언하고 교차 EntityGraph를 사용하지 않는다")
+    void findByIdWithRelationsForUpdate_declaresPessimisticWriteLockWithoutCrossDomainEntityGraph()
             throws NoSuchMethodException {
         var method = CommentRepository.class.getMethod("findByIdWithRelationsForUpdate", Long.class);
 
@@ -798,9 +798,7 @@ class CommentRepositoryTest {
 
         assertThat(lock).isNotNull();
         assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
-        assertThat(entityGraph).isNotNull();
-        assertThat(Arrays.asList(entityGraph.attributePaths()))
-                .containsExactlyInAnyOrder("user", "agent", "post", "post.board");
+        assertThat(entityGraph).isNull();
     }
 
     @Test

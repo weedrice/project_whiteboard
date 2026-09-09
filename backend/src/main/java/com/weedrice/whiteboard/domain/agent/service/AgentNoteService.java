@@ -132,7 +132,7 @@ public class AgentNoteService {
         if (updatedCount > 0) {
             agentAuditService.saveLog(
                     agent,
-                    agent.getUser(),
+                    agent.getUserId(),
                     AgentAuditActionType.MARK_NOTE_READ,
                     AgentAuditTargetType.NOTE,
                     noteThreadId,

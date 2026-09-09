@@ -1,8 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
@@ -10,7 +8,8 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.post.port.PostCommentStatusPort;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -42,34 +41,34 @@ public class PostViewHistoryService {
 
     private final ViewHistoryRepository viewHistoryRepository;
     private final ViewHistoryCommandService viewHistoryCommandService;
-    private final CommentRepository commentRepository;
+    private final PostCommentStatusPort postCommentStatusPort;
     private final PostRepository postRepository;
     private final PostSummaryAssembler postSummaryAssembler;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
 
     @Transactional
-    public void touchView(User user, Post post) {
+    public void touchView(ActorUserPrincipal user, Post post) {
         viewHistoryCommandService.touchView(user, post);
     }
 
-    public ViewHistory get(User user, Post post) {
-        return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
+    public ViewHistory get(ActorUserPrincipal user, Post post) {
+        return viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post).orElse(null);
     }
 
     @Transactional
-    public void update(User user, Post post, ViewHistoryRequest request) {
+    public void update(ActorUserPrincipal user, Post post, ViewHistoryRequest request) {
         long durationMs = resolveDurationMs(request);
-        Comment lastReadComment = resolveLastReadComment(post.getPostId(), request.getLastReadCommentId());
+        Long lastReadCommentId = resolveLastReadCommentId(post.getPostId(), request.getLastReadCommentId());
         ViewHistory viewHistory = viewHistoryCommandService.getOrCreateForUpdate(user, post);
         validateDurationAccumulation(viewHistory.getDurationMs(), durationMs);
-        viewHistory.updateView(lastReadComment, durationMs);
+        viewHistory.updateView(lastReadCommentId, durationMs);
     }
 
     public Page<PostSummary> getRecentlyViewedPosts(
             Long userId,
             PostReadContext context,
             Pageable pageable) {
-        User user = context.viewer();
+        ActorUserPrincipal user = context.viewer();
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_PAGE_SIZE, DEFAULT_SORT);
         BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Long> visiblePostIdsPage = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
@@ -114,12 +113,11 @@ public class PostViewHistoryService {
         }
     }
 
-    private Comment resolveLastReadComment(Long postId, Long lastReadCommentId) {
+    private Long resolveLastReadCommentId(Long postId, Long lastReadCommentId) {
         if (lastReadCommentId == null) {
             return null;
         }
-        return commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(lastReadCommentId, postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+        return postCommentStatusPort.requireActiveCommentId(postId, lastReadCommentId);
     }
 
     private record BlockedUserFilter(boolean empty, List<Long> ids) {

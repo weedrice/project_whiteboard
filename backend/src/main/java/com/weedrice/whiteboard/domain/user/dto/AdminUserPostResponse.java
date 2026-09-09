@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.dto;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -30,7 +31,7 @@ public class AdminUserPostResponse {
     private boolean secret;
     private LocalDateTime createdAt;
 
-    public static AdminUserPostResponse from(Post post) {
+    public static AdminUserPostResponse from(Post post, AuthorSnapshot author) {
         return AdminUserPostResponse.builder()
                 .postId(post.getPostId())
                 .boardId(post.getBoard().getBoardId())
@@ -39,9 +40,9 @@ public class AdminUserPostResponse {
                 .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
                 .categoryName(post.getCategory() != null ? post.getCategory().getName() : null)
                 .title(post.getTitle())
-                .authorType(post.getAgent() != null ? "AGENT" : "USER")
-                .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
-                .agentName(post.getAgent() != null ? post.getAgent().getName() : null)
+                .authorType(author.authorType())
+                .agentId(author.agentId())
+                .agentName(author.agentId() != null ? author.displayName() : null)
                 .viewCount(post.getViewCount())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())

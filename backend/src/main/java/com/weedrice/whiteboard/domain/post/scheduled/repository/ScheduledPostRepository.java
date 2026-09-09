@@ -19,7 +19,11 @@ import java.util.Optional;
 
 public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Long> {
 
-    long countByUser_UserIdAndStatusIn(Long userId, Collection<String> statuses);
+    long countByUserIdAndStatusIn(Long userId, Collection<String> statuses);
+
+    default long countByUser_UserIdAndStatusIn(Long userId, Collection<String> statuses) {
+        return countByUserIdAndStatusIn(userId, statuses);
+    }
 
     boolean existsByDraftIdAndStatusIn(Long draftId, List<String> statuses);
 
@@ -33,20 +37,20 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
         Long getScheduledPostId();
     }
 
-    @EntityGraph(attributePaths = {"user", "board"})
-    Optional<ScheduledPost> findByScheduledPostIdAndUser_UserId(Long scheduledPostId, Long userId);
+    @EntityGraph(attributePaths = "board")
+    Optional<ScheduledPost> findByScheduledPostIdAndUserId(Long scheduledPostId, Long userId);
 
-    @EntityGraph(attributePaths = {"user", "board"})
+    @EntityGraph(attributePaths = "board")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM ScheduledPost s WHERE s.scheduledPostId = :scheduledPostId AND s.user.userId = :userId")
+    @Query("SELECT s FROM ScheduledPost s WHERE s.scheduledPostId = :scheduledPostId AND s.userId = :userId")
     Optional<ScheduledPost> findOwnedForUpdate(
             @Param("scheduledPostId") Long scheduledPostId,
             @Param("userId") Long userId);
 
-    @EntityGraph(attributePaths = {"user", "board"})
-    Page<ScheduledPost> findByUser_UserIdOrderByScheduledAtDescScheduledPostIdDesc(Long userId, Pageable pageable);
+    @EntityGraph(attributePaths = "board")
+    Page<ScheduledPost> findByUserIdOrderByScheduledAtDescScheduledPostIdDesc(Long userId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"user", "board"})
+    @EntityGraph(attributePaths = "board")
     List<ScheduledPost> findByScheduledPostIdIn(Collection<Long> scheduledPostIds);
 
     @Query("""
@@ -58,7 +62,7 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             """)
     List<ScheduledPostIdProjection> findDueScheduledPostIds(@Param("now") LocalDateTime now, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"user", "board"})
+    @EntityGraph(attributePaths = "board")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT s
@@ -69,7 +73,7 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             """)
     List<ScheduledPost> findExpiredFailedBefore(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"user", "board"})
+    @EntityGraph(attributePaths = "board")
     Optional<ScheduledPost> findByScheduledPostIdAndStatusAndProcessingStartedAt(
             Long scheduledPostId,
             String status,
@@ -153,7 +157,7 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
                 s.processingStartedAt = null,
                 s.draftId = null
             WHERE s.scheduledPostId = :scheduledPostId
-              AND s.user.userId = :userId
+              AND s.userId = :userId
               AND s.status IN ('SCHEDULED', 'FAILED')
             """)
     int cancelOwned(

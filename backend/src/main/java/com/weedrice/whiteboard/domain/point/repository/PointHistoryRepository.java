@@ -47,4 +47,18 @@ public interface PointHistoryRepository extends JpaRepository<PointHistory, Long
             @Param("types") java.util.Collection<String> types,
             @Param("relatedType") String relatedType,
             @Param("relatedId") Long relatedId);
+
+    @Query("""
+            SELECT COALESCE(SUM(ph.amount), 0)
+            FROM PointHistory ph
+            WHERE ph.user.userId = :userId
+              AND ph.type IN :types
+              AND ph.relatedType = :relatedType
+              AND ph.relatedId = :relatedId
+            """)
+    long sumAmountByUserIdAndTypesAndRelatedTypeAndRelatedId(
+            @Param("userId") Long userId,
+            @Param("types") java.util.Collection<String> types,
+            @Param("relatedType") String relatedType,
+            @Param("relatedId") Long relatedId);
 }

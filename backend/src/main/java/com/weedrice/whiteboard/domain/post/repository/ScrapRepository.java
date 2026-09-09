@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -17,16 +17,16 @@ import jakarta.persistence.LockModeType;
 import java.util.Optional;
 
 public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
-    @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
+    @EntityGraph(attributePaths = { "post", "post.board" })
     @Query(value = """
             SELECT s
             FROM Scrap s
             JOIN s.post p
             JOIN p.board b
-            WHERE s.user = :user
+            WHERE s.userId = :userId
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+              AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
@@ -34,14 +34,14 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             FROM Scrap s
             JOIN s.post p
             JOIN p.board b
-            WHERE s.user = :user
+            WHERE s.userId = :userId
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+              AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             """)
     Page<Scrap> findPageByUserWithPostDetails(
-            @Param("user") User user,
+            @Param("userId") Long userId,
             @Param("folderId") Long folderId,
             @Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
             @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
@@ -49,19 +49,26 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
             @Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
             Pageable pageable);
+    default Page<Scrap> findPageByUserWithPostDetails(
+            UserIdRef user, Long folderId, boolean viewerIsSuperAdmin, boolean blockedUserIdsEmpty,
+            Collection<Long> blockedUserIds, String inquiryBoardUrl,
+            boolean legacyInquiryUserAccessEnabled, Pageable pageable) {
+        return findPageByUserWithPostDetails(user.getUserId(), folderId, viewerIsSuperAdmin,
+                blockedUserIdsEmpty, blockedUserIds, inquiryBoardUrl, legacyInquiryUserAccessEnabled, pageable);
+    }
 
-    @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
+    @EntityGraph(attributePaths = { "post", "post.board" })
     @Query(value = """
             SELECT s
             FROM Scrap s
             JOIN s.post p
             JOIN p.board b
-            WHERE s.user = :user
+            WHERE s.userId = :userId
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
               AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
                    OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
-              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+              AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
@@ -69,16 +76,16 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             FROM Scrap s
             JOIN s.post p
             JOIN p.board b
-            WHERE s.user = :user
+            WHERE s.userId = :userId
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
               AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
                    OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
-              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+              AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             """)
     Page<Scrap> findPageByUserWithPostDetailsByKeyword(
-            @Param("user") User user,
+            @Param("userId") Long userId,
             @Param("folderId") Long folderId,
             @Param("keywordPattern") String keywordPattern,
             @Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
@@ -87,34 +94,57 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
             @Param("legacyInquiryUserAccessEnabled") boolean legacyInquiryUserAccessEnabled,
             Pageable pageable);
+    default Page<Scrap> findPageByUserWithPostDetailsByKeyword(
+            UserIdRef user, Long folderId, String keywordPattern, boolean viewerIsSuperAdmin,
+            boolean blockedUserIdsEmpty, Collection<Long> blockedUserIds, String inquiryBoardUrl,
+            boolean legacyInquiryUserAccessEnabled, Pageable pageable) {
+        return findPageByUserWithPostDetailsByKeyword(user.getUserId(), folderId, keywordPattern,
+                viewerIsSuperAdmin, blockedUserIdsEmpty, blockedUserIds, inquiryBoardUrl,
+                legacyInquiryUserAccessEnabled, pageable);
+    }
 
     default Page<Scrap> findPageByUserWithPostDetails(
-            User user,
+            Long userId,
             boolean viewerIsSuperAdmin,
             boolean blockedUserIdsEmpty,
             Collection<Long> blockedUserIds,
             String inquiryBoardUrl,
             boolean legacyInquiryUserAccessEnabled,
             Pageable pageable) {
-        return findPageByUserWithPostDetails(user, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
+        return findPageByUserWithPostDetails(userId, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
                 blockedUserIds, inquiryBoardUrl, legacyInquiryUserAccessEnabled, pageable);
     }
 
-    List<Scrap> findByUserAndPostIn(User user, List<Post> posts);
+    default Page<Scrap> findPageByUserWithPostDetails(
+            UserIdRef user,
+            boolean viewerIsSuperAdmin,
+            boolean blockedUserIdsEmpty,
+            Collection<Long> blockedUserIds,
+            String inquiryBoardUrl,
+            boolean legacyInquiryUserAccessEnabled,
+            Pageable pageable) {
+        return findPageByUserWithPostDetails(user.getUserId(), null, viewerIsSuperAdmin, blockedUserIdsEmpty,
+                blockedUserIds, inquiryBoardUrl, legacyInquiryUserAccessEnabled, pageable);
+    }
+
+    List<Scrap> findByUserIdAndPostIn(Long userId, List<Post> posts);
 
     @Query("""
             SELECT s.post.postId
             FROM Scrap s
-            WHERE s.user.userId = :userId
+            WHERE s.userId = :userId
               AND s.post.postId IN :postIds
             """)
     List<Long> findPostIdsByUserIdAndPostIdIn(@Param("userId") Long userId,
             @Param("postIds") Collection<Long> postIds);
 
-    long deleteByUser_UserIdAndPost_PostId(Long userId, Long postId);
+    long deleteByUserIdAndPost_PostId(Long userId, Long postId);
+    default long deleteByUser_UserIdAndPost_PostId(Long userId, Long postId) {
+        return deleteByUserIdAndPost_PostId(userId, postId);
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM Scrap s WHERE s.user.userId = :userId AND s.post.postId = :postId")
+    @Query("SELECT s FROM Scrap s WHERE s.userId = :userId AND s.post.postId = :postId")
     Optional<Scrap> findOwnedByPostIdForUpdate(
             @Param("userId") Long userId,
             @Param("postId") Long postId);

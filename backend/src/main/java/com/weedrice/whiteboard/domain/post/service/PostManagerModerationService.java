@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
@@ -8,10 +9,10 @@ import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogServi
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.port.PostModerationAuditPort;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
@@ -31,9 +32,9 @@ public class PostManagerModerationService {
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
-    private final UserRepository userRepository;
+    private final PostUserWritePort postUserWritePort;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final ModerationAuditLogService moderationAuditLogService;
+    private final PostModerationAuditPort postModerationAuditPort;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
@@ -62,8 +63,7 @@ public class PostManagerModerationService {
     }
 
     private ManagedPost loadManagedPost(Long managerUserId, Long postId) {
-        User manager = userRepository.findByIdForUpdate(managerUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        ActorUserPrincipal manager = postUserWritePort.validateForUpdate(managerUserId);
         Long boardId = postRepository.findBoardIdByPostId(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         Board board = boardRepository.findByIdForUpdate(boardId)
@@ -81,9 +81,9 @@ public class PostManagerModerationService {
         return new ManagedPost(manager, post);
     }
 
-    private void recordPostAction(User manager, Post post, String action, String reason) {
-        moderationAuditLogService.recordUserAction(
-                manager,
+    private void recordPostAction(ActorUserPrincipal manager, Post post, String action, String reason) {
+        postModerationAuditPort.recordUserAction(
+                manager.getUserId(),
                 action,
                 ModerationAuditLogService.TARGET_TYPE_POST,
                 post.getPostId(),
@@ -102,6 +102,6 @@ public class PostManagerModerationService {
         return LocalDateTime.now(clock);
     }
 
-    private record ManagedPost(User manager, Post post) {
+    private record ManagedPost(ActorUserPrincipal manager, Post post) {
     }
 }

@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,13 +27,19 @@ public class CommentMention extends BaseTimeEntity {
     @JoinColumn(name = "comment_id", nullable = false)
     private Comment comment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Builder
-    public CommentMention(Comment comment, User user) {
+    public CommentMention(Comment comment, Long userId) {
         this.comment = comment;
-        this.user = user;
+        this.userId = userId;
+    }
+
+    public static class CommentMentionBuilder {
+        public CommentMentionBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
     }
 }

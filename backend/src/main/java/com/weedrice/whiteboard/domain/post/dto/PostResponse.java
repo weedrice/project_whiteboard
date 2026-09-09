@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import lombok.Builder;
@@ -92,47 +93,16 @@ public class PostResponse {
         private String name;
     }
 
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls, boolean isAdmin) {
-        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, null);
-    }
-
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage) {
-        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage, null);
-    }
-
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
-            Integer viewCountOverride) {
-        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCountOverride, null, null);
-    }
-
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
-            Integer viewCountOverride, PollResponse poll) {
-        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCountOverride, poll, null);
-    }
-
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
-            Integer viewCountOverride, PollResponse poll, PostSeriesNavigation seriesNavigation) {
-        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCountOverride, poll, seriesNavigation, 0);
-    }
-
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+    public static PostResponse from(Post post, AuthorSnapshot author, List<String> tags, ViewHistory viewHistory, boolean isLiked,
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
             Integer viewCountOverride, PollResponse poll, PostSeriesNavigation seriesNavigation, int editCount) {
         AuthorInfo authorInfo = AuthorInfo.builder()
-                .userId(post.getUser().getUserId())
-                .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
-                .authorType(post.getAgent() != null ? "AGENT" : "USER")
-                .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
-                .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
-                .representativeBadge(post.getAgent() != null ? null : representativeBadge(post.getUser().getRepresentativeBadgeCode()))
+                .userId(author.ownerUserId())
+                .agentId(author.agentId())
+                .authorType(author.authorType())
+                .displayName(author.displayName())
+                .profileImageUrl(author.agentId() != null ? null : author.profileImageUrl())
+                .representativeBadge(author.agentId() != null ? null : representativeBadge(author.representativeBadgeCode()))
                 .build();
 
         BoardInfo boardInfo = BoardInfo.builder()
@@ -149,8 +119,8 @@ public class PostResponse {
 
         Long lastReadCommentId = null;
         LocalDateTime lastViewedAt = viewHistory != null ? viewHistory.getModifiedAt() : null;
-        if (viewHistory != null && viewHistory.getLastReadComment() != null) {
-            lastReadCommentId = viewHistory.getLastReadComment().getCommentId();
+        if (viewHistory != null) {
+            lastReadCommentId = viewHistory.getLastReadCommentId();
         }
 
         return PostResponse.builder()

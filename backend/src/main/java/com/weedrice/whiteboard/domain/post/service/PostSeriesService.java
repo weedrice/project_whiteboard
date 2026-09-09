@@ -10,8 +10,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostSeriesItemRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -33,20 +33,20 @@ public class PostSeriesService {
     private final PostSeriesItemRepository postSeriesItemRepository;
     private final DraftPostRepository draftPostRepository;
     private final ScheduledPostRepository scheduledPostRepository;
-    private final UserWritableResolver userWritableResolver;
+    private final PostUserWritePort postUserWritePort;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
 
     public List<PostSeriesResponse> getMySeries(@NonNull Long userId) {
-        userWritableResolver.resolve(userId);
-        return PostSeriesResponse.listFrom(postSeriesRepository.findByOwner_UserIdOrderBySeriesIdDesc(userId));
+        postUserWritePort.validateForUpdate(userId);
+        return PostSeriesResponse.listFrom(postSeriesRepository.findByOwnerUserIdOrderBySeriesIdDesc(userId));
     }
 
     @Transactional
     public PostSeriesResponse createSeries(@NonNull Long userId, PostSeriesRequest request) {
-        User owner = userWritableResolver.resolveForUpdate(userId);
+        ActorUserPrincipal owner = postUserWritePort.validateForUpdate(userId);
         PostSeries series = PostSeries.builder()
-                .owner(owner)
+                .ownerUserId(owner.getUserId())
                 .title(normalizeTitle(request.getTitle()))
                 .description(TextInputNormalizer.normalizeOptional(request.getDescription(), 500))
                 .build();
@@ -55,7 +55,7 @@ public class PostSeriesService {
 
     @Transactional
     public PostSeriesResponse updateSeries(@NonNull Long userId, @NonNull Long seriesId, PostSeriesRequest request) {
-        userWritableResolver.resolveForUpdate(userId);
+        postUserWritePort.validateForUpdate(userId);
         PostSeries series = getOwnedSeriesForUpdate(userId, seriesId);
         series.update(normalizeTitle(request.getTitle()),
                 TextInputNormalizer.normalizeOptional(request.getDescription(), 500));
@@ -64,7 +64,7 @@ public class PostSeriesService {
 
     @Transactional
     public void deleteSeries(@NonNull Long userId, @NonNull Long seriesId) {
-        userWritableResolver.resolveForUpdate(userId);
+        postUserWritePort.validateForUpdate(userId);
         PostSeries series = getOwnedSeriesForUpdate(userId, seriesId);
         postSeriesItemRepository.deleteAllBySeriesId(seriesId);
         draftPostRepository.clearSeriesReference(seriesId);
@@ -77,14 +77,14 @@ public class PostSeriesService {
         if (seriesId == null) {
             return;
         }
-        userWritableResolver.resolveForUpdate(ownerUserId);
+        postUserWritePort.validateForUpdate(ownerUserId);
         movePostToSeries(ownerUserId, post, seriesId);
     }
 
     @Transactional
     public void updatePostSeries(@NonNull Long ownerUserId, @NonNull Post post, Long seriesId) {
-        userWritableResolver.resolveForUpdate(ownerUserId);
-        PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(
+        postUserWritePort.validateForUpdate(ownerUserId);
+        PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_OwnerUserId(
                         post.getPostId(), ownerUserId)
                 .orElse(null);
         if (seriesId == null) {
@@ -98,7 +98,7 @@ public class PostSeriesService {
     }
 
     private void movePostToSeries(Long ownerUserId, Post post, Long seriesId) {
-        PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(
+        PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_OwnerUserId(
                         post.getPostId(), ownerUserId)
                 .orElse(null);
         movePostToSeries(ownerUserId, post, seriesId, item);

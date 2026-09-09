@@ -1,12 +1,12 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class UserLifecycleService {
     private final SanctionRepository sanctionRepository;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final AccountCredentialInvalidationService accountCredentialInvalidationService;
-    private final AgentLifecycleService agentLifecycleService;
+    private final UserAgentLifecyclePort userAgentLifecyclePort;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
@@ -115,6 +115,6 @@ public class UserLifecycleService {
         }
         refreshTokenLifecycleService.revokeActiveRefreshTokensForLockedUser(user);
         notificationAccessInvalidationService.revokeForLockedUser(user.getUserId());
-        agentLifecycleService.suspendAllForUser(user);
+        userAgentLifecyclePort.suspendAllForUser(user.getUserId());
     }
 }

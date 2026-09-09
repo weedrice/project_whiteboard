@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.notification.repository.UserKeywordSubscri
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,8 @@ class KeywordNotificationFanoutProcessorTest {
     @Mock private KeywordNotificationFanoutJobRepository jobRepository;
     @Mock private UserKeywordSubscriptionRepository subscriptionRepository;
     @Mock private PostRepository postRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private AgentRepository agentRepository;
     @Mock private NotificationDeliveryJobService deliveryJobService;
     @Mock private UserBlockService userBlockService;
     @Mock private TransactionTemplate transactionTemplate;
@@ -51,6 +55,8 @@ class KeywordNotificationFanoutProcessorTest {
                 jobRepository,
                 subscriptionRepository,
                 postRepository,
+                userRepository,
+                agentRepository,
                 deliveryJobService,
                 userBlockService,
                 FIXED_CLOCK,

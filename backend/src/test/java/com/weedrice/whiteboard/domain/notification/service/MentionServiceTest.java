@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
@@ -43,11 +44,12 @@ class MentionServiceTest {
     @Mock CommentRepository comments;
     @Mock AdminRepository admins;
     @Mock PostAccessPolicy postAccessPolicy;
+    @Mock AgentRepository agents;
     MentionService service;
 
     @BeforeEach
     void setUp() {
-        service = new MentionService(users, blocks, events, posts, comments, admins, postAccessPolicy);
+        service = new MentionService(users, blocks, events, posts, comments, admins, postAccessPolicy, agents);
     }
 
     @Test
@@ -119,8 +121,9 @@ class MentionServiceTest {
         Post sourcePost = post(10L);
         Comment sourceComment = mock(Comment.class);
         when(sourceComment.getIsBlinded()).thenReturn(false);
-        when(sourceComment.getPost()).thenReturn(sourcePost);
+        when(sourceComment.getPostId()).thenReturn(10L);
         when(comments.findNonDeletedByIdWithRelations(20L)).thenReturn(java.util.Optional.of(sourceComment));
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(sourcePost));
         when(users.findAllById(List.of(2L))).thenReturn(List.of(recipient));
         when(blocks.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L))).thenReturn(List.of());
         when(postAccessPolicy.isReadable(sourcePost, recipient, false, java.util.Set.of())).thenReturn(true);

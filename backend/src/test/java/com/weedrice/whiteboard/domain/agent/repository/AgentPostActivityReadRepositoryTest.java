@@ -41,9 +41,9 @@ class AgentPostActivityReadRepositoryTest {
         Query query = method.getAnnotation(Query.class);
 
         assertThat(query.value())
-                .contains("read.post.postId AS postId")
+                .contains("read.postId AS postId")
                 .contains("read.lastReadAt AS lastReadAt")
                 .contains("read.agent.agentId = :agentId")
-                .contains("read.post.postId IN :postIds");
+                .contains("read.postId IN :postIds");
     }
 }

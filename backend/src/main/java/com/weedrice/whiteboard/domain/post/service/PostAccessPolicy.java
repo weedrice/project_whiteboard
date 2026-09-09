@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
@@ -25,29 +25,29 @@ public class PostAccessPolicy {
         this.inquiryLegacyWritePolicy = inquiryLegacyWritePolicy;
     }
 
-    public void validateReadable(Post post, User viewer) {
+    public void validateReadable(Post post, ActorUserPrincipal viewer) {
         validateReadable(post, viewer, false);
     }
 
-    public void validateReadable(Post post, User viewer, boolean authorBlocked) {
+    public void validateReadable(Post post, ActorUserPrincipal viewer, boolean authorBlocked) {
         validateReadable(post, viewer, authorBlocked, null);
     }
 
-    void validateReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
+    void validateReadable(Post post, ActorUserPrincipal viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
         if (!isReadable(post, viewer, authorBlocked, activeAdminBoardIds)) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
     }
 
-    public boolean isReadable(Post post, User viewer) {
+    public boolean isReadable(Post post, ActorUserPrincipal viewer) {
         return isReadable(post, viewer, false);
     }
 
-    public boolean isReadable(Post post, User viewer, boolean authorBlocked) {
+    public boolean isReadable(Post post, ActorUserPrincipal viewer, boolean authorBlocked) {
         return isReadable(post, viewer, authorBlocked, null);
     }
 
-    public boolean isReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
+    public boolean isReadable(Post post, ActorUserPrincipal viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
         if (post == null
                 || Boolean.TRUE.equals(post.getIsDeleted())
                 || Boolean.TRUE.equals(post.getIsBlinded())) {
@@ -58,7 +58,7 @@ public class PostAccessPolicy {
         if (board == null) {
             return false;
         }
-        boolean isAuthor = viewer != null && Objects.equals(post.getUser().getUserId(), viewer.getUserId());
+        boolean isAuthor = viewer != null && Objects.equals(post.getUserId(), viewer.getUserId());
         Boolean hasAdminAccess = null;
         boolean inquiryBoard = boardAccessPolicy.isInquiryBoard(board);
         boolean legacyInquiryAuthorAccessEnabled = !inquiryBoard
@@ -103,7 +103,8 @@ public class PostAccessPolicy {
         return true;
     }
 
-    private boolean resolveAdminAccess(Board board, User viewer, Set<Long> activeAdminBoardIds, Boolean resolvedAccess) {
+    private boolean resolveAdminAccess(
+            Board board, ActorUserPrincipal viewer, Set<Long> activeAdminBoardIds, Boolean resolvedAccess) {
         if (resolvedAccess != null) {
             return resolvedAccess;
         }

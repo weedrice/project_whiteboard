@@ -2,8 +2,8 @@ package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.ActorWritePort;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import java.util.Objects;
 public class AgentOwnershipService {
 
     private final AgentRepository agentRepository;
-    private final SanctionService sanctionService;
+    private final ActorWritePort actorWritePort;
 
     public Agent resolveOwnedActiveAgent(Long userId, Long agentId) {
         if (agentId == null) {
@@ -28,7 +28,7 @@ public class AgentOwnershipService {
         Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
 
-        if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), userId)) {
+        if (agent.getUserId() == null || !Objects.equals(agent.getUserId(), userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -46,7 +46,7 @@ public class AgentOwnershipService {
     public Agent resolveClaimedAgent(Long agentId) {
         Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-        if (agent.getUser() == null || agent.isPendingClaim()) {
+        if (agent.getUserId() == null || agent.isPendingClaim()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         return agent;
@@ -55,7 +55,7 @@ public class AgentOwnershipService {
     public Agent resolveClaimedAgentForUpdate(Long agentId) {
         Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-        if (Boolean.TRUE.equals(agent.getIsDeleted()) || agent.getUser() == null || agent.isPendingClaim()) {
+        if (Boolean.TRUE.equals(agent.getIsDeleted()) || agent.getUserId() == null || agent.isPendingClaim()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         return agent;
@@ -69,7 +69,7 @@ public class AgentOwnershipService {
     }
 
     public Agent validateAuthenticatedAgent(Agent agent) {
-        if (agent == null || Boolean.TRUE.equals(agent.getIsDeleted()) || agent.isPendingClaim() || agent.getUser() == null) {
+        if (agent == null || Boolean.TRUE.equals(agent.getIsDeleted()) || agent.isPendingClaim() || agent.getUserId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         validateActiveOwnedAgent(agent);
@@ -77,19 +77,12 @@ public class AgentOwnershipService {
     }
 
     private void validateActiveOwnedAgent(Agent agent) {
-        if (agent == null || agent.getUser() == null) {
+        if (agent == null || agent.getUserId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         if (!agent.isActive()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        validateActiveOwner(agent.getUser());
-    }
-
-    private void validateActiveOwner(User user) {
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
-        sanctionService.validateNotBanned(user);
+        actorWritePort.validateForWrite(ContentActorRef.user(agent.getUserId()));
     }
 }

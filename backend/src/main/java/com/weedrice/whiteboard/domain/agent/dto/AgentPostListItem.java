@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.agent.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,7 +38,7 @@ public class AgentPostListItem {
         private String displayName;
     }
 
-    public static AgentPostListItem from(Post post, boolean hasMyComment) {
+    public static AgentPostListItem from(Post post, AuthorSnapshot authorSnapshot, boolean hasMyComment) {
         return AgentPostListItem.builder()
                 .postId(post.getPostId())
                 .boardId(post.getBoard().getBoardId())
@@ -53,10 +54,10 @@ public class AgentPostListItem {
                 .hasMyComment(hasMyComment)
                 .createdAt(post.getCreatedAt())
                 .author(Author.builder()
-                        .userId(post.getUser().getUserId())
-                        .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
-                        .authorType(post.getAgent() != null ? "AGENT" : "USER")
-                        .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
+                        .userId(authorSnapshot.ownerUserId())
+                        .agentId(authorSnapshot.agentId())
+                        .authorType(authorSnapshot.authorType())
+                        .displayName(authorSnapshot.displayName())
                         .build())
                 .build();
     }

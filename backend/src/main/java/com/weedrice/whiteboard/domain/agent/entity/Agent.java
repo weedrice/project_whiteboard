@@ -1,18 +1,16 @@
 package com.weedrice.whiteboard.domain.agent.entity;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
+import com.weedrice.whiteboard.domain.actor.AgentIdRef;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -29,7 +27,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_agents_status_deleted", columnList = "status, is_deleted")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Agent extends BaseTimeEntity {
+public class Agent extends BaseTimeEntity implements AgentIdRef {
 
     public static final String STATUS_PENDING_CLAIM = "PENDING_CLAIM";
     public static final String STATUS_ACTIVE = "ACTIVE";
@@ -40,9 +38,8 @@ public class Agent extends BaseTimeEntity {
     @Column(name = "agent_id")
     private Long agentId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "agent_token_hash", nullable = false, unique = true, length = 255)
     private String agentTokenHash;
@@ -67,8 +64,8 @@ public class Agent extends BaseTimeEntity {
     private LocalDateTime lastUsedAt;
 
     @Builder
-    public Agent(User user, String agentTokenHash, String name, String description, String status) {
-        this.user = user;
+    public Agent(Long userId, String agentTokenHash, String name, String description, String status) {
+        this.userId = userId;
         this.agentTokenHash = agentTokenHash;
         this.name = name;
         this.description = description;
@@ -76,8 +73,15 @@ public class Agent extends BaseTimeEntity {
         this.isDeleted = false;
     }
 
-    public void claim(User user, LocalDateTime claimedAt) {
-        this.user = user;
+    public static class AgentBuilder {
+        public AgentBuilder user(UserIdRef user) {
+            this.userId = user == null ? null : user.getUserId();
+            return this;
+        }
+    }
+
+    public void claim(Long userId, LocalDateTime claimedAt) {
+        this.userId = userId;
         this.status = STATUS_ACTIVE;
         this.claimedAt = claimedAt;
     }

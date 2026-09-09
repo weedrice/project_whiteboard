@@ -13,48 +13,48 @@ public final class PostVisibilityJpql {
                   )
               AND (
                     p.isBlinded = false
-                    OR p.user = :user
+                    OR p.userId = :userId
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
-                        WHERE a.user = :user
+                        WHERE a.user.userId = :userId
                           AND a.board = b
                           AND a.isActive = true
                     )
                   )
               AND (
                     b.isActive = true
-                    OR p.user = :user
+                    OR p.userId = :userId
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
-                        WHERE a.user = :user
+                        WHERE a.user.userId = :userId
                           AND a.board = b
                           AND a.isActive = true
                     )
                   )
               AND (
                     b.isPublic = true
-                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
+                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.userId = :userId)
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
-                        WHERE a.user = :user
+                        WHERE a.user.userId = :userId
                           AND a.board = b
                           AND a.isActive = true
                     )
                   )
               AND (
                     p.isSecret = false
-                    OR p.user = :user
+                    OR p.userId = :userId
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
-                        WHERE a.user = :user
+                        WHERE a.user.userId = :userId
                           AND a.board = b
                           AND a.isActive = true
                     )

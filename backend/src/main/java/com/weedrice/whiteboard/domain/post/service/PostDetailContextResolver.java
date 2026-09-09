@@ -36,7 +36,7 @@ class PostDetailContextResolver {
 
         ViewHistory viewHistory = null;
         if (readContext.viewer() != null) {
-            viewHistory = viewHistoryRepository.findByUserAndPost(readContext.viewer(), post).orElse(null);
+            viewHistory = viewHistoryRepository.findByUserIdAndPost(readContext.viewer().getUserId(), post).orElse(null);
         }
 
         return new PostDetailContext(post, readContext, viewHistory);

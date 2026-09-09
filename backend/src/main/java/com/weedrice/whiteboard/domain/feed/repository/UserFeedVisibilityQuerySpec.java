@@ -35,6 +35,7 @@ final class UserFeedVisibilityQuerySpec {
 
     static void bindParameters(TypedQuery<?> query, UserFeedVisibilityCondition visibilityCondition) {
         query.setParameter("targetUser", visibilityCondition.targetUser());
+        query.setParameter("targetUserId", visibilityCondition.targetUser().getUserId());
         query.setParameter("postContentType", CONTENT_TYPE_POST);
         query.setParameter("inquiryBoardUrl", BoardPolicyConstants.INQUIRY_BOARD_URL);
         query.setParameter("isSuperAdmin", visibilityCondition.superAdmin());
@@ -51,7 +52,7 @@ final class UserFeedVisibilityQuerySpec {
     private static void appendBlockedAuthorCondition(StringBuilder query,
                                                      UserFeedVisibilityCondition visibilityCondition) {
         if (visibilityCondition.hasBlockedUserIds()) {
-            query.append("\n              AND p.user.userId NOT IN :blockedUserIds");
+            query.append("\n              AND p.userId NOT IN :blockedUserIds");
         }
     }
 
@@ -79,7 +80,7 @@ final class UserFeedVisibilityQuerySpec {
 
                               AND (
                                     b.isActive = true
-                                    OR p.user = :targetUser
+                                    OR p.userId = :targetUserId
                                     OR :isSuperAdmin = true
                 """);
         appendAdminBoardAccess(query, visibilityCondition);
@@ -95,7 +96,7 @@ final class UserFeedVisibilityQuerySpec {
                                     b.isPublic = true
                                     OR (
                                         LOWER(TRIM(b.boardUrl)) = :inquiryBoardUrl
-                                        AND p.user = :targetUser
+                                        AND p.userId = :targetUserId
                                     )
                                     OR :isSuperAdmin = true
                 """);
@@ -110,7 +111,7 @@ final class UserFeedVisibilityQuerySpec {
         query.append("""
                               AND (
                                     p.isSecret = false
-                                    OR p.user = :targetUser
+                                    OR p.userId = :targetUserId
                                     OR :isSuperAdmin = true
                 """);
         appendAdminBoardAccess(query, visibilityCondition);

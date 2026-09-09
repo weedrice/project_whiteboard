@@ -7,9 +7,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.agent.port.AgentOwnerPort;
+import com.weedrice.whiteboard.domain.agent.port.AgentOwnerPort.AgentOwnerSnapshot;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.validation.NoHtmlValidator;
@@ -67,9 +66,8 @@ public class AgentLifecycleService {
     };
 
     private final AgentRepository agentRepository;
-    private final UserRepository userRepository;
+    private final AgentOwnerPort agentOwnerPort;
     private final AgentAuditService agentAuditService;
-    private final SanctionPolicyService sanctionPolicyService;
     private final EntityManager entityManager;
     private final Clock clock;
 
@@ -99,8 +97,8 @@ public class AgentLifecycleService {
 
     @Transactional(noRollbackFor = ExpiredPendingClaimNotFoundException.class)
     public AgentResponse claim(Long userId, AgentClaimRequest request, AgentRequestContext requestContext) {
-        User user = resolveActiveOwnerForUpdate(userId);
-        if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
+        AgentOwnerSnapshot user = agentOwnerPort.resolveActiveOwnerForUpdate(userId);
+        if (!user.emailVerified()) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
@@ -114,10 +112,10 @@ public class AgentLifecycleService {
         }
 
         if (!agent.isPendingClaim()) {
-            if (agent.getUser() != null && !Objects.equals(agent.getUser().getUserId(), userId)) {
+            if (agent.getUserId() != null && !Objects.equals(agent.getUserId(), userId)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN, "Agent token is already claimed by another user");
             }
-            if (!Objects.equals(agent.getUser() != null ? agent.getUser().getUserId() : null, userId)) {
+            if (!Objects.equals(agent.getUserId(), userId)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
             if (agent.isSuspended()) {
@@ -127,7 +125,7 @@ public class AgentLifecycleService {
                 agent.activate();
                 agentAuditService.saveLog(
                         agent,
-                        user,
+                        user.userId(),
                         AgentAuditActionType.REACTIVATE,
                         AgentAuditTargetType.AGENT,
                         agent.getAgentId(),
@@ -138,10 +136,10 @@ public class AgentLifecycleService {
 
         List<Agent> existingAgents = agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId);
         softDeleteOtherAgentsForUser(existingAgents, user, agent.getAgentId(), requestContext);
-        agent.claim(user, now());
+        agent.claim(user.userId(), now());
         agentAuditService.saveLog(
                 agent,
-                user,
+                user.userId(),
                 AgentAuditActionType.CLAIM,
                 AgentAuditTargetType.AGENT,
                 agent.getAgentId(),
@@ -181,8 +179,8 @@ public class AgentLifecycleService {
     }
 
     public AgentListResponse getMyAgents(Long userId) {
-        User user = resolveActiveOwner(userId);
-        List<AgentResponse> agents = agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user).stream()
+        AgentOwnerSnapshot user = agentOwnerPort.resolveActiveOwner(userId);
+        List<AgentResponse> agents = agentRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(user.userId()).stream()
                 .map(AgentResponse::from)
                 .collect(Collectors.toList());
         return new AgentListResponse(agents);
@@ -190,12 +188,12 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse suspendMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        User user = resolveActiveOwnerForUpdate(userId);
+        AgentOwnerSnapshot user = agentOwnerPort.resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.suspend();
         agentAuditService.saveLog(
                 agent,
-                user,
+                user.userId(),
                 AgentAuditActionType.SUSPEND,
                 AgentAuditTargetType.AGENT,
                 agent.getAgentId(),
@@ -205,7 +203,7 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse activateMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        User user = resolveActiveOwnerForUpdate(userId);
+        AgentOwnerSnapshot user = agentOwnerPort.resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         if (agent.isActive()) {
             return AgentResponse.from(agent);
@@ -219,7 +217,7 @@ public class AgentLifecycleService {
         agent.activate();
         agentAuditService.saveLog(
                 agent,
-                user,
+                user.userId(),
                 AgentAuditActionType.REACTIVATE,
                 AgentAuditTargetType.AGENT,
                 agent.getAgentId(),
@@ -229,12 +227,12 @@ public class AgentLifecycleService {
 
     @Transactional
     public void deleteMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        User user = resolveActiveOwnerForUpdate(userId);
+        AgentOwnerSnapshot user = agentOwnerPort.resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.softDelete();
         agentAuditService.saveLog(
                 agent,
-                user,
+                user.userId(),
                 AgentAuditActionType.DELETE,
                 AgentAuditTargetType.AGENT,
                 agent.getAgentId(),
@@ -242,15 +240,16 @@ public class AgentLifecycleService {
     }
 
     @Transactional
-    public void suspendAllForUser(User user) {
-        if (user == null || user.getUserId() == null) {
+    public void suspendAllForUserId(Long userId) {
+        if (userId == null) {
             return;
         }
-        agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(user.getUserId())
+        agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId)
                 .forEach(Agent::suspend);
     }
 
-    private void softDeleteOtherAgentsForUser(List<Agent> existingAgents, User user, Long currentAgentId,
+    private void softDeleteOtherAgentsForUser(
+            List<Agent> existingAgents, AgentOwnerSnapshot user, Long currentAgentId,
             AgentRequestContext requestContext) {
         if (user == null || existingAgents == null) {
             return;
@@ -261,7 +260,7 @@ public class AgentLifecycleService {
                     existingAgent.softDelete();
                     agentAuditService.saveLog(
                             existingAgent,
-                            user,
+                            user.userId(),
                             AgentAuditActionType.DELETE,
                             AgentAuditTargetType.AGENT,
                             existingAgent.getAgentId(),
@@ -272,7 +271,7 @@ public class AgentLifecycleService {
     private boolean isPendingClaimExpired(Agent agent) {
         LocalDateTime createdAt = agent.getCreatedAt();
         return createdAt != null
-                && agent.getUser() == null
+                && agent.getUserId() == null
                 && agent.getClaimedAt() == null
                 && createdAt.isBefore(resolvePendingClaimExpiresBefore());
     }
@@ -285,33 +284,11 @@ public class AgentLifecycleService {
         return LocalDateTime.now(clock);
     }
 
-    private User resolveActiveOwnerForUpdate(Long userId) {
-        User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        entityManager.refresh(user, LockModeType.PESSIMISTIC_WRITE);
-        validateActiveOwner(user);
-        return user;
-    }
-
-    private User resolveActiveOwner(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        validateActiveOwner(user);
-        return user;
-    }
-
-    private void validateActiveOwner(User user) {
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
-        sanctionPolicyService.validateNotBanned(user);
-    }
-
-    private Agent getOwnedAgentForUpdate(User user, Long agentId) {
+    private Agent getOwnedAgentForUpdate(AgentOwnerSnapshot user, Long agentId) {
         Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         refreshLockedAgent(agent);
-        if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), user.getUserId())) {
+        if (agent.getUserId() == null || !Objects.equals(agent.getUserId(), user.userId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         return agent;

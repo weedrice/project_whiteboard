@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.actor.UserIdRef;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,23 +18,23 @@ public class ViewHistoryCommandService {
     private final ViewHistoryRepository viewHistoryRepository;
 
     @Transactional
-    public ViewHistory getOrCreate(User user, Post post) {
-        return viewHistoryRepository.findByUserAndPost(user, post)
+    public ViewHistory getOrCreate(UserIdRef user, Post post) {
+        return viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)
                 .orElseGet(() -> insertAndLoad(user, post));
     }
 
     @Transactional
-    public void touchView(User user, Post post) {
+    public void touchView(UserIdRef user, Post post) {
         touchViewHistory(user, post);
     }
 
     @Transactional
-    public ViewHistory touchAndLoadView(User user, Post post) {
+    public ViewHistory touchAndLoadView(UserIdRef user, Post post) {
         touchViewHistory(user, post);
         return loadViewHistory(user, post);
     }
 
-    private void touchViewHistory(User user, Post post) {
+    private void touchViewHistory(UserIdRef user, Post post) {
         int insertedCount = viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         if (insertedCount > 0) {
             return;
@@ -46,24 +46,24 @@ public class ViewHistoryCommandService {
     }
 
     @Transactional
-    public ViewHistory getOrCreateForUpdate(User user, Post post) {
+    public ViewHistory getOrCreateForUpdate(UserIdRef user, Post post) {
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
                 .orElseGet(() -> insertAndLoadForUpdate(user, post));
     }
 
-    private ViewHistory insertAndLoad(User user, Post post) {
+    private ViewHistory insertAndLoad(UserIdRef user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return loadViewHistory(user, post);
     }
 
-    private ViewHistory insertAndLoadForUpdate(User user, Post post) {
+    private ViewHistory insertAndLoadForUpdate(UserIdRef user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
                 .orElseThrow(this::viewHistoryUnavailable);
     }
 
-    private ViewHistory loadViewHistory(User user, Post post) {
-        return viewHistoryRepository.findByUserAndPost(user, post)
+    private ViewHistory loadViewHistory(UserIdRef user, Post post) {
+        return viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)
                 .orElseThrow(this::viewHistoryUnavailable);
     }
 

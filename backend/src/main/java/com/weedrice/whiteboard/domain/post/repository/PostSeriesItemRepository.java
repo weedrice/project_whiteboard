@@ -13,9 +13,12 @@ public interface PostSeriesItemRepository extends JpaRepository<PostSeriesItem, 
     @EntityGraph(attributePaths = { "series", "post", "post.board" })
     Optional<PostSeriesItem> findByPost_PostId(Long postId);
 
-    Optional<PostSeriesItem> findByPost_PostIdAndSeries_Owner_UserId(Long postId, Long ownerUserId);
+    Optional<PostSeriesItem> findByPost_PostIdAndSeries_OwnerUserId(Long postId, Long ownerUserId);
+    default Optional<PostSeriesItem> findByPost_PostIdAndSeries_Owner_UserId(Long postId, Long ownerUserId) {
+        return findByPost_PostIdAndSeries_OwnerUserId(postId, ownerUserId);
+    }
 
-    @EntityGraph(attributePaths = { "post", "post.board", "post.user" })
+    @EntityGraph(attributePaths = { "post", "post.board" })
     List<PostSeriesItem> findBySeries_SeriesIdOrderBySortOrderAscItemIdAsc(Long seriesId);
 
     @Query("SELECT COALESCE(MAX(i.sortOrder), -1) FROM PostSeriesItem i WHERE i.series.seriesId = :seriesId")

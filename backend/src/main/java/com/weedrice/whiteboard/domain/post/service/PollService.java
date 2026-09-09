@@ -9,9 +9,8 @@ import com.weedrice.whiteboard.domain.post.entity.PollVote;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PollRepository;
 import com.weedrice.whiteboard.domain.post.repository.PollVoteRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
+import com.weedrice.whiteboard.domain.post.port.PostUserWritePort;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -36,10 +35,9 @@ public class PollService {
 
     private final PollRepository pollRepository;
     private final PollVoteRepository pollVoteRepository;
-    private final UserWritableResolver userWritableResolver;
+    private final PostUserWritePort postUserWritePort;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
-    private final SanctionService sanctionService;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final Clock clock;
 
@@ -75,8 +73,7 @@ public class PollService {
 
     @Transactional
     public PollResponse vote(Long userId, Long postId, Collection<Long> optionIds) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
@@ -92,12 +89,12 @@ public class PollService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        pollVoteRepository.deleteByPoll_PollIdAndUser_UserId(poll.getPollId(), userId);
+        pollVoteRepository.deleteByPoll_PollIdAndUserId(poll.getPollId(), userId);
         for (Long optionId : selectedOptionIds) {
-            pollVoteRepository.save(PollVote.builder()
+                pollVoteRepository.save(PollVote.builder()
                     .poll(poll)
                     .option(optionsById.get(optionId))
-                    .user(user)
+                    .userId(user.getUserId())
                     .build());
         }
         return toResponse(poll, userId);
@@ -105,14 +102,13 @@ public class PollService {
 
     @Transactional
     public PollResponse deleteVote(Long userId, Long postId) {
-        User user = userWritableResolver.resolveForUpdate(userId);
-        sanctionService.validateNotMuted(user);
+        ActorUserPrincipal user = postUserWritePort.validateContentWriteForUpdate(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
         inquiryLegacyWritePolicy.requireBoardWritable(poll.getPost().getBoard());
         validateOpen(poll);
-        pollVoteRepository.deleteByPoll_PollIdAndUser_UserId(poll.getPollId(), userId);
+        pollVoteRepository.deleteByPoll_PollIdAndUserId(poll.getPollId(), userId);
         return toResponse(poll, userId);
     }
 
@@ -162,7 +158,7 @@ public class PollService {
         return LocalDateTime.now(clock);
     }
 
-    private void validateReadable(Poll poll, User viewer) {
+    private void validateReadable(Poll poll, ActorUserPrincipal viewer) {
         Post post = poll.getPost();
         if (Boolean.TRUE.equals(post.getIsBlinded())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);

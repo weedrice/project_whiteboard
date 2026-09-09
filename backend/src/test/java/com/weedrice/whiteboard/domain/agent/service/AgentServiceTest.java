@@ -15,6 +15,17 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
+import com.weedrice.whiteboard.domain.agent.integration.AgentContentIntegrationAdapter;
+import com.weedrice.whiteboard.domain.agent.integration.AgentOwnerIntegrationAdapter;
+import com.weedrice.whiteboard.domain.agent.integration.AgentPolicyDataIntegrationAdapter;
+import com.weedrice.whiteboard.domain.agent.integration.AgentPostActivityContentIntegrationAdapter;
+import com.weedrice.whiteboard.domain.agent.integration.AgentBoardPostCountIntegrationAdapter;
+import com.weedrice.whiteboard.domain.agent.integration.AgentBoardAccessService;
+import com.weedrice.whiteboard.domain.agent.integration.AgentCommentAccessService;
+import com.weedrice.whiteboard.domain.agent.integration.AgentHomeReadModelService;
+import com.weedrice.whiteboard.domain.agent.integration.AgentPostListItemAssembler;
+import com.weedrice.whiteboard.domain.agent.integration.AgentWriteTargetResolver;
+import com.weedrice.whiteboard.domain.agent.port.AgentContentPort;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
@@ -52,6 +63,10 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.ActorWritePort;
+import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -80,6 +95,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -153,6 +170,10 @@ class AgentServiceTest {
     private SanctionRepository sanctionRepository;
     @Mock
     private EntityManager entityManager;
+    @Mock
+    private ActorBatchReadPort actorBatchReadPort;
+    @Mock
+    private ActorWritePort actorWritePort;
 
     private AgentOwnershipService agentOwnershipService;
     private AgentAuditService agentAuditService;
@@ -181,47 +202,48 @@ class AgentServiceTest {
 
     @BeforeEach
     void setUp() {
-        agentOwnershipService = spy(new AgentOwnershipService(agentRepository, sanctionService));
+        agentOwnershipService = spy(new AgentOwnershipService(agentRepository, actorWritePort));
         agentAuditService = spy(new AgentAuditService(agentAuditLogWriter));
         BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         agentBoardAccessService = spy(new AgentBoardAccessService(
                 adminRepository,
                 boardRepository,
-                boardCategoryRepository,
-                new PostAuthorCommandPolicy(
+                        boardCategoryRepository,
+                        new PostAuthorCommandPolicy(
                         boardAccessPolicy,
                         boardCategoryRepository,
-                        new BoardCategoryWritePolicy(boardAccessPolicy))));
-        agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
+                        new BoardCategoryWritePolicy(boardAccessPolicy)),
+                userRepository));
+        agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository, actorBatchReadPort));
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         Clock fixedClock = Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository, fixedClock);
         agentLifecycleService = new AgentLifecycleService(
                 agentRepository,
-                userRepository,
+                new AgentOwnerIntegrationAdapter(userRepository, sanctionPolicyService, entityManager),
                 agentAuditService,
-                sanctionPolicyService,
                 entityManager,
                 fixedClock);
-        agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService);
+        agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService, actorWritePort);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(
                 new BoardAccessPolicy(adminRepository),
                 mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
         agentPolicyService = new AgentPolicyService(
-                postRepository,
-                commentRepository,
-                sanctionRepository,
+                new AgentPolicyDataIntegrationAdapter(
+                        postRepository, commentRepository, sanctionRepository, userRepository),
                 agentQuotaService,
                 fixedClock);
         agentCommentAccessService = new AgentCommentAccessService(
                 userBlockService,
                 postAccessPolicy,
-                agentBoardAccessService);
+                agentBoardAccessService,
+                postRepository,
+                userRepository);
         AgentBoardListReadService agentBoardListReadService = new AgentBoardListReadService(
                 boardRepository,
                 boardAiInfoRepository,
-                postRepository,
+                new AgentBoardPostCountIntegrationAdapter(postRepository),
                 agentBoardAccessService);
         agentHomeReadModelService = new AgentHomeReadModelService(
                 postRepository,
@@ -230,54 +252,65 @@ class AgentServiceTest {
                 agentBoardAccessService,
                 agentBoardListReadService,
                 agentPostListItemAssembler,
-                agentNoteService);
+                agentNoteService,
+                userRepository);
         agentHomeResponseAssembler = new AgentHomeResponseAssembler();
-        agentQueryService = new AgentQueryService(
-                boardRepository,
-                agentRepository,
-                postRepository,
-                commentRepository,
-                postService,
-                postAccessPolicy,
-                userBlockService,
-                agentOwnershipService,
-                agentBoardAccessService,
-                agentBoardListReadService,
-                agentPostListItemAssembler,
-                commentReadSupport,
-                commentReadModelAssembler,
-                agentPolicyService,
-                agentHomeReadModelService,
-                agentHomeResponseAssembler);
-        AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
-        ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
-        agentCommandService = new AgentCommandService(
+        AgentWritePolicy writePolicy = agentWritePolicy();
+        AgentWriteTargetResolver writeTargetResolver = agentWriteTargetResolver();
+        AgentContentPort agentContentPort = new AgentContentIntegrationAdapter(
                 commentRepository,
                 postRepository,
                 postService,
                 postCommandService,
                 commentService,
                 new CommentLikeCommand(commentRepository, commentLikeRepository),
-                agentOwnershipService,
                 agentBoardAccessService,
                 agentCommentAccessService,
-                agentAuditService,
                 agentPolicyService,
-                agentLinkBuilder,
-                agentWritePolicy(),
-                agentWriteTargetResolver(),
+                writePolicy,
+                writeTargetResolver,
                 new AgentWriteRequestMapper(),
-                new AgentWriteAuditRecorder(agentAuditService),
+                agentPostListItemAssembler,
+                commentReadSupport,
+                commentReadModelAssembler,
+                actorBatchReadPort,
+                boardRepository,
+                postAccessPolicy,
+                userBlockService,
+                userRepository,
                 fixedClock);
+        agentQueryService = new AgentQueryService(
+                agentRepository,
+                agentOwnershipService,
+                agentBoardListReadService,
+                agentPolicyService,
+                agentHomeReadModelService,
+                agentHomeResponseAssembler,
+                agentContentPort);
+        AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
+        ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
+        agentCommandService = new AgentCommandService(
+                agentContentPort,
+                agentOwnershipService,
+                agentAuditService,
+                agentLinkBuilder,
+                new AgentWriteAuditRecorder(agentAuditService));
         agentPostActivityService = new AgentPostActivityService(
                 agentOwnershipService,
-                postRepository,
+                new AgentPostActivityContentIntegrationAdapter(postRepository, commentRepository),
                 agentPostActivityReadRepository,
-                commentRepository,
                 fixedClock);
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
                 .thenReturn(Optional.empty());
+        lenient().when(actorWritePort.validateForWrite(any(ContentActorRef.class)))
+                .thenAnswer(invocation -> {
+                    ContentActorRef ref = invocation.getArgument(0);
+                    if (user != null && ref.ownerUserId().equals(user.getUserId()) && !user.isActiveAccount()) {
+                        throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+                    }
+                    return ref;
+                });
         lenient().when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
                         anyLong(), any(LocalDate.class), any()))
                 .thenReturn(List.of());
@@ -286,7 +319,7 @@ class AgentServiceTest {
                 .thenReturn(List.of());
         lenient().when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
+        lenient().when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
         lenient().when(agentNoteService.getSummary(anyLong()))
                 .thenReturn(AgentNoteResponses.Summary.builder().unreadThreadCount(0).unreadNoteCount(0).build());
@@ -320,6 +353,19 @@ class AgentServiceTest {
                 .status(Agent.STATUS_ACTIVE)
                 .build();
         ReflectionTestUtils.setField(agent, "agentId", 7L);
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(actorBatchReadPort.resolveAuthors(any())).thenAnswer(invocation -> {
+            Collection<ContentActorRef> refs = invocation.getArgument(0);
+            Map<ContentActorRef, AuthorSnapshot> snapshots = new LinkedHashMap<>();
+            refs.forEach(ref -> snapshots.put(ref, new AuthorSnapshot(
+                    ref.ownerUserId(),
+                    ref.agentId(),
+                    ref.isAgentAuthored() ? "AGENT" : "USER",
+                    ref.isAgentAuthored() ? agent.getName() : user.getDisplayName(),
+                    null,
+                    null)));
+            return snapshots;
+        });
 
         writableBoard = Board.builder().boardName("Writable").boardUrl("free").creator(user).build();
         ReflectionTestUtils.setField(writableBoard, "boardId", 10L);
@@ -380,7 +426,7 @@ class AgentServiceTest {
                 eq(1L),
                 any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
-        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+        when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
@@ -388,7 +434,7 @@ class AgentServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getTotalElements()).isEqualTo(1);
-        verify(commentRepository).findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L);
+        verify(commentRepository).findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L);
         verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
@@ -547,18 +593,18 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(agentRepository, never()).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(any());
+        verify(agentRepository, never()).findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(any());
     }
 
     @Test
     void getStatus_usesSameDailyRangeForPostAndCommentCounts() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+        when(postRepository.countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
                 .thenReturn(2L);
-        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+        when(commentRepository.countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
@@ -575,11 +621,11 @@ class AgentServiceTest {
         ArgumentCaptor<LocalDateTime> postEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> commentStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> commentEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(postRepository).countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+        verify(postRepository).countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 postStartCaptor.capture(),
                 postEndCaptor.capture());
-        verify(commentRepository).countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+        verify(commentRepository).countByAgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 commentStartCaptor.capture(),
                 commentEndCaptor.capture());
@@ -640,7 +686,7 @@ class AgentServiceTest {
     @Test
     void getHome_returnsCapabilitiesAndOpportunitiesForActiveAgent() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
-        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        ReflectionTestUtils.setField(writablePost, "agentId", agent.getAgentId());
         LocalDateTime latestAt = LocalDateTime.now();
         LocalDateTime lastReadAt = latestAt.minusMinutes(5);
 
@@ -686,7 +732,7 @@ class AgentServiceTest {
                         return lastReadAt;
                     }
                 }));
-        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -705,7 +751,7 @@ class AgentServiceTest {
         }));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
         doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
-        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(user, List.of(writableBoard), List.of(10L));
+        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(agent, List.of(writableBoard), List.of(10L));
         when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
@@ -749,7 +795,7 @@ class AgentServiceTest {
                         AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
         when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
                 .thenReturn(List.of());
-        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -768,7 +814,7 @@ class AgentServiceTest {
         }));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
         doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
-        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(user, List.of(writableBoard), List.of(10L));
+        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(agent, List.of(writableBoard), List.of(10L));
         when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
                 .thenReturn(Page.empty());
 
@@ -979,7 +1025,7 @@ class AgentServiceTest {
         assertThat(agent.getDescription()).isEqualTo("desc");
         verify(agentAuditService).saveLog(
                 agent,
-                user,
+                user.getUserId(),
                 AgentAuditActionType.SUSPEND,
                 AgentAuditTargetType.AGENT,
                 7L,
@@ -1018,7 +1064,7 @@ class AgentServiceTest {
         assertThat(agent.isActive()).isTrue();
         verify(agentAuditService).saveLog(
                 agent,
-                user,
+                user.getUserId(),
                 AgentAuditActionType.REACTIVATE,
                 AgentAuditTargetType.AGENT,
                 7L,
@@ -1110,7 +1156,7 @@ class AgentServiceTest {
         assertThat(agent.getIsDeleted()).isTrue();
         verify(agentAuditService).saveLog(
                 agent,
-                user,
+                user.getUserId(),
                 AgentAuditActionType.DELETE,
                 AgentAuditTargetType.AGENT,
                 7L,
@@ -1141,11 +1187,11 @@ class AgentServiceTest {
         when(agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L))
                 .thenReturn(List.of(agent));
 
-        agentLifecycleService.suspendAllForUser(user);
+        agentLifecycleService.suspendAllForUserId(user.getUserId());
 
         assertThat(agent.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         verify(agentRepository).findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L);
-        verify(agentRepository, never()).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(any());
+        verify(agentRepository, never()).findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(any());
     }
 
     @Test
@@ -1246,7 +1292,7 @@ class AgentServiceTest {
         assertThat(response.getAgentId()).isEqualTo(9L);
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(previousAgent.getIsDeleted()).isTrue();
-        assertThat(pendingAgent.getUser()).isEqualTo(user);
+        assertThat(pendingAgent.getUserId()).isEqualTo(user.getUserId());
         verify(agentAuditLogWriter).saveLog(
                 3L,
                 1L,
@@ -1326,27 +1372,27 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(activeAgent, "agentId", 11L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
+        when(agentRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(user.getUserId()))
                 .thenReturn(List.of(activeAgent));
 
         var response = agentLifecycleService.getMyAgents(1L);
 
         assertThat(response.getAgents()).hasSize(1);
         assertThat(response.getAgents().get(0).getAgentId()).isEqualTo(11L);
-        verify(agentRepository).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user);
+        verify(agentRepository).findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(user.getUserId());
     }
 
     @Test
     void getMyPosts_returnsAgentPosts() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any()))
+        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
         Page<AgentPostListItem> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
-        verify(postRepository).findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any());
+        verify(postRepository).findByAgentIdAndIsDeleted(eq(7L), eq(false), any());
     }
 
     @Test
@@ -1528,7 +1574,7 @@ class AgentServiceTest {
                 eq(1L),
                 any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost, secondWritablePost), PageRequest.of(0, 10), 2));
-        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
+        when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(
                 List.of(100L, 101L), 7L)).thenReturn(List.of());
 
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
@@ -1564,7 +1610,7 @@ class AgentServiceTest {
                 eq(1L),
                 any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
-        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+        when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, 10L, PageRequest.of(0, 10));
@@ -1587,7 +1633,7 @@ class AgentServiceTest {
                 eq(1L),
                 any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
-        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+        when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
@@ -1614,7 +1660,7 @@ class AgentServiceTest {
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
         when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), eq(true), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
-        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+        when(commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of(100L));
 
         Page<AgentPostListItem> response = agentQueryService.getBoardPosts(7L, 10L, 9L, PageRequest.of(0, 10));
@@ -1790,7 +1836,7 @@ class AgentServiceTest {
 
     @Test
     void markPostActivityRead_upsertsReadCursorAndReturnsRemainingUnreadCount() {
-        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        ReflectionTestUtils.setField(writablePost, "agentId", agent.getAgentId());
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
@@ -1814,7 +1860,7 @@ class AgentServiceTest {
                 .status(Agent.STATUS_ACTIVE)
                 .build();
         ReflectionTestUtils.setField(otherAgent, "agentId", 8L);
-        ReflectionTestUtils.setField(writablePost, "agent", otherAgent);
+        ReflectionTestUtils.setField(writablePost, "agentId", otherAgent.getAgentId());
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
@@ -1829,7 +1875,7 @@ class AgentServiceTest {
     @Test
     void markPostActivityRead_rejectsSuspendedAgent() {
         agent.suspend();
-        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        ReflectionTestUtils.setField(writablePost, "agentId", agent.getAgentId());
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentPostActivityService.markRead(7L, 100L))
@@ -1967,7 +2013,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(postService, never()).likePost(anyLong(), (Agent) any(), any(Post.class));
+        verify(postService, never()).likePost(anyLong(), anyLong(), any(Post.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(),
                 any(), any());
     }
@@ -2253,7 +2299,8 @@ class AgentServiceTest {
                 contextCaptor.capture());
         assertThat(requestCaptor.getValue().getCategoryId()).isEqualTo(11L);
         PostCreateContext context = contextCaptor.getValue();
-        assertThat(context.agent()).isSameAs(agent);
+        assertThat(context.ownerUserId()).isEqualTo(agent.getUserId());
+        assertThat(context.agentId()).isEqualTo(agent.getAgentId());
         assertThat(context.board()).isSameAs(writableBoard);
         assertThat(context.category()).isSameAs(category);
         assertThat(context.boardWritablePrevalidated()).isTrue();
@@ -2356,8 +2403,8 @@ class AgentServiceTest {
         assertThat(response.getCommentId()).isEqualTo(300L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
-                argThat(context -> context.agent() == agent
-                        && context.post() == writablePost
+                argThat(context -> context.agentId().equals(agent.getAgentId())
+                        && context.postId().equals(writablePost.getPostId())
                         && context.parentComment() == null
                         && context.postReadablePrevalidated()));
         InOrder inOrder = inOrder(agentDailyQuotaRepository, commentService, agentAuditService);
@@ -2366,7 +2413,7 @@ class AgentServiceTest {
                 any(CommentCreateContext.class));
         inOrder.verify(agentAuditService).saveLog(
                 agent,
-                user,
+                user.getUserId(),
                 AgentAuditActionType.CREATE_COMMENT,
                 AgentAuditTargetType.COMMENT,
                 300L,
@@ -2384,6 +2431,8 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
+        when(postService.getPostById(100L, null, false)).thenReturn(writablePost);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
@@ -2395,8 +2444,8 @@ class AgentServiceTest {
         verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(commentService).lockAuthorForWrite(1L);
         verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
-                argThat(context -> context.agent() == agent
-                        && context.post() == writablePost
+                argThat(context -> context.agentId().equals(agent.getAgentId())
+                        && context.postId().equals(writablePost.getPostId())
                         && context.parentComment() == parentComment
                         && !context.postReadablePrevalidated()));
         InOrder inOrder = inOrder(commentService, commentRepository, agentDailyQuotaRepository, agentAuditService);
@@ -2407,7 +2456,7 @@ class AgentServiceTest {
                 any(CommentCreateContext.class));
         inOrder.verify(agentAuditService).saveLog(
                 agent,
-                user,
+                user.getUserId(),
                 AgentAuditActionType.CREATE_COMMENT,
                 AgentAuditTargetType.COMMENT,
                 501L,
@@ -2434,6 +2483,8 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
+        when(postService.getPostById(100L, null, false)).thenReturn(restrictedPost);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(restrictedPost));
 
         assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -2455,7 +2506,10 @@ class AgentServiceTest {
         assertThat(response.getPostId()).isEqualTo(101L);
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isNull();
-        verify(postCommandService).deleteAgentOwnedPost(agentPost, 7L, user);
+        verify(postCommandService).deleteAgentOwnedPost(
+                eq(agentPost),
+                eq(7L),
+                argThat(actor -> actor != null && Long.valueOf(1L).equals(actor.getUserId())));
         verify(agentAuditLogWriter).saveLog(
                 eq(7L),
                 eq(1L),
@@ -2479,7 +2533,8 @@ class AgentServiceTest {
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isTrue();
         assertThat(response.getDeletedAt()).isNotNull();
-        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
+        verify(postCommandService, never()).deleteAgentOwnedPost(
+                any(Post.class), anyLong(), any(com.weedrice.whiteboard.domain.actor.UserIdRef.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2503,7 +2558,8 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(otherAgentPost.getIsDeleted()).isFalse();
-        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
+        verify(postCommandService, never()).deleteAgentOwnedPost(
+                any(Post.class), anyLong(), any(com.weedrice.whiteboard.domain.actor.UserIdRef.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2515,7 +2571,8 @@ class AgentServiceTest {
         assertThatThrownBy(() -> agentCommandService.deletePost(7L, 404L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
-        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
+        verify(postCommandService, never()).deleteAgentOwnedPost(
+                any(Post.class), anyLong(), any(com.weedrice.whiteboard.domain.actor.UserIdRef.class));
     }
 
     @Test
@@ -2530,7 +2587,8 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(agentPost.getIsDeleted()).isFalse();
-        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
+        verify(postCommandService, never()).deleteAgentOwnedPost(
+                any(Post.class), anyLong(), any(com.weedrice.whiteboard.domain.actor.UserIdRef.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2538,7 +2596,7 @@ class AgentServiceTest {
     void likePost_success() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.likePost(1L, agent, writablePost)).thenReturn(3);
+        when(postService.likePost(1L, agent.getAgentId(), writablePost)).thenReturn(3);
 
         var response = agentCommandService.likePost(7L, 100L, null);
 
@@ -2566,6 +2624,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
@@ -2598,6 +2657,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(0);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(4);
 
@@ -2634,6 +2694,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(secretPost));
 
         assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
                 .isInstanceOf(BusinessException.class)
@@ -2672,6 +2733,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
                 .isInstanceOf(BusinessException.class)
@@ -2705,6 +2767,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
 
         assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))

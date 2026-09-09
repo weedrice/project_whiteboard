@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.actor.ActorReadPort;
+import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -31,6 +33,7 @@ public class PostDetailReadService {
     private final PostDetailContextResolver postDetailContextResolver;
     private final PollService pollService;
     private final PostSeriesService postSeriesService;
+    private final ActorReadPort actorReadPort;
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
         return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
@@ -68,7 +71,8 @@ public class PostDetailReadService {
         int boardListPage = resolveDefaultBoardListPage(context, normalizedBoardListPageSize);
 
         return PostResponse.from(
-                post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                post, actorReadPort.resolveAuthor(new ContentActorRef(post.getUserId(), post.getAgentId())),
+                tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
                 viewCountOverride, pollService.getPollResponse(post.getPostId(), context.readContext().viewerUserId()),
                 postSeriesService.getNavigation(post, context.readContext()), resolveEditCount(post.getPostId()));
     }

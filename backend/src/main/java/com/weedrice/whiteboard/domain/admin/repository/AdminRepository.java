@@ -58,6 +58,17 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
               AND admin.isActive = true
             """)
     List<Long> findActiveBoardIdsByUser(@Param("user") User user);
+
+    @Query("""
+            SELECT a.board.boardId
+            FROM Admin a
+            WHERE a.user.userId = :userId
+              AND a.board.boardId IN :boardIds
+              AND a.isActive = true
+            """)
+    List<Long> findActiveBoardIdsByUserIdAndBoardIds(
+            @Param("userId") Long userId,
+            @Param("boardIds") Collection<Long> boardIds);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Admin> findAllByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = "board")
@@ -74,9 +85,13 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     List<Admin> findByUserAndBoard_BoardIdInAndIsActive(User user, Collection<Long> boardIds, Boolean isActive);
     Optional<Admin> findByUserAndIsActive(User user, Boolean isActive);
     boolean existsByUserAndIsActive(User user, Boolean isActive);
+
+    boolean existsByUser_UserIdAndIsActive(Long userId, Boolean isActive);
     boolean existsByUser(User user);
     void deleteByBoard(Board board);
     boolean existsByUserAndBoardAndIsActive(User userId, Board boardId, Boolean isActive);
+
+    boolean existsByUser_UserIdAndBoard_BoardIdAndIsActive(Long userId, Long boardId, Boolean isActive);
 
     interface BoardAdminCountProjection {
         Long getBoardId();

@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.comment.dto;
 
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
@@ -19,9 +18,8 @@ public class CommentListResponse {
     private boolean hasNext;
     private boolean hasPrevious;
 
-    public static CommentListResponse from(Page<Comment> commentPage) {
+    public static CommentListResponse fromResponses(Page<CommentResponse> commentPage) {
         List<CommentResponse> content = commentPage.getContent().stream()
-                .map(CommentResponse::from)
                 .collect(Collectors.toList());
 
         return CommentListResponse.builder()
