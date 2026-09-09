@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler, toEmbeddableVideoUrl } from '../feedPreview'
+import { getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler, toEmbeddableVideoUrl } from '../feedPreview'
+import { buildPostDetailPath } from '../urlPath'
 
 describe('feedPreview', () => {
     it('sanitizes excerpt html and strips media tags', () => {

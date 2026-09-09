@@ -20,7 +20,7 @@ import { useToastStore } from '@/stores/toast'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { formatDateTimeOrDash, withServerOffset } from '@/utils/date'
-import { encodePathSegment } from '@/utils/urlPath'
+import { buildPostDetailPath, encodePathSegment } from '@/utils/urlPath'
 import type { DraftPostPageResponse, DraftPostSummary } from '@/types'
 import type { ScheduledPost } from '@/api/post'
 
@@ -147,7 +147,7 @@ function getScheduledTitle(post: ScheduledPost) {
 
 function getScheduledPostRoute(post: ScheduledPost) {
   if (!post.publishedPostId) return null
-  return `/board/${encodePathSegment(post.boardUrl)}/post/${encodePathSegment(post.publishedPostId)}`
+  return buildPostDetailPath(post.boardUrl, post.publishedPostId)
 }
 
 function getScheduledEditRoute(post: ScheduledPost) {

@@ -109,7 +109,7 @@ describe('useNotificationNavigation', () => {
         await navigateFromNotification(makeNotification({ sourceType: 'POST', sourceId: 99 }))
 
         expect(mocks.markAsRead).toHaveBeenCalledWith(10)
-        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99')
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99/')
     })
 
     it('uses an internal targetUrl without fetching the source resource', async () => {
@@ -123,7 +123,7 @@ describe('useNotificationNavigation', () => {
         expect(mocks.markAsRead).toHaveBeenCalledWith(10)
         expect(postApi.getPost).not.toHaveBeenCalled()
         expect(commentApi.getComment).not.toHaveBeenCalled()
-        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99#comment-50')
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99/#comment-50')
     })
 
     it('resolves a message source before opening a generic mailbox target', async () => {
@@ -174,7 +174,7 @@ describe('useNotificationNavigation', () => {
             signal: expect.any(AbortSignal),
             skipGlobalErrorHandler: true,
         })
-        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99')
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99/')
     })
 
     it('navigates comment notifications to the parent post comment anchor', async () => {
@@ -192,7 +192,7 @@ describe('useNotificationNavigation', () => {
         await navigateFromNotification(makeNotification({ sourceType: 'COMMENT', sourceId: 50, isRead: true }))
 
         expect(mocks.markAsRead).not.toHaveBeenCalled()
-        expect(mocks.routerPush).toHaveBeenCalledWith('/board/notice/post/77#comment-50')
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/notice/post/77/#comment-50')
     })
 
     it('supports flat comment navigation fields from the backend response', async () => {
@@ -207,7 +207,7 @@ describe('useNotificationNavigation', () => {
         const { navigateFromNotification } = useNotificationNavigation()
         await navigateFromNotification(makeNotification({ sourceType: 'COMMENT', sourceId: 52 }))
 
-        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/78#comment-52')
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/78/#comment-52')
     })
 
     it('uses the toast option for comment navigation failures', async () => {
@@ -249,22 +249,22 @@ describe('useNotificationNavigation', () => {
     })
 
     it('maps backend post/comment navigation payloads to routes', () => {
-        expect(mapPostNotificationRoute({ board: { boardUrl: 'free' } }, 99)).toBe('/board/free/post/99')
-        expect(mapPostNotificationRoute({ board: { boardUrl: 'free board' } }, 'a/b')).toBe('/board/free%20board/post/a%2Fb')
+        expect(mapPostNotificationRoute({ board: { boardUrl: 'free' } }, 99)).toBe('/board/free/post/99/')
+        expect(mapPostNotificationRoute({ board: { boardUrl: 'free board' } }, 'a/b')).toBe('/board/free%20board/post/a%2Fb/')
         expect(mapPostNotificationRoute({ board: null }, 99)).toBeNull()
         expect(mapCommentNotificationRoute({
             post: {
                 boardUrl: 'notice',
                 postId: 77,
             },
-        }, 50)).toBe('/board/notice/post/77#comment-50')
+        }, 50)).toBe('/board/notice/post/77/#comment-50')
         expect(mapCommentNotificationRoute({
             post: {
                 boardUrl: 'notice board',
                 postId: '7/7',
             },
-        }, '5/0')).toBe('/board/notice%20board/post/7%2F7#comment-5%2F0')
-        expect(mapCommentNotificationRoute({ boardUrl: 'free', postId: 78 }, 52)).toBe('/board/free/post/78#comment-52')
+        }, '5/0')).toBe('/board/notice%20board/post/7%2F7/#comment-5%2F0')
+        expect(mapCommentNotificationRoute({ boardUrl: 'free', postId: 78 }, 52)).toBe('/board/free/post/78/#comment-52')
         expect(mapCommentNotificationRoute({ boardUrl: 'free' }, 52)).toBeNull()
     })
 })

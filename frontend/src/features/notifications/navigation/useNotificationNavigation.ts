@@ -8,7 +8,7 @@ import { unwrapApiData } from '@/api/response'
 import { useNotification } from '@/features/notifications/queries/useNotification'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
-import { encodePathSegment } from '@/utils/urlPath'
+import { buildPostDetailPath, encodePathSegment, normalizePostDetailPath } from '@/utils/urlPath'
 import type { Notification } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
@@ -40,7 +40,7 @@ export function mapPostNotificationRoute(
     const boardUrl = post.board?.boardUrl
     if (!boardUrl) return null
 
-    return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}`
+    return buildPostDetailPath(boardUrl, postId)
 }
 
 export function mapCommentNotificationRoute(
@@ -51,7 +51,7 @@ export function mapCommentNotificationRoute(
     const postId = comment.post?.postId ?? comment.postId
     if (!boardUrl || !postId) return null
 
-    return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}#comment-${encodePathSegment(commentId)}`
+    return buildPostDetailPath(boardUrl, postId, `#comment-${encodePathSegment(commentId)}`)
 }
 
 function isInternalTargetUrl(targetUrl: string | undefined): targetUrl is string {
@@ -100,7 +100,7 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
         const needsMessageSourceLookup = notification.sourceType === 'MESSAGE'
             && notification.targetUrl === '/mypage/messages'
         if (!needsMessageSourceLookup && isInternalTargetUrl(notification.targetUrl)) {
-            if (isCurrent()) router.push(notification.targetUrl)
+            if (isCurrent()) router.push(normalizePostDetailPath(notification.targetUrl))
             return
         }
 

@@ -158,7 +158,7 @@ describe('PostWrite', () => {
     })
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/board/test/post/123')
+    expect(router.currentRoute.value.path).toBe('/board/test/post/123/')
     expect(router.currentRoute.value.query).toEqual({ fromCreate: '1' })
   })
 

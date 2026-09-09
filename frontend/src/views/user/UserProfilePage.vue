@@ -20,6 +20,7 @@ import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderCommentContentHtml } from '@/features/comments/commentContent'
 import type { SanitizedHtml } from '@/utils/sanitize'
 import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
+import { buildPostDetailPath, encodePathSegment } from '@/utils/urlPath'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -251,7 +252,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
         <ul v-else class="divide-y divide-[var(--nv-line)]">
           <li v-for="comment in commentsData.content" :key="comment.commentId" class="p-4">
             <router-link
-              :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}#comment-${comment.commentId}`"
+              :to="buildPostDetailPath(comment.post.boardUrl, comment.post.postId, `#comment-${encodePathSegment(comment.commentId)}`)"
               class="font-medium nv-title hover:text-[var(--nv-accent)]"
             >
               {{ comment.post.title }}

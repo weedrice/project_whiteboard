@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { ChevronRight, MessageSquare } from 'lucide-vue-next'
 import type { FeedPost } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
-import { buildPostDetailPath } from '@/utils/feedPreview'
 import { formatInteger } from '@/utils/numberFormat'
+import { buildPostDetailPath } from '@/utils/urlPath'
 
 const props = defineProps<{
   posts: FeedPost[]

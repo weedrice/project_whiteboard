@@ -100,6 +100,7 @@ describe('DraftList', () => {
     expect(wrapper.text()).toContain('user.draftList.scheduledFailure.internalError')
     expect(wrapper.text()).not.toContain('PUBLISH_INTERNAL_ERROR')
     expect(wrapper.find('a[data-to="/scheduled-posts/10/edit"]').exists()).toBe(true)
+    expect(wrapper.find('a[data-to="/board/free/post/9/"]').exists()).toBe(true)
 
     const buttons = wrapper.findAll('button')
     await buttons[0].trigger('click')

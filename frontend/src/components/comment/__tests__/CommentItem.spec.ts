@@ -441,7 +441,7 @@ describe('CommentItem', () => {
 
         expect(routerPushMock).toHaveBeenCalledWith({
             name: 'login',
-            query: { redirect: '/board/free%20board/post/100' },
+            query: { redirect: '/board/free%20board/post/100/' },
         })
         expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })

@@ -23,6 +23,7 @@ import { queryClient } from '@/queryClient'
 import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 import type { ReportReasonType } from '@/types'
 import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
+import { buildPostDetailPath } from '@/utils/urlPath'
 
 defineOptions({
   name: 'CommentItem',
@@ -139,7 +140,7 @@ function handleLike() {
     void router.push({
       name: 'login',
       query: {
-        redirect: `/board/${encodeURIComponent(props.boardUrl)}/post/${encodeURIComponent(String(props.postId))}`,
+        redirect: buildPostDetailPath(props.boardUrl, props.postId),
       },
     })
     return

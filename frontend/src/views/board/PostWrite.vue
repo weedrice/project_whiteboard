@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PostForm from '@/components/board/PostForm.vue'
 import { usePostFormRouteShell } from '@/features/board/posts/form/usePostFormRouteShell'
-import { encodePathSegment } from '@/utils/urlPath'
+import { buildPostDetailPath, encodePathSegment } from '@/utils/urlPath'
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 
@@ -27,7 +27,7 @@ function handleSubmitted(result: {
     return
   }
   router.push({
-    path: `/board/${encodePathSegment(result.boardUrl)}/post/${encodePathSegment(result.newPostId)}`,
+    path: buildPostDetailPath(result.boardUrl, result.newPostId),
     query: { fromCreate: '1' }
   })
 }

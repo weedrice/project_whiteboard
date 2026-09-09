@@ -158,7 +158,7 @@ describe('PostEdit', () => {
     })
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/board/test/post/1')
+    expect(router.currentRoute.value.path).toBe('/board/test/post/1/')
   })
 
   it('handles PostForm cancel from the view', async () => {

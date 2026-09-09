@@ -7,8 +7,9 @@ import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import type { FeedPost } from '@/types'
 import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
-import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
+import { getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
 import { formatInteger } from '@/utils/numberFormat'
+import { buildPostDetailPath } from '@/utils/urlPath'
 
 const props = withDefaults(defineProps<{
   post: FeedPost

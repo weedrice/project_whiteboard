@@ -64,7 +64,10 @@ function mountProfile() {
         ErrorState: { template: '<button data-retry @click="$emit(\'retry\')">retry</button>' },
         PostList: { template: '<div data-post-list />' },
         Pagination: { template: '<button data-page @click="$emit(\'page-change\', 1)">page</button>' },
-        RouterLink: { template: '<a><slot /></a>' },
+        RouterLink: {
+          props: ['to'],
+          template: '<a :data-to="to"><slot /></a>',
+        },
         FileText: true, MessageSquare: true, Award: true, User: true,
       },
     },
@@ -98,6 +101,7 @@ describe('UserProfilePage', () => {
     await wrapper.find('[data-page]').trigger('click')
     await wrapper.find('[data-comments]').trigger('click')
     expect(wrapper.get('.comment-content-list img').attributes('src')).toContain('/uploads/happy.png')
+    expect(wrapper.get('li > a').attributes('data-to')).toBe('/board/news/post/1/#comment-2')
     expect(wrapper.text()).not.toContain('![emoticon]')
 
     mocks.route!.params.userId = '8'

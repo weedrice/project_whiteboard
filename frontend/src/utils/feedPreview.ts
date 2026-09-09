@@ -1,7 +1,6 @@
 import DOMPurify from 'dompurify'
 import type { FeedPost } from '@/types'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
-import { encodePathSegment } from '@/utils/urlPath'
 
 const HTML_TAG_PATTERN = /<[a-z][\s\S]*>/i
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
@@ -128,8 +127,4 @@ export const getFeedMediaPreview = (post: Pick<FeedPost, 'firstMediaType' | 'fir
 
 export const isFeedSpoiler = (post: Pick<FeedPost, 'isSpoiler'> & { spoiler?: boolean }) => {
   return Boolean(post.isSpoiler ?? post.spoiler)
-}
-
-export const buildPostDetailPath = (boardUrl: string | number, postId: string | number, hash = '') => {
-  return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}/${hash}`
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PostForm from '@/components/board/PostForm.vue'
 import { usePostFormRouteShell } from '@/features/board/posts/form/usePostFormRouteShell'
-import { encodePathSegment } from '@/utils/urlPath'
+import { buildPostDetailPath } from '@/utils/urlPath'
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 
@@ -11,7 +11,7 @@ const { postFormRef, router, route, boardUrl, postId, handleCancel } = usePostFo
 const initialDraftId = computed(() => route.query.draftId as string | undefined)
 
 function handleSubmitted(result: { boardUrl: string; postId?: string | number }) {
-  router.push(`/board/${encodePathSegment(result.boardUrl)}/post/${encodePathSegment(result.postId ?? postId.value)}`)
+  router.push(buildPostDetailPath(result.boardUrl, result.postId ?? postId.value))
 }
 
 </script>
