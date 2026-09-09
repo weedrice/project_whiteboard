@@ -113,9 +113,15 @@ if node "$validator" "$fixture"; then
 fi
 
 cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
-sed -i '0,/sudo systemctl stop app$/s//sudo systemctl stop app || true/' "$fixture/.github/workflows/deploy-backend.yml"
+sed -i '0,/sudo systemctl stop app || return 1$/s//sudo systemctl stop app || true/' "$fixture/.github/workflows/deploy-backend.yml"
 if node "$validator" "$fixture"; then
   echo "Expected ignored backend stop failure to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i 's/wait_for_backend "$EXPECTED_SHA"/wait_for_backend ""/' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected backend activation without target runtime identity to fail" >&2
   exit 1
 fi
 cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"

@@ -305,7 +305,8 @@ assert(!backendActivation.includes('systemctl stop app || true'), 'backend must 
 assert(backendActivation.includes('systemctl show app --property=MainPID --value'), 'backend must verify process exit before replacement')
 assert(backendActivation.includes('${HEALTH_URL%/health}/info') && backendReadback.includes('http://127.0.0.1:8081/actuator/info'),
   'backend activation and readback must verify the running commit')
-assert(backendActivation.includes('grep -Fq -- "\\\"commit\\\":\\\"$EXPECTED_SHA\\\""')
+assert(backendActivation.includes('wait_for_backend "$EXPECTED_SHA"')
+  && backendActivation.includes('grep -Fq -- "\\\"commit\\\":\\\"$1\\\""')
   && backendReadback.includes('grep -Fq -- "\\\"commit\\\":\\\"$EXPECTED_SHA\\\""'),
   'backend runtime info must match the expected commit')
 const backendBuild = ci.jobs['candidate-backend'].steps.find((step) => step.name === 'Build backend release once after the CI gate')

@@ -55,13 +55,21 @@ sudo() {
     case "$2" in
       stop)
         [ "\${MOCK_STOP_FAIL:-false}" != true ] || return 1
+        if [ "\${MOCK_RECOVERY_STOP_FAIL:-false}" = true ] && [ "$(cat "$FIXTURE/app/app.jar")" = 'new jar' ]; then return 1; fi
         printf inactive > "$FIXTURE/process-state"
+        if [ "\${MOCK_STOP_PARTIAL_FAILURE:-false}" = true ] && [ ! -f "$FIXTURE/stop-failed" ]; then
+          printf failed > "$FIXTURE/stop-failed"
+          return 1
+        fi
         return 0 ;;
       show) printf '%s\\n' "\${MOCK_STOP_PID:-0}"; return 0 ;;
       is-active)
         [ "\${MOCK_STILL_ACTIVE:-false}" = true ] || [ "$(cat "$FIXTURE/process-state")" = active ]
         return $? ;;
       start)
+        if [ "\${MOCK_START_FAIL:-false}" = true ] && [ "$(cat "$FIXTURE/app/app.jar")" != 'previous jar' ]; then
+          return 1
+        fi
         printf active > "$FIXTURE/process-state"
         if [ "$(cat "$FIXTURE/app/app.jar")" = 'previous jar' ]; then
           printf '%s' "$PREVIOUS_SHA" > "$FIXTURE/runtime-sha"
@@ -69,11 +77,29 @@ sudo() {
           printf '%s' "\${MOCK_START_SHA:-$EXPECTED_SHA}" > "$FIXTURE/runtime-sha"
         fi
         return 0 ;;
-      daemon-reload) return 0 ;;
+      daemon-reload) [ "\${MOCK_RELOAD_FAIL:-false}" != true ]; return $? ;;
       *) return 64 ;;
     esac
   fi
-  case "$1" in install|test|sha256sum|mv|rm|cat|tr) "$@" ;; *) return 64 ;; esac
+  case "$1" in
+    install)
+      if [ "\${MOCK_PREPARE_FAIL:-false}" = true ] && [ "$5" = "$FIXTURE/app/app.jar.next" ]; then return 1; fi
+      "$@" || return $?
+      if [ "\${MOCK_PREPARE_CORRUPT:-false}" = true ] && [ "$5" = "$FIXTURE/app/app.jar.next" ]; then
+        printf corrupt > "$5"
+      fi ;;
+    mv)
+      [ "\${MOCK_SWAP_FAIL:-false}" != true ] || return 1
+      "$@" || return $?
+      if [ "\${MOCK_BACKUP_CORRUPT:-false}" = true ]; then
+        printf corrupt > "$FIXTURE/app/app.jar.rollback"
+        return 1
+      fi
+      [ "\${MOCK_SWAP_RESULT_FAIL:-false}" != true ] || return 1
+      if [ "\${MOCK_SWAP_TERM:-false}" = true ]; then kill -TERM $$; fi ;;
+    test|sha256sum|rm|cat|tr) "$@" ;;
+    *) return 64 ;;
+  esac
 }
 curl() {
   case "$*" in
@@ -130,6 +156,79 @@ for (const [name, env] of [
     assert.equal(f.read('runtime-sha'), previous)
   })
 }
+
+for (const [name, env] of [
+  ['new JAR copy fails', { MOCK_PREPARE_FAIL: 'true' }],
+  ['prepared JAR digest differs', { MOCK_PREPARE_CORRUPT: 'true' }],
+  ['daemon reload fails', { MOCK_RELOAD_FAIL: 'true' }],
+]) {
+  test(`backend preparation keeps the previous service running when ${name}`, (t) => {
+    const f = fixture(t)
+    fails(runStep(f, backend, 'activate', { env }))
+    assert.equal(f.read('process-state'), 'active')
+    assert.equal(f.read('app/app.jar'), 'previous jar')
+    assert.equal(f.read('runtime-sha'), previous)
+  })
+}
+
+for (const [name, env] of [
+  ['stop returns failure after stopping', { MOCK_STOP_PARTIAL_FAILURE: 'true' }],
+  ['JAR swap fails', { MOCK_SWAP_FAIL: 'true' }],
+  ['JAR swap succeeds but reports failure', { MOCK_SWAP_RESULT_FAIL: 'true' }],
+  ['termination follows the JAR swap', { MOCK_SWAP_TERM: 'true' }],
+]) {
+  for (const contract of [false, true]) {
+    test(`backend recovers pre-start failure when ${name} (contract=${contract})`, (t) => {
+      const f = fixture(t)
+      const result = runStep(f, backend, 'activate', { env, contract })
+      fails(result)
+      assert.equal(f.read('process-state'), 'active')
+      assert.equal(f.read('app/app.jar'), 'previous jar')
+      assert.equal(f.read('runtime-sha'), previous)
+      assert.match(result.stderr, /Previous backend restored and healthy/)
+    })
+  }
+}
+
+for (const contract of [false, true]) {
+  test(`backend start command failure respects the contract rollback boundary (contract=${contract})`, (t) => {
+    const f = fixture(t)
+    fails(runStep(f, backend, 'activate', { env: { MOCK_START_FAIL: 'true' }, contract }))
+    assert.equal(f.read('process-state'), contract ? 'inactive' : 'active')
+    assert.equal(f.read('app/app.jar'), contract ? 'new jar' : 'previous jar')
+  })
+}
+
+test('backend recovery rejects a changed backup before restoring any JAR', (t) => {
+  const f = fixture(t)
+  const result = runStep(f, backend, 'activate', { env: { MOCK_BACKUP_CORRUPT: 'true' } })
+  fails(result)
+  assert.equal(f.read('process-state'), 'inactive')
+  assert.equal(f.read('app/app.jar'), 'new jar')
+  assert.match(result.stderr, /Backend recovery failed; operator recovery is required/)
+})
+
+test('backend recovery does not replace a JAR when the new process cannot stop', (t) => {
+  const f = fixture(t)
+  const result = runStep(f, backend, 'activate', {
+    env: { MOCK_START_SHA: unrelated, MOCK_RECOVERY_STOP_FAIL: 'true' },
+  })
+  fails(result)
+  assert.equal(f.read('process-state'), 'active')
+  assert.equal(f.read('app/app.jar'), 'new jar')
+  assert.match(result.stderr, /Backend recovery failed; operator recovery is required/)
+})
+
+test('backend without a previous JAR stops a failed first release for operator recovery', (t) => {
+  const f = fixture(t)
+  fs.unlinkSync(path.join(f.directory, 'app/app.jar'))
+  f.write('process-state', 'inactive')
+  const result = runStep(f, backend, 'activate', { env: { MOCK_START_FAIL: 'true' } })
+  fails(result)
+  assert.equal(f.read('process-state'), 'inactive')
+  assert.equal(f.read('app/app.jar'), 'new jar')
+  assert.match(result.stderr, /No previous backend JAR is available; operator recovery is required/)
+})
 
 test('backend activation and independent readback require the running release', (t) => {
   const f = fixture(t)

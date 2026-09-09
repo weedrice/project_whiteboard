@@ -147,48 +147,93 @@ jobs:
             echo "$expected_digest" | grep -Eq '^[0-9a-f]{64}$'
 
             sudo install -d -m 0755 "$APP_DIR"
+            sudo install -m 0644 "$STAGING_DIR/app.jar" "$APP_DIR/app.jar.next"
+            test "$(sudo sha256sum "$APP_DIR/app.jar.next" | awk '{print $1}')" = "$expected_digest"
+            sudo systemctl daemon-reload
+
             had_previous=false
+            previous_digest=''
             if sudo test -f "$APP_DIR/app.jar"; then
+              previous_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
               sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
+              test "$(sudo sha256sum "$APP_DIR/app.jar.rollback" | awk '{print $1}')" = "$previous_digest"
               had_previous=true
             fi
 
-            sudo systemctl stop app
-            test "$(sudo systemctl show app --property=MainPID --value)" = 0
-            if sudo systemctl is-active --quiet app; then
-              echo "Backend is still active after stop; refusing JAR replacement" >&2
-              exit 1
-            fi
-            sudo install -m 0644 "$STAGING_DIR/app.jar" "$APP_DIR/app.jar.next"
-            test "$(sudo sha256sum "$APP_DIR/app.jar.next" | awk '{print $1}')" = "$expected_digest"
-            sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
-            sudo systemctl daemon-reload
+            stop_attempted=false
+            replacement_attempted=false
+            start_attempted=false
 
-            healthy=false
-            if sudo systemctl start app; then
+            stop_and_confirm() {
+              sudo systemctl stop app || return 1
+              test "$(sudo systemctl show app --property=MainPID --value)" = 0 || return 1
+              if sudo systemctl is-active --quiet app; then
+                echo "Backend is still active after stop; refusing JAR replacement" >&2
+                return 1
+              fi
+            }
+
+            wait_for_backend() {
               attempt=0
               while [ "$attempt" -lt 45 ]; do
-                if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null \
-                  && curl -fsS --max-time 5 "${HEALTH_URL%/health}/info" \
-                    | grep -Fq -- "\"commit\":\"$EXPECTED_SHA\""; then
-                  healthy=true
-                  break
+                if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null; then
+                  if [ -z "$1" ] || curl -fsS --max-time 5 "${HEALTH_URL%/health}/info" \
+                    | grep -Fq -- "\"commit\":\"$1\""; then
+                    return 0
+                  fi
                 fi
                 attempt=$((attempt + 1))
                 sleep 2
               done
-            fi
+              return 1
+            }
 
-            if [ "$healthy" != true ]; then
-              sudo systemctl stop app
-              test "$(sudo systemctl show app --property=MainPID --value)" = 0
-              if [ "$CONTRACT_MIGRATION" = false ] && [ "$had_previous" = true ]; then
-                sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
-                sudo systemctl start app
+            recover_backend() {
+              [ "$stop_attempted" = true ] || return 0
+              if [ "$replacement_attempted" != true ] && sudo systemctl is-active --quiet app; then
+                echo "Previous backend is still active; leaving it unchanged" >&2
+                return 0
               fi
-              echo "Backend health check failed after activation" >&2
-              exit 1
-            fi
+              stop_and_confirm || return 1
+              if [ "$CONTRACT_MIGRATION" = true ] && [ "$start_attempted" = true ]; then
+                echo "Contract backend start was attempted; leaving the new JAR stopped for operator recovery" >&2
+                return 0
+              fi
+              if [ "$had_previous" != true ]; then
+                echo "No previous backend JAR is available; operator recovery is required" >&2
+                return 0
+              fi
+              test "$(sudo sha256sum "$APP_DIR/app.jar.rollback" | awk '{print $1}')" = "$previous_digest" || return 1
+              sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar" || return 1
+              test "$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')" = "$previous_digest" || return 1
+              sudo systemctl start app || return 1
+              wait_for_backend "" || return 1
+              echo "Previous backend restored and healthy" >&2
+            }
+
+            on_exit() {
+              status=$?
+              trap - EXIT INT TERM HUP
+              if [ "$status" -ne 0 ]; then
+                echo "Backend activation failed; checking recovery state" >&2
+                if ! recover_backend; then
+                  echo "Backend recovery failed; operator recovery is required" >&2
+                fi
+              fi
+              exit "$status"
+            }
+            trap on_exit EXIT
+            trap 'exit 130' INT
+            trap 'exit 143' TERM
+            trap 'exit 129' HUP
+
+            stop_attempted=true
+            stop_and_confirm
+            replacement_attempted=true
+            sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
+            start_attempted=true
+            sudo systemctl start app
+            wait_for_backend "$EXPECTED_SHA"
 
             test "$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')" = "$expected_digest"
             echo "ACTIVATED_SHA=$EXPECTED_SHA"

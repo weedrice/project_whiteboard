@@ -56,15 +56,18 @@ export async function resolveDeploymentBaselines({
     for (const run of runsResponse.data.workflow_runs ?? []) {
       if (!run?.id || !/^[0-9a-f]{40}$/i.test(run.head_sha ?? '')) continue
 
-      const jobsUrl = `${apiUrl}/repos/${repository}/actions/runs/${run.id}/jobs?filter=all&per_page=100`
-      const jobsResponse = await githubJson(jobsUrl, { token, fetchImpl })
-      for (const job of jobsResponse.data.jobs ?? []) {
-        if (job.conclusion !== 'success') continue
-        for (const [component, pattern] of Object.entries(deploymentJobs)) {
-          if (!resolved[component] && pattern.test(job.name ?? '')) {
-            resolved[component] = run.head_sha
+      let jobsUrl = `${apiUrl}/repos/${repository}/actions/runs/${run.id}/jobs?filter=all&per_page=100`
+      while (jobsUrl && (!resolved.backend || !resolved.frontend)) {
+        const jobsResponse = await githubJson(jobsUrl, { token, fetchImpl })
+        for (const job of jobsResponse.data.jobs ?? []) {
+          if (job.conclusion !== 'success') continue
+          for (const [component, pattern] of Object.entries(deploymentJobs)) {
+            if (!resolved[component] && pattern.test(job.name ?? '')) {
+              resolved[component] = run.head_sha
+            }
           }
         }
+        jobsUrl = jobsResponse.next
       }
       if (resolved.backend && resolved.frontend) break
     }
