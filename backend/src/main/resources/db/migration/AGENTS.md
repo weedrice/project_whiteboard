@@ -41,7 +41,7 @@ Run from the repository root on Windows with an installed Python 3 interpreter (
 
 ```powershell
 python backend/scripts/verify-database-doc.py
-.\backend\gradlew.bat test --tests "*Migration*Test" --rerun-tasks
+.\backend\gradlew.bat -p backend test --tests "*Migration*Test" --rerun-tasks
 ```
 
 The document verifier checks migration range, table count, and table inventory only. Manually compare columns, constraints, index purpose, and operational impact.
@@ -55,7 +55,7 @@ bash backend/scripts/check-migration-compatibility.sh <base-ref> HEAD
 When a disposable PostgreSQL instance with the required extensions is configured, also run:
 
 ```powershell
-.\backend\gradlew.bat postgresSmokeTest --rerun-tasks
+.\backend\gradlew.bat -p backend postgresSmokeTest --rerun-tasks
 ```
 
 Never substitute H2 success for PostgreSQL verification when the change depends on PostgreSQL SQL, locking, indexing, extensions, or dialect behavior.

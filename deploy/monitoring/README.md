@@ -1,6 +1,6 @@
 # NoviIs local monitoring
 
-Prometheus and Grafana run on the application EC2 instance and listen on loopback only. Do not add their ports or `/actuator` to the EC2 security group or Nginx.
+This guide defines installation of Prometheus and Grafana on the application EC2 instance with loopback-only listeners. Tracked configuration and CI validation do not establish that the services are installed on a live host. Do not add their ports or `/actuator` to the EC2 security group or Nginx.
 
 ## Preflight
 
@@ -68,7 +68,7 @@ Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<hos
 
 ## Alert thresholds and metric semantics
 
-Deployment follow-up debt is exported through the node-exporter textfile collector as `noviis_deployment_cleanup_debt`. Install `record-cleanup-debt.sh` as `/usr/local/sbin/record-noviis-cleanup-debt` and use the checked-in exporter override. Successful cleanup or SEO submission writes zero; failed retention, incoming-release, status diagnostics, or post-activation SEO submission writes one and alerts after 15 minutes. Incoming release reconciliation also exports `noviis_deployment_incoming_orphans` and `noviis_deployment_incoming_orphan_oldest_age_seconds`; any orphan persisting for 15 minutes is a warning, and an orphan older than one hour is escalated to critical. Re-run the component-specific `reconcile incoming_release` command after removing only verified, unreferenced release directories.
+Deployment follow-up debt is exported through the node-exporter textfile collector as `noviis_deployment_cleanup_debt`. Install `record-cleanup-debt.sh` as `/usr/local/sbin/record-noviis-cleanup-debt` and use the checked-in exporter override. Under the separately provisioned hardened host profile, successful cleanup writes zero; failed retention, incoming-release cleanup, or status diagnostics write one and alert after 15 minutes. The current inline production workflows do not invoke this writer. The rules retain the legacy `seo_submission` debt label, but current production workflows and the SEO monitor only verify public SEO endpoints and perform no search-engine submission. Do not treat that label as evidence of an active submission integration. Incoming release reconciliation also exports `noviis_deployment_incoming_orphans` and `noviis_deployment_incoming_orphan_oldest_age_seconds`; any orphan persisting for 15 minutes is a warning, and an orphan older than one hour is escalated to critical. Re-run the component-specific `reconcile incoming_release` command after removing only verified, unreferenced release directories.
 
 `noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale and heartbeat startup grace calculations use only `process_start_time_seconds{job="noviis-backend"}`; Prometheus uptime or restart cannot bypass backend startup grace or produce a backend restart event. A missing timestamp becomes stale only after the backend process has been up longer than that job's threshold.
 
@@ -76,7 +76,7 @@ Prometheus scrapes its own loopback metrics as the `prometheus` job. Critical ru
 
 | Scheduled cadence | Included schedules | Maximum age / startup grace |
 | --- | --- | --- |
-| Frequent | 25-second, 30-second, and 1-minute jobs | 10 minutes |
+| Frequent | 5-second, 10-second, 25-second, 30-second, and 1-minute jobs | 10 minutes |
 | Hourly | hourly cleanup and aggregation jobs | 2 hours 15 minutes |
 | Daily | daily cleanup jobs | 30 hours |
 
@@ -85,7 +85,7 @@ The canonical non-Agent list is `scheduled-jobs.txt`; `verify-scheduled-jobs.py`
 
 HTTP latency histograms are enabled in the production profile for `http.server.requests`; without that setting the p95 query has no bucket series. HTTP alerts require at least 20 requests in five minutes, then require either a 5xx ratio above 5 percent or p95 latency above 1 second for 10 minutes. HikariCP saturation fires after active connections exceed 85 percent of the configured maximum for 10 minutes. A change in `process_start_time_seconds` produces an informational restart alert over a 15-minute window; expected deployments should therefore be correlated with deployment history.
 
-Web Push delivery counters distinguish success, failure, timeout, and expired subscriptions. The failure alert requires at least 20 attempts in 15 minutes and a failure-plus-timeout ratio above 10 percent for 10 minutes. Expired-subscription cleanup failures alert independently. The dashboard displays both delivery and cleanup outcomes.
+Web Push delivery counters distinguish success, timeout, retryable failure, permanent failure, and expired subscriptions. The failure alert requires at least 20 attempts in 15 minutes and a combined `timeout`, `retryable_failure`, and `permanent_failure` ratio above 10 percent for 10 minutes. Expired-subscription cleanup failures alert independently. The dashboard displays both delivery and cleanup outcomes.
 
 Durable notification delivery exposes pending and dead-letter gauges, oldest-due and oldest-lease ages, plus retry outcomes. A sustained pending backlog above 100 or oldest due age above five minutes is a warning; any dead-lettered notification or lease older than two minutes is critical because automatic recovery is no longer keeping pace. The dashboard keeps backlog state, ages, and 15-minute outcomes together for incident triage.
 
@@ -173,9 +173,9 @@ When multiple rule groups exist, watchdog health uses the oldest group evaluatio
 
 Generate the checksum only after a successful config reload, using `curl -fsS http://127.0.0.1:9090/api/v1/status/config | jq -jr '.data.yaml' | sha256sum`, then install only the 64-character digest as `root:root` mode `0644`. Install the watchdog script as `root:root` mode `0755`, copy the tracked service and timer units, run `systemd-analyze verify`, and enable the timer. Do not derive the expected digest from the tracked source file because Prometheus returns its parsed active configuration.
 
-Cleanup reconciliation counts every immediate incoming entry, including partial files and broken symlinks, and writes `noviis_deployment_cleanup_writer_success_timestamp_seconds`. Missing writer series alert independently so deletion of a textfile cannot look healthy; an active debt whose writer timestamp is older than 30 minutes raises an additional stale alert. This freshness rule also covers `seo_submission` debt.
+Cleanup reconciliation counts every immediate incoming entry, including partial files and broken symlinks, and writes `noviis_deployment_cleanup_writer_success_timestamp_seconds`. Missing writer series alert independently so deletion of a textfile cannot look healthy; an active debt whose writer timestamp is older than 30 minutes raises an additional stale alert. This freshness rule also covers the retained legacy `seo_submission` debt label.
 
-When first enabling these rules, initialize every expected textfile explicitly: clear backend `release_retention` and `status_diagnostic`, clear frontend `release_retention` and `seo_submission`, then run `reconcile incoming_release` for both components. A reconciliation exit status of 2 is an observed cleanup debt, not an initialization failure; inspect and remove only verified unreferenced entries before reconciling again.
+When first enabling these rules, initialize every expected textfile explicitly: clear backend `release_retention` and `status_diagnostic`, clear frontend `release_retention` and the retained `seo_submission` label (no submission is performed), then run `reconcile incoming_release` for both components. A reconciliation exit status of 2 is an observed cleanup debt, not an initialization failure; inspect and remove only verified unreferenced entries before reconciling again.
 
 Before running more than one backend JVM, replace the local Caffeine rate-limit store with a shared implementation and define cross-node invalidation for the `GlobalConfig` cache. Local buckets do not coordinate across instances and process-local configuration caches may diverge. Multi-instance rollout is blocked until both mechanisms have tests and rollback procedures.
 

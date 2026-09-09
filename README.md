@@ -17,10 +17,10 @@ NoviIs(`noviis.kr`)는 스페이스를 중심으로 글과 대화를 나누는 �
 | 영역 | 주요 기술 |
 | --- | --- |
 | Frontend | Vue 3, TypeScript, Vite 8, Vue Router, Pinia, TanStack Vue Query, Tailwind CSS 4, TipTap, Vue I18n |
-| Backend | Java 25, Spring Boot 4.1, Spring Security, Spring Data JPA, Querydsl, Flyway, Gradle 9.6.1 |
-| Data | PostgreSQL, `pg_trgm`, `pgvector`, Caffeine cache |
+| Backend | Java 25, Spring Boot 4.1, Spring Security, Spring Data JPA, Querydsl, Flyway, Gradle 9.7.1 |
+| Data | PostgreSQL, `pg_trgm`, `pgvector`, Caffeine cache, Redis (상점 상태 이벤트 중계) |
 | Integration | JWT, OAuth2, SSE, Web Push, AWS S3, SMTP |
-| Test | Vitest, Vue Test Utils, JUnit 5, Mockito, Spring Boot Test, H2 PostgreSQL mode |
+| Test | Vitest, Vue Test Utils, JUnit Jupiter 6, Mockito, Spring Boot Test, H2 PostgreSQL mode, Playwright |
 | Runtime | Docker Compose, Nginx, GitHub Actions |
 
 ## 저장소 구조
@@ -31,6 +31,8 @@ project_whiteboard/
 |-- frontend/         Vue SPA/PWA, 공용 UI, API 연동, SEO build scripts, 프론트엔드 테스트
 |-- docs/             설계 노트, 운영 가이드, QA 체크리스트, PostgreSQL 참고 SQL
 |-- .github/          CI와 프런트엔드·백엔드 배포 workflow
+|-- deploy/           Nginx, 배포 검증 scripts, systemd 및 monitoring 구성
+|-- docker-compose.local-db.yml  PostgreSQL을 추가하는 로컬 Compose override
 |-- docker-compose.yml
 `-- README.md
 ```
@@ -91,7 +93,7 @@ npm run dev
 
 ## Docker Compose
 
-루트 Compose 구성은 Spring Boot 백엔드와 빌드된 Vue/Nginx 프론트엔드를 실행합니다. PostgreSQL은 Compose에 포함되지 않으므로 호스트 또는 별도 컨테이너에 미리 준비해야 합니다.
+기본 `docker-compose.yml`은 Spring Boot 백엔드, Vue/Nginx 프론트엔드와 상점 상태 이벤트를 중계하는 Redis를 실행합니다. PostgreSQL은 기본 파일에 포함되지 않으므로 외부 DB를 준비하거나 `docker-compose.local-db.yml`을 함께 지정해 로컬 DB 컨테이너를 추가합니다. 실행 전에 아래 로컬 실행 가이드의 환경변수를 설정하세요.
 
 ```bash
 docker compose up -d --build
@@ -118,9 +120,12 @@ docker compose ps
 
 PostgreSQL과 Flyway를 실제로 확인하는 opt-in smoke test도 제공합니다.
 
-```bash
-./gradlew postgresSmokeTest --rerun-tasks
+```powershell
+# Windows (backend/에서 실행, PostgreSQL 접속 환경변수 필요)
+.\gradlew.bat postgresSmokeTest --rerun-tasks
 ```
+
+macOS/Linux에서는 `./gradlew postgresSmokeTest --rerun-tasks`를 사용합니다. 접속 설정은 [백엔드 PostgreSQL 검증 안내](./backend/README.md)를 참고하세요.
 
 ### Frontend
 
@@ -146,7 +151,7 @@ npm run build:seo
 npm run seo:verify:dist
 ```
 
-GitHub Actions CI는 백엔드 테스트·JaCoCo 검증, PostgreSQL migration smoke test, 프론트엔드 lint·type-check·coverage·build를 실행합니다.
+GitHub Actions CI는 변경 영역에 따라 백엔드 테스트·JaCoCo 기준 검증, PostgreSQL migration·upgrade smoke test, 프론트엔드 lint·UI/i18n·OpenAPI 타입·type-check·coverage·build·Playwright E2E, 운영 설정 검증을 실행합니다. `test`와 커버리지 기준 검증은 별도 작업이며, 프론트엔드 `build`에도 타입 검사가 포함되지 않습니다. 정확한 실행 순서와 배포 조건은 [CI 운영 계약](./.github/workflows/README.md)을 참고하세요.
 
 ## 문서
 

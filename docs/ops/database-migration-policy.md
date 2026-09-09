@@ -1,6 +1,6 @@
 # Database migration policy
 
-NoviIs deploys a new JAR after Spring Boot/Flyway has applied pending migrations. A release must leave the database usable by both the new application and the previous JAR throughout the rollback window.
+NoviIs installs the new JAR and starts it; Spring Boot/Flyway applies pending migrations during that application startup. Expand/backfill releases must leave the database usable by both the new application and the previous JAR throughout the rollback window. Contract releases are the explicit exception: after the new application start is attempted, a startup failure stops the service without automatically restoring the previous JAR. See the current [deployment workflow contract](../../.github/workflows/README.md).
 
 Repeatable (`R__`), undo (`U__`), and Java Flyway migrations are prohibited. Versioned SQL is the only supported format. `DO`, `CALL`, function/procedure definitions, `EXECUTE`, and dollar-quoted SQL are classified as contract-phase by default because static analysis cannot prove their effects. CI applies the new schema and runs the previous backend revision with Flyway disabled; a failure means the change is not expand-compatible.
 

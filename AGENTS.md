@@ -7,7 +7,7 @@ NoviIs (`noviis.kr`) is a community platform maintained as a monorepo. Preserve 
 Main areas:
 
 - `frontend/`: Vue 3, TypeScript, Vite, Pinia, Vue Router, and TanStack Vue Query
-- `backend/`: Spring Boot 4.1, Java 25, Gradle 9.6.1, JPA, Flyway, and PostgreSQL
+- `backend/`: Spring Boot 4.1, Java 25, Gradle 9.7.1, JPA, Flyway, and PostgreSQL
 - `docs/`: architecture, operations, reports, audits, and project documentation
 - `deploy/`: deployment and monitoring configuration
 - `logs/`: generated runtime logs; do not commit

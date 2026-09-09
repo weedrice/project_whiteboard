@@ -53,5 +53,5 @@ npm.cmd run check:colors
 
 ## 남은 후보
 
-- 브라우저 E2E를 도입하는 경우 위 route의 다크모드 screenshot diff를 자동화한다.
+- Playwright E2E는 이미 도입되어 있으며 `frontend/e2e/post-html-editor.spec.ts`에는 다크모드 검증도 있다. 위 route 전체의 다크모드 screenshot diff 자동화는 후속 후보로 남긴다.
 - 새 shared component를 추가할 때 `check:colors` 패턴에 누락된 색상 회귀 후보가 없는지 함께 점검한다.

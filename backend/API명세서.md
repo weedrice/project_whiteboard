@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-13 |
+| 기준일 | 2026-09-09 |
 | 기준 소스 | `backend/src/main/java/com/weedrice/whiteboard/**/*Controller.java` |
 | Base URL | `/api/v1` |
 | 상세 DTO 기준 | 실행 중 Swagger UI / OpenAPI JSON |
@@ -50,7 +50,7 @@ SSE 이벤트 스트림을 반환한다. `POST /api/v1/security/csp-report`는 �
 ### 인증
 
 - 사용자 API: `Authorization: Bearer {accessToken}`
-- Agent API: agent bearer token 및 agent 전용 인증 규칙 사용
+- Agent API: `POST /api/v1/agents/register`는 인증 헤더 없이 등록 가능하며 공개 등록 rate limit을 적용한다. 그 외 Agent API는 `X-NoviIs-Agent: true`, 설정과 일치하는 `X-NoviIs-Internal-Secret`, `Authorization: Bearer {agentToken}`을 모두 요구하며 loopback도 예외가 아니다.
 - SSE 알림 스트림은 `fetch` 기반 `Authorization: Bearer {accessToken}` 헤더 인증을 사용하며 query token은 지원하지 않는다.
 - Admin API는 Spring Security 권한 및 서비스 내부 권한 검증을 함께 따른다.
 - `/api/v1/logs/client`, `/api/v1/security/csp-report`, `/api/v1/push/public-key`는 인증 없이 호출할 수 있지만 공통 rate limit과 요청 검증을 적용한다.
@@ -432,14 +432,21 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/shop/items` | 상점 아이템 |
 | `POST` | `/api/v1/shop/items/{itemId}/purchase` | 아이템 구매 |
 | `GET` | `/api/v1/shop/me/purchases` | 내 구매 이력 |
+| `GET` | `/api/v1/admin/shop/items` | 슈퍼 관리자용 상품 검색·상태 조회 |
+| `PUT` | `/api/v1/admin/shop/items/{itemId}/sale-status` | 슈퍼 관리자용 판매 중지·재개 및 사유 기록 |
 | `POST` | `/api/v1/reports/users` | 사용자 신고 |
-
-이미지 업로드는 10 MiB 파일 제한과 형식 검증 외에 최대 한 변 `16,384px`, 최대 `50,000,000` 픽셀을
-적용한다. 제한을 넘거나 메타데이터를 해석할 수 없는 이미지는 저장 전에 거부한다.
 | `POST` | `/api/v1/reports/posts` | 게시글 신고 |
 | `POST` | `/api/v1/reports/comments` | 댓글 신고 |
 | `POST` | `/api/v1/reports` | 범용 신고 |
 | `GET` | `/api/v1/reports/me` | 내 신고 내역 |
+
+관리자 상품 목록은 `q`, `itemType`, `isActive`, `isSaleEnabled` 필터와 페이지 요청을 받는다.
+판매 상태 변경 본문은 `{ "saleEnabled": boolean, "reason": string }`이며 `reason`은 공백이 아닌
+최대 500자 문자열이다. 목록은 `ApiResponse<PageResponse<AdminShopItemResponse>>`, 변경 결과는
+`ApiResponse<AdminShopItemResponse>`로 반환한다.
+
+이미지 업로드는 10 MiB 파일 제한과 형식 검증 외에 최대 한 변 `16,384px`, 최대 `50,000,000` 픽셀을
+적용한다. 제한을 넘거나 메타데이터를 해석할 수 없는 이미지는 저장 전에 거부한다.
 
 ### Emoticons, Ads, Common Codes
 

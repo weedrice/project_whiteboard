@@ -62,12 +62,14 @@ RDS 복구는 기존 인스턴스를 덮어쓰지 않고 새 DB 인스턴스를 
 
 ## 운영 전환과 롤백
 
+아래 절차는 운영 권한이 있는 담당자가 실제 host의 `app` unit과 DB 환경변수 주입 위치를 먼저 확인한 뒤 수행한다. 저장소의 `/etc/noviis/app.env` 경로는 별도 hardened host profile의 계약이며, 현재 inline 배포 workflow가 해당 환경 파일이나 unit을 설치하지는 않는다. 실제 unit이 다른 환경 파일 또는 secret 주입 방식을 사용하면 확인된 그 위치를 변경한다.
+
 운영 전환 전에는 쓰기 요청을 중지해 기존 DB와 복구 DB 사이의 데이터 분기를 막는다. 점검 시간을 공지하고 애플리케이션을 중지한 뒤 활성 쓰기 세션이 남지 않았는지 확인한다.
 
 1. `sudo systemctl stop app`으로 애플리케이션 쓰기를 중단하고 기존 RDS의 활성 쓰기 유입이 없는지 확인한다.
 2. 운영 EC2의 보안 그룹에서 새 RDS의 5432 port에 접근할 수 있게 설정하고 EC2에서 연결을 확인한다.
-3. `/etc/noviis/app.env`의 `DB_HOST`를 새 RDS endpoint로 변경한다.
-4. 환경 파일 권한이 `root:root`, `0600`인지 확인한다.
+3. 확인한 DB 설정 주입 위치의 `DB_HOST`를 새 RDS endpoint로 변경한다. Hardened host profile에서는 `/etc/noviis/app.env`를 사용한다.
+4. 환경 파일을 사용하는 경우 소유자와 접근 권한을 확인한다. Hardened host profile의 환경 파일은 `root:root`, `0600`이어야 한다.
 5. 애플리케이션을 시작하고 health, Flyway 상태와 핵심 읽기 API를 먼저 확인한다.
 6. 제한된 계정으로 로그인과 대표 쓰기 요청을 확인한 뒤 일반 운영 쓰기를 재개한다.
 7. 기존 RDS는 즉시 삭제하지 않고 롤백 판단 기간 동안 쓰기를 차단한 채 보존한다.

@@ -15,8 +15,12 @@
 
 기존 알림 URL과 DTO는 바뀌지 않는다. 정리 대상 행은 삭제하지 않으며 읽음 상태만 바뀐다. 이전 애플리케이션도 새 인덱스가 있는 스키마를 읽을 수 있지만, 적용 전에는 이전 버전이 더 이상 쓰기를 수행하지 않는지 확인해야 한다. 롤백이 필요하면 애플리케이션을 먼저 호환 버전으로 되돌린 뒤 별도 승인된 contract migration으로 인덱스를 제거한다. 적용된 V67 파일 자체는 수정하지 않는다.
 
-## 검증
+## 당시 검증 기준
 
 - 사용자별 동일 `group_key`의 미확인 행이 최대 한 건인지 확인한다.
 - 일반 읽음·삭제·그룹 갱신 흐름과 알림 목록 조회를 검증한다.
 - `main` 수동 실행에서 contract migration을 명시적으로 승인하고 production environment 승인을 거쳐 적용한다.
+
+## 현재 배포 계약 (2026-09-09 소스 확인)
+
+위의 별도 contract 수동 승인 조건은 당시 기록이다. 현재 workflow는 `main`의 통합 CI와 production environment 보호 규칙을 통과하면 contract migration도 자동 배포 대상으로 선택할 수 있다. 별도 contract 승인 입력은 없으며, contract migration을 포함한 새 JAR의 시작 실패 시 이전 JAR로 자동 롤백하지 않는다. 실제 GitHub environment 보호 설정은 저장소 파일만으로 확인할 수 없다. [CI 운영 계약](../../.github/workflows/README.md)과 [마이그레이션 정책](../ops/database-migration-policy.md)을 현재 기준으로 따른다.

@@ -6,11 +6,11 @@
 
 -   **Framework**: Spring Boot 4.1
 -   **Language**: Java 25
--   **Build Tool**: Gradle 9.6.1
+-   **Build Tool**: Gradle 9.7.1
 -   **Database**: PostgreSQL
 -   **ORM**: Spring Data JPA / Hibernate
 -   **Security**: Spring Security, JWT (JSON Web Token)
--   **Testing**: JUnit 5, Mockito
+-   **Testing**: JUnit Jupiter 6.0.3, Mockito
 -   **Logging**: Logback
 -   **Cloud/Storage**: AWS S3, SMTP mail integration
 
@@ -21,6 +21,7 @@
 ```
 com.weedrice.whiteboard
 ├── domain
+│   ├── actor         # 사용자·Agent 공통 식별 계약
 │   ├── ad            # 광고 관리
 │   ├── admin         # 관리자 기능
 │   ├── agent         # MCP/Agent API, quota, notes
@@ -33,6 +34,7 @@ com.weedrice.whiteboard
 │   ├── emoticon      # 이모티콘 관리
 │   ├── feed          # 뉴스피드 및 홈 화면
 │   ├── file          # 파일 업로드 및 관리
+│   ├── inquiry       # 독립 문의 및 관리자 답변
 │   ├── message       # 쪽지 시스템
 │   ├── moderation    # 콘텐츠 검토 및 감사 로그
 │   ├── mqueue        # 메시지 큐 관리
@@ -109,3 +111,30 @@ Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을
 # Linux / Mac
 ./gradlew test
 ```
+
+위 명령은 `backend/`에서 실행합니다. 일반 테스트는 H2 PostgreSQL 모드를 사용합니다.
+변경한 코드의 대상 테스트를 다시 실행하려면 `--rerun-tasks`를 사용하고 실제 tests/failures/errors/skipped 수를 확인하세요.
+`test` 후 JaCoCo 리포트가 `build/reports/jacoco/html`에 생성되지만, 커버리지 기준 검증은 별도 작업입니다.
+
+```powershell
+.\gradlew.bat jacocoTestCoverageVerification
+```
+
+### PostgreSQL / Flyway 검증
+
+실제 PostgreSQL 동작은 별도 `postgresSmokeTest`로 확인합니다. 테스트가 마이그레이션을 적용하고
+데이터·스키마를 생성·정리하므로 `pg_trgm`, `vector` 확장이 준비된 폐기 가능한 테스트 DB를 사용합니다.
+접속 사용자에는 필요한 마이그레이션·테스트 스키마 작업 권한이 있어야 합니다.
+`backend/`에서 아래 placeholder를 테스트 환경 값으로 바꾸어 실행합니다.
+
+```powershell
+$env:POSTGRES_SMOKE_DATASOURCE_URL='jdbc:postgresql://<host>:<port>/<test_database>'
+$env:POSTGRES_SMOKE_DATASOURCE_USERNAME='<test_user>'
+$env:POSTGRES_SMOKE_DATASOURCE_PASSWORD='<test_password>'
+.\gradlew.bat postgresSmokeTest --rerun-tasks
+```
+
+Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 활성화합니다. 기본 접속 설정은
+`src/test/resources/application-postgres-smoke.yml`에 있으며, 환경 변수 목록은
+[ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md#postgresql-smoke-test)를 참고합니다.
+이 작업은 일반 `test`와 별도이며 H2 테스트 통과를 PostgreSQL 검증으로 간주하지 않습니다.

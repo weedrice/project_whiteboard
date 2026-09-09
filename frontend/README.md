@@ -4,17 +4,20 @@ NoviIs 커뮤니티 플랫폼의 Vue 3 기반 프론트엔드 애플리케이션
 
 ## 기술 스택
 
-- Framework: Vue 3, Composition API, `<script setup>`
-- Build Tool: Vite
-- Language: TypeScript
-- State: Pinia, TanStack Vue Query
-- Routing: Vue Router
-- Styling: Tailwind CSS, PostCSS, `nv-*` design tokens
-- HTTP: Axios
-- Editor: TipTap
+아래 버전은 2026-09-09 현재 `package.json`의 선언 범위이며, 설치 해석 버전은 `package-lock.json`을 기준으로 합니다.
+
+- Framework: Vue `^3.5.41`, Composition API, `<script setup>`
+- Build Tool: Vite `^8.2.1`
+- Language: TypeScript `^5.9.3`
+- State: Pinia `^4.0.3`, TanStack Vue Query `^5.101.4`
+- Routing: Vue Router `^5.2.0`
+- Styling: Tailwind CSS `^4.3.2`, PostCSS, `nv-*` design tokens
+- HTTP: Axios `^1.19.0`
+- Editor: TipTap `3.30.5`
 - Icons: Lucide Vue Next
-- I18n: Vue I18n
-- Test: Vitest, Vue Test Utils, jsdom
+- I18n: Vue I18n `11.4.8`
+- Unit/component tests: Vitest `^4.1.10`, Vue Test Utils, jsdom
+- Browser tests: Playwright `^1.62.1`, axe-core accessibility checks
 
 ## 프로젝트 구조
 
@@ -58,6 +61,12 @@ src/
 `-- views/        Route-level pages
 ```
 
+`main.ts`는 플러그인과 API/스토어 연결을 초기화하고, `App.vue`는 레이아웃과 공통 알림·모달을 조립합니다. `router/routes.ts`는 페이지를 지연 로딩하며 `router/guards.ts`가 인증·권한 접근을 검사합니다.
+
+API 요청은 `api/index.ts`의 공유 Axios 인스턴스를 거칩니다. 서버 상태는 Vue Query, 인증·테마·공통 UI 상태는 Pinia가 담당합니다. 인증 세션 변경 시 `queryAuthScope.ts`와 `main.ts`의 세션 효과가 계정별 query와 알림 스트림을 정리합니다.
+
+PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 처리하고 해시 정적 자원을 캐시합니다. 네트워크 실패 시 `/`와 `/index.html`은 앱 셸, 다른 문서 경로는 `offline.html`로 fallback합니다. `pwa.ts`는 업데이트를 자동 적용하되 `pwaReloadGuard.ts`의 폼 보호가 활성화되어 있으면 적용을 미룹니다.
+
 ## 구조 기준
 
 - 도메인 전용 query key, cache invalidation, form state, page resource, mutation orchestration은 `src/features/{domain}` 아래에 둡니다.
@@ -76,7 +85,7 @@ src/
 - 관리자 대시보드와 관리 화면
 - OAuth callback, token refresh, route guard
 - SSE 기반 실시간 알림과 브라우저 Web Push 구독·설정
-- 설치형 PWA, 오프라인 fallback과 새 버전 안내
+- 설치형 PWA, 오프라인 fallback, 작성 중인 폼의 보호가 해제되면 새 버전 자동 적용
 - SEO sitemap/prerender scripts
 
 ## 시작하기
@@ -113,14 +122,18 @@ http://localhost:5173
 - `frontend/.env.local`
 - `frontend/.env.development.local`
 
-현재 클라이언트에서 참조하는 주요 변수:
+개발 서버·빌드 설정과 브라우저 코드가 사용하는 변수를 구분합니다.
 
-- `VITE_API_BASE_URL`
-- `VITE_API_URL`
-- `VITE_INQUIRY_BOARD_URL`
-- `VITE_COMMIT_HASH`
-- `VITE_WEB_VITALS_ENDPOINT`
-- `VITE_ANALYZE`
+| 변수 | 소비 위치와 역할 |
+| --- | --- |
+| `VITE_API_BASE_URL` | Vite 개발 서버의 `/api`, `/oauth2` proxy 대상. 기본 `http://localhost:8080` |
+| `VITE_API_URL` | 브라우저 Axios API base URL. 기본 `/api/v1` |
+| `VITE_INQUIRY_BOARD_URL` | 문의 작성 화면의 게시판 식별자. 기본 `inquiry` |
+| `VITE_COMMIT_HASH` | 빌드 시 `__COMMIT_HASH__`로 주입. 없으면 Vite가 Git SHA 조회 |
+| `VITE_WEB_VITALS_ENDPOINT` | production Web Vitals 전송 경로. 비어 있으면 전송하지 않음 |
+| `VITE_ANALYZE` | Vite production build의 bundle 분석 활성화 |
+
+`VITE_*` 값에는 브라우저에 공개하면 안 되는 비밀을 넣지 않습니다.
 
 `VITE_WEB_VITALS_ENDPOINT`는 production Web Vitals 전송 경로를 지정합니다. `VITE_ANALYZE=true`는 production build에서 bundle 분석 보고서를 생성하며, `--mode analyze`도 같은 분석 기능을 활성화합니다.
 
@@ -146,9 +159,20 @@ npm run test:run -- EmoticonRegister.spec.ts
 npm run coverage
 ```
 
+OpenAPI 계약과 브라우저 흐름 검증:
+
+```powershell
+npm.cmd run api:check
+npm.cmd run test:e2e
+```
+
+`api:check`는 `../docs/api/openapi-frontend.json`에서 생성한 타입이 `src/types/generated/api.ts`와 일치하는지 확인합니다. 의도적으로 API snapshot을 갱신했을 때는 `npm.cmd run api:generate`로 재생성합니다.
+
+`test:e2e`는 production build 후 기본 Playwright suite를 실행합니다. `test:e2e:run`은 기존 build를 사용하며, 다운로드·HTML sandbox·별도 통합 suite는 각각 `test:e2e:download`, `test:e2e:sandbox`, `test:e2e:full`의 별도 설정을 사용합니다. `test:e2e:full`은 실행 중인 대상 서버의 `E2E_BASE_URL` 설정이 필요합니다. `src/test/setup.ts`는 Vitest 공통 환경이며 browser tests는 `e2e/`에 있습니다.
+
 ## 빌드
 
-일반 production build:
+일반 production build (`vite build`와 `pwa:verify`, 타입 검사는 별도 `type-check`):
 
 ```bash
 npm run build

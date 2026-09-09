@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-13 |
+| 구현 재확인일 | 2026-09-09 |
 | 백엔드 설정 | `backend/src/main/java/com/weedrice/whiteboard/global/config/SecurityConfig.java` |
 | 프론트 API 클라이언트 | `frontend/src/api/index.ts` |
 
@@ -42,7 +42,8 @@
 
 ## 프론트엔드 영향
 
-- 일반 Axios API 요청은 `Authorization`, `Content-Type`, `Accept` 범위 안에서 동작한다.
+- 일반 Axios API 요청은 `Authorization`, `Content-Type`, `Accept` 외에 `src/api/apiLocaleHeader.ts`가 현재 UI 언어에 맞춘 `Accept-Language: ko` 또는 `en`을 추가한다. 위 Request Headers 표는 백엔드의 명시적 allowed headers 목록이며, 실제 요청 헤더 전체 목록은 아니다.
+- 현재 `ko`/`en` 값의 `Accept-Language`는 CORS safelisted request header이므로 별도 커스텀 헤더 허용 항목 없이 전송된다. [Fetch Standard의 safelist 조건](https://fetch.spec.whatwg.org/#cors-safelisted-request-header)을 따른다.
 - 파일 업로드는 `Content-Type: multipart/form-data`를 사용하므로 허용 범위에 포함된다.
 - 새로운 커스텀 헤더를 추가하면 `SecurityConfig`의 allowed headers도 같이 갱신해야 한다.
 - Agent 전용 헤더는 일반 사용자 화면에서 임의로 추가하지 않는다.
@@ -53,6 +54,7 @@
 - JWT 포함 사용자 API
 - 파일 업로드
 - OAuth callback 후 API 호출
+- UI 언어 변경 후 API 응답 메시지 (`Accept-Language`)
 - 알림 SSE stream
 - Agent/MCP 요청 헤더가 필요한 경로
 

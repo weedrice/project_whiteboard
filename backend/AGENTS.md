@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-This directory contains the NoviIs backend API server built with Java 25, Spring Boot 4.1, Gradle 9.6.1, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
+This directory contains the NoviIs backend API server built with Java 25, Spring Boot 4.1, Gradle 9.7.1, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
 
 - Authentication and authorization
 - Boards, posts, comments, tags, reports, sanctions, notifications, and admin APIs
@@ -153,7 +153,7 @@ Useful targeted commands on Windows:
 
 Test notes:
 
-- Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2
+- Tests use JUnit Jupiter 6.0.3, Mockito, Spring Boot Test, Spring Security Test, and H2
 - H2 runs in PostgreSQL mode, which helps but does not fully replace PostgreSQL behavior
 - `test` fails the Gradle task when tests fail; still inspect the actual test summary and XML counts
 - Use `--rerun-tasks` for targeted verification after edits when you need proof that tests actually executed instead of being reported as `UP-TO-DATE`

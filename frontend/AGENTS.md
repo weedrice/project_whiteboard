@@ -71,7 +71,7 @@ Use untracked Vite env files such as:
 - `frontend/.env.local`
 - `frontend/.env.development.local`
 
-Client-exposed variables currently referenced in the app:
+Variables used by browser code or Vite development/build configuration:
 
 - `VITE_API_BASE_URL`
 - `VITE_API_URL`
@@ -84,7 +84,7 @@ Important behavior:
 
 - `vite.config.ts` proxies `/api` and `/oauth2` to `VITE_API_BASE_URL`
 - `API.BASE_URL` defaults to `import.meta.env.VITE_API_URL || '/api/v1'`
-- `VITE_WEB_VITALS_ENDPOINT` selects the production Web Vitals delivery endpoint
+- `VITE_WEB_VITALS_ENDPOINT` selects the production Web Vitals delivery endpoint; no metrics are sent when it is empty
 - `VITE_ANALYZE=true` enables the production bundle analysis report
 - Do not hardcode environment-specific URLs in components
 
@@ -113,7 +113,7 @@ Important behavior:
 
 ### API contract rules
 
-- Backend responses commonly arrive as `ApiResponse`, so frontend code usually reads `response.data.data`
+- Backend responses commonly arrive as `ApiResponse`. Reuse the unwrap/page helpers in `src/api/response.ts` or shared query composables; the equivalent raw Axios data access is `response.data.data`
 - Keep `src/types` aligned with backend DTOs
 - If an endpoint shape changes, update `src/api`, `src/types`, relevant feature composables, and UI consumers together
 
@@ -121,7 +121,7 @@ Important behavior:
 
 - Route meta fields such as `requiresAuth`, `guestOnly`, `roles`, and `layout` are meaningful
 - Do not add protected pages without updating route meta intentionally
-- Auth and token refresh behavior is centralized in `src/api/index.ts` and `src/stores/auth.ts`
+- `src/api/index.ts` creates the shared client; `src/api/apiInterceptors.ts`, `src/api/apiRefreshRetry.ts`, and `src/api/authRefreshCoordinator.ts` own interceptors and refresh coordination alongside `src/stores/auth.ts`
 - Avoid duplicating token handling in components
 
 ### UI, i18n, and accessibility
@@ -158,7 +158,9 @@ npm run test:run -- authApi.spec.ts
 
 Test notes:
 
-- Tests use Vitest with `jsdom` and `@vue/test-utils`
+- Unit/component tests use Vitest with `jsdom` and `@vue/test-utils`; browser tests use Playwright under `e2e/` and are excluded from Vitest
+- `npm run test:e2e` builds and runs the default Playwright suite; `test:e2e:download`, `test:e2e:sandbox`, and `test:e2e:full` select separate browser-test configurations
+- `npm run api:check` verifies generated API types against `docs/api/openapi-frontend.json`; use `api:generate` after an intentional snapshot update
 - Shared test setup lives in `src/test/setup.ts`
 - Coverage output is written to `coverage/`
 - For component, API, feature, and composable changes, add or update tests close to the affected module in `__tests__`
@@ -183,6 +185,7 @@ docker compose build frontend
 
 Notes:
 
+- `npm run build` runs Vite and `pwa:verify`; it does not run `type-check` or the test suites.
 - The compose service builds `noviis-frontend:local` from `frontend/Dockerfile`.
 - The Docker build runs `npm run build` inside the image build stage, so `docker compose build frontend` is enough when the user specifically asks to refresh the frontend image.
 - If only running local Vite dev server work, Docker rebuild is not required unless the user asks for the frontend image to be refreshed.
@@ -191,6 +194,6 @@ Notes:
 
 - Never store new secrets in client code or Vite env files that will be committed
 - Only `VITE_*` variables are exposed to the browser; do not place sensitive secrets there
-- Access and refresh token handling is already centralized through storage and the shared API layer
+- Access tokens are memory-only via `src/utils/authTokenStorage.ts`; legacy localStorage token keys are removed. Refresh tokens are backend-issued HttpOnly cookies sent by the shared API client with credentials. Keep this separation intact
 - Do not invent new token storage locations or duplicate refresh logic in feature code
 - Be careful when changing OAuth callback paths, auth redirects, or API base URLs because they must stay aligned with backend and Nginx behavior

@@ -4,6 +4,7 @@
 
 ## 설계 노트
 
+- [독립 문의 모듈 V91](design-notes/inquiry-module-v91.md): 문의 집합·메시지·이력 스키마와 기존 문의 게시판의 전환 게이트를 설명한다.
 - [프론트엔드 색상 토큰 사용 기준](design-notes/frontend-color-token-guidelines-2026-05-29.md): 공통 색상 토큰과 다크모드 대응 원칙을 정리한다.
 - [콘텐츠 접근 계약 hardening](design-notes/content-access-contract-hardening-2026-07-18.md): 제한 콘텐츠 접근 응답과 클라이언트 처리 계약을 정리한다.
 - [키워드 알림 성능](design-notes/keyword-notification-performance-2026-07-09.md): 키워드 매칭 쿼리의 제약과 비동기 처리 방식을 설명한다.
