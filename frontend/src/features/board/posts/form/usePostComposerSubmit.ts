@@ -170,18 +170,21 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     const unlock = () => {
       if (isCurrentSubmission()) isSubmissionLocked.value = false
     }
-
-    try {
-    if (options.draftBlockReason.value) {
-      const message = options.draftBlockReason.value === 'deleted'
+    const stopForDraftBlock = () => {
+      const reason = options.draftBlockReason.value
+      if (!reason) return false
+      const message = reason === 'deleted'
         ? options.t('board.writePost.draftStatus.deleted')
-        : options.draftBlockReason.value === 'protected'
+        : reason === 'protected'
           ? options.t('board.writePost.draftStatus.protected')
           : options.t('board.writePost.draftStatus.conflict')
       options.addToast(message, 'error')
       unlock()
-      return
+      return true
     }
+
+    try {
+    if (stopForDraftBlock()) return
     if (options.validateBeforeSubmit) {
       const validationResult = options.validateBeforeSubmit()
       const isValid = validationResult instanceof Promise ? await validationResult : validationResult
@@ -207,6 +210,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       try {
         const savedDraft = await options.saveDraftNow()
         if (!isCurrentSubmission()) return
+        if (stopForDraftBlock()) return
         if (savedDraft.type === 'server') {
           currentDraftId = savedDraft.draft.draftId
         }

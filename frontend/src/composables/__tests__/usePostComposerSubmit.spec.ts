@@ -57,6 +57,7 @@ function createSubmit(overrides: {
   const clearScheduledDraftRecovery = vi.fn()
   const releaseUploadedFileOwnership = vi.fn()
   const onSubmitted = vi.fn()
+  const draftBlockReason = ref(overrides.draftBlockReason ?? null)
   const submit = usePostComposerSubmit({
     identity,
     mode: () => overrides.mode ?? 'create',
@@ -70,7 +71,7 @@ function createSubmit(overrides: {
     }),
     hideCategory: () => overrides.hideCategory,
     draftEnabled: ref(overrides.draftEnabled ?? false),
-    draftBlockReason: ref(overrides.draftBlockReason ?? null),
+    draftBlockReason,
     draftId: ref(overrides.draftId ?? null),
     saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue({ type: 'skipped' }),
     buildPayload: () => payload.value,
@@ -92,6 +93,7 @@ function createSubmit(overrides: {
   return {
     ...submit,
     identity,
+    draftBlockReason,
     boardUrl,
     postId,
     payload,
@@ -395,6 +397,29 @@ describe('usePostComposerSubmit', () => {
     expect(submit.createPost).not.toHaveBeenCalled()
     expect(submit.createScheduledPost).not.toHaveBeenCalled()
     expect(submit.updatePost).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['conflict', 'board.writePost.draftStatus.conflict'],
+    ['protected', 'board.writePost.draftStatus.protected'],
+    ['deleted', 'board.writePost.draftStatus.deleted'],
+  ] as const)('stops before mutation when the draft becomes %s during the pre-submit save', async (reason, messageKey) => {
+    const draft = createDeferred<DraftSaveResult>()
+    const submit = createSubmit({
+      draftEnabled: true,
+      saveDraftNow: vi.fn(() => draft.promise),
+    })
+
+    const pendingSubmit = submit.handleSubmit()
+    submit.draftBlockReason.value = reason
+    draft.resolve({ type: 'skipped' })
+    await pendingSubmit
+
+    expect(submit.addToast).toHaveBeenCalledWith(messageKey, 'error')
+    expect(submit.createPost).not.toHaveBeenCalled()
+    expect(submit.createScheduledPost).not.toHaveBeenCalled()
+    expect(submit.updatePost).not.toHaveBeenCalled()
+    expect(submit.isSubmissionLocked.value).toBe(false)
   })
 
   it('updates existing posts and includes the existing draft id when no new draft id is returned', async () => {

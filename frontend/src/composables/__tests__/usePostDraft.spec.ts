@@ -800,9 +800,32 @@ describe('usePostDraft', () => {
         }))
     })
 
-    it('stops saving when a scheduled publication protects the draft', async () => {
-        const { composable } = mountComposable()
+    it('detaches unsaved edits when a scheduled publication protects the draft during save', async () => {
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Draft title',
+            contents: 'Draft body',
+            fileIds: [7],
+        })
+        const { composable } = mountComposable(
+            payloadRef,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            () => [7],
+        )
         await composable.saveNow()
+        const previousClientDraftKey = getStoredClientDraftKey()
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Unsaved protected edit',
+        }
+        composable.writeLocalSnapshot()
         mocks.saveDraftMutateAsync.mockRejectedValueOnce({
             isAxiosError: true,
             response: { status: 409, data: { error: { code: 'P005' } } },
@@ -811,7 +834,18 @@ describe('usePostDraft', () => {
         await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 409 } })
 
         expect(composable.draftProtected.value).toBe(true)
+        expect(composable.protectedDraftForkAvailable.value).toBe(true)
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.isSavingDraft.value).toBe(false)
         expect(composable.lastSaveFailed.value).toBe(false)
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
+            title: 'Unsaved protected edit',
+            fileIds: [7],
+            unassociatedUploadFileIds: [7],
+            hasLocalChanges: true,
+        }))
+        expect(getStoredDraftSnapshot()).not.toHaveProperty('draftId')
+        expect(getStoredClientDraftKey()).not.toBe(previousClientDraftKey)
         await expect(composable.saveNow()).resolves.toEqual({ type: 'skipped' })
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
     })

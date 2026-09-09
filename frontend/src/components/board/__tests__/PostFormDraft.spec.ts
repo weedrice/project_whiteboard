@@ -329,6 +329,8 @@ describe('PostForm draft behavior', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('board.writePost.draftStatus.openScheduledPosts')
+    expect(wrapper.text()).toContain('board.writePost.draftStatus.saveAsNew')
+    expect(wrapper.text()).toContain('board.writePost.draftStatus.discardLocal')
   })
 
   it('saves a body-only draft to the server without requiring a title', async () => {

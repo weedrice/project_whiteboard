@@ -202,6 +202,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             savePromise = null
             saveQueued = false
         })
+        isSavingDraft.value = false
     }
 
     const {
@@ -484,9 +485,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (generation !== getGeneration() || !options.enabled.value) return null
             if (generation === getGeneration()) {
                 draftConflict.value = isDraftOutdatedError(error)
-                draftProtected.value = isDraftProtectedError(error)
+                const protectedError = isDraftProtectedError(error)
+                if (protectedError) transitionToProtectedDraft()
+                else draftProtected.value = false
                 if (draftConflict.value) void reportDraftOperationalEvent('draft_conflict')
-                if (draftProtected.value) void reportDraftOperationalEvent('draft_protected')
+                if (protectedError) void reportDraftOperationalEvent('draft_protected')
                 if (isDraftMissingError(error) && draftId.value != null) {
                     transitionToDeletedDraft()
                 }
