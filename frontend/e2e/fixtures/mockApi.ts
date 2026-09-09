@@ -62,8 +62,8 @@ export type MockApiState = {
   writes: Array<{ method: string, url: string, payload: unknown }>
   draft: Record<string, unknown> | null
   draftSaveCount: number
-  draftGetCount: number
-  draftGetDelayMs?: number
+  draftRecoveryCount: number
+  draftRecoveryDelayMs?: number
   draftSaveDelayMs?: number
   dropNextDraftSaveResponse?: boolean
 }
@@ -80,7 +80,7 @@ export async function installMockApi(
     writes: [],
     draft: null,
     draftSaveCount: 0,
-    draftGetCount: 0,
+    draftRecoveryCount: 0,
     ...overrides,
   }
 
@@ -107,6 +107,44 @@ export async function installMockApi(
     if (path === '/users/me') {
       return state.authenticated ? json(route, apiResponse(mockUser)) : json(route, {}, 401)
     }
+    if (path === '/users/me/drafts/recovery' && method === 'GET') {
+      state.draftRecoveryCount += 1
+      if (state.draftRecoveryDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, state.draftRecoveryDelayMs))
+      }
+
+      const candidateParam = url.searchParams.get('draftId')
+      const candidateDraftId = candidateParam == null ? null : Number(candidateParam)
+      const originalPostParam = url.searchParams.get('originalPostId')
+      const originalPostId = originalPostParam == null ? null : Number(originalPostParam)
+      const boardUrl = url.searchParams.get('boardUrl')
+      const clientDraftKey = url.searchParams.get('clientDraftKey')
+      const storedDraftId = typeof state.draft?.draftId === 'number' ? state.draft.draftId : null
+      const storedOriginalPostId = typeof state.draft?.originalPostId === 'number'
+        ? state.draft.originalPostId
+        : null
+      const matchesTarget = state.draft != null
+        && state.draft.boardUrl === boardUrl
+        && storedOriginalPostId === originalPostId
+      const matchesCandidate = matchesTarget
+        && candidateDraftId != null
+        && candidateDraftId === storedDraftId
+      const matchesClientKey = matchesTarget
+        && clientDraftKey != null
+        && clientDraftKey === state.draft?.clientDraftKey
+      const matchesFallback = matchesTarget
+      const staleCandidate = candidateDraftId != null && !matchesCandidate
+
+      if (matchesCandidate || matchesClientKey || matchesFallback) {
+        return json(route, apiResponse({
+          status: 'AVAILABLE',
+          staleCandidate,
+          draftId: storedDraftId,
+          draft: state.draft,
+        }))
+      }
+      return json(route, apiResponse({ status: 'MISSING', staleCandidate }))
+    }
     if (path === '/users/me/drafts' && method === 'GET') {
       const content = state.draft ? [{
         draftId: state.draft.draftId,
@@ -127,10 +165,6 @@ export async function installMockApi(
       }))
     }
     if (/^\/drafts\/\d+$/.test(path) && method === 'GET') {
-      state.draftGetCount += 1
-      if (state.draftGetDelayMs) {
-        await new Promise((resolve) => setTimeout(resolve, state.draftGetDelayMs))
-      }
       return state.draft
         ? json(route, apiResponse(state.draft))
         : json(route, { success: false, data: null, error: { code: 'C004', message: 'Not found' } }, 404)

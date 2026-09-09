@@ -51,12 +51,12 @@ test('body-only content is autosaved to the server', async ({ page }) => {
 test('an edit made during slow recovery is preserved and reported as a conflict', async ({ page }) => {
   const state = await installMockApi(page, {
     draft: serverDraft(),
-    draftGetDelayMs: 1_500,
+    draftRecoveryDelayMs: 1_500,
   })
   await login(page)
 
   await page.goto('/board/general/write?draftId=91')
-  await expect.poll(() => state.draftGetCount).toBe(1)
+  await expect.poll(() => state.draftRecoveryCount).toBe(1)
   await page.locator('#title').fill('Typed while restoring')
 
   await expect(page.locator('#title')).toHaveValue('Typed while restoring')
@@ -144,7 +144,7 @@ test('a draft deleted in another tab can be preserved as a new draft', async ({ 
   await secondPage.goto('/')
   await secondPage.evaluate(() => {
     localStorage.setItem(
-      'noviis:draft-deleted:7:91',
+      'noviis:draft-deleted-v2:7:91',
       JSON.stringify({ deletedAt: new Date().toISOString() }),
     )
   })
