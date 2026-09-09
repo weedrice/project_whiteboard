@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     const deleteDraftMutateAsync = vi.fn()
     const getDraft = vi.fn()
     const getMatchingDraft = vi.fn()
+    const resolveDraftRecovery = vi.fn()
     const loggerError = vi.fn()
     const reportDraftOperationalEvent = vi.fn()
 
@@ -29,6 +30,7 @@ const mocks = vi.hoisted(() => {
         deleteDraftMutateAsync,
         getDraft,
         getMatchingDraft,
+        resolveDraftRecovery,
         loggerError,
         reportDraftOperationalEvent,
         saveDraftConfig: undefined as (() => { signal?: AbortSignal } | undefined) | undefined,
@@ -60,6 +62,7 @@ vi.mock('@/api/post', () => ({
 vi.mock('@/api/user', () => ({
     userApi: {
         getMatchingDraft: mocks.getMatchingDraft,
+        resolveDraftRecovery: mocks.resolveDraftRecovery,
     },
 }))
 
@@ -194,6 +197,9 @@ describe('usePostDraft', () => {
                     multipleMatchesFound: false,
                 },
             },
+        })
+        mocks.resolveDraftRecovery.mockResolvedValue({
+            data: { data: { status: 'MISSING', staleCandidate: false } },
         })
     })
 
@@ -407,24 +413,24 @@ describe('usePostDraft', () => {
 
     it('aborts an in-flight draft recovery request when the draft session resets', async () => {
         let resolveMatch!: (value: unknown) => void
-        mocks.getMatchingDraft.mockImplementationOnce(() => new Promise((resolve) => {
+        mocks.resolveDraftRecovery.mockImplementationOnce(() => new Promise((resolve) => {
             resolveMatch = resolve
         }))
         const { composable } = mountComposable()
 
         const pendingRestore = composable.restoreDraft()
         await Promise.resolve()
-        const signal = mocks.getMatchingDraft.mock.calls[0]?.[1]?.signal as AbortSignal | undefined
+        const signal = mocks.resolveDraftRecovery.mock.calls[0]?.[1]?.signal as AbortSignal | undefined
         expect(signal).toBeInstanceOf(AbortSignal)
 
         composable.resetSession()
         expect(signal?.aborted).toBe(true)
-        resolveMatch({ data: { data: { draftId: null, multipleMatchesFound: false } } })
+        resolveMatch({ data: { data: { status: 'MISSING', staleCandidate: false } } })
         await expect(pendingRestore).resolves.toBeUndefined()
     })
 
     it('does not report a canceled draft recovery as a restore failure', async () => {
-        mocks.getMatchingDraft.mockRejectedValueOnce({
+        mocks.resolveDraftRecovery.mockRejectedValueOnce({
             name: 'CanceledError',
             code: 'ERR_CANCELED',
         })
@@ -621,17 +627,13 @@ describe('usePostDraft', () => {
             originalPostId: 7,
         }))
 
-        mocks.getMatchingDraft.mockResolvedValueOnce({
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
             data: {
                 data: {
+                    status: 'AVAILABLE',
+                    staleCandidate: false,
                     draftId: 13,
-                    multipleMatchesFound: false,
-                },
-            },
-        })
-        mocks.getDraft.mockResolvedValueOnce({
-            data: {
-                data: {
+                    draft: {
                     draftId: 13,
                     boardId: 1,
                     boardUrl: 'free',
@@ -656,6 +658,7 @@ describe('usePostDraft', () => {
                     originalPostId: 7,
                     updatedAt: '2025-01-02T00:00:00.000Z',
                     modifiedAt: '2025-01-02T00:00:00.000Z',
+                    },
                 },
             },
         })
@@ -663,14 +666,12 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMatchingDraft).toHaveBeenCalledWith(
+        expect(mocks.resolveDraftRecovery).toHaveBeenCalledExactlyOnceWith(
             { boardUrl: 'free', originalPostId: 7 },
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
-        expect(mocks.getDraft).toHaveBeenCalledWith(
-            13,
-            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
-        )
+        expect(mocks.getMatchingDraft).not.toHaveBeenCalled()
+        expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Recovered draft',
             fileIds: [21],
@@ -692,6 +693,14 @@ describe('usePostDraft', () => {
             title: '',
             contents: '',
             fileIds: [],
+        })
+        mocks.resolveDraftRecovery.mockResolvedValue({
+            data: {
+                data: {
+                    status: 'MISSING',
+                    staleCandidate: false,
+                },
+            },
         })
         Storage.set('noviis:test:draft', {
             boardUrl: 'free',
@@ -739,12 +748,13 @@ describe('usePostDraft', () => {
                 staleReferencesReset: true,
             }),
         )
-        mocks.getMatchingDraft.mockResolvedValueOnce({
-            data: { data: { draftId: 13, multipleMatchesFound: false } },
-        })
-        mocks.getDraft.mockResolvedValueOnce({
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
             data: {
                 data: {
+                    status: 'AVAILABLE',
+                    staleCandidate: false,
+                    draftId: 13,
+                    draft: {
                     draftId: 13,
                     version: 2,
                     boardId: 1,
@@ -760,6 +770,7 @@ describe('usePostDraft', () => {
                     isSpoiler: false,
                     isSecret: false,
                     updatedAt: '2025-01-02T00:00:00.000Z',
+                    },
                 },
             },
         })
@@ -809,9 +820,12 @@ describe('usePostDraft', () => {
             clientModifiedAt: '2026-07-07T11:30:00.000Z',
             hasLocalChanges: false,
         })
-        mocks.getDraft.mockRejectedValueOnce({
-            isAxiosError: true,
-            response: { status: 409, data: { error: { code: 'P005' } } },
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
+            data: { data: {
+                status: 'PROTECTED',
+                staleCandidate: false,
+                draftId: 91,
+            } },
         })
         const { composable, appliedDrafts } = mountComposable()
 
@@ -947,6 +961,14 @@ describe('usePostDraft', () => {
             modifiedAt: '2025-01-02T00:00:00.000Z',
         }
         mocks.getDraft.mockResolvedValue({ data: { data: serverDraft } })
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
+            data: { data: {
+                status: 'AVAILABLE',
+                staleCandidate: false,
+                draftId: 91,
+                draft: serverDraft,
+            } },
+        })
         mocks.saveDraftMutateAsync.mockResolvedValueOnce({
             data: { data: { ...serverDraft, ...payload.value, updatedAt: '2025-01-04T00:00:00.000Z' } },
         })
@@ -1004,7 +1026,7 @@ describe('usePostDraft', () => {
 
     it('ignores restore status returned after the form identity resets', async () => {
         let resolveDrafts: (value: unknown) => void = () => undefined
-        mocks.getMatchingDraft.mockReturnValueOnce(new Promise((resolve) => {
+        mocks.resolveDraftRecovery.mockReturnValueOnce(new Promise((resolve) => {
             resolveDrafts = resolve
         }))
         const { composable } = mountComposable()
@@ -1014,8 +1036,8 @@ describe('usePostDraft', () => {
         resolveDrafts({
             data: {
                 data: {
-                    draftId: null,
-                    multipleMatchesFound: true,
+                    status: 'AMBIGUOUS',
+                    staleCandidate: false,
                 },
             },
         })
@@ -1283,19 +1305,14 @@ describe('usePostDraft', () => {
             originalPostId: undefined,
         }))
 
-        mocks.getMatchingDraft.mockResolvedValueOnce({
-            data: {
-                data: {
-                    draftId: null,
-                    multipleMatchesFound: true,
-                },
-            },
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
+            data: { data: { status: 'AMBIGUOUS', staleCandidate: false } },
         })
 
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMatchingDraft).toHaveBeenCalledExactlyOnceWith(
+        expect(mocks.resolveDraftRecovery).toHaveBeenCalledExactlyOnceWith(
             { boardUrl: 'free' },
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
@@ -1720,16 +1737,15 @@ describe('usePostDraft', () => {
         })
 
         const { composable, appliedDrafts } = mountComposable()
-        mocks.getDraft.mockRejectedValueOnce({
-            isAxiosError: true,
-            response: { status: 404, data: { error: { code: 'P007' } } },
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
+            data: { data: { status: 'MISSING', staleCandidate: true } },
         })
 
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getDraft).toHaveBeenCalledWith(
-            91,
+        expect(mocks.resolveDraftRecovery).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({ draftId: 91 }),
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
         expect(composable.draftId.value).toBeNull()
@@ -1768,9 +1784,8 @@ describe('usePostDraft', () => {
             clientModifiedAt: '2026-07-07T11:30:00.000Z',
         })
         const { composable, appliedDrafts } = mountComposable()
-        mocks.getDraft.mockRejectedValueOnce({
-            isAxiosError: true,
-            response: { status: 404, data: { error: { code: 'P007' } } },
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
+            data: { data: { status: 'MISSING', staleCandidate: true } },
         })
 
         await composable.restoreDraft()
@@ -1798,7 +1813,7 @@ describe('usePostDraft', () => {
         })
 
         const { composable, appliedDrafts } = mountComposable()
-        mocks.getDraft.mockRejectedValueOnce({
+        mocks.resolveDraftRecovery.mockRejectedValueOnce({
             isAxiosError: true,
             response: { status: 404, data: { error: { code: 'B001' } } },
         })
@@ -2015,21 +2030,13 @@ describe('usePostDraft', () => {
             originalPostId: 7,
         }))
 
-        mocks.getDraft.mockRejectedValueOnce({
-            isAxiosError: true,
-            response: { status: 404, data: { error: { code: 'P007' } } },
-        })
-        mocks.getMatchingDraft.mockResolvedValueOnce({
+        mocks.resolveDraftRecovery.mockResolvedValueOnce({
             data: {
                 data: {
+                    status: 'AVAILABLE',
+                    staleCandidate: true,
                     draftId: 13,
-                    multipleMatchesFound: false,
-                },
-            },
-        })
-        mocks.getDraft.mockResolvedValueOnce({
-            data: {
-                data: {
+                    draft: {
                     draftId: 13,
                     boardId: 1,
                     boardUrl: 'free',
@@ -2045,6 +2052,7 @@ describe('usePostDraft', () => {
                     originalPostId: 7,
                     updatedAt: '2025-01-03T00:00:00.000Z',
                     modifiedAt: '2025-01-03T00:00:00.000Z',
+                    },
                 },
             },
         })
@@ -2052,20 +2060,12 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getDraft).toHaveBeenNthCalledWith(
-            1,
-            91,
+        expect(mocks.resolveDraftRecovery).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({ boardUrl: 'free', originalPostId: 7, draftId: 91 }),
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
-        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({
-            boardUrl: 'free',
-            originalPostId: 7,
-        }, expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }))
-        expect(mocks.getDraft).toHaveBeenNthCalledWith(
-            2,
-            13,
-            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
-        )
+        expect(mocks.getMatchingDraft).not.toHaveBeenCalled()
+        expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
             contents: 'Local contents',
@@ -2077,10 +2077,7 @@ describe('usePostDraft', () => {
 
     it('does not overwrite edits made while the initial server recovery is in flight', async () => {
         let resolveDraft: (value: unknown) => void = () => undefined
-        mocks.getMatchingDraft.mockResolvedValueOnce({
-            data: { data: { draftId: 91, multipleMatchesFound: false } },
-        })
-        mocks.getDraft.mockReturnValueOnce(new Promise((resolve) => {
+        mocks.resolveDraftRecovery.mockReturnValueOnce(new Promise((resolve) => {
             resolveDraft = resolve
         }))
         const { composable, payloadRef, appliedDrafts } = mountComposable(ref({
@@ -2096,12 +2093,17 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
         resolveDraft({
             data: { data: {
+                status: 'AVAILABLE',
+                staleCandidate: false,
                 draftId: 91,
-                boardUrl: 'free',
-                title: 'Server title',
-                contents: 'Server body',
-                fileIds: [],
-                updatedAt: '2026-07-07T11:00:00.000Z',
+                draft: {
+                    draftId: 91,
+                    boardUrl: 'free',
+                    title: 'Server title',
+                    contents: 'Server body',
+                    fileIds: [],
+                    updatedAt: '2026-07-07T11:00:00.000Z',
+                },
             } },
         })
         await restoring
@@ -2154,6 +2156,11 @@ describe('usePostDraft', () => {
 
         await expect(composable.saveNow()).rejects.toThrow('DRAFT_LOCAL_STORAGE_FAILED')
         expect(composable.lastLocalSaveFailed.value).toBe(true)
+        expect(composable.persistence.value).toEqual({
+            type: 'failed',
+            target: 'browser',
+            exhausted: false,
+        })
         expect(composable.lastSaveScope.value).toBeNull()
         expect(mocks.loggerError).toHaveBeenCalledWith(
             'Draft local snapshot storage failed.',
@@ -2165,7 +2172,7 @@ describe('usePostDraft', () => {
     })
 
     it('retries a failed server recovery when connectivity returns', async () => {
-        mocks.getMatchingDraft.mockRejectedValueOnce(new Error('offline'))
+        mocks.resolveDraftRecovery.mockRejectedValueOnce(new Error('offline'))
         const { composable } = mountComposable(ref({
             boardUrl: 'free',
             title: '',
@@ -2180,7 +2187,7 @@ describe('usePostDraft', () => {
         await Promise.resolve()
         await Promise.resolve()
 
-        expect(mocks.getMatchingDraft).toHaveBeenCalledTimes(2)
+        expect(mocks.resolveDraftRecovery).toHaveBeenCalledTimes(2)
         expect(composable.restoreFailed.value).toBe(false)
     })
 

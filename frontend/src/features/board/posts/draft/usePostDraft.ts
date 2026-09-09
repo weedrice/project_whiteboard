@@ -43,10 +43,9 @@ import { createDraftLocalSnapshotController } from '@/features/board/posts/draft
 import { createDraftStateTransitionController } from '@/features/board/posts/draft/postDraftStateTransitions'
 import { createDraftCrossTabReconciler } from '@/features/board/posts/draft/postDraftCrossTabReconciler'
 import { createDraftRecoveryCoordinator } from '@/features/board/posts/draft/postDraftRecoveryCoordinator'
-import { createDraftBlockingStatusController } from '@/features/board/posts/draft/postDraftStatus'
+import { createDraftSessionStatusController } from '@/features/board/posts/draft/postDraftStatus'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
-type DraftSaveScope = 'server' | 'browser'
 
 interface UsePostDraftOptions {
     enabled: Ref<boolean>
@@ -85,32 +84,52 @@ const isTransientDraftSaveError = (error: unknown) => {
 }
 
 export function usePostDraft(options: UsePostDraftOptions) {
-    let requestController: AbortController | null = null
-    let recoveryRequestController: AbortController | null = null
+    const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const {
+        availability,
+        operation,
+        persistence,
+        draftConflict,
+        draftProtected,
+        draftDeleted,
+        protectedDraftForkAvailable,
+        isRestoringDraft,
+        isSavingDraft,
+        restoreFailed,
+        lastSaveFailed,
+        lastSavedAt,
+        lastSaveScope,
+        setRetryWait,
+        setPersistenceFailure,
+        identity: { draftId, clientDraftKey, version: draftVersion, updatedAt },
+        getGeneration,
+        getLocalRevision,
+        incrementLocalRevision,
+        markCurrentRevisionPersisted,
+        setPersistedRevision,
+        getPersistedRevision,
+        getLastRemoteLocalChangeAt,
+        setLastRemoteLocalChangeAt,
+        startRequest,
+        finishRequest,
+        isRequestCurrent,
+        getRequestSignal,
+        invalidatePendingWork,
+        resetIdentity,
+        reset: resetSessionStatus,
+    } = createDraftSessionStatusController('active', createClientKey)
     const { useSaveDraft, useDeleteDraft } = usePost()
     if (typeof useSaveDraft !== 'function' || typeof useDeleteDraft !== 'function') {
         throw new Error('Draft mutations are not available.')
     }
-    const resolveRequestConfig = () => requestController
-        ? { signal: requestController.signal, skipGlobalErrorHandler: true }
-        : undefined
+    const resolveRequestConfig = () => {
+        const signal = getRequestSignal('save')
+        return signal ? { signal, skipGlobalErrorHandler: true } : undefined
+    }
     const saveDraftMutation = useSaveDraft(resolveRequestConfig)
     const deleteDraftMutation = useDeleteDraft(resolveRequestConfig)
-
-    const draftId = ref<number | null>(null)
-    const draftVersion = ref<number | null>(null)
-    const updatedAt = ref<string | null>(null)
-    const lastSavedAt = ref<string | null>(null)
-    const lastSaveScope = ref<DraftSaveScope | null>(null)
-    const lastSaveFailed = ref(false)
-    const restoreFailed = ref(false)
-    const isRestoringDraft = ref(false)
-    const {
-        draftConflict,
-        draftProtected,
-        draftDeleted,
-    } = createDraftBlockingStatusController()
-    const protectedDraftForkAvailable = ref(false)
     const staleReferencesReset = ref(false)
     const contractValidationFailed = ref(false)
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
@@ -118,15 +137,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
     let savePromise: Promise<DraftPost | null> | null = null
     let saveQueued = false
-    let localRevision = 0
-    let persistedRevision = 0
-    let lastRemoteLocalChangeAt = 0
-    let sessionGeneration = 0
-    const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     const clientInstanceId = createClientKey()
-    const clientDraftKey = ref(createClientKey())
     const {
         activeStorageKey,
         lastSaveFailed: lastLocalSaveFailed,
@@ -146,6 +157,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
         onStored: options.onLocalSnapshotStored,
         onRemoved: options.onLocalSnapshotRemoved,
     })
+    watch(lastLocalSaveFailed, (failed) => {
+        if (failed) setPersistenceFailure('browser')
+        else if (persistence.value.type === 'failed' && persistence.value.target === 'browser') {
+            lastSaveFailed.value = false
+        }
+    }, { flush: 'sync' })
 
     const {
         attempt: saveRetryAttempt,
@@ -181,27 +198,15 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const resetDraftTracking = () => {
-        draftId.value = null
-        draftVersion.value = null
-        clientDraftKey.value = createClientKey()
-        updatedAt.value = null
+        resetIdentity()
         lastSavedAt.value = null
-        lastRemoteLocalChangeAt = 0
     }
 
     const invalidatePendingSaves = (resetRevisions = true) => {
-        sessionGeneration++
-        requestController?.abort()
-        requestController = null
-        recoveryRequestController?.abort()
-        recoveryRequestController = null
-        savePromise = null
-        saveQueued = false
-        if (resetRevisions) {
-            localRevision = 0
-            persistedRevision = 0
-            lastRemoteLocalChangeAt = 0
-        }
+        invalidatePendingWork(resetRevisions, () => {
+            savePromise = null
+            saveQueued = false
+        })
     }
 
     const {
@@ -216,8 +221,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         staleReferencesReset,
         draftConflict,
         lastSaveFailed,
-        localRevision: () => localRevision,
-        persistedRevision: () => persistedRevision,
+        localRevision: getLocalRevision,
+        persistedRevision: getPersistedRevision,
         clearAutosaveTimer,
         clearSaveRetry,
         invalidatePendingSaves,
@@ -247,16 +252,16 @@ export function usePostDraft(options: UsePostDraftOptions) {
         buildPayload: options.buildPayload,
         onSaved: options.onSaved,
         clearAutosaveTimer,
-        getLocalRevision: () => localRevision,
-        getPersistedRevision: () => persistedRevision,
-        markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
-        getLastRemoteLocalChangeAt: () => lastRemoteLocalChangeAt,
-        setLastRemoteLocalChangeAt: (value) => { lastRemoteLocalChangeAt = value },
+        getLocalRevision,
+        getPersistedRevision,
+        markCurrentRevisionPersisted,
+        getLastRemoteLocalChangeAt,
+        setLastRemoteLocalChangeAt,
     })
 
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
-        localRevision++
+        incrementLocalRevision()
         contractValidationFailed.value = options.canPersist?.() === false
         const snapshot = {
             ...createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value),
@@ -266,22 +271,15 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const startRecoveryRequest = () => {
-        recoveryRequestController?.abort()
-        const controller = new AbortController()
-        recoveryRequestController = controller
-        return controller
+        return startRequest('recovery')
     }
 
     const finishRecoveryRequest = (controller: AbortController) => {
-        if (recoveryRequestController !== controller) return false
-        recoveryRequestController = null
-        return true
+        return finishRequest('recovery', controller)
     }
 
     const savePayload = async (payload: PostDraftData) => {
-        requestController?.abort()
-        const controller = new AbortController()
-        requestController = controller
+        const controller = startRequest('save')
         try {
             return await saveDraftMutation.mutateAsync({
                 ...payload,
@@ -291,30 +289,28 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 updatedAt: updatedAt.value ?? undefined,
             })
         } finally {
-            if (requestController === controller) requestController = null
+            finishRequest('save', controller)
         }
     }
 
     const deleteDraft = async (targetDraftId: number) => {
-        requestController?.abort()
-        const controller = new AbortController()
-        requestController = controller
+        const controller = startRequest('save')
         try {
             return await deleteDraftMutation.mutateAsync({
                 draftId: targetDraftId,
                 version: draftVersion.value ?? undefined,
             })
         } finally {
-            if (requestController === controller) requestController = null
+            finishRequest('save', controller)
         }
     }
 
     const persistNow = async () => {
         if (!options.enabled.value) return null
-        const generation = sessionGeneration
+        const generation = getGeneration()
         clearAutosaveTimer()
         const payload = options.buildPayload()
-        const revision = localRevision
+        const revision = getLocalRevision()
         const existingDraftId = draftId.value
         const shouldPersistToServer = hasMeaningfulDraftContent(payload)
             || (existingDraftId != null && payload.categoryId != null)
@@ -327,9 +323,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     logger.error('Failed to delete empty draft:', error)
                     throw error
                 }
-                if (generation !== sessionGeneration || !options.enabled.value) return null
+                if (generation !== getGeneration() || !options.enabled.value) return null
                 const latestPayload = options.buildPayload()
-                if (revision !== localRevision || !hasSameDraftContent(payload, latestPayload)) {
+                if (revision !== getLocalRevision() || !hasSameDraftContent(payload, latestPayload)) {
                     resetDraftTracking()
                     const shouldStoreLatestPayload = hasBrowserDraftContent(latestPayload)
                     if (shouldStoreLatestPayload) {
@@ -359,7 +355,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     lastSaveScope.value = shouldStoreLatestPayload ? 'browser' : null
                     lastSaveFailed.value = false
                     clearSaveRetry()
-                    persistedRevision = localRevision
+                    markCurrentRevisionPersisted()
                     options.onSaved?.()
                     return null
                 }
@@ -369,7 +365,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 }
                 removeLocalSnapshot()
             }
-            if (generation !== sessionGeneration) return null
+            if (generation !== getGeneration()) return null
             resetDraftTracking()
             const latestPayload = options.buildPayload()
             if (hasBrowserDraftContent(latestPayload)) {
@@ -386,14 +382,14 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
             lastSaveFailed.value = false
             clearSaveRetry()
-            persistedRevision = localRevision
+            markCurrentRevisionPersisted()
             options.onSaved?.()
             return null
         }
 
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
         let savedDraft = unwrapAxiosApiData(await savePayload(payload))
-        if (generation !== sessionGeneration || !options.enabled.value) return null
+        if (generation !== getGeneration() || !options.enabled.value) return null
         let canonicalPayload = payload
         let referenceRecoverySaveCount = 0
         while (true) {
@@ -404,7 +400,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
             lastSavedAt.value = updatedAt.value
             lastSaveScope.value = 'server'
-            lastRemoteLocalChangeAt = 0
+            setLastRemoteLocalChangeAt(0)
             staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
             if (!staleReferencesReset.value) break
 
@@ -423,10 +419,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
             referenceRecoverySaveCount++
             savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
-            if (generation !== sessionGeneration || !options.enabled.value) return null
+            if (generation !== getGeneration() || !options.enabled.value) return null
         }
         const latestPayload = options.buildPayload()
-        const hasNewerLocalChanges = revision !== localRevision
+        const hasNewerLocalChanges = revision !== getLocalRevision()
             || !hasSameDraftContent(canonicalPayload, latestPayload)
         contractValidationFailed.value = hasNewerLocalChanges
             && options.canPersist?.() === false
@@ -435,7 +431,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             clientInstanceId,
         }
         if (!hasNewerLocalChanges) {
-            persistedRevision = revision
+            setPersistedRevision(revision)
             storeLocalSnapshot(canonicalSnapshot)
             options.onSaved?.()
         } else {
@@ -465,17 +461,26 @@ export function usePostDraft(options: UsePostDraftOptions) {
             saveQueued = true
             return savePromise
         }
-        const generation = sessionGeneration
+        const generation = getGeneration()
+        isSavingDraft.value = true
         const pendingSave = (async () => {
             let savedDraft: DraftPost | null
+            let savePass = 0
             do {
                 saveQueued = false
                 savedDraft = await persistNow()
-            } while (saveQueued && generation === sessionGeneration && options.enabled.value)
+                savePass++
+            } while (saveQueued
+                && savePass < 2
+                && generation === getGeneration()
+                && options.enabled.value)
+            if (saveQueued && generation === getGeneration() && options.enabled.value) {
+                scheduleAutosave()
+            }
             return savedDraft
         })().catch((error: unknown) => {
-            if (generation !== sessionGeneration || !options.enabled.value) return null
-            if (generation === sessionGeneration) {
+            if (generation !== getGeneration() || !options.enabled.value) return null
+            if (generation === getGeneration()) {
                 draftConflict.value = isDraftOutdatedError(error)
                 draftProtected.value = isDraftProtectedError(error)
                 if (draftConflict.value) void reportDraftOperationalEvent('draft_conflict')
@@ -495,6 +500,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 if (lastSaveFailed.value
                     && (isTransientDraftSaveError(error) || referenceRecoveryLimitReached)) {
                     scheduleTransientSaveRetry(error)
+                    setRetryWait(saveRetryAttempt.value, SAVE_RETRY_MAX_ATTEMPTS)
                 } else {
                     clearSaveRetry()
                 }
@@ -504,6 +510,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const trackedSave = pendingSave.finally(() => {
             if (savePromise === trackedSave) {
                 savePromise = null
+                if (operation.value.type === 'saving') isSavingDraft.value = false
             }
         })
         savePromise = trackedSave
@@ -551,13 +558,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
         contractValidationFailed,
         restoreSource,
         hasRestoredDraft,
-        getSessionGeneration: () => sessionGeneration,
-        getLocalRevision: () => localRevision,
-        incrementLocalRevision: () => { localRevision++ },
-        markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
+        getSessionGeneration: getGeneration,
+        getLocalRevision,
+        incrementLocalRevision,
+        markCurrentRevisionPersisted,
         startRecoveryRequest,
         finishRecoveryRequest,
-        isRecoveryRequestCurrent: (controller) => recoveryRequestController === controller,
+        isRecoveryRequestCurrent: (controller) => isRequestCurrent('recovery', controller),
         buildPayload: options.buildPayload,
         applyDraft: options.applyDraft,
         prepareRecoveredSnapshot: options.prepareRecoveredSnapshot,
@@ -595,12 +602,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveScope.value = null
         lastSaveFailed.value = false
         resetLocalSnapshotStatus()
-        restoreFailed.value = false
-        isRestoringDraft.value = false
-        draftConflict.value = false
-        draftProtected.value = false
-        protectedDraftForkAvailable.value = false
-        draftDeleted.value = false
+        resetSessionStatus()
         staleReferencesReset.value = false
         contractValidationFailed.value = false
         resetDraftTracking()
@@ -761,8 +763,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected: computed(() => draftProtected.value),
         protectedDraftForkAvailable: computed(() => protectedDraftForkAvailable.value),
         draftDeleted: computed(() => draftDeleted.value),
+        availability: computed(() => availability.value),
+        operation: computed(() => operation.value),
+        persistence: computed(() => persistence.value),
         contractValidationFailed: computed(() => contractValidationFailed.value),
-        isSavingDraft: computed(() => saveDraftMutation.isPending.value),
+        isSavingDraft: computed(() => isSavingDraft.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,
         retrySaveNow,
