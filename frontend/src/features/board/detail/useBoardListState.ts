@@ -8,7 +8,6 @@ import {
   buildBoardListQueryFromSource,
   clampBoardListPage,
   createBoardListQueryParams,
-  getResolvedBoardListSearchState,
   resolveBoardListRouteState,
   type BoardListFilterState,
   type BoardListQueryParams,
@@ -29,7 +28,8 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   const size = ref(20)
   const searchQuery = ref('')
   const searchType = ref('TITLE_CONTENT')
-  const isSearching = ref(false)
+  const appliedSearch = ref<BoardListSearchState | null>(null)
+  const isSearching = computed(() => appliedSearch.value !== null)
   const conceptOnly = ref(false)
   const selectedCategoryId = ref<number | null>(null)
   const sort = ref('createdAt,desc')
@@ -37,8 +37,8 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
 
   const getFilterState = (): BoardListFilterState => ({
     isSearching: isSearching.value,
-    searchQuery: searchQuery.value,
-    searchType: searchType.value,
+    searchQuery: appliedSearch.value?.q ?? '',
+    searchType: appliedSearch.value?.searchType ?? 'TITLE_CONTENT',
     selectedCategoryId: selectedCategoryId.value,
     conceptOnly: conceptOnly.value,
   })
@@ -103,7 +103,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
 
   const resetToDefaultList = () => {
     searchQuery.value = ''
-    isSearching.value = false
+    appliedSearch.value = null
     conceptOnly.value = false
     selectedCategoryId.value = null
     setPage(0, { skipRouteSync: true })
@@ -116,7 +116,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
       return
     }
 
-    isSearching.value = true
+    appliedSearch.value = { q: trimmedQuery, searchType: searchType.value }
     conceptOnly.value = false
     selectedCategoryId.value = null
     setPage(0, { skipRouteSync: true })
@@ -132,7 +132,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   }
 
   function activateAllPostsFilter() {
-    const nextSearchState = getResolvedBoardListSearchState(isSearching.value, searchQuery.value, searchType.value)
+    const nextSearchState = appliedSearch.value
 
     conceptOnly.value = false
     selectedCategoryId.value = null
@@ -145,7 +145,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
     conceptOnly.value = nextConceptOnly
     selectedCategoryId.value = null
     searchQuery.value = ''
-    isSearching.value = false
+    appliedSearch.value = null
     setPage(0, { skipRouteSync: true })
     syncListQuery(0, null, null, nextConceptOnly)
   }
@@ -155,7 +155,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
     conceptOnly.value = false
     selectedCategoryId.value = nextCategoryId
     searchQuery.value = ''
-    isSearching.value = false
+    appliedSearch.value = null
     setPage(0, { skipRouteSync: true })
     syncListQuery(0, null, nextCategoryId, false)
   }
@@ -175,7 +175,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
 
   function resetListState() {
     searchQuery.value = ''
-    isSearching.value = false
+    appliedSearch.value = null
     conceptOnly.value = false
     selectedCategoryId.value = null
     sort.value = 'createdAt,desc'
@@ -209,9 +209,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
     if (searchType.value !== routeState.routeSearchType) {
       searchType.value = routeState.routeSearchType
     }
-    if (isSearching.value !== routeState.shouldSearch) {
-      isSearching.value = routeState.shouldSearch
-    }
+    appliedSearch.value = routeState.searchState
     if (selectedCategoryId.value !== routeState.selectedCategoryId) {
       selectedCategoryId.value = routeState.selectedCategoryId
     }

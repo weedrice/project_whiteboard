@@ -1,8 +1,9 @@
-import { defineComponent, h, nextTick } from 'vue'
+import { computed, defineComponent, h, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import BaseModal from '../ui/BaseModal.vue'
 import ImageLightbox from '../ui/ImageLightbox.vue'
+import { usePostDetailKeyboardShortcuts } from '@/features/board/posts/detail/usePostDetailKeyboardShortcuts'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -20,6 +21,62 @@ afterEach(() => {
 })
 
 describe('ImageLightbox', () => {
+  it.each([true, false])('closes only the image viewer on Escape (initially open: %s)', async (initiallyOpen) => {
+    const isOpen = ref(initiallyOpen)
+    const goToList = vi.fn()
+    const handleLike = vi.fn()
+    const host = document.createElement('div')
+    document.body.append(host)
+    const Page = defineComponent({
+      setup() {
+        usePostDetailKeyboardShortcuts({
+          router: { push: vi.fn() } as never,
+          authStore: { isAuthenticated: true },
+          postView: computed(() => ({ postId: 1 }) as never),
+          canEdit: computed(() => true),
+          isReportModalOpen: ref(false),
+          buildEditRoute: () => '/edit',
+          scrollToComments: vi.fn(),
+          goToList,
+          handleLike,
+          handleBookmark: vi.fn(),
+          handleShare: vi.fn(),
+          handleCopyUrl: vi.fn(),
+        })
+        return () => isOpen.value ? h(ImageLightbox, {
+          isOpen: true,
+          images: [{ src: '/one.png', alt: 'First image' }],
+          onClose: () => { isOpen.value = false },
+        }) : h('button', 'Open image')
+      },
+    })
+    const wrapper = mount(Page, {
+      attachTo: host,
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    try {
+      await nextTick()
+      isOpen.value = true
+      await nextTick()
+      await nextTick()
+      const closeButton = document.querySelector<HTMLButtonElement>('[role="dialog"] button')!
+      closeButton.focus()
+      closeButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, cancelable: true }))
+      expect(handleLike).not.toHaveBeenCalled()
+      closeButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await nextTick()
+      expect(isOpen.value).toBe(false)
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+      expect(goToList).not.toHaveBeenCalled()
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(goToList).toHaveBeenCalledOnce()
+    } finally {
+      wrapper.unmount()
+      host.remove()
+    }
+  })
+
   it('shares the body scroll lock with an underlying modal', async () => {
     const modal = mount(BaseModal, {
       props: { isOpen: true, title: 'Modal' },

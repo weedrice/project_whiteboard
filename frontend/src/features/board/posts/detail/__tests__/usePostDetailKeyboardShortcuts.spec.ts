@@ -67,6 +67,37 @@ describe('usePostDetailKeyboardShortcuts', () => {
     expect(setupResult.router.push).toHaveBeenCalledWith('/edit')
   })
 
+  it('ignores keyboard events already handled by another control', () => {
+    const result = setup()
+    const event = key('Escape')
+    event.preventDefault()
+    result.result.handleKeyDown(event)
+    expect(result.goToList).not.toHaveBeenCalled()
+  })
+
+  it('pauses all post shortcuts while a modal dialog is open and resumes afterward', () => {
+    const result = setup()
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('aria-modal', 'true')
+    document.body.append(dialog)
+    try {
+      for (const shortcut of ['Escape', 'u', 'c', 'l', 'y', 'e', 'S', 'Y']) {
+        const event = key(shortcut, { shiftKey: shortcut === 'S' || shortcut === 'Y' })
+        result.result.handleKeyDown(event)
+        expect(event.defaultPrevented).toBe(false)
+      }
+      for (const action of [result.goToList, result.scrollToComments, result.handleLike,
+        result.handleCopyUrl, result.handleBookmark, result.handleShare, result.router.push]) {
+        expect(action).not.toHaveBeenCalled()
+      }
+    } finally {
+      dialog.remove()
+    }
+    result.result.handleKeyDown(key('Escape'))
+    expect(result.goToList).toHaveBeenCalledOnce()
+  })
+
   it('maps shifted bookmark and share shortcuts', () => {
     const result = setup()
     result.result.handleKeyDown(key('S', { shiftKey: true }))

@@ -40,6 +40,8 @@ export function usePostDetailKeyboardShortcuts({
   const handleKeyDown = (event: KeyboardEvent) => {
     const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
+    if (event.defaultPrevented) return
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
     if (ctrlKey || altKey || metaKey) return
     if (isInputFocused()) return
     if (isReportModalOpen.value) return
