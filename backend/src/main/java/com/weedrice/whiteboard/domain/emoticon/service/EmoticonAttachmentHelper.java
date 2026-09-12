@@ -29,6 +29,11 @@ class EmoticonAttachmentHelper {
         }
     }
 
+    void deleteAllAssociatedFiles(Long emoticonId, String relatedType) {
+        fileService.getFilesByRelatedEntity(emoticonId, relatedType).forEach(file ->
+                fileService.deleteFileWithStorageIfAssociated(file.getFileId(), emoticonId, relatedType));
+    }
+
     void deleteAssociatedFileIfDifferent(String fileUrl, Long selectedFileId, Long emoticonId, String relatedType) {
         Long fileId = FileService.extractFileIdFromUrl(fileUrl);
         if (fileId != null && !fileId.equals(selectedFileId)) {

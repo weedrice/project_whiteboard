@@ -1007,7 +1007,7 @@ class EmoticonServiceTest {
                             "/api/v1/files/500",
                             "/api/v1/files/501");
             assertThat(result.getImages()).extracting("sortOrder").containsExactly(0, 2, 3, 4);
-            verify(fileService).deleteFileWithStorageIfAssociated(101L, 1L, "EMOTICON_IMAGE");
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(101L, 1L, "EMOTICON_IMAGE");
             verify(fileService).associateFilesWithEntity(
                     List.of(500L, 501L), 1L, 1L, "EMOTICON_IMAGE", 20);
         }
@@ -1047,7 +1047,7 @@ class EmoticonServiceTest {
 
             assertThat(result.getName()).isEqualTo("정리한 이모티콘");
             assertThat(result.getImages()).hasSize(20);
-            verify(fileService).deleteFileWithStorageIfAssociated(100L, 1L, "EMOTICON_IMAGE");
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(100L, 1L, "EMOTICON_IMAGE");
         }
 
         @Test
@@ -1147,6 +1147,12 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 성공")
         void deleteEmoticon_success() {
+            var currentFile = com.weedrice.whiteboard.domain.file.entity.File.builder().build();
+            ReflectionTestUtils.setField(currentFile, "fileId", 20L);
+            var removedFile = com.weedrice.whiteboard.domain.file.entity.File.builder().build();
+            ReflectionTestUtils.setField(removedFile, "fileId", 21L);
+            when(fileService.getFilesByRelatedEntity(1L, "EMOTICON_IMAGE"))
+                    .thenReturn(List.of(currentFile, removedFile));
             ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
             EmoticonImage image = EmoticonImage.builder()
                     .emoticonMaster(emoticonMaster)
@@ -1170,6 +1176,7 @@ class EmoticonServiceTest {
             inOrder.verify(emoticonMasterRepository).flush();
             inOrder.verify(fileService).deleteFileWithStorageIfAssociated(10L, 1L, "EMOTICON_THUMBNAIL");
             inOrder.verify(fileService).deleteFileWithStorageIfAssociated(20L, 1L, "EMOTICON_IMAGE");
+            inOrder.verify(fileService).deleteFileWithStorageIfAssociated(21L, 1L, "EMOTICON_IMAGE");
             assertThat(emoticonShopItem.getIsActive()).isFalse();
             assertThat(emoticonShopItem.getTargetId()).isNull();
         }

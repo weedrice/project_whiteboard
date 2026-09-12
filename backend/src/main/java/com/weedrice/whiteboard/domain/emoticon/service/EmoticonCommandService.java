@@ -160,9 +160,9 @@ class EmoticonCommandService {
             validateImageCount(currentImageCount - imagesToDelete.size() + addImageFileIds.size(), imageLimit);
         }
 
+        // Existing comments keep the image URL after it leaves the picker.
+        // Preserve the file and its pack association until the pack is deleted.
         for (EmoticonImage image : imagesToDelete) {
-            attachmentHelper.deleteAssociatedFile(
-                    image.getImageUrl(), master.getEmoticonId(), emoticonImageType);
             master.removeImage(image);
         }
 
@@ -265,11 +265,6 @@ class EmoticonCommandService {
 
         Long masterId = master.getEmoticonId();
         String thumbnailUrl = master.getThumbnailUrl();
-        List<String> imageUrls = master.getImages() == null
-                ? List.of()
-                : master.getImages().stream()
-                        .map(EmoticonImage::getImageUrl)
-                        .toList();
 
         try {
             emoticonMasterRepository.delete(master);
@@ -280,9 +275,7 @@ class EmoticonCommandService {
 
         attachmentHelper.deleteAssociatedFile(thumbnailUrl, masterId, emoticonThumbnailType);
 
-        for (String imageUrl : imageUrls) {
-            attachmentHelper.deleteAssociatedFile(imageUrl, masterId, emoticonImageType);
-        }
+        attachmentHelper.deleteAllAssociatedFiles(masterId, emoticonImageType);
     }
 
     private void validateOwner(EmoticonMaster master, Long userId) {

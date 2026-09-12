@@ -63,6 +63,7 @@ const mocks = vi.hoisted(() => {
             return {}
         }),
         isActive: vi.fn((name: unknown) => name === 'link'),
+        schema: { marks: {} },
         state: {
             selection: { from: 1, to: 1 },
             doc: {

@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import type { Editor } from '@tiptap/core'
+import { getMarkRange, type Editor } from '@tiptap/core'
 import { escapeHtmlAttr, escapeHtmlText } from '@/components/board/editor/postEditorHtml'
 import { toSafePostLinkUrl } from '@/utils/postForm'
 
@@ -28,12 +28,21 @@ export function usePostEditorLinkCommands({
   const linkUrl = ref('')
   const linkText = ref('')
 
+  function targetRange(instance: Editor) {
+    const { selection } = instance.state
+    const linkType = instance.schema.marks.link
+    if (selection.empty && linkType && instance.isActive('link')) {
+      return getMarkRange(selection.$from, linkType) ?? { from: selection.from, to: selection.to }
+    }
+    return { from: selection.from, to: selection.to }
+  }
+
   function openLinkPopover(anchor?: HTMLElement) {
     closeFloatingMenus()
     linkPosition.setAnchor(anchor)
     const attrs = editor.value?.getAttributes('link')
     linkUrl.value = attrs?.href ?? ''
-    const { from, to } = editor.value?.state.selection ?? {}
+    const { from, to } = editor.value ? targetRange(editor.value) : {}
     const selectedText = from !== undefined && to !== undefined && from < to
       ? editor.value?.state.doc.textBetween(from, to, ' ') ?? ''
       : ''
@@ -62,13 +71,29 @@ export function usePostEditorLinkCommands({
       addToast(t('board.writePost.invalidLinkUrl'), 'error')
       return
     }
-    const text = displayText || url
-    const { from, to } = editor.value?.state.selection ?? {}
-    const hasSelection = from !== undefined && to !== undefined && from < to
-    if (hasSelection) {
-      editor.value?.chain().focus().setLink({ href: safeUrl }).run()
+    const instance = editor.value
+    if (!instance) return
+    const range = targetRange(instance)
+    if (range.from < range.to) {
+      const currentText = instance.state.doc.textBetween(range.from, range.to, ' ')
+      if (displayText && displayText !== currentText.trim()) {
+        const marks = instance.state.doc.nodeAt(range.from)?.marks
+          ?? instance.state.doc.resolve(range.from).marks()
+        instance.chain().focus().insertContentAt(range, {
+          type: 'text',
+          text: displayText,
+          marks: [
+            ...marks.filter((mark) => mark.type.name !== 'link').map((mark) => mark.toJSON()),
+            { type: 'link', attrs: { ...instance.getAttributes('link'), href: safeUrl } },
+          ],
+        }).run()
+      } else {
+        // Updating only the URL must keep the original text and its inline formatting.
+        instance.chain().focus().setTextSelection(range).setLink({ href: safeUrl }).run()
+      }
     } else {
-      editor.value?.chain().focus().insertContent(`<a href="${escapeHtmlAttr(safeUrl)}" class="tiptap-link">${escapeHtmlText(text)}</a>`).run()
+      const text = displayText || url
+      instance.chain().focus().insertContent(`<a href="${escapeHtmlAttr(safeUrl)}" class="tiptap-link">${escapeHtmlText(text)}</a>`).run()
     }
     closeLinkPopover()
   }
