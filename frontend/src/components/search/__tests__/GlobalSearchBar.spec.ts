@@ -256,6 +256,46 @@ describe('GlobalSearchBar', () => {
         wrapper.unmount()
     })
 
+    it.each([
+        { key: 'Enter', selected: false, mobile: false },
+        { key: 'Enter', selected: true, mobile: false },
+        { key: 'Escape', selected: false, mobile: false },
+        { key: 'Escape', selected: false, mobile: true },
+        { key: 'ArrowDown', selected: false, mobile: false },
+        { key: 'ArrowUp', selected: false, mobile: false },
+    ].flatMap((scenario) => [
+        { ...scenario, marker: 'isComposing', isComposing: true, keyCode: 0 },
+        { ...scenario, marker: 'keyCode 229', isComposing: false, keyCode: 229 },
+    ]))('leaves IME $key to $marker (selected=$selected, mobile=$mobile)', async ({
+        key, selected, mobile, isComposing, keyCode,
+    }) => {
+        mobileViewport.value = mobile
+        const wrapper = mountSearchBar()
+        if (mobile) {
+            await wrapper.get('button[aria-label="search.placeholder"]').trigger('click')
+            await nextTick()
+        }
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        input.element.focus()
+        if (selected) await input.trigger('keydown', { key: 'ArrowDown' })
+        const activeDescendant = input.attributes('aria-activedescendant')
+
+        const event = new KeyboardEvent('keydown', {
+            key, isComposing, keyCode, bubbles: true, cancelable: true,
+        })
+        input.element.dispatchEvent(event)
+        await nextTick()
+
+        expect(event.defaultPrevented).toBe(false)
+        expect(routerPush).not.toHaveBeenCalled()
+        expect(document.activeElement).toBe(input.element)
+        expect(wrapper.find('input').exists()).toBe(true)
+        expect(input.attributes('aria-expanded')).toBe('true')
+        expect(input.attributes('aria-activedescendant')).toBe(activeDescendant)
+        wrapper.unmount()
+    })
+
     it('shows a retryable board autocomplete error instead of an empty result', async () => {
         boardIsError.value = true
         const wrapper = mountSearchBar()

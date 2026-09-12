@@ -3,6 +3,7 @@ import { useEventListener } from '@/composables/useEventListener'
 import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useSearchNavigation } from '@/features/search/navigation/useSearchNavigation'
 import type { BoardListItem } from '@/types'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 interface SearchInputLike {
   $el?: HTMLElement
@@ -94,6 +95,8 @@ export function useGlobalSearchController({
   }
 
   const handleInputKeyDown = (event: KeyboardEvent) => {
+    if (isComposingKeyboardEvent(event)) return
+
     if (event.key === 'Escape') {
       event.preventDefault()
       if (isMobile.value && isExpanded.value) {
