@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -93,8 +94,8 @@ public class UserController {
         @GetMapping("/me/sessions")
         public ApiResponse<List<UserSessionResponse>> getMySessions(
                         @CurrentUserId Long userId,
-                        HttpServletRequest request) {
-                return ApiResponse.success(userSessionService.getActiveSessions(userId, request));
+                        Authentication authentication) {
+                return ApiResponse.success(userSessionService.getActiveSessions(userId, authentication));
         }
 
         @DeleteMapping("/me/sessions/{sessionId}")
@@ -102,8 +103,9 @@ public class UserController {
                         @PathVariable Long sessionId,
                         @CurrentUserId Long userId,
                         HttpServletRequest request,
-                        HttpServletResponse response) {
-                UserSessionRevokeResult result = userSessionService.revokeSession(userId, sessionId, request);
+                        HttpServletResponse response,
+                        Authentication authentication) {
+                UserSessionRevokeResult result = userSessionService.revokeSession(userId, sessionId, authentication);
                 if (result.currentSessionRevoked()) {
                         refreshTokenCookieWriter.clearRefreshTokenCookie(response, request);
                 }
@@ -113,8 +115,8 @@ public class UserController {
         @DeleteMapping("/me/sessions")
         public ApiResponse<Void> revokeOtherSessions(
                         @CurrentUserId Long userId,
-                        HttpServletRequest request) {
-                userSessionService.revokeOtherSessions(userId, request);
+                        Authentication authentication) {
+                userSessionService.revokeOtherSessions(userId, authentication);
                 return ApiResponses.ok();
         }
 

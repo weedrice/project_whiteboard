@@ -4,14 +4,19 @@ import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.SessionAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,14 +60,13 @@ class UserSessionServiceTest {
     @Mock LoginHistoryRepository histories;
     @Mock UserReadableResolver users;
     @Mock UserRepository userRepository;
-    @Mock TokenHashService hashes;
     @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
     UserSessionService service;
     User user;
 
     @BeforeEach
     void setUp() {
-        service = new UserSessionService(tokens, histories, users, userRepository, hashes,
+        service = new UserSessionService(tokens, histories, users, userRepository,
                 notificationAccessInvalidationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         user = mock(User.class);
@@ -70,19 +76,13 @@ class UserSessionServiceTest {
     }
 
     @Test
-    void activeSessionsMarkCurrentCookieAndSortNewestFirst() {
+    void activeSessionsMarkAuthenticatedSessionWithoutCookieAndSortNewestFirst() {
         RefreshToken oldToken = token(10L, user, "old", NOW.minusDays(1), NOW.plusDays(1), false);
         RefreshToken current = token(11L, user, "current-hash", NOW, NOW.plusDays(1), false);
-        HttpServletRequest request = requestWithCookie("raw-current");
-        when(hashes.hashSha256("raw-current")).thenReturn("current-hash");
-        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
-                candidate(11L, 1L, family("current-hash"));
-        when(tokens.findRenewalCandidateByTokenHash("current-hash"))
-                .thenReturn(Optional.of(currentCandidate));
         when(tokens.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, NOW))
                 .thenReturn(List.of(oldToken, current));
 
-        var sessions = service.getActiveSessions(1L, request);
+        var sessions = service.getActiveSessions(1L, session(1L, "current-hash"));
 
         assertTrue(sessions.getFirst().isCurrent());
         assertFalse(sessions.getLast().isCurrent());
@@ -92,13 +92,7 @@ class UserSessionServiceTest {
     void revokeCurrentSessionReturnsLogoutRequired() {
         RefreshToken current = token(12L, user, "hash", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(12L)).thenReturn(Optional.of(current));
-        when(hashes.hashSha256("raw")).thenReturn("hash");
-        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
-                candidate(12L, 1L, family("hash"));
-        when(tokens.findRenewalCandidateByTokenHash("hash"))
-                .thenReturn(Optional.of(currentCandidate));
-
-        assertTrue(service.revokeSession(1L, 12L, requestWithCookie("raw")).currentSessionRevoked());
+        assertTrue(service.revokeSession(1L, 12L, session(1L, "hash")).currentSessionRevoked());
         verify(tokens).revokeTokenFamily(family("hash"));
         verify(notificationAccessInvalidationService)
                 .disconnectSessionFamilyAfterCommit(1L, family("hash"));
@@ -107,35 +101,62 @@ class UserSessionServiceTest {
     @Test
     void revokeRejectsMissingForeignAndExpiredSessions() {
         when(tokens.findByTokenIdForUpdate(99L)).thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 99L, null));
+        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 99L, session(1L, "current")));
 
         User another = mock(User.class);
         when(another.getUserId()).thenReturn(2L);
         RefreshToken foreign = token(13L, another, "foreign", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(13L)).thenReturn(Optional.of(foreign));
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 13L, null));
+        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 13L, session(1L, "current")));
 
         RefreshToken expired = token(14L, user, "expired", NOW, NOW.minusSeconds(1), false);
         when(tokens.findByTokenIdForUpdate(14L)).thenReturn(Optional.of(expired));
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 14L, null));
+        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 14L, session(1L, "current")));
     }
 
     @Test
-    void revokeOtherSessionsChoosesCookieAwareQuery() {
-        service.revokeOtherSessions(1L, null);
-        verify(tokens).revokeActiveTokensByUserId(1L, NOW);
-        verify(notificationAccessInvalidationService)
-                .disconnectOtherSessionFamiliesAfterCommit(1L, null);
+    void revokeOtherSessionsPreservesAuthenticatedFamilyWithoutCookie() {
+        service.revokeOtherSessions(1L, session(1L, "keep-hash"));
 
-        when(hashes.hashSha256("keep")).thenReturn("keep-hash");
-        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
-                candidate(15L, 1L, family("keep-hash"));
-        when(tokens.findRenewalCandidateByTokenHash("keep-hash"))
-                .thenReturn(Optional.of(currentCandidate));
-        service.revokeOtherSessions(1L, requestWithCookie("keep"));
         verify(tokens).revokeActiveTokensByUserIdExceptFamily(1L, family("keep-hash"), NOW);
+        verify(tokens, never()).revokeActiveTokensByUserId(any(), any());
         verify(notificationAccessInvalidationService)
                 .disconnectOtherSessionFamiliesAfterCommit(1L, family("keep-hash"));
+    }
+
+    @Test
+    void revokingAnotherSessionDoesNotLogOutCurrentSession() {
+        RefreshToken other = token(15L, user, "other", NOW, NOW.plusDays(1), false);
+        when(tokens.findByTokenIdForUpdate(15L)).thenReturn(Optional.of(other));
+
+        assertFalse(service.revokeSession(1L, 15L, session(1L, "current")).currentSessionRevoked());
+        verify(tokens).revokeTokenFamily(family("other"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("untrustedSessionAuthentications")
+    void rejectsUnknownOrMismatchedSessionWithoutRevokingAnything(Authentication authentication) {
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.getActiveSessions(1L, authentication)).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeSession(1L, 12L, authentication)).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeOtherSessions(1L, authentication)).getErrorCode())
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+        verifyNoInteractions(tokens, notificationAccessInvalidationService);
+    }
+
+    private static Stream<Arguments> untrustedSessionAuthentications() {
+        SessionAuthenticationToken unauthenticated = session(1L, "current");
+        unauthenticated.setAuthenticated(false);
+        return Stream.of(
+                Arguments.of((Authentication) null),
+                Arguments.of(unauthenticated),
+                Arguments.of(session(2L, "foreign")),
+                Arguments.of(UsernamePasswordAuthenticationToken.authenticated(
+                        new CustomUserDetails(1L, "user", "unused", List.of()), null, List.of())));
     }
 
     @Test
@@ -190,22 +211,8 @@ class UserSessionServiceTest {
         return UUID.nameUUIDFromBytes(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    private static RefreshTokenRepository.RefreshTokenRenewalCandidate candidate(
-            Long tokenId, Long userId, UUID sessionFamilyId) {
-        RefreshTokenRepository.RefreshTokenRenewalCandidate candidate =
-                mock(RefreshTokenRepository.RefreshTokenRenewalCandidate.class);
-        when(candidate.getTokenId()).thenReturn(tokenId);
-        when(candidate.getUserId()).thenReturn(userId);
-        when(candidate.getSessionFamilyId()).thenReturn(sessionFamilyId);
-        return candidate;
-    }
-
-    private static HttpServletRequest requestWithCookie(String value) {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getCookies()).thenReturn(new Cookie[]{
-                new Cookie("ignored", "value"),
-                new Cookie(RefreshTokenCookieWriter.REFRESH_TOKEN_COOKIE_NAME, value),
-        });
-        return request;
+    private static SessionAuthenticationToken session(Long userId, String familyKey) {
+        CustomUserDetails principal = new CustomUserDetails(userId, "user-" + userId, "unused", List.of());
+        return new SessionAuthenticationToken(principal, principal.getAuthorities(), family(familyKey));
     }
 }

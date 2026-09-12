@@ -343,6 +343,49 @@ describe('CommentForm', () => {
     )
   })
 
+  it.each([
+    { mode: 'creating', commentId: null, initialMentions: [], prefix: 'hello ', expectedIds: [8] },
+    { mode: 'editing', commentId: 30, initialMentions: [], prefix: 'hello ', expectedIds: [8] },
+    {
+      mode: 'editing with an existing mention',
+      commentId: 30,
+      initialMentions: [{ userId: 7, displayName: 'Alice', profileImageUrl: null }],
+      prefix: 'hello @Alice ',
+      expectedIds: [7, 8],
+    },
+  ])('selects and submits a new mention while $mode', async ({ commentId, initialMentions, prefix, expectedIds }) => {
+    apiMocks.getMentionCandidates.mockResolvedValue({
+      data: {
+        success: true,
+        data: [{ userId: 8, displayName: 'Bob', profileImageUrl: null }],
+      },
+    })
+    const wrapper = mountCommentForm({ commentId, initialContent: prefix, initialMentions })
+    const textarea = wrapper.get('textarea')
+    const typedContent = `${prefix}@Bo`
+
+    await textarea.setValue(typedContent)
+    textarea.element.setSelectionRange(typedContent.length, typedContent.length)
+    await textarea.trigger('keyup', { key: 'o' })
+    await flushPromises()
+
+    expect(apiMocks.getMentionCandidates).toHaveBeenCalledWith('Bo', expect.any(Object))
+    await wrapper.get('[role="option"]').trigger('click')
+    await flushPromises()
+    expect(textarea.element.value).toBe(`${prefix}@Bob `)
+    await wrapper.get('form').trigger('submit')
+
+    const data = { content: `${prefix}@Bob`, mentionedUserIds: expectedIds }
+    const mutation = commentId ? updateComment : createComment
+    const otherMutation = commentId ? createComment : updateComment
+    const variables = commentId
+      ? { commentId, postId: 10, data }
+      : { postId: 10, data: { ...data, parentId: null } }
+    expect(mutation).toHaveBeenCalledWith(variables, expect.any(Object))
+    expect(otherMutation).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('keeps existing mention ids when editing leaves mention text in place', async () => {
     const wrapper = mountCommentForm({
       commentId: 30,

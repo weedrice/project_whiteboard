@@ -16,6 +16,9 @@ import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingsRequest
 import com.weedrice.whiteboard.domain.user.dto.UpdateSettingsRequest;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserSessionResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserSessionRevokeResult;
+import com.weedrice.whiteboard.global.security.SessionAuthenticationToken;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSessionService;
@@ -45,8 +48,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -54,6 +61,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -164,6 +173,53 @@ class UserControllerWebMvcTest {
             chain.doFilter(request, response);
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
+    @Test
+    void sessionListingUsesAuthenticatedSessionWithoutRefreshCookie() throws Exception {
+        SessionAuthenticationToken authentication = sessionAuthentication();
+        when(userSessionService.getActiveSessions(eq(1L), same(authentication)))
+                .thenReturn(List.of(UserSessionResponse.builder().sessionId(11L).current(true).build()));
+
+        mockMvc.perform(get("/api/v1/users/me/sessions").with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].current").value(true))
+                .andExpect(result -> assertThat(result.getRequest().getCookies()).isNullOrEmpty());
+
+        verify(userSessionService).getActiveSessions(1L, authentication);
+    }
+
+    @Test
+    void revokingCurrentAuthenticatedSessionClearsRefreshCookieWithoutReceivingIt() throws Exception {
+        SessionAuthenticationToken authentication = sessionAuthentication();
+        when(userSessionService.revokeSession(eq(1L), eq(11L), same(authentication)))
+                .thenReturn(new UserSessionRevokeResult(true));
+
+        mockMvc.perform(delete("/api/v1/users/me/sessions/11")
+                        .with(authentication(authentication)).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getRequest().getCookies()).isNullOrEmpty());
+
+        verify(userSessionService).revokeSession(1L, 11L, authentication);
+        verify(refreshTokenCookieWriter).clearRefreshTokenCookie(any(), any());
+    }
+
+    @Test
+    void revokingOtherSessionsPassesAuthenticatedIdentityWithoutRefreshCookie() throws Exception {
+        SessionAuthenticationToken authentication = sessionAuthentication();
+
+        mockMvc.perform(delete("/api/v1/users/me/sessions")
+                        .with(authentication(authentication)).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getRequest().getCookies()).isNullOrEmpty());
+
+        verify(userSessionService).revokeOtherSessions(1L, authentication);
+        verify(refreshTokenCookieWriter, never()).clearRefreshTokenCookie(any(), any());
+    }
+
+    private SessionAuthenticationToken sessionAuthentication() {
+        return new SessionAuthenticationToken(customUserDetails, customUserDetails.getAuthorities(),
+                UUID.fromString("e555a71a-08bb-4f92-8fbd-90e404a1f94b"));
     }
 
     @Test

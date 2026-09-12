@@ -95,7 +95,7 @@ const getTextarea = () => {
 commentValidation.registerFocus('content', () => getTextarea()?.focus())
 
 const findActiveMention = (textarea: HTMLTextAreaElement | null) => {
-  if (!textarea || props.commentId) return null
+  if (!textarea) return null
 
   const caret = textarea.selectionStart ?? content.value.length
   const beforeCaret = content.value.slice(0, caret)

@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.dto.LoginHistoryResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSessionResponse;
@@ -14,16 +13,15 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.SessionAuthenticationToken;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -50,13 +48,12 @@ public class UserSessionService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserReadableResolver userReadableResolver;
     private final UserRepository userRepository;
-    private final TokenHashService tokenHashService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
-    public List<UserSessionResponse> getActiveSessions(Long userId, HttpServletRequest request) {
+    public List<UserSessionResponse> getActiveSessions(Long userId, Authentication authentication) {
         User user = userReadableResolver.resolveActive(userId);
-        UUID currentSessionFamilyId = currentSessionFamilyId(request);
+        UUID currentSessionFamilyId = currentSessionFamilyId(userId, authentication);
         LocalDateTime now = now();
         LinkedHashMap<UUID, RefreshToken> latestByFamily = new LinkedHashMap<>();
         refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now).stream()
@@ -71,11 +68,11 @@ public class UserSessionService {
     }
 
     @Transactional
-    public UserSessionRevokeResult revokeSession(Long userId, Long sessionId, HttpServletRequest request) {
+    public UserSessionRevokeResult revokeSession(Long userId, Long sessionId, Authentication authentication) {
         userReadableResolver.resolveActive(userId);
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        UUID currentSessionFamilyId = currentSessionFamilyId(request);
+        UUID currentSessionFamilyId = currentSessionFamilyId(userId, authentication);
         RefreshToken refreshToken = refreshTokenRepository.findByTokenIdForUpdate(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (refreshToken.getUser() == null || !Objects.equals(refreshToken.getUser().getUserId(), userId)) {
@@ -89,24 +86,18 @@ public class UserSessionService {
                 userId,
                 refreshToken.getSessionFamilyId());
 
-        // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
+        // JWT authentication checks the active session family on subsequent requests.
         return new UserSessionRevokeResult(
                 Objects.equals(refreshToken.getSessionFamilyId(), currentSessionFamilyId));
     }
 
     @Transactional
-    public void revokeOtherSessions(Long userId, HttpServletRequest request) {
+    public void revokeOtherSessions(Long userId, Authentication authentication) {
         userReadableResolver.resolveActive(userId);
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        UUID currentSessionFamilyId = currentSessionFamilyId(request);
-        if (currentSessionFamilyId == null) {
-            refreshTokenRepository.revokeActiveTokensByUserId(userId, now());
-            notificationAccessInvalidationService.disconnectOtherSessionFamiliesAfterCommit(userId, null);
-            return;
-        }
-
-        // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
+        UUID currentSessionFamilyId = currentSessionFamilyId(userId, authentication);
+        // JWT authentication checks the active session family on subsequent requests.
         refreshTokenRepository.revokeActiveTokensByUserIdExceptFamily(userId, currentSessionFamilyId, now());
         notificationAccessInvalidationService.disconnectOtherSessionFamiliesAfterCommit(
                 userId,
@@ -124,32 +115,17 @@ public class UserSessionService {
         return histories.map(LoginHistoryResponse::from);
     }
 
-    private String currentRefreshTokenHash(HttpServletRequest request) {
-        String token = currentRefreshToken(request);
-        return StringUtils.hasText(token) ? tokenHashService.hashSha256(token) : null;
-    }
-
-    private UUID currentSessionFamilyId(HttpServletRequest request) {
-        String currentTokenHash = currentRefreshTokenHash(request);
-        if (!StringUtils.hasText(currentTokenHash)) {
-            return null;
+    private UUID currentSessionFamilyId(Long userId, Authentication authentication) {
+        // /users/me/sessions is outside the refresh-cookie path. Use only the session
+        // identity already verified by JwtTokenProvider, never a client-supplied cookie/header.
+        if (!(authentication instanceof SessionAuthenticationToken sessionAuthentication)
+                || !sessionAuthentication.isAuthenticated()
+                || !(sessionAuthentication.getPrincipal() instanceof CustomUserDetails principal)
+                || userId == null
+                || !Objects.equals(userId, principal.getUserId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        return refreshTokenRepository.findRenewalCandidateByTokenHash(currentTokenHash)
-                .map(RefreshTokenRepository.RefreshTokenRenewalCandidate::getSessionFamilyId)
-                .orElse(null);
-    }
-
-    private String currentRefreshToken(HttpServletRequest request) {
-        if (request == null || request.getCookies() == null) {
-            return null;
-        }
-        for (Cookie cookie : request.getCookies()) {
-            if (RefreshTokenCookieWriter.REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName())
-                    && StringUtils.hasText(cookie.getValue())) {
-                return cookie.getValue();
-            }
-        }
-        return null;
+        return sessionAuthentication.getSessionFamilyId();
     }
 
     private LocalDateTime now() {

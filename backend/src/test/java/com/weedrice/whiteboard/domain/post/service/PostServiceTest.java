@@ -62,6 +62,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -3728,6 +3731,66 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.getPostResponse(1L, 2L, false))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true, true", "true, false", "false, false"})
+    void getPostResponse_publicBoard_preservesResolvedManagerPermission(boolean manager, boolean secret) {
+        User viewer = User.builder().loginId("viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        ReflectionTestUtils.setField(post, "isSecret", secret);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(2L, List.of(1L)))
+                .thenReturn(manager ? List.of(1L) : List.of());
+
+        PostResponse response = postService.getPostResponse(1L, 2L, false);
+
+        assertThat(response.getBoard().isAdmin()).isEqualTo(manager);
+        assertThat(response.getPostId()).isEqualTo(1L);
+        verify(adminRepository).findActiveBoardIdsByUserIdAndBoardIds(2L, List.of(1L));
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
+        verify(postRepository).countPostsBeforeInBoardDefaultOrder(
+                eq(1L), nullable(LocalDateTime.class), eq(1L), eq(List.of()), eq(manager), eq(2L));
+    }
+
+    @Test
+    void getPostResponse_publicBoard_nonManagerCannotReadAnotherAuthorsSecretPost() {
+        User viewer = User.builder().loginId("viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(2L, List.of(1L))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> postService.getPostResponse(1L, 2L, false))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verifyNoInteractions(actorReadPort);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void getPosts_publicBoard_includesOtherAuthorsSecretPostsOnlyForManager(boolean manager) {
+        User viewer = User.builder().loginId("viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(adminRepository.findActiveBoardIdsByUserIdAndBoardIds(2L, List.of(1L)))
+                .thenReturn(manager ? List.of(1L) : List.of());
+        when(postRepository.findPostListSummariesByBoardIdAndCategoryId(
+                eq(1L), isNull(), isNull(), isNull(), eq(List.of()), eq(manager), eq(2L), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts("free", null, null, null, 2L, PageRequest.of(0, 20));
+
+        verify(postRepository).findPostListSummariesByBoardIdAndCategoryId(
+                eq(1L), isNull(), isNull(), isNull(), eq(List.of()), eq(manager), eq(2L), any(Pageable.class));
+        verify(adminRepository).findActiveBoardIdsByUserIdAndBoardIds(2L, List.of(1L));
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
     }
 
     @Test

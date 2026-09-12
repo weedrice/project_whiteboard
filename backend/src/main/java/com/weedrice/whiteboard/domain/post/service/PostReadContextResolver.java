@@ -93,7 +93,6 @@ class PostReadContextResolver {
     private Set<Long> resolveActiveAdminBoardIds(ActorUserPrincipal viewer, Collection<Board> boards) {
         List<Long> boardIds = boards.stream()
                 .filter(Objects::nonNull)
-                .filter(this::requiresAdminAccess)
                 .filter(board -> board.getBoardId() != null)
                 .map(Board::getBoardId)
                 .distinct()
@@ -128,12 +127,6 @@ class PostReadContextResolver {
                 && (!Boolean.TRUE.equals(board.getIsActive())
                 || !Boolean.TRUE.equals(board.getIsPublic())
                 || Boolean.TRUE.equals(post.getIsSecret()));
-    }
-
-    private boolean requiresAdminAccess(Board board) {
-        return board != null
-                && (!Boolean.TRUE.equals(board.getIsActive())
-                || !Boolean.TRUE.equals(board.getIsPublic()));
     }
 
     private Set<Long> toBlockedUserIdSet(List<Long> blockedUserIds) {
