@@ -20,7 +20,7 @@ export function useCommentReplies(
     const currentIndex = path.indexOf(commentId.value)
     return currentIndex >= 0 ? path[currentIndex + 1] : undefined
   })
-  const canLoadReplies = computed(() => !comment.value.isDeleted && Boolean(comment.value.hasReplies || optimisticHasReplies.value))
+  const canLoadReplies = computed(() => Boolean(comment.value.hasReplies || optimisticHasReplies.value))
   const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
 
   const { data: repliesData, isLoading: isRepliesLoading, error: repliesError, refetch: refetchReplies } =
@@ -104,7 +104,7 @@ export function useCommentReplies(
   })
 
   watch(deepLinkChildId, (childId) => {
-    if (childId !== undefined && !comment.value.isDeleted) {
+    if (childId !== undefined) {
       openedForDeepLink.value = true
       isRepliesOpen.value = true
     } else if (openedForDeepLink.value) {
@@ -112,18 +112,6 @@ export function useCommentReplies(
       isRepliesOpen.value = false
     }
   }, { immediate: true })
-
-  watch(() => comment.value.isDeleted, (isDeleted) => {
-    if (!isDeleted) {
-      return
-    }
-
-    optimisticHasReplies.value = false
-    loadedReplies.value = []
-    replyHasNext.value = false
-    openedForDeepLink.value = false
-    isRepliesOpen.value = false
-  })
 
   return {
     replies,

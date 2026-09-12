@@ -208,7 +208,8 @@ describe('CommentItem', () => {
         expect(wrapper.text()).not.toContain('child reply')
     })
 
-    it('hides the replies toggle for deleted comments', () => {
+    it('opens surviving replies on deleted comments without enabling comment actions', async () => {
+        useAuthStoreMock.mockReturnValue({ isAuthenticated: true, user: { userId: 1 } })
         const wrapper = mount(CommentItem, {
             props: {
                 comment: {
@@ -252,8 +253,18 @@ describe('CommentItem', () => {
             },
         })
 
-        expect(wrapper.text()).not.toContain(commentLocale.viewReplies.replace('{count}', '3'))
+        const replyLabel = commentLocale.viewReplies.replace('{count}', '3')
+        expect(wrapper.findAll('button').map(button => button.text())).toEqual([replyLabel])
         expect(wrapper.text()).toContain('comment.deleted')
+        expect(wrapper.text()).not.toContain('deleted parent')
+        expect(useRepliesMock.mock.calls[0][2].value).toBe(false)
+
+        await wrapper.get('button').trigger('click')
+        await flushPromises()
+
+        expect(useRepliesMock.mock.calls[0][2].value).toBe(true)
+        expect(wrapper.text()).toContain('child reply')
+        expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })
 
     it('renders replies safely when auth store is unavailable', async () => {

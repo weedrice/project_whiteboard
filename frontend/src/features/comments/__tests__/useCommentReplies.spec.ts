@@ -104,6 +104,45 @@ describe('useCommentReplies', () => {
     expect(replies.replies.value.map((item) => item.commentId)).toEqual([10, 11])
   })
 
+  it('keeps loaded replies open when their parent is deleted', async () => {
+    const parent = ref(comment(1))
+    const replies = useCommentReplies(computed(() => parent.value))
+    replies.toggleReplies()
+    repliesData.value = page(0, [10], true)
+    await nextTick()
+
+    parent.value = { ...parent.value, isDeleted: true }
+    await nextTick()
+
+    expect(replies.canLoadReplies.value).toBe(true)
+    expect(replies.isRepliesOpen.value).toBe(true)
+    expect(capturedRepliesEnabled?.value).toBe(true)
+    expect(replies.replies.value.map(item => item.commentId)).toEqual([10])
+    expect(replies.replyHasNext.value).toBe(true)
+    replies.loadMoreReplies()
+    expect(capturedReplyParams?.value.page).toBe(1)
+  })
+
+  it('opens a deep-link reply through a deleted parent', async () => {
+    const parent = ref({ ...comment(1), isDeleted: true })
+    const replies = useCommentReplies(computed(() => parent.value), computed(() => [1, 11]))
+
+    expect(replies.isRepliesOpen.value).toBe(true)
+    expect(capturedRepliesEnabled?.value).toBe(true)
+    repliesData.value = page(0, [11], false)
+    await nextTick()
+    expect(replies.replies.value.map(item => item.commentId)).toEqual([11])
+  })
+
+  it('does not allow reply loading when a deleted parent has no surviving replies', () => {
+    const parent = ref({ ...comment(1), isDeleted: true, hasReplies: false, replyCount: 0 })
+    const replies = useCommentReplies(computed(() => parent.value))
+
+    expect(replies.canLoadReplies.value).toBe(false)
+    expect(replies.isRepliesOpen.value).toBe(false)
+    expect(capturedRepliesEnabled?.value).toBe(false)
+  })
+
   it('resets accumulated replies when the parent comment changes', async () => {
     const parent = ref(comment(1))
     const replies = useCommentReplies(computed(() => parent.value))
