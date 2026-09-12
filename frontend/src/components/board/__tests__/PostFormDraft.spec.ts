@@ -43,6 +43,59 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
   })
 
+  it.each([false, true])('preserves original attachments through edit submission (reset=%s)', async (resetReferences) => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const originalContents = '<p>Before body</p><img src="/api/v1/files/55"><a href="/api/v1/files/56">Attachment</a>'
+    routeState.params.postId = '77'
+    postRef.value = {
+      postId: 77,
+      title: 'Before title',
+      contents: originalContents,
+      category: { categoryId: 5 },
+      tags: [],
+      isNsfw: false,
+      isSpoiler: false,
+    }
+    mockSaveDraftMutateAsync.mockImplementation(async (payload) => ({
+      data: { data: {
+        ...payload,
+        draftId: 91,
+        version: 1,
+        boardId: 1,
+        boardName: 'Free',
+        contents: originalContents,
+        fileIds: [],
+        staleReferencesReset: resetReferences,
+        updatedAt: '2026-09-12T00:00:00.000Z',
+      } },
+    }))
+    const wrapper = mountPostForm('edit')
+    await flushPromises()
+    await wrapper.get('#title').setValue('After title')
+    if (resetReferences) {
+      await wrapper.get('[data-testid="editor-input"]').setValue(`${originalContents}<img src="/api/v1/files/7">`)
+      ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+        .handleEditorFileUploaded(7)
+    }
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      originalPostId: 77,
+      fileIds: resetReferences ? [7] : [],
+    }))
+    expect(getLastUpdatePostVariables().data).toEqual(expect.objectContaining({
+      title: 'After title',
+      contents: originalContents,
+      fileIds: [55, 56],
+      draftId: 91,
+    }))
+    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', originalContents)
+  })
+
   it('removes invalid server-reset file references from the draft content', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,
@@ -58,7 +111,7 @@ describe('PostForm draft behavior', () => {
           boardUrl: 'free',
           boardName: 'Free',
           title: 'Draft title',
-          contents,
+          contents: '<p>Kept body</p>',
           tags: [],
           fileIds: [],
           seriesId: null,

@@ -107,7 +107,11 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
 
   const recoverServerReferences = (savedDraft: DraftPost, payload: PostDraftData) => {
     const currentPayload = options.buildPayload('draft')
-    const retainedFileIds = new Set(savedDraft.fileIds ?? [])
+    // Original-post attachments remain in the saved HTML without becoming draft-owned files.
+    const retainedFileIds = new Set([
+      ...(savedDraft.fileIds ?? []),
+      ...extractPostFileIdsFromContent(savedDraft.contents ?? ''),
+    ])
     const removedFileIds = new Set([
       ...(payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId)),
       ...extractPostFileIdsFromContent(payload.contents ?? '')

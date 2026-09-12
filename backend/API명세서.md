@@ -337,6 +337,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `updatedAt` | 구버전 호환 | `version`이 없을 때 DB microsecond 정밀도로 현재 `modifiedAt`과 비교한다. |
 | `originalPostId` | 수정 초안에서 선택 | 원본 게시글은 현재 사용자 소유이고 삭제되지 않았으며 요청 스페이스와 일치해야 한다. |
 
+수정 초안의 본문은 검증된 `originalPostId`에 활성 상태로 연결된 현재 사용자 소유 이미지·첨부파일 참조를 보존한다. 원글 파일은 초안으로 이동하지 않으며 초안 응답의 `fileIds`에도 포함하지 않는다. 유효하지 않은 참조를 정리한 `staleReferencesReset` 응답을 적용할 때 클라이언트는 응답 본문에 남은 원글 파일 참조도 보존해야 한다.
+
 초안 단건 응답은 `draftId`, `clientDraftKey`, `version`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다.
 
 `GET /api/v1/users/me/drafts/recovery`는 `boardUrl`과 선택적인 `originalPostId`, `draftId`, `clientDraftKey`를 받아 한 번의 요청으로 복구 상태를 판정한다. 응답의 `status`는 `AVAILABLE`, `MISSING`, `PROTECTED`, `AMBIGUOUS` 중 하나다. `AVAILABLE`에는 `draft`, `AVAILABLE`과 `PROTECTED`에는 `draftId`가 포함된다. 전달한 후보 ID가 없거나 작성 대상과 일치하지 않아 대체 후보를 검색한 경우 `staleCandidate`가 `true`다. 다른 사용자 소유 후보 ID도 존재 여부를 노출하지 않고 stale 후보로 처리한다.

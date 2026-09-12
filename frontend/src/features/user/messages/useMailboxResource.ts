@@ -77,6 +77,19 @@ export function useMailboxResource() {
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
     const messageFromBlockedUser = ref(false)
     const requestLifecycle = useMailboxRequestLifecycle(() => authStore.sessionGeneration)
+    const readMessageIds = new Set<number>()
+    const pendingReadRequests = new Map<number, Promise<boolean>>()
+
+    function applyReadState(message: MailboxMessageViewModel) {
+        return !message.sentByMe && readMessageIds.has(message.id)
+            ? markMailboxMessageRead(message)
+            : message
+    }
+
+    function syncDisplayedReadState() {
+        if (selectedMessage.value) selectedMessage.value = applyReadState(selectedMessage.value)
+        selectedConversationMessages.value = selectedConversationMessages.value.map(applyReadState)
+    }
 
     function cancelConversationPageRequest() {
         requestLifecycle.conversationPage.cancel()
@@ -170,29 +183,47 @@ export function useMailboxResource() {
         return null
     }
 
-    async function markMessageAsReadIfNeeded(
-        messageId: number,
-        wasUnread: boolean,
-        isCurrentSelection: () => boolean,
-    ) {
-        if (viewType.value === 'sent' || !wasUnread || selectedMessage.value?.sentByMe) {
-            return
-        }
+    async function markMessageAsReadIfNeeded(message: MailboxMessageViewModel): Promise<boolean> {
+        if (message.sentByMe || !message.isUnread || readMessageIds.has(message.id)) return false
+        const pending = pendingReadRequests.get(message.id)
+        if (pending) return pending
 
         const request = requestLifecycle.startMarkAsRead()
-        try {
-            await messageApi.markAsRead(messageId, {
-                skipGlobalErrorHandler: true,
-                signal: request.signal,
-            })
-            if (!request.isCurrent()) return
-            await requestMailboxRefresh()
-            if (!request.isCurrent() || !isCurrentSelection()) return
-            if (selectedMessage.value?.id === messageId) {
-                selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
+        const task = (async () => {
+            try {
+                await messageApi.markAsRead(message.id, {
+                    skipGlobalErrorHandler: true,
+                    signal: request.signal,
+                })
+                if (!request.isCurrent()) return false
+                readMessageIds.add(message.id)
+                return true
+            } finally {
+                request.finish()
             }
+        })()
+        pendingReadRequests.set(message.id, task)
+        try {
+            return await task
         } finally {
-            request.finish()
+            if (pendingReadRequests.get(message.id) === task) pendingReadRequests.delete(message.id)
+        }
+    }
+
+    async function markConversationMessagesAsRead(
+        loadedMessages: MailboxMessageViewModel[],
+        isCurrentSelection: () => boolean,
+    ) {
+        const generation = authStore.sessionGeneration
+        const results = await Promise.allSettled(loadedMessages.map(markMessageAsReadIfNeeded))
+        if (generation !== authStore.sessionGeneration) return
+        if (results.some((result) => result.status === 'fulfilled' && result.value)) {
+            await requestMailboxRefresh()
+        }
+        if (!isCurrentSelection()) return
+        syncDisplayedReadState()
+        for (const result of results) {
+            if (result.status === 'rejected') logger.error('Failed to mark conversation message as read:', result.reason)
         }
     }
 
@@ -228,10 +259,11 @@ export function useMailboxResource() {
             try {
                 const detail = await loadMessageDetail(messageId, detailRequest.signal)
                 if (!isCurrentSelection()) return
-                if (detail) selectedMessage.value = detail
+                if (detail) selectedMessage.value = applyReadState(detail)
                 messageDetailError.value = null
                 try {
-                    await markMessageAsReadIfNeeded(messageId, msg.isUnread, isCurrentSelection)
+                    if (detail && await markMessageAsReadIfNeeded(detail)) await requestMailboxRefresh()
+                    if (isCurrentSelection()) syncDisplayedReadState()
                 } catch (error) {
                     await handleMessageDetailError(
                         error,
@@ -255,6 +287,8 @@ export function useMailboxResource() {
                 if (!conversationRequest.isCurrent() || selectedMessage.value?.id !== messageId) return
                 applyInitialConversationPage(conversation)
                 conversationError.value = null
+                await markConversationMessagesAsRead(conversation.messages, () =>
+                    conversationRequest.isCurrent() && selectedMessage.value?.id === messageId)
             } catch (error) {
                 if (conversationRequest.isCurrent()) {
                     logger.error('Failed to load message conversation:', error)
@@ -308,6 +342,7 @@ export function useMailboxResource() {
                 selectedConversationMessages.value,
             )
             conversationNextPage.value = conversationPage.hasNext ? conversationPage.page + 1 : null
+            await markConversationMessagesAsRead(conversationPage.messages, isCurrent)
         } catch (error) {
             if (!isCurrent()) return
             logger.error('Failed to load older message conversation:', error)
@@ -332,6 +367,7 @@ export function useMailboxResource() {
                 selectedConversationMessages.value,
                 conversation.messages,
             )
+            await markConversationMessagesAsRead(conversation.messages, request.isCurrent)
         } catch (error) {
             if (!request.isCurrent()) return
             logger.error('Failed to refresh message conversation:', error)
@@ -363,6 +399,8 @@ export function useMailboxResource() {
             }
             applyInitialConversationPage(conversation)
             selectedMessage.value = selectedConversationMessages.value.at(-1) ?? null
+            await markConversationMessagesAsRead(conversation.messages, () =>
+                request.isCurrent() && partnerId === lastConversationPartnerId.value)
         } catch (error) {
             if (request.isCurrent()) {
                 logger.error('Failed to open message conversation:', error)
@@ -383,6 +421,8 @@ export function useMailboxResource() {
                     selectedConversationMessages.value,
                     conversation.messages,
                 )
+                await markConversationMessagesAsRead(conversation.messages, () =>
+                    request.isCurrent() && partnerId === lastConversationPartnerId.value)
             } catch (error) {
                 if (!request.isCurrent()) return
                 logger.error('Failed to refresh message conversation from stream:', error)
@@ -479,6 +519,8 @@ export function useMailboxResource() {
         () => authStore.sessionGeneration,
         () => {
             requestLifecycle.cancelAll()
+            readMessageIds.clear()
+            pendingReadRequests.clear()
             conversationNextPage.value = null
             conversationLoadingMore.value = false
             conversationOlderError.value = null

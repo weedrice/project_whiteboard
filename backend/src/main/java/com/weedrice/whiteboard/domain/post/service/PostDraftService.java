@@ -137,10 +137,18 @@ public class PostDraftService {
                 : fileService.retainValidDraftFileIds(request.getFileIds(), userId, savedDraftPost.getDraftId());
         List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
         Set<Long> referencedFileIds = extractDraftFileReferences(savedDraftPost.getContents());
-        Set<Long> retainedFileIdSet = new HashSet<>(retainedFileIds);
+        Set<Long> validContentFileIds = new HashSet<>(retainedFileIds);
+        if (originalPost != null) {
+            // Existing post attachments remain owned by the post, not by its editing draft.
+            fileService.getFilesByRelatedEntity(originalPost.getPostId(), FileService.RELATED_TYPE_POST_CONTENT)
+                    .stream()
+                    .filter(file -> file.getUploader() != null
+                            && userId.equals(file.getUploader().getUserId()))
+                    .forEach(file -> validContentFileIds.add(file.getFileId()));
+        }
         Set<Long> removedFileIds = java.util.stream.Stream.concat(
                         requestedFileIds.stream(), referencedFileIds.stream())
-                .filter(fileId -> !retainedFileIdSet.contains(fileId))
+                .filter(fileId -> !validContentFileIds.contains(fileId))
                 .collect(Collectors.toSet());
         if (!removedFileIds.isEmpty()) {
             staleReferencesReset = true;

@@ -157,6 +157,105 @@ describe('useMailboxResource', () => {
         }))
     })
 
+    it('marks only loaded unread incoming messages when opened from a notification', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(51), detailDto(52), { ...detailDto(53), sentByMe: true }, { ...detailDto(54), isRead: true }],
+            page: 0, size: 20, totalElements: 24, totalPages: 2, hasNext: true, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id)).toEqual([51, 52])
+        expect(resource.selectedConversationMessages.value.map(({ id, isUnread }) => [id, isUnread]))
+            .toEqual([[51, false], [52, false], [53, true], [54, false]])
+        expect(resource.mailboxRefreshPending.value).toBe(true)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+        resource.closeConversation()
+        await flushPromises()
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
+    })
+
+    it('marks incoming conversation messages even when the selected summary is sent', async () => {
+        mocks.listState.viewType.value = 'sent'
+        vi.mocked(messageApi.getMessage).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getMessage>({ ...detailDto(53), sentByMe: true }),
+        )
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(51), detailDto(52), { ...detailDto(53), sentByMe: true }],
+            page: 0, size: 20, totalElements: 3, totalPages: 1, hasNext: false, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        await resource.openMessage({ ...message(53), sentByMe: true })
+
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id)).toEqual([51, 52])
+        expect(resource.selectedMessage.value?.isUnread).toBe(true)
+        expect(resource.selectedConversationMessages.value.filter(({ sentByMe }) => !sentByMe)
+            .every(({ isUnread }) => !isUnread)).toBe(true)
+    })
+
+    it('shares the read request when detail and conversation contain the same unread message', async () => {
+        const read = createDeferred<Awaited<ReturnType<typeof messageApi.markAsRead>>>()
+        vi.mocked(messageApi.markAsRead).mockReturnValueOnce(read.promise)
+        vi.mocked(messageApi.getMessage).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getMessage>(detailDto(51)))
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(51)], page: 0, size: 20, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        const opening = resource.openMessage(message(51))
+        await flushPromises()
+        expect(messageApi.markAsRead).toHaveBeenCalledTimes(1)
+        read.resolve(apiSuccessResponse<typeof messageApi.markAsRead>())
+        await opening
+
+        expect(resource.selectedMessage.value?.isUnread).toBe(false)
+        expect(resource.selectedConversationMessages.value[0].isUnread).toBe(false)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+    })
+
+    it('retries only failed reads without hiding the loaded conversation', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(51), detailDto(52)], page: 0, size: 20, totalElements: 2, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        vi.mocked(messageApi.markAsRead).mockImplementation(async (id) => {
+            if (id === 52) throw new Error('offline')
+            return apiSuccessResponse<typeof messageApi.markAsRead>()
+        })
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+        expect(resource.selectedConversationMessages.value.map(({ isUnread }) => isUnread)).toEqual([false, true])
+        expect(resource.conversationError.value).toBeNull()
+        vi.mocked(messageApi.markAsRead).mockClear().mockResolvedValue(apiSuccessResponse<typeof messageApi.markAsRead>())
+        await resource.openConversationByPartnerId(200)
+
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id)).toEqual([52])
+        expect(resource.selectedConversationMessages.value.every(({ isUnread }) => !isUnread)).toBe(true)
+    })
+
+    it('aborts pending read receipts and discards their results when the account changes', async () => {
+        const read = createDeferred<Awaited<ReturnType<typeof messageApi.markAsRead>>>()
+        vi.mocked(messageApi.markAsRead).mockReturnValueOnce(read.promise)
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(51)], page: 0, size: 20, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        const opening = resource.openConversationByPartnerId(200)
+        await flushPromises()
+        const signal = vi.mocked(messageApi.markAsRead).mock.calls[0][1]?.signal
+        useAuthStore().setTokens('next-account-token')
+        await nextTick()
+        expect(signal?.aborted).toBe(true)
+        read.resolve(apiSuccessResponse<typeof messageApi.markAsRead>())
+        await opening
+
+        expect(resource.selectedMessage.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toEqual([])
+        expect(resource.mailboxRefreshPending.value).toBe(false)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+    })
+
     it('aborts stale detail requests and keeps the latest selected message', async () => {
         const first = createDeferred<Awaited<ReturnType<typeof messageApi.getMessage>>>()
         const second = createDeferred<Awaited<ReturnType<typeof messageApi.getMessage>>>()
@@ -364,6 +463,8 @@ describe('useMailboxResource', () => {
 
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52, 53])
         expect(resource.selectedMessage.value?.id).toBe(53)
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id).sort()).toEqual([52, 53])
+        expect(resource.selectedConversationMessages.value.every(({ isUnread }) => !isUnread)).toBe(true)
     })
 
     it('loads the latest conversation window descending and presents it chronologically', async () => {
@@ -422,6 +523,8 @@ describe('useMailboxResource', () => {
             sort: 'createdAt,desc',
         }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([50, 51, 52])
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id).sort()).toEqual([50, 51, 52])
+        expect(resource.selectedConversationMessages.value.every(({ isUnread }) => !isUnread)).toBe(true)
         expect(resource.conversationHasMore.value).toBe(false)
     })
 
@@ -530,6 +633,8 @@ describe('useMailboxResource', () => {
         await flushPromises()
 
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52, 53])
+        expect(vi.mocked(messageApi.markAsRead).mock.calls.map(([id]) => id).sort()).toEqual([52, 53])
+        expect(resource.selectedConversationMessages.value.every(({ isUnread }) => !isUnread)).toBe(true)
         expect(resource.mailboxRefreshPending.value).toBe(true)
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
 
