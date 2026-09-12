@@ -8,6 +8,7 @@ defineProps<{
   hidePreview?: boolean
   isSubmitting: boolean
   submitLabel: string
+  submitDisabled?: boolean
 }>()
 
 defineEmits<{
@@ -41,7 +42,7 @@ defineEmits<{
       <BaseButton v-if="!hidePreview" type="button" variant="secondary" size="sm" :disabled="isSubmitting" @click="$emit('preview')">
         {{ $t('board.writePost.actions.preview') }}
       </BaseButton>
-      <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" :disabled="isSubmitting" @click="$emit('submit')">
+      <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" :disabled="isSubmitting || submitDisabled" @click="$emit('submit')">
         {{ submitLabel }}
       </BaseButton>
     </div>

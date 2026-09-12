@@ -192,6 +192,9 @@ public class UserProfileService {
         }
 
         int cost = resolveProfileImageChangeCost();
+        if (cost == 0) {
+            return new ProfileImageChargeResult(null, null);
+        }
         pointService.spendPointForPrevalidatedUser(
                 user,
                 cost,

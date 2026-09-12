@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, toRef } from 'vue'
+import { computed, onBeforeUnmount, ref, toRef, watch } from 'vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloatingPanels.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
@@ -40,6 +40,7 @@ const emit = defineEmits<{
   (e: 'open-emoticon'): void
   (e: 'open-poll'): void
   (e: 'file-uploaded', fileId: number): void
+  (e: 'upload-pending', pending: boolean): void
 }>()
 
 const { t } = useI18n()
@@ -121,6 +122,12 @@ const {
   },
   abort: abortImageUpload,
 })
+
+watch(
+  () => imageUploadQueue.isProcessing.value || imageUploadQueueCount.value > 0,
+  (pending) => emit('upload-pending', pending),
+  { immediate: true, flush: 'sync' },
+)
 
 const {
   fileIds,
@@ -317,6 +324,7 @@ defineExpose({
 
 onBeforeUnmount(() => {
   imageUploadQueue.dispose()
+  emit('upload-pending', false)
   disposeUploadedImagePreviews()
   editor.value?.destroy()
 })

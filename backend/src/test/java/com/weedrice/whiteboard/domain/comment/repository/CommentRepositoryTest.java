@@ -91,6 +91,42 @@ class CommentRepositoryTest {
     }
 
     @Test
+    void publicProfileComments_excludeBlockedPostAuthorsBeforePaginationAndCount() {
+        User outgoingBlockedAuthor = entityManager.persist(User.builder()
+                .loginId("blocked-outgoing").email("blocked-outgoing@example.com")
+                .password("password").displayName("Outgoing Block").build());
+        User incomingBlockedAuthor = entityManager.persist(User.builder()
+                .loginId("blocked-incoming").email("blocked-incoming@example.com")
+                .password("password").displayName("Incoming Block").build());
+        Post outgoingPost = entityManager.persist(Post.builder().title("Outgoing blocked post")
+                .contents("Body").board(board).user(outgoingBlockedAuthor).build());
+        Post incomingPost = entityManager.persist(Post.builder().title("Incoming blocked post")
+                .contents("Body").board(board).user(incomingBlockedAuthor).build());
+        entityManager.persist(commentFor(outgoingPost, "Comment on outgoing blocked post"));
+        entityManager.persist(commentFor(incomingPost, "Comment on incoming blocked post"));
+        Comment anotherVisibleComment = entityManager.persist(commentFor(post, "Another visible comment"));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> blockedAuthorIds = List.of(outgoingBlockedAuthor.getUserId(), incomingBlockedAuthor.getUserId());
+        Page<Comment> firstPage = commentRepository.findPublicProfileCommentsByUser(
+                user.getUserId(), false, blockedAuthorIds,
+                PageRequest.of(0, 1, org.springframework.data.domain.Sort.by("commentId")));
+        Page<Comment> secondPage = commentRepository.findPublicProfileCommentsByUser(
+                user.getUserId(), false, blockedAuthorIds,
+                PageRequest.of(1, 1, org.springframework.data.domain.Sort.by("commentId")));
+        Page<Comment> unfiltered = commentRepository.findPublicProfileCommentsByUser(
+                user.getUserId(), true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 1));
+
+        assertThat(firstPage.getContent()).extracting(Comment::getCommentId).containsExactly(comment.getCommentId());
+        assertThat(secondPage.getContent()).extracting(Comment::getCommentId).containsExactly(anotherVisibleComment.getCommentId());
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(secondPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.getTotalPages()).isEqualTo(2);
+        assertThat(unfiltered.getTotalElements()).isEqualTo(4);
+    }
+
+    @Test
     @DisplayName("댓글 ID로 조회 성공")
     void findById_success() {
         // when

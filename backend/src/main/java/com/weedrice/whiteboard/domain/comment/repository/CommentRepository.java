@@ -368,15 +368,18 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND p.isSecret = false
+                          AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
                         """)
         Page<Comment> findPublicProfileCommentsByUser(
                         @org.springframework.data.repository.query.Param("userId") Long userId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
                         Pageable pageable);
         default Page<Comment> findPublicProfileCommentsByUser(UserIdRef user, Pageable pageable) {
-                return findPublicProfileCommentsByUser(user.getUserId(), pageable);
+                return findPublicProfileCommentsByUser(user.getUserId(), true, List.of(-1L), pageable);
         }
         boolean existsByPostIdAndAgentIdAndIsDeletedFalse(Long postId, Long agentId);
         @Query("""

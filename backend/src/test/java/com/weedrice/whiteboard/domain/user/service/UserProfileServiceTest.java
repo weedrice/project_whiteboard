@@ -217,6 +217,51 @@ class UserProfileServiceTest {
     }
 
     @Test
+    @DisplayName("무료 변경권 사용 후 비용이 0이면 포인트 처리 없이 이미지를 변경한다")
+    void updateMyProfile_zeroCostAfterFreeChange_replacesImageWithoutPointCharge() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        user.updateProfileImage("/api/v1/files/99");
+        user.markProfileImageChangeFreeUsed();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(globalConfigService.getConfig("POINT_PROFILE_IMAGE_CHANGE_COST")).thenReturn("0");
+        when(fileService.replaceUserProfileImageForLockedUser(100L, 1L, user)).thenReturn("/api/v1/files/100");
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
+
+        assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        assertThat(user.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        assertThat(response.getSpentPoints()).isNull();
+        assertThat(response.getRemainingPoints()).isNull();
+        assertThat(user.canUseFreeProfileImageChange()).isFalse();
+        verifyNoInteractions(pointService);
+        verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
+    }
+
+    @Test
+    @DisplayName("무료 변경권 사용 후 양수 비용은 차감하고 잔액을 응답한다")
+    void updateMyProfile_positiveCostAfterFreeChange_chargesPointsAndReturnsBalance() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        user.markProfileImageChangeFreeUsed();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(globalConfigService.getConfig("POINT_PROFILE_IMAGE_CHANGE_COST")).thenReturn("1000");
+        when(pointService.getCurrentBalance(1L)).thenReturn(500);
+        when(fileService.replaceUserProfileImageForLockedUser(100L, 1L, user)).thenReturn("/api/v1/files/100");
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
+
+        assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        assertThat(response.getSpentPoints()).isEqualTo(1000);
+        assertThat(response.getRemainingPoints()).isEqualTo(500);
+        assertThat(user.canUseFreeProfileImageChange()).isFalse();
+        verify(pointService).spendPointForPrevalidatedUser(
+                user, 1000, "프로필 이미지 변경", 100L, "PROFILE_IMAGE");
+        verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
+    }
+
+    @Test
     @DisplayName("현재 프로필 이미지와 같은 ID는 무료 변경권과 파일 연결을 유지한다")
     void updateMyProfile_sameImage_keepsFreeChangeAndSkipsFileReplacement() {
         User user = User.builder().displayName("Name").build();

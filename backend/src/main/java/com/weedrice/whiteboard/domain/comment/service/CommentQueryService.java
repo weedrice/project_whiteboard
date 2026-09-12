@@ -219,7 +219,10 @@ public class CommentQueryService {
         if (isRestrictedByBlock(targetUserId, viewerUserId)) {
             return Page.empty(safePageable);
         }
-        Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(targetUserId, safePageable);
+        BlockedUserIdsParameter blockedUserIds = BlockedUserIdsParameter.from(
+                resolveReadContext(viewerUserId).blockedUserIds());
+        Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(
+                targetUserId, blockedUserIds.empty(), blockedUserIds.ids(), safePageable);
         Map<Long, CommentPostSnapshot> posts = resolvePosts(comments.getContent());
         return comments.map(comment -> MyCommentResponse.from(comment, posts.get(comment.getPostId())));
     }

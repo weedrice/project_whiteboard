@@ -179,6 +179,32 @@ describe('BaseModal', () => {
         expect(wrapper.emitted('close')).toBeUndefined()
     })
 
+    it.each([
+        { isComposing: true },
+        { keyCode: 229 },
+    ])('keeps the modal open when Escape cancels IME composition (%j)', async (composition) => {
+        const wrapper = track(mountModal(true))
+        await nextTick()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', ...composition }))
+
+        expect(wrapper.emitted('close')).toBeUndefined()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('keeps the modal open when Escape has already been handled', async () => {
+        const wrapper = track(mountModal(true))
+        await nextTick()
+        const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+        event.preventDefault()
+
+        document.dispatchEvent(event)
+
+        expect(wrapper.emitted('close')).toBeUndefined()
+    })
+
     it('closes only the topmost modal when Escape is pressed', async () => {
         const first = track(mountModal(true))
         const second = track(mountModal(true))

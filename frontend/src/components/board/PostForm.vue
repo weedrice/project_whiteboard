@@ -70,6 +70,7 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const scheduledAt = ref('')
 const savedScheduledAt = ref('')
+const isImageUploadPending = ref(false)
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -232,6 +233,7 @@ const postContentIsValid = () => {
   }) == null
 }
 const draftContentIsValid = () => {
+  if (isImageUploadPending.value) return false
   const payload = buildPayload('draft')
   return validatePostDraftContent({
     title: payload.title,
@@ -440,6 +442,11 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   t,
   addToast: toastStore.addToast,
   validateBeforeSubmit: () => {
+    if (isImageUploadPending.value) {
+      toastStore.addToast(t('board.writePost.upload.uploading'), 'info')
+      return false
+    }
+
     const valid = postValidation.validateAll(postRequiredValues.value)
     if (!valid) {
       toastStore.addToast(t('board.writePost.validation'), 'error')
@@ -467,7 +474,7 @@ const effectiveDraftPresentation = computed(() => ({
   ...draftPresentation.value,
   actions: draftPresentation.value.actions.map((action) => ({
     ...action,
-    disabled: action.disabled || isSubmitting.value || isSubmissionLocked.value,
+    disabled: action.disabled || isSubmitting.value || isSubmissionLocked.value || isImageUploadPending.value,
   })),
 }))
 const hasSaveDraftAction = computed(() => (
@@ -561,6 +568,7 @@ defineExpose({
         :hide-preview="props.hidePreview"
         :is-submitting="isSubmitting || isSubmissionLocked"
         :submit-label="submitLabel"
+        :submit-disabled="isImageUploadPending"
         @cancel="handleCancel"
         @preview="showPreview = true"
         @submit="handleSubmit"
@@ -624,6 +632,7 @@ defineExpose({
             @insert-video="insertVideoFromPopover"
             @select-emoticon="handleEmoticonSelect"
             @file-uploaded="handleEditorFileUploaded"
+            @upload-pending="isImageUploadPending = $event"
             @open-poll="openPollEditor"
           />
 
@@ -683,7 +692,7 @@ defineExpose({
           size="sm"
           class="min-h-[40px] flex-1"
           :loading="isSubmitting || isSubmissionLocked"
-          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
+          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked || isImageUploadPending"
           @click="handleSubmit"
         >
           {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}

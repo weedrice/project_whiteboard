@@ -93,6 +93,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -176,6 +177,7 @@ const handleBackdropClick = () => {
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.defaultPrevented || isComposingKeyboardEvent(event)) return
   if (event.key === 'Escape' && props.isOpen && props.closeOnEscape && isTopOpenModal(modalStackId)) {
     close()
   }

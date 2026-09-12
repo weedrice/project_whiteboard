@@ -58,6 +58,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -292,6 +294,63 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(fallback, "postId", postId);
         ReflectionTestUtils.setField(fallback, "isDeleted", false);
         return fallback;
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 2L})
+    void publicProfileComments_useViewersBidirectionalBlockListForOwnAndOtherProfiles(Long targetUserId) {
+        User target = User.builder().displayName("Profile owner").build();
+        ReflectionTestUtils.setField(target, "userId", targetUserId);
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(target));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(3L, 4L));
+        when(commentRepository.findPublicProfileCommentsByUser(
+                eq(targetUserId), eq(false), anyCollection(), any(Pageable.class)))
+                .thenAnswer(invocation -> {
+                    Collection<Long> blocked = invocation.getArgument(2);
+                    assertThat(blocked).containsExactlyInAnyOrder(3L, 4L);
+                    return Page.empty(invocation.getArgument(3));
+                });
+
+        commentService.getPublicProfileComments(targetUserId, 1L, PageRequest.of(0, 20));
+
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(commentRepository).findPublicProfileCommentsByUser(
+                eq(targetUserId), eq(false), anyCollection(), any(Pageable.class));
+    }
+
+    @Test
+    void publicProfileComments_anonymousViewerUsesUnfilteredQuery() {
+        User target = User.builder().displayName("Profile owner").build();
+        ReflectionTestUtils.setField(target, "userId", 2L);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(target));
+        when(commentRepository.findPublicProfileCommentsByUser(
+                eq(2L), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(3)));
+
+        commentService.getPublicProfileComments(2L, null, PageRequest.of(0, 20));
+
+        verify(commentRepository).findPublicProfileCommentsByUser(
+                eq(2L), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class));
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(anyLong());
+    }
+
+    @Test
+    void publicProfileComments_blockedProfileOwnerStillReturnsEmptyWithoutQuery() {
+        User target = User.builder().displayName("Profile owner").build();
+        ReflectionTestUtils.setField(target, "userId", 2L);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(target));
+        when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(true);
+
+        assertThat(commentService.getPublicProfileComments(2L, 1L, PageRequest.of(0, 20))).isEmpty();
+
+        verify(commentRepository, never()).findPublicProfileCommentsByUser(
+                anyLong(), anyBoolean(), anyCollection(), any(Pageable.class));
     }
 
     @Test
