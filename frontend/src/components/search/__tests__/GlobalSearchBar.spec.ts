@@ -218,6 +218,44 @@ describe('GlobalSearchBar', () => {
         })
     })
 
+    it.each([
+        { key: ' ', selected: false },
+        { key: ' ', selected: true },
+        { key: 'Home', selected: false },
+        { key: 'Home', selected: true },
+        { key: 'End', selected: false },
+        { key: 'End', selected: true },
+    ])('keeps $key native with autocomplete selected=$selected', async ({ key, selected }) => {
+        const wrapper = mountSearchBar()
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        await input.trigger('focus')
+        if (selected) await input.trigger('keydown', { key: 'ArrowDown' })
+
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+        input.element.dispatchEvent(event)
+        await nextTick()
+
+        expect(event.defaultPrevented).toBe(false)
+        expect(routerPush).not.toHaveBeenCalled()
+        expect(input.element.value).toBe('Vue')
+        expect(wrapper.get('#global-search-board-results-vue').attributes('aria-selected'))
+            .toBe(String(selected))
+        wrapper.unmount()
+    })
+
+    it.each(['ArrowDown', 'ArrowUp'])('still selects an autocomplete result with %s and Enter', async (key) => {
+        const wrapper = mountSearchBar()
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        await input.trigger('focus')
+        await input.trigger('keydown', { key })
+        await input.trigger('keydown', { key: 'Enter' })
+
+        expect(routerPush).toHaveBeenCalledWith('/board/vue')
+        wrapper.unmount()
+    })
+
     it('shows a retryable board autocomplete error instead of an empty result', async () => {
         boardIsError.value = true
         const wrapper = mountSearchBar()

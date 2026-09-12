@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   fetchQuery: vi.fn(),
   setQueryData: vi.fn(),
   getQueryData: vi.fn(),
+  getQueryState: vi.fn(),
   authStore: {
     user: null as null | Record<string, unknown>,
     isAuthenticated: true,
@@ -33,6 +34,7 @@ vi.mock('@tanstack/vue-query', () => ({
     fetchQuery: mocks.fetchQuery,
     setQueryData: mocks.setQueryData,
     getQueryData: mocks.getQueryData,
+    getQueryState: mocks.getQueryState,
   }),
 }))
 
@@ -67,7 +69,9 @@ describe('useMyPageDashboardResource', () => {
     mocks.authStore.user = null
     mocks.authStore.isAuthenticated = true
     mocks.authStore.sessionGeneration = 0
+    mocks.setQueryData.mockReset()
     mocks.getQueryData.mockReturnValue(undefined)
+    mocks.getQueryState.mockReturnValue(undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
     vi.mocked(userApi.getMyProfile).mockResolvedValue(
       apiSuccessDataResponse<typeof userApi.getMyProfile>({ userId: 1, email: 'me@example.com' })
@@ -165,7 +169,7 @@ describe('useMyPageDashboardResource', () => {
     expect(userApi.getMyProfile).not.toHaveBeenCalled()
   })
 
-  it('keeps a matching fresh profile cache while syncing auth verification state', async () => {
+  it('uses hydrated auth details instead of an older matching profile cache', async () => {
     mocks.authStore.user = {
       userId: 9,
       email: 'restored@example.com',
@@ -174,6 +178,9 @@ describe('useMyPageDashboardResource', () => {
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
       isEmailVerified: true,
+      profileImageUrl: null,
+      points: 500,
+      profileImageChangeFreeAvailable: false,
     }
     mocks.getQueryData.mockReturnValueOnce({
       userId: 9,
@@ -183,15 +190,89 @@ describe('useMyPageDashboardResource', () => {
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
       isEmailVerified: false,
+      profileImageUrl: '/old.png',
+      points: 1500,
+      profileImageChangeFreeAvailable: true,
     })
     const resource = useMyPageDashboardResource(t)
 
     await resource.fetchMyProfile()
 
-    expect(resource.profile.value?.email).toBe('cached@example.com')
-    expect(resource.profile.value?.isEmailVerified).toBe(true)
+    expect(resource.profile.value?.email).toBe('restored@example.com')
+    expect(resource.profile.value?.displayName).toBe('Restored')
+    expect(resource.profile.value).toMatchObject({
+      isEmailVerified: true, profileImageUrl: null, points: 500, profileImageChangeFreeAvailable: false,
+    })
     expect(mocks.setQueryData).toHaveBeenCalledWith(['session', 0, 'user', 'me'], resource.profile.value)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
+  })
+
+  it('reloads an invalidated profile with a real QueryClient after profile editing', async () => {
+    const { QueryClient } = await vi.importActual<typeof import('@tanstack/vue-query')>('@tanstack/vue-query')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mocks.fetchQuery.mockImplementation(queryClient.fetchQuery.bind(queryClient))
+    mocks.getQueryData.mockImplementation(queryClient.getQueryData.bind(queryClient))
+    mocks.getQueryState.mockImplementation(queryClient.getQueryState.bind(queryClient))
+    mocks.setQueryData.mockImplementation(queryClient.setQueryData.bind(queryClient))
+    const profileKey = ['session', 0, 'user', 'me']
+    const previousProfile = {
+      userId: 9, loginId: 'member', email: 'old@example.com', displayName: 'Before',
+      status: 'ACTIVE' as const, createdAt: '2026-05-20T10:00:00',
+      profileImageUrl: '/old.png', points: 1500, profileImageChangeFreeAvailable: true,
+    }
+    mocks.authStore.user = previousProfile
+    const resource = useMyPageDashboardResource(t)
+
+    try {
+      await resource.fetchMyProfile()
+      expect(resource.profile.value?.displayName).toBe('Before')
+      await queryClient.invalidateQueries({ queryKey: profileKey })
+      const updatedProfile = {
+        ...previousProfile, displayName: 'After', profileImageUrl: '/new.png',
+        points: 500, profileImageChangeFreeAvailable: false,
+      }
+      mocks.authStore.user = updatedProfile
+      vi.mocked(userApi.getMyProfile).mockResolvedValue(
+        apiSuccessDataResponse<typeof userApi.getMyProfile>(updatedProfile),
+      )
+
+      await resource.fetchMyProfile()
+
+      expect(userApi.getMyProfile).toHaveBeenCalledOnce()
+      expect(resource.profile.value).toEqual(updatedProfile)
+      expect(queryClient.getQueryData(profileKey)).toEqual(updatedProfile)
+      expect(queryClient.getQueryState(profileKey)?.isInvalidated).toBe(false)
+    } finally {
+      queryClient.clear()
+    }
+  })
+
+  it('does not mark an invalidated profile fresh when reloading fails', async () => {
+    const { QueryClient } = await vi.importActual<typeof import('@tanstack/vue-query')>('@tanstack/vue-query')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mocks.fetchQuery.mockImplementation(queryClient.fetchQuery.bind(queryClient))
+    mocks.getQueryData.mockImplementation(queryClient.getQueryData.bind(queryClient))
+    mocks.getQueryState.mockImplementation(queryClient.getQueryState.bind(queryClient))
+    mocks.setQueryData.mockImplementation(queryClient.setQueryData.bind(queryClient))
+    const profileKey = ['session', 0, 'user', 'me']
+    mocks.authStore.user = {
+      userId: 9, email: 'member@example.com', displayName: 'Before', createdAt: '2026-05-20T10:00:00',
+    }
+    const resource = useMyPageDashboardResource(t)
+
+    try {
+      await resource.fetchMyProfile()
+      await queryClient.invalidateQueries({ queryKey: profileKey })
+      vi.mocked(userApi.getMyProfile).mockRejectedValue(new Error('Profile reload failed'))
+
+      await resource.fetchMyProfile()
+
+      expect(resource.profile.value?.displayName).toBe('Before')
+      expect(resource.profileError.value).toBe(loadFailedMessage)
+      expect(queryClient.getQueryState(profileKey)?.isInvalidated).toBe(true)
+    } finally {
+      queryClient.clear()
+    }
   })
 
   it('keeps complete cached fields when login profile hydration temporarily failed', async () => {

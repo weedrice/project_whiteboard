@@ -76,6 +76,56 @@ describe('useEmailVerificationFlow', () => {
     expect(flow.emailVerification.isCodeSent).toBe(true)
   })
 
+  it.each(['old@example.com', ''])('uses the edited modal address for send, resend and verification (profile=%s)', async (profileEmail) => {
+    vi.mocked(authApi.sendVerificationCode).mockResolvedValue(apiSuccessResponse<typeof authApi.sendVerificationCode>())
+    vi.mocked(authApi.verifyCode).mockResolvedValue(apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'new-email-ticket' }))
+    vi.mocked(userApi.verifyEmail).mockResolvedValue(apiSuccessResponse<typeof userApi.verifyEmail>())
+    authStoreMock.fetchUser.mockResolvedValue(true)
+    const flow = useEmailVerificationFlow({ getEmail: () => profileEmail, useTimer: false })
+    flow.openVerifyModal()
+    flow.emailVerification.email = ' new@example.com '
+    await flow.sendVerifyCode()
+    await flow.sendVerifyCode()
+
+    expect(authApi.sendVerificationCode).toHaveBeenCalledTimes(2)
+    expect(authApi.sendVerificationCode).toHaveBeenNthCalledWith(1, 'new@example.com', 'CHANGE_EMAIL', expect.any(Object))
+    expect(authApi.sendVerificationCode).toHaveBeenNthCalledWith(2, 'new@example.com', 'CHANGE_EMAIL', expect.any(Object))
+    flow.emailVerification.code = '123456'
+    await flow.verifyEmailCode()
+
+    expect(authApi.verifyCode).toHaveBeenCalledWith('new@example.com', '123456', 'CHANGE_EMAIL', expect.any(Object))
+    expect(userApi.verifyEmail).toHaveBeenCalledWith({ email: 'new@example.com', verificationTicket: 'new-email-ticket' }, expect.any(Object))
+    expect(flow.isVerifyModalOpen.value).toBe(false)
+  })
+
+  it('does not fall back to the profile address when the modal address is cleared', async () => {
+    const flow = useEmailVerificationFlow({ getEmail: () => 'old@example.com', useTimer: false })
+    flow.openVerifyModal()
+    flow.emailVerification.email = ''
+    await flow.sendVerifyCode()
+
+    expect(authApi.sendVerificationCode).not.toHaveBeenCalled()
+    expect(flow.emailVerification.email).toBe('')
+    expect(toastMock.addToast).toHaveBeenCalledWith('auth.emailRequired', 'error')
+    flow.closeVerifyModal()
+  })
+
+  it.each(['SIGNUP', 'FIND_ID', 'PASSWORD_RESET'] as const)('reads the current external form address for inline %s verification', async (purpose) => {
+    let email = 'first@example.com'
+    vi.mocked(authApi.sendVerificationCode).mockResolvedValue(apiSuccessResponse<typeof authApi.sendVerificationCode>())
+    vi.mocked(authApi.verifyCode).mockResolvedValue(apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'inline-ticket' }))
+    const flow = useEmailVerificationFlow({ getEmail: () => email, getCode: () => '123456', purpose, useTimer: false })
+    await flow.sendVerifyCode()
+    email = 'second@example.com'
+    await flow.sendVerifyCode()
+    await flow.verifyEmailCode()
+
+    expect(authApi.sendVerificationCode).toHaveBeenLastCalledWith('second@example.com', purpose, expect.any(Object))
+    expect(authApi.verifyCode).toHaveBeenCalledWith('second@example.com', '123456', purpose, expect.any(Object))
+    expect(userApi.verifyEmail).not.toHaveBeenCalled()
+    flow.closeVerifyModal()
+  })
+
   it('verifies email then refreshes dashboard profile and global auth user', async () => {
     vi.mocked(authApi.verifyCode).mockResolvedValue(
       apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'ticket-1' })

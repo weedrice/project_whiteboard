@@ -106,6 +106,9 @@ export function useGlobalSearchController({
       return
     }
 
+    // Keep spaces and caret navigation native to the text input.
+    if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(event.key)) return
+
     if (showDropdown.value && filteredBoards.value.length > 0) {
       if (event.key === 'Enter' && selectedIndex.value === -1) {
         handleSearch()

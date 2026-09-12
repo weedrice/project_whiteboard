@@ -100,7 +100,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
 
   async function sendVerifyCode() {
     const purpose = resolvePurpose()
-    emailVerification.email = options.getEmail()
+    if (!isVerifyModalOpen.value) emailVerification.email = options.getEmail()
     const trimmed = emailVerification.email.trim()
     if (!trimmed) {
       toastStore.addToast(options.emailRequiredMessage ?? t('auth.emailRequired'), 'error')
@@ -148,7 +148,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
 
   async function verifyEmailCode() {
     const purpose = resolvePurpose()
-    emailVerification.email = options.getEmail()
+    if (!isVerifyModalOpen.value) emailVerification.email = options.getEmail()
     const trimmed = emailVerification.email.trim()
     const code = options.getCode ? options.getCode().trim() : emailVerification.code.trim()
     if (!code || !trimmed) {

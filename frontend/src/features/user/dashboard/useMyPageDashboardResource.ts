@@ -119,9 +119,14 @@ export function useMyPageDashboardResource(t: Translate) {
   }
 
   async function fetchMyProfile() {
-    if (authStore.user) {
-      const cachedProfile = queryClient.getQueryData<User>(authKey(userQueryKeys.me))
-      const profileSnapshot = cachedProfile?.userId === authStore.user.userId
+    const profileQueryKey = authKey(userQueryKeys.me)
+    const profileCacheInvalidated = queryClient.getQueryState(profileQueryKey)?.isInvalidated === true
+    if (authStore.user && !profileCacheInvalidated) {
+      const cachedProfile = queryClient.getQueryData<User>(profileQueryKey)
+      // Login fallback has no creation date; a hydrated /users/me response is complete.
+      const needsCachedDetails = !authStore.user.createdAt
+        && cachedProfile?.userId === authStore.user.userId
+      const profileSnapshot = needsCachedDetails
         ? {
             ...cachedProfile,
             isEmailVerified: authStore.user.isEmailVerified ?? cachedProfile.isEmailVerified,
@@ -129,7 +134,7 @@ export function useMyPageDashboardResource(t: Translate) {
         : authStore.user
 
       profile.value = profileSnapshot
-      queryClient.setQueryData(authKey(userQueryKeys.me), profileSnapshot)
+      queryClient.setQueryData(profileQueryKey, profileSnapshot)
       return
     }
 
