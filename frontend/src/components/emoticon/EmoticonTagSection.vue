@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -20,6 +21,12 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+function handleAddKeydown(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  emit('add')
+}
 </script>
 
 <template>
@@ -43,7 +50,7 @@ const { t } = useI18n()
         class="flex-1"
         input-class="rounded-lg px-4"
         @update:model-value="emit('update:modelValue', String($event))"
-        @keydown.enter.prevent="emit('add')"
+        @keydown.enter="handleAddKeydown"
       />
       <BaseButton type="button" @click="emit('add')" variant="secondary">
         {{ t('common.add') }}

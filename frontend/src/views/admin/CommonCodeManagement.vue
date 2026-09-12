@@ -270,7 +270,7 @@ async function deleteDetail(detailId: number) {
     </BaseModal>
     <BaseModal :is-open="isDetailModalOpen" :title="editingDetailId == null ? t('admin.commonCodes.addDetail') : t('admin.commonCodes.editDetail')"
       :close-on-backdrop="!isSaving" :close-on-escape="!isSaving" @close="closeDetailModal">
-      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" :disabled="isSaving" />
+      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" :readonly="editingDetailId !== null" :disabled="isSaving" />
         <BaseInput v-model="detailForm.codeName" :label="t('admin.commonCodes.codeName')" maxlength="100" :disabled="isSaving" />
         <BaseInput v-model="detailForm.sortOrder" :label="t('common.sortOrder')" type="number" :disabled="isSaving" />
         <BaseCheckbox v-model="detailForm.isActive" :label="t('common.active')" :disabled="isSaving" /></fieldset>

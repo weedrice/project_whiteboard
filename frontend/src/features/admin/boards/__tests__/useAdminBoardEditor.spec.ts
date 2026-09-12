@@ -317,6 +317,52 @@ describe('useAdminBoardEditor', () => {
     expect(editor.hasUnsavedChanges.value).toBe(false)
   })
 
+  it.each([true, false])('preserves an unsaved form when reordering succeeds: %s', async (succeeds) => {
+    const first = createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 })
+    const second = createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const reorderBoards = succeeds
+      ? vi.fn().mockResolvedValue([{ ...second, sortOrder: 1 }, { ...first, sortOrder: 2 }])
+      : vi.fn().mockRejectedValue(new Error('failed'))
+    const editor = createEditor(ref([first, second]), updateBoard, reorderBoards)
+    await nextTick()
+    Object.assign(editor.form, {
+      boardName: 'Unsaved name', description: 'Unsaved description',
+      iconUrl: 'https://example.com/new.png', guidePrompt: 'Unsaved prompt', isListed: false,
+    })
+    const draft = { ...editor.form }
+
+    editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
+    await editor.handleDragEnd()
+
+    expect(editor.form).toEqual({ ...draft, sortOrder: succeeds ? '2' : '1' })
+    expect(editor.hasUnsavedChanges.value).toBe(true)
+    expect(editor.boards.value.map((board) => board.boardId)).toEqual(succeeds ? [2, 1] : [1, 2])
+    expect(editor.selectedBoard.value?.boardName).toBe('First')
+    expect(updateBoard).not.toHaveBeenCalled()
+
+    await editor.handleSaveChanges()
+    expect(updateBoard).toHaveBeenCalledWith({
+      boardUrl: 'first',
+      data: expect.objectContaining({ boardName: draft.boardName, description: draft.description, iconUrl: draft.iconUrl }),
+    })
+  })
+
+  it('hydrates a clean form from the canonical reorder response', async () => {
+    const first = createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 })
+    const second = createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
+    const editor = createEditor(ref([first, second]), vi.fn(), vi.fn().mockResolvedValue([
+      { ...second, sortOrder: 1 }, { ...first, boardName: 'Canonical first', sortOrder: 2 },
+    ]))
+    await nextTick()
+    editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
+    await editor.handleDragEnd()
+
+    expect(editor.form.boardName).toBe('Canonical first')
+    expect(editor.form.sortOrder).toBe('2')
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
   it('rolls back dragged board order when sort saving fails', async () => {
     const boardsData = ref([
       createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),

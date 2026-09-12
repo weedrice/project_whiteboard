@@ -32,6 +32,7 @@
 - [애플리케이션 서비스 hardening](ops/application-service-hardening.md): 현재 inline 배포와 구분되는 별도 hardened host profile의 systemd·활성화·권한 계약을 설명한다.
 - [데이터베이스 마이그레이션 정책](ops/database-migration-policy.md): Flyway expand/contract 및 배포 호환성 규칙을 설명한다.
 - [Amazon RDS PostgreSQL 백업·복구](ops/postgres-backup-restore.md): 자동 백업, PITR, 격리 복구와 운영 전환 절차를 설명한다.
+- [SEO 정적 콘텐츠 정책](ops/seo-static-content-policy.md): 삭제·비공개 전환 뒤 정적 파일에 원문이 남지 않도록 하는 빌드 정책과 배포 확인을 설명한다.
 - [로컬 Docker Compose](ops/docker-compose-local.md): 백엔드와 프론트엔드 로컬 컨테이너 실행 및 점검 방법을 안내한다.
 
 ## QA

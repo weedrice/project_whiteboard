@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref } from 'vue'
 import ScrapList from '../ScrapList.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { userApi } from '@/api/user'
 
 const mocks = vi.hoisted(() => ({
@@ -121,13 +122,13 @@ const BaseInputStub = defineComponent({
   },
 })
 
-function mountScrapList() {
+function mountScrapList(realInput = false) {
   return mount(ScrapList, {
     global: {
       mocks: { $t: (key: string) => key },
       stubs: {
         BaseButton: BaseButtonStub,
-        BaseInput: BaseInputStub,
+        BaseInput: realInput ? BaseInput : BaseInputStub,
         PaginatedListCard: {
           template: '<main><slot name="header-actions" /><slot name="subheader" /><slot /></main>',
         },
@@ -155,6 +156,32 @@ describe('ScrapList', () => {
     authState.sessionGeneration = 1
     authState.accessToken = 'token-a'
     authState.user = { userId: 1 }
+  })
+
+  it.each(['Enter', 'Escape'])('preserves IME %s while renaming a folder', async (key) => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
+    vi.mocked(userApi.updateScrapFolder).mockResolvedValue({} as never)
+    const wrapper = mountScrapList(true)
+    await wrapper.get('button[aria-label="user.scrapList.editFolder"]').trigger('click')
+    const input = wrapper.get('#scrap-folder-edit-7')
+    await input.setValue('한글 폴더')
+    for (const ime of [{ isComposing: true }, { keyCode: 229 }]) {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...ime })
+      input.element.dispatchEvent(event)
+      await flushPromises()
+      expect(event.defaultPrevented).toBe(false)
+      expect(wrapper.find('#scrap-folder-edit-7').exists()).toBe(true)
+      expect(userApi.updateScrapFolder).not.toHaveBeenCalled()
+    }
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    input.element.dispatchEvent(event)
+    await flushPromises()
+    expect(event.defaultPrevented).toBe(true)
+    expect(wrapper.find('#scrap-folder-edit-7').exists()).toBe(false)
+    expect(userApi.updateScrapFolder).toHaveBeenCalledTimes(Number(key === 'Enter'))
+    expect(vi.mocked(userApi.updateScrapFolder).mock.calls[0]?.slice(0, 2) ?? null)
+      .toEqual(key === 'Enter' ? [7, { name: '한글 폴더' }] : null)
+    wrapper.unmount()
   })
 
   it('shows folder query failures separately and retries the folder query', async () => {

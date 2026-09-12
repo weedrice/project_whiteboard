@@ -308,6 +308,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
   async function handleDragEnd() {
     if (isSavingSortOrder.value) return
 
+    const formSnapshot = isSelectedFormDirty.value ? { ...form } : null
     const snapshot = createSnapshot(sortedBoardCopies(boards.value))
     const changedBoardIds = renumberSortOrder()
     if (changedBoardIds.length === 0) return
@@ -331,6 +332,9 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       }
       // Error handled globally
     } finally {
+      if (isCurrent() && formSnapshot && selectedBoard.value) {
+        Object.assign(form, formSnapshot, { sortOrder: String(selectedBoard.value.sortOrder) })
+      }
       if (operationRevision === sortOperationRevision) isSavingSortOrder.value = false
     }
   }

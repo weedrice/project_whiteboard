@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import satori from 'satori'
@@ -6,8 +5,8 @@ import { Resvg } from '@resvg/resvg-js'
 
 export const OG_IMAGE_WIDTH = 1200
 export const OG_IMAGE_HEIGHT = 630
-export const OG_TEMPLATE_VERSION = 'icon-title-v1'
-export const PRIVATE_POST_OG_TITLE = '\uacf5\uac1c\ub418\uc9c0 \uc54a\uc740 \uac8c\uc2dc\uae00\uc785\ub2c8\ub2e4'
+export const OG_TEMPLATE_VERSION = 'community-brand-v2'
+const SITE_OG_TITLE = '생각을 나누는 커뮤니티'
 
 const fontPath = resolve(process.cwd(), 'scripts', 'assets', 'fonts', 'NotoSansKR-Regular.otf')
 const iconPath = resolve(process.cwd(), 'public', 'favicon.ico')
@@ -33,28 +32,14 @@ export async function loadOgIcon() {
     return iconDataUrlPromise
 }
 
-export function resolvePostOgTitle(post) {
-    if (post?.isSecret || post?.isBlinded) return PRIVATE_POST_OG_TITLE
-    return String(post?.title ?? 'Post').trim() || 'Post'
-}
-
-export function createPostOgImageFilename(post) {
-    const identity = [
-        OG_TEMPLATE_VERSION,
-        resolvePostOgTitle(post),
-        post?.board?.boardName ?? post?.boardName ?? '',
-    ].join('\u0000')
-    const hash = createHash('sha256').update(identity).digest('hex').slice(0, 12)
-    return `post-${post?.postId}-${hash}.png`
-}
-
-export async function renderPostOgImage(post, fontData, iconDataUrl) {
+// One brand image for every public artifact; post visibility can change after build.
+export async function renderSiteOgImage(fontData, iconDataUrl) {
     const [resolvedFontData, resolvedIconDataUrl] = await Promise.all([
         fontData ?? loadOgFont(),
         iconDataUrl ?? loadOgIcon(),
     ])
-    const title = resolvePostOgTitle(post)
-    const boardName = String(post?.board?.boardName ?? post?.boardName ?? 'NoviIs').trim() || 'NoviIs'
+    const title = SITE_OG_TITLE
+    const boardName = 'NoviIs'
     const tree = {
         type: 'div',
         props: {
@@ -188,11 +173,11 @@ export async function renderPostOgImage(post, fontData, iconDataUrl) {
     }).render().asPng())
 }
 
-export async function resolvePostOgImage(post, { siteUrl, distDir }) {
-    const title = resolvePostOgTitle(post)
-    const filename = createPostOgImageFilename(post)
+export async function resolveSiteOgImage({ siteUrl, distDir }) {
+    const title = SITE_OG_TITLE
+    const filename = `${OG_TEMPLATE_VERSION}.png`
     const outputPath = resolve(distDir, 'img', 'og', filename)
-    const png = await renderPostOgImage(post)
+    const png = await renderSiteOgImage()
     await mkdir(dirname(outputPath), { recursive: true })
     await writeFile(outputPath, png)
     return {

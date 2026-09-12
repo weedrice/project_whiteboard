@@ -8,6 +8,13 @@ export interface ImageResizeOptions {
   quality?: number
 }
 
+const ENCODED_IMAGE_EXTENSIONS: Record<string, readonly string[]> = {
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/webp': ['.webp'],
+  'image/gif': ['.gif'],
+}
+
 export function getFileExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
   return lastDotIndex >= 0 ? fileName.slice(lastDotIndex).toLowerCase() : ''
@@ -100,11 +107,21 @@ export async function resizeImageToBoundsFile(
 
     return await new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(new File([blob], file.name, { type: file.type }))
+        if (!blob) {
+          reject(new Error('Canvas to Blob failed'))
           return
         }
-        reject(new Error('Canvas to Blob failed'))
+        // Canvas falls back to PNG when the requested encoder (such as GIF) is unavailable.
+        const extensions = ENCODED_IMAGE_EXTENSIONS[blob.type]
+        if (!extensions) {
+          reject(new Error('Unsupported encoded image type'))
+          return
+        }
+        const originalExtension = getFileExtension(file.name)
+        const fileName = extensions.includes(originalExtension)
+          ? file.name
+          : `${file.name.slice(0, file.name.length - originalExtension.length)}${extensions[0]}`
+        resolve(new File([blob], fileName, { type: blob.type }))
       }, file.type, options.quality)
     })
   } finally {

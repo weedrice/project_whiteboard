@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useUser } from '@/features/user/useUser'
 import { useApiQuery } from '@/composables/useApiQuery'
@@ -161,6 +162,13 @@ async function createFolder() {
 function startEditFolder(folderId: number, name: string) {
   editingFolderId.value = folderId
   editingFolderName.value = name
+}
+
+function handleFolderNameKeydown(event: KeyboardEvent, folderId: number) {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  if (event.key === 'Enter') void updateFolder(folderId)
+  else cancelEditFolder()
 }
 
 function cancelEditFolder() {
@@ -337,8 +345,8 @@ async function moveScrap() {
                 inputClass="h-8 w-36 rounded-full text-sm"
                 hideLabel
                 :disabled="updatingFolderId === folder.folderId"
-                @keydown.enter.prevent="updateFolder(folder.folderId)"
-                @keydown.esc.prevent="cancelEditFolder"
+                @keydown.enter="handleFolderNameKeydown($event, folder.folderId)"
+                @keydown.esc="handleFolderNameKeydown($event, folder.folderId)"
               />
               <button
                 type="button"

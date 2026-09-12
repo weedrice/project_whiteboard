@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -54,6 +55,12 @@ const emit = defineEmits<{
   (event: 'update:isSpoiler', value: boolean): void
   (event: 'update:isSecret', value: boolean): void
 }>()
+
+function handleCreateSeriesKeydown(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  emit('create-series')
+}
 
 const { t } = useI18n()
 const isMobile = computed(() => props.layout === 'mobile')
@@ -133,7 +140,7 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
           input-class="h-9"
           :disabled="isCreatingSeries"
           @update:model-value="emit('update:newSeriesTitle', $event)"
-          @keydown.enter.prevent="emit('create-series')"
+          @keydown.enter="handleCreateSeriesKeydown"
         />
         <BaseButton
           type="button"
@@ -232,7 +239,7 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
           input-class="h-9"
           :disabled="isCreatingSeries"
           @update:model-value="emit('update:newSeriesTitle', $event)"
-          @keydown.enter.prevent="emit('create-series')"
+          @keydown.enter="handleCreateSeriesKeydown"
         />
         <BaseButton
           type="button"

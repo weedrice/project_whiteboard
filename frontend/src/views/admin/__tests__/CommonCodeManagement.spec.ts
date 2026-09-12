@@ -166,6 +166,38 @@ describe('CommonCodeManagement', () => {
     expect(wrapper.findAll('button').some((button) => button.text() === 'common.cancel')).toBe(false)
   })
 
+  it('keeps existing code values read-only while allowing new detail values', async () => {
+    commonCodeApiMock.createDetail.mockResolvedValue(response({}))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(CommonCodeManagement, {
+      global: {
+        plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+        mocks: { $t: (key: string) => key },
+        stubs: { Teleport: true },
+      },
+    })
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'common.edit')!.trigger('click')
+    const editInputs = wrapper.get('[role="dialog"]').findAll('input')
+    expect(editInputs[0].element.readOnly).toBe(true)
+    expect(editInputs[0].element.value).toBe('SPAM')
+    await editInputs[1].setValue('Updated spam label')
+    await wrapper.get('[role="dialog"]').findAll('button').find((button) => button.text() === 'common.save')!.trigger('click')
+    await flushPromises()
+    expect(commonCodeApiMock.updateDetail).toHaveBeenCalledWith(1, expect.objectContaining({ codeValue: 'SPAM', codeName: 'Updated spam label' }))
+
+    await wrapper.findAll('button').find((button) => button.text().includes('admin.commonCodes.addDetail'))!.trigger('click')
+    const createInputs = wrapper.get('[role="dialog"]').findAll('input')
+    expect(createInputs[0].element.readOnly).toBe(false)
+    await createInputs[0].setValue('NEW_REASON')
+    await wrapper.get('[role="dialog"]').findAll('input')[1].setValue('New reason')
+    await wrapper.get('[role="dialog"]').findAll('button').find((button) => button.text() === 'common.save')!.trigger('click')
+    await flushPromises()
+    expect(commonCodeApiMock.createDetail).toHaveBeenCalledWith('REPORT_REASON', expect.objectContaining({ codeValue: 'NEW_REASON' }))
+    wrapper.unmount()
+    queryClient.clear()
+  })
+
   it('shows inactive details and allows an administrator to reactivate them', async () => {
     commonCodeApiMock.getAllDetails.mockResolvedValue(response([
       { id: 2, typeCode: 'REPORT_REASON', codeValue: 'ABUSE', codeName: 'Abuse', sortOrder: 2, isActive: false },

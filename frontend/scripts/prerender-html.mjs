@@ -1,21 +1,4 @@
-import { buildPostOgMeta, PRIVATE_POST_OG_TITLE, resolvePostOgTitle } from './og-image.mjs'
-import { parseServiceInstant, SERVICE_TIME_ZONE } from './serviceTime.mjs'
-
-function stripHtml(html) {
-    return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function formatServiceDateTime(value) {
-    // 서비스 기준 지역으로 그린다. 빌드 컨테이너 지역(UTC)이 아니라 독자 기준이어야 한다.
-    // 입력에 offset이 없으면 컨테이너 지역으로 오해석되므로 파싱도 서비스 기준을 따른다.
-    const date = parseServiceInstant(value)
-    if (!date) return ''
-    return new Intl.DateTimeFormat('ko-KR', {
-        timeZone: SERVICE_TIME_ZONE,
-        dateStyle: 'long',
-        timeStyle: 'short',
-    }).format(date)
-}
+import { buildPostOgMeta } from './og-image.mjs'
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -26,37 +9,25 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;')
 }
 
-export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
-    const isPrivatePost = Boolean(post?.isSecret || post?.isBlinded)
-    const title = resolvePostOgTitle(post)
-    const authorName = isPrivatePost ? 'NoviIs' : (post?.author?.displayName ?? 'Unknown')
-    const createdAt = !isPrivatePost && post?.createdAt
-        ? (parseServiceInstant(post.createdAt)?.toISOString() ?? null)
-        : null
-    const articleBody = isPrivatePost ? PRIVATE_POST_OG_TITLE : (post?.contents ?? '')
-    const articleSummary = isPrivatePost
-        ? PRIVATE_POST_OG_TITLE
-        : stripHtml(articleBody).slice(0, 240)
-
+// Public files outlive API visibility changes. Never persist mutable post content here.
+export function buildPreRenderedSnippet(canonicalUrl, ogImage) {
+    const title = 'NoviIs 게시글'
+    const description = '게시글은 페이지에서 현재 공개 상태를 확인한 뒤 표시됩니다.'
     const ldJson = JSON.stringify({
         '@context': 'https://schema.org',
-        '@type': 'Article',
-        headline: title,
-        datePublished: isPrivatePost ? null : post?.createdAt ?? null,
-        dateModified: isPrivatePost ? null : post?.modifiedAt ?? post?.createdAt ?? null,
-        author: { '@type': isPrivatePost ? 'Organization' : 'Person', name: authorName },
-        mainEntityOfPage: canonicalUrl,
-        url: canonicalUrl
+        '@type': 'WebPage',
+        name: title,
+        url: canonicalUrl,
     }).replace(/</g, '\\u003c')
 
     return {
         title,
-        description: articleSummary || 'Post content',
+        description,
         extraHead: [
             `<link rel="canonical" href="${escapeHtml(canonicalUrl)}">`,
             `<meta property="og:title" content="${escapeHtml(`${title} | Noviis`)}">`,
-            `<meta property="og:description" content="${escapeHtml(articleSummary || 'Post content')}">`,
-            '<meta property="og:type" content="article">',
+            `<meta property="og:description" content="${escapeHtml(description)}">`,
+            '<meta property="og:type" content="website">',
             `<meta property="og:url" content="${escapeHtml(canonicalUrl)}">`,
             buildPostOgMeta(ogImage),
             `<script type="application/ld+json">${ldJson}</script>`
@@ -64,14 +35,18 @@ export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
         body: `
 <article data-prerendered="true" style="max-width:760px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
   <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
-  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(formatServiceDateTime(createdAt))}</time>` : ''}</p>
-  <section class="post-prerender-body">${articleBody}</section>
+  <p>${escapeHtml(description)}</p>
 </article>`.trim()
     }
 }
 
-export function buildPreRenderedListingSnippet({ title, description, canonicalUrl, items }) {
-    const safeItems = Array.isArray(items) ? items : []
+export function buildPreRenderedListingSnippet({ canonicalUrl, isAllBoards, urls }) {
+    const title = isAllBoards ? '전체 게시판' : 'NoviIs 게시판'
+    const description = '게시판과 게시글은 페이지에서 현재 공개 상태를 확인한 뒤 표시됩니다.'
+    const safeItems = (Array.isArray(urls) ? urls : []).map((url) => ({
+        url,
+        title: isAllBoards ? '게시판 보기' : '게시글 보기',
+    }))
     const ldJson = JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
@@ -93,7 +68,6 @@ export function buildPreRenderedListingSnippet({ title, description, canonicalUr
         ? `<ul style="padding-left:20px;">${safeItems.map((item) => `
     <li style="margin:0 0 12px;">
       <a href="${escapeHtml(item.url)}">${escapeHtml(item.title)}</a>
-      ${item.description ? `<p style="margin:4px 0 0;color:#4b5563;">${escapeHtml(item.description)}</p>` : ''}
     </li>`).join('')}
   </ul>`
         : '<p>아직 공개된 항목이 없습니다.</p>'

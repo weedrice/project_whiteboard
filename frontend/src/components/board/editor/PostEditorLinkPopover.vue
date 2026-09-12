@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useI18n } from 'vue-i18n'
@@ -28,6 +29,13 @@ watch(() => props.text, (value) => {
   localText.value = value
 })
 
+function handleKeydown(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  if (event.key === 'Enter') apply()
+  else emit('close')
+}
+
 function apply() {
   emit('apply', localUrl.value, localText.value)
 }
@@ -46,8 +54,8 @@ function apply() {
       label-class="link-popover-label"
       input-class="link-popover-input"
       placeholder="https://..."
-      @keydown.enter.stop.prevent="apply"
-      @keydown.escape.stop.prevent="emit('close')"
+      @keydown.enter.stop="handleKeydown"
+      @keydown.escape.stop="handleKeydown"
     />
   </div>
   <div class="link-popover-row">
@@ -61,8 +69,8 @@ function apply() {
       label-class="link-popover-label"
       input-class="link-popover-input"
       :placeholder="t('board.writePost.linkDisplayText')"
-      @keydown.enter.stop.prevent="apply"
-      @keydown.escape.stop.prevent="emit('close')"
+      @keydown.enter.stop="handleKeydown"
+      @keydown.escape.stop="handleKeydown"
     />
   </div>
   <PostEditorPopoverActions

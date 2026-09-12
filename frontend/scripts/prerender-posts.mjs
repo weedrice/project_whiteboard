@@ -2,7 +2,7 @@
 
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { resolvePostOgImage } from './og-image.mjs'
+import { resolveSiteOgImage } from './og-image.mjs'
 import { buildPreRenderedListingSnippet, buildPreRenderedSnippet, injectIntoTemplate } from './prerender-html.mjs'
 import { assertSeoPostUrlCountWithinCapacity, readSeoPostUrlCapacity } from './seo-capacity.mjs'
 
@@ -211,23 +211,10 @@ async function renderListingPages(indexHtml, listingPaths, postsByBoard) {
             }
 
             const canonicalUrl = `${siteUrl}${target.path}`
-            const title = isAllBoards ? '전체 게시판' : String(board.boardName || target.boardUrl)
-            const description = isAllBoards
-                ? 'NoviIs의 공개 게시판과 관심 주제를 살펴보세요.'
-                : String(board.description || `${title}의 최신 게시글을 확인하세요.`)
-            const items = isAllBoards
-                ? boards.map((item) => ({
-                    title: String(item.boardName || item.boardUrl),
-                    description: String(item.description || ''),
-                    url: `${siteUrl}/board/${encodeURIComponent(item.boardUrl)}/`
-                }))
+            const urls = isAllBoards
+                ? boards.map((item) => `${siteUrl}/board/${encodeURIComponent(item.boardUrl)}/`)
                 : (postsByBoard.get(target.boardUrl) ?? [])
-            const renderData = buildPreRenderedListingSnippet({
-                title,
-                description,
-                canonicalUrl,
-                items
-            })
+            const renderData = buildPreRenderedListingSnippet({ canonicalUrl, isAllBoards, urls })
             const html = injectIntoTemplate(indexHtml, renderData)
             const outputPath = resolve(distDir, target.path.replace(/^\//, ''), 'index.html')
 
@@ -261,23 +248,19 @@ async function main() {
     let successCount = 0
     const failedTargets = []
     const postsByBoard = new Map()
+    const ogImage = await resolveSiteOgImage({ siteUrl, distDir })
     for (const target of postPaths) {
         try {
-            const post = await fetchJson(`/posts/${target.postId}?incrementView=false`)
+            await fetchJson(`/posts/${target.postId}?incrementView=false`)
             const canonicalUrl = `${siteUrl}${ensureTrailingSlashPath(target.path)}`
-            const ogImage = await resolvePostOgImage(post, { siteUrl, distDir })
-            const renderData = buildPreRenderedSnippet(post, canonicalUrl, ogImage)
+            const renderData = buildPreRenderedSnippet(canonicalUrl, ogImage)
             const html = injectIntoTemplate(indexHtml, renderData)
             const outputPath = resolve(distDir, target.path.replace(/^\//, ''), 'index.html')
 
             await mkdir(dirname(outputPath), { recursive: true })
             await writeFile(outputPath, html, 'utf8')
             const boardPosts = postsByBoard.get(target.boardUrl) ?? []
-            boardPosts.push({
-                title: renderData.title,
-                description: renderData.description,
-                url: canonicalUrl
-            })
+            boardPosts.push(canonicalUrl)
             postsByBoard.set(target.boardUrl, boardPosts)
             successCount += 1
         } catch (error) {

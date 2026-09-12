@@ -45,6 +45,32 @@ function mountPopover(props = {}) {
 }
 
 describe('PostEditorLinkPopover', () => {
+    it.each(['editor-link-url', 'editor-link-text'])('preserves IME Enter/Escape in %s and handles normal keys', async (id) => {
+        const wrapper = mountPopover()
+        const input = wrapper.get(`#${id}`)
+        const parentKeydown = vi.fn()
+        input.element.parentElement!.addEventListener('keydown', parentKeydown)
+        for (const ime of [{ isComposing: true }, { keyCode: 229 }]) {
+            for (const key of ['Enter', 'Escape']) {
+                const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...ime })
+                input.element.dispatchEvent(event)
+                expect(event.defaultPrevented).toBe(false)
+            }
+        }
+        expect(wrapper.emitted('apply')).toBeUndefined()
+        expect(wrapper.emitted('close')).toBeUndefined()
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+        input.element.dispatchEvent(enter)
+        expect(enter.defaultPrevented).toBe(true)
+        expect(wrapper.emitted('apply')).toEqual([['https://example.com', 'Example']])
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+        input.element.dispatchEvent(escape)
+        expect(escape.defaultPrevented).toBe(true)
+        expect(wrapper.emitted('close')).toHaveLength(1)
+        expect(parentKeydown).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
     it('keeps url and text local state in sync with props and emits apply payloads', async () => {
         const wrapper = mountPopover()
         const inputs = wrapper.findAll('.link-popover-input')
@@ -65,7 +91,7 @@ describe('PostEditorLinkPopover', () => {
 
         await inputs[0].setValue('https://noviis.kr/post/1')
         await inputs[1].setValue('Noviis')
-        await inputs[0].trigger('keydown.enter')
+        await inputs[0].trigger('keydown', { key: 'Enter' })
 
         expect(wrapper.emitted('apply')).toEqual([['https://noviis.kr/post/1', 'Noviis']])
 

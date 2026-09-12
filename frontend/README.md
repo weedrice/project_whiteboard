@@ -184,6 +184,8 @@ SEO sitemap/prerender 절차까지 포함한 build:
 npm run build:seo
 ```
 
+SEO 정적 페이지와 OG 이미지는 공통 안내·사이트 브랜드만 포함합니다. 게시글·게시판 원문은 API 권한 확인 뒤 화면에 표시하며, 상세 정책은 [SEO 정적 콘텐츠 정책](../docs/ops/seo-static-content-policy.md)을 참고합니다.
+
 로컬 Docker runtime에 frontend 변경을 반영해야 하는 경우 repository root에서 실행합니다.
 
 ```bash

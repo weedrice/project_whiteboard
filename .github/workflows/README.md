@@ -35,6 +35,8 @@ backend는 새 JAR 복사·digest 검증과 daemon reload, 이전 JAR backup·di
 
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. sitemap과 prerender는 공통 `SEO_POST_URL_CAPACITY` 계약을 사용하며 기본 2,000개의 최신 게시글 URL만 포함한다. 전체 sitemap은 프로토콜 상한 50,000 URL을 넘지 못한다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수, 용량 상한과 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor는 `/.noviis-release`의 현재 활성 SHA를 manifest와 항상 결합한다. 배포 직후는 SHA 기반 결정적 표본을 사용하고, 정기 monitor는 SHA와 workflow run identity를 결합한 순환 표본으로 sitemap 앞부분만 반복 검사하는 편향을 피한다.
 
+정적 HTML과 OG PNG에는 변경 가능한 게시글·게시판 원문을 저장하지 않는다. canonical과 목록 URL은 유지하고 공통 안내·사이트 브랜드만 렌더링한다. 실제 내용은 기존 API 권한 검사 후 Vue 화면에 표시된다. 이는 빌드 이후 삭제·비공개 전환된 콘텐츠가 정적 파일에 남는 것을 막기 위한 정책이며, JavaScript를 실행하지 않는 검색·공유 봇에는 게시글별 미리보기 대신 공통 안내가 보인다. 적용과 rollback 주의는 [SEO 정적 콘텐츠 정책](../../docs/ops/seo-static-content-policy.md)을 따른다.
+
 production 배포와 정기 monitor는 공개 SEO endpoint 검증만 수행한다. 검색 엔진 제출 API와 제출 자격 증명은 운영하지 않는다.
 
 ## Ops 검증
