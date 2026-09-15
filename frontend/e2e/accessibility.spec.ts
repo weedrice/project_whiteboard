@@ -10,6 +10,11 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
   expect(violations, JSON.stringify(violations, null, 2)).toEqual([])
 }
 
+const dialogViewports = [
+  { name: 'mobile', size: { width: 390, height: 844 } },
+  { name: 'desktop', size: { width: 1280, height: 800 } },
+] as const
+
 test('login and home have no serious or critical axe violations', async ({ page }) => {
   await installMockApi(page)
   await page.goto('/login')
@@ -51,6 +56,7 @@ test('post editor with a selected preserved HTML block is axe-clean', async ({ p
 })
 
 test('opened notification dialog is axe-clean and restores its trigger on Escape', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
   await installMockApi(page)
   await login(page)
   const trigger = page.locator('button[aria-controls="notification-dropdown-panel"]')
@@ -63,6 +69,47 @@ test('opened notification dialog is axe-clean and restores its trigger on Escape
   await expect(page.locator('#notification-dropdown-panel')).toBeHidden()
   await expect(trigger).toBeFocused()
 })
+
+for (const viewport of dialogViewports) {
+  test(`opened editor popover uses the shared dialog surface and is axe-clean (${viewport.name})`, async ({ page }) => {
+    await page.setViewportSize(viewport.size)
+    await installMockApi(page)
+    await login(page)
+    await page.goto('/board/general/write')
+
+    const trigger = page.locator('button[aria-controls="editor-table-dialog"]')
+    await trigger.click()
+
+    const dialog = page.locator('#editor-table-dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveClass(/nv-dialog-surface--popover/)
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+
+    await expect(dialog).toBeHidden()
+    await expect(trigger).toBeFocused()
+  })
+
+  test(`image lightbox uses the media dialog variant and is axe-clean (${viewport.name})`, async ({ page }) => {
+    await page.setViewportSize(viewport.size)
+    await installMockApi(page, {
+      postContents: '<p><img src="/images/default-emoticon.png" alt="Preview image"></p>',
+    })
+    await page.goto('/board/general/post/1')
+
+    const trigger = page.locator('img[alt="Preview image"]')
+    await trigger.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Accessible post' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveClass(/nv-dialog-overlay--media/)
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+
+    await expect(dialog).toBeHidden()
+    await expect(trigger).toBeFocused()
+  })
+}
 
 test('opened mobile write sheet is axe-clean, traps focus, and restores its trigger', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -83,3 +130,60 @@ test('opened mobile write sheet is axe-clean, traps focus, and restores its trig
   await expect(dialog).toBeHidden()
   await expect(trigger).toBeFocused()
 })
+
+for (const viewport of dialogViewports) {
+  test(`message and report dialogs use the standard modal contract and are axe-clean (${viewport.name})`, async ({ page }) => {
+    await page.setViewportSize(viewport.size)
+    await installMockApi(page, {
+      postAuthor: { userId: 8, loginId: 'writer', displayName: '작성자', profileImageUrl: null },
+    })
+    await login(page)
+    await page.goto('/board/general/post/1')
+
+    const authorMenu = page.getByRole('button', { name: '작성자' })
+    await authorMenu.click()
+    await page.getByRole('menuitem', { name: '쪽지 보내기' }).click()
+
+    const messageDialog = page.getByRole('dialog', { name: '쪽지 보내기' })
+    await expect(messageDialog).toBeVisible()
+    await expect(messageDialog.locator('.modal-body > .nv-dialog-stack')).toBeVisible()
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+    await expect(messageDialog).toBeHidden()
+
+    await authorMenu.click()
+    await page.getByRole('menuitem', { name: '신고하기' }).click()
+
+    const reportDialog = page.getByRole('dialog', { name: '사용자 신고' })
+    await expect(reportDialog).toBeVisible()
+    await expect(reportDialog.locator('.modal-footer > button')).toHaveCount(2)
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+    await expect(reportDialog).toBeHidden()
+  })
+
+  test(`video and emoticon popovers share the topmost dialog contract (${viewport.name})`, async ({ page }) => {
+    await page.setViewportSize(viewport.size)
+    await installMockApi(page)
+    await login(page)
+    await page.goto('/board/general/write')
+
+    const videoTrigger = page.getByRole('button', { name: '동영상' })
+    await videoTrigger.click()
+    const videoDialog = page.getByRole('dialog', { name: '동영상 URL' })
+    await expect(videoDialog).toHaveAttribute('aria-modal', 'true')
+    await expect(videoDialog).toHaveClass(/nv-dialog-surface--popover/)
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+    await expect(videoDialog).toBeHidden()
+
+    const emoticonTrigger = page.getByRole('button', { name: '이모티콘' })
+    await emoticonTrigger.click()
+    const emoticonDialog = page.getByRole('dialog', { name: '노비콘' })
+    await expect(emoticonDialog).toHaveAttribute('aria-modal', 'true')
+    await expect(emoticonDialog).toHaveClass(/nv-dialog-surface--popover/)
+    await expectNoSeriousAccessibilityViolations(page)
+    await page.keyboard.press('Escape')
+    await expect(emoticonDialog).toBeHidden()
+  })
+}

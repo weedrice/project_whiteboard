@@ -75,6 +75,15 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 - `components`는 재사용 UI, `views`는 route-level orchestration을 담당합니다.
 - 백엔드 응답 envelope와 DTO 변경은 `src/api`, `src/types`, 관련 feature composable, UI consumer를 함께 맞춥니다.
 
+### Dialog UI 규칙
+
+- 일반 확인·입력 UI는 `BaseModal`의 기본 `layout="standard"`를 사용합니다. 본문에는 별도 shell 패딩을 두지 않고, 필드 묶음은 `nv-dialog-stack`, 메타 정보는 `nv-dialog-meta`, 읽기 전용 대상은 `nv-dialog-readonly`를 사용합니다.
+- standard modal의 취소·제출 같은 최종 액션은 `#footer` 슬롯의 직접 자식으로 둡니다. 본문 안의 보조 액션은 해당 필드와 결합된 동작일 때만 허용합니다.
+- 자체 스크롤·섹션 레이아웃이 필요한 대화창, 미리보기, 상세 shell은 `layout="immersive"`를 명시합니다. 공통 body 여백이 필요 없는 경우에만 `body-padding="none"`을 사용합니다.
+- `BaseModal` 밖의 dialog는 `nv-dialog-overlay`와 `nv-dialog-surface`를 사용하고 `popover`, `sheet`, `media` 중 역할에 맞는 변형을 명시합니다. 모달 custom dialog는 `useDialogLifecycle`로 Escape, focus trap·복귀, scroll lock, 중첩 순서를 공유합니다.
+- 알림 드롭다운 같은 non-modal dialog에는 `aria-modal`과 scroll lock을 적용하지 않습니다. listbox, menu, tooltip과 단순 시각 overlay는 dialog 계약 대상이 아닙니다.
+- 새 UI는 `npm run check:ui`로 중복 패딩, 구형 액션 wrapper, 분류되지 않은 raw dialog가 없는지 확인합니다.
+
 ## 주요 기능
 
 - 반응형 커뮤니티 UI와 다크모드
@@ -141,6 +150,7 @@ http://localhost:5173
 
 ```bash
 npm run lint:ci
+npm run check:ui
 npm run type-check
 npm run test:run
 ```

@@ -56,6 +56,7 @@ function json(route: Route, data: unknown, status = 200) {
 export type MockApiState = {
   authenticated: boolean
   postContents?: string
+  postAuthor?: typeof post.author
   homeUnauthorizedOnce?: boolean
   refreshCount: number
   homeCount: number
@@ -242,7 +243,8 @@ export async function installMockApi(
     }
     if (path === '/posts/1' && method === 'GET') {
       const contents = state.postContents ?? post.contents
-      return json(route, apiResponse({ ...post, contents, content: contents }))
+      const author = state.postAuthor ?? post.author
+      return json(route, apiResponse({ ...post, author, contents, content: contents }))
     }
     if (path === '/posts/1/related') return json(route, apiResponse([]))
     if (path === '/posts/1/comments') return json(route, apiResponse(emptyPage))
