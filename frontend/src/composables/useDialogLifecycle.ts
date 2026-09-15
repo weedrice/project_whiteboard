@@ -56,7 +56,6 @@ interface DialogLifecycleOptions {
   close: () => void
   closeOnEscape?: boolean | (() => boolean)
   lockScroll?: boolean
-  modal?: boolean
   initialFocus?: 'first' | 'container'
   returnFocusTarget?: () => HTMLElement | null
 }
@@ -68,20 +67,18 @@ export function useDialogLifecycle({
   close,
   closeOnEscape = true,
   lockScroll = true,
-  modal = true,
   initialFocus = 'first',
   returnFocusTarget,
 }: DialogLifecycleOptions) {
   const dialogId = Symbol('dialog-lifecycle')
-  const isTopDialog = computed(() => isOpen.value && (!modal || isTopDialogId(dialogId)))
-  const shouldLockScroll = computed(() => modal && lockScroll && isOpen.value)
-  const { trapFocus } = useFocusTrap(dialogRef, () => modal && isTopDialog.value)
+  const isTopDialog = computed(() => isOpen.value && isTopDialogId(dialogId))
+  const shouldLockScroll = computed(() => lockScroll && isOpen.value)
+  const { trapFocus } = useFocusTrap(dialogRef, isTopDialog)
   let returnFocusElement: HTMLElement | null = null
 
   useBodyScrollLock(shouldLockScroll)
 
   const rememberFocus = (event: FocusEvent) => {
-    if (!modal) return
     if (event.target instanceof HTMLElement && dialogRef.value?.contains(event.target)) {
       dialogFocusTargets.set(dialogId, event.target)
     }
@@ -96,7 +93,7 @@ export function useDialogLifecycle({
 
   const focusTopDialog = () => {
     void nextTick(() => {
-      if (!modal || !isTopDialog.value) return
+      if (!isTopDialog.value) return
       if (overlayRef.value) dialogOverlayTargets.set(dialogId, overlayRef.value)
       syncBackgroundInert()
       const rememberedFocus = dialogFocusTargets.get(dialogId)
@@ -128,7 +125,7 @@ export function useDialogLifecycle({
       || !isOpen.value
       || !escapeEnabled()
     ) return
-    if (modal && !isTopDialogId(dialogId)) return
+    if (!isTopDialogId(dialogId)) return
     event.preventDefault()
     event.stopImmediatePropagation()
     close()
@@ -136,7 +133,7 @@ export function useDialogLifecycle({
 
   watch(isOpen, (open) => {
     if (open) {
-      const parentDialogId = modal ? dialogStack[dialogStack.length - 1] : undefined
+      const parentDialogId = dialogStack[dialogStack.length - 1]
       const activeElement = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
@@ -152,28 +149,27 @@ export function useDialogLifecycle({
         ?? (parentDialogId ? dialogFocusTargets.get(parentDialogId) : null)
         ?? activeElement
       )
-      if (modal) registerDialog(dialogId)
+      registerDialog(dialogId)
       focusTopDialog()
       return
     }
 
-    const wasTopDialog = modal && isTopDialogId(dialogId)
-    if (modal) unregisterDialog(dialogId)
+    const wasTopDialog = isTopDialogId(dialogId)
+    unregisterDialog(dialogId)
     if (wasTopDialog && dialogStack.length === 0) restoreReturnFocus()
     else returnFocusElement = null
   }, { immediate: true, flush: 'sync' })
 
   watch(isTopDialog, (isTop, wasTop) => {
     if (
-      modal
-      && !isTop
+      !isTop
       && wasTop
       && document.activeElement instanceof HTMLElement
       && dialogRef.value?.contains(document.activeElement)
     ) {
       dialogFocusTargets.set(dialogId, document.activeElement)
     }
-    if (modal && isTop && !wasTop) focusTopDialog()
+    if (isTop && !wasTop) focusTopDialog()
   }, { flush: 'sync' })
 
   useEventListener(() => document, 'keydown', handleKeyDown, { capture: true })
@@ -181,8 +177,8 @@ export function useDialogLifecycle({
   useEventListener(() => document, 'focusout', rememberFocus)
 
   onUnmounted(() => {
-    const wasTopDialog = modal && isTopDialogId(dialogId)
-    if (modal) unregisterDialog(dialogId)
+    const wasTopDialog = isTopDialogId(dialogId)
+    unregisterDialog(dialogId)
     if (wasTopDialog && dialogStack.length === 0) restoreReturnFocus()
     else returnFocusElement = null
   })
