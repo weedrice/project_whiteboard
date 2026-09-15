@@ -11,9 +11,9 @@
             <BaseButton v-if="numericStatus === 403 && !authStore.isAuthenticated" type="button" variant="primary" @click="goToLogin">
                 {{ t('common.login') }}
             </BaseButton>
-            <a :href="homeHref" class="btn-secondary flex min-h-[44px] items-center justify-center px-4">
+            <BaseButton :href="homeHref" variant="secondary" class="min-h-[44px] px-4">
                 {{ t('common.error.goHome') }}
-            </a>
+            </BaseButton>
         </ErrorState>
     </div>
 </template>

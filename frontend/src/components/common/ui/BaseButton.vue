@@ -1,8 +1,7 @@
 <template>
   <component
-    :is="to ? RouterLink : 'button'"
-    :to="to"
-    :type="to ? undefined : type"
+    :is="componentType"
+    v-bind="componentAttributes"
     :class="[
     btnClass,
     sizeClass,
@@ -10,9 +9,8 @@
     loading ? 'gap-2' : '',
     isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
   ]"
-    :disabled="to ? undefined : isDisabled"
-    :aria-disabled="to && isDisabled ? 'true' : undefined"
-    :tabindex="to && isDisabled ? -1 : undefined"
+    :aria-disabled="isLink && isDisabled ? 'true' : undefined"
+    :tabindex="isLink && isDisabled ? -1 : undefined"
     :aria-busy="loading ? 'true' : undefined"
     @click="handleClick"
   >
@@ -43,6 +41,7 @@ const props = withDefaults(defineProps<{
   fullWidth?: boolean
   loading?: boolean
   to?: RouteLocationRaw
+  href?: string
 }>(), {
   type: 'button',
   variant: 'primary',
@@ -55,6 +54,19 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'click', event: MouseEvent): void
 }>()
+
+const isDisabled = computed(() => props.disabled || props.loading)
+const isLink = computed(() => Boolean(props.href || props.to))
+const componentType = computed(() => {
+  if (props.href) return 'a'
+  if (props.to) return RouterLink
+  return 'button'
+})
+const componentAttributes = computed(() => {
+  if (props.href) return { href: props.href }
+  if (props.to) return { to: props.to }
+  return { type: props.type, disabled: isDisabled.value }
+})
 
 const btnClass = computed(() => {
   const base = props.fullWidth ? 'w-full ' : ''
@@ -71,8 +83,6 @@ const btnClass = computed(() => {
       return base + 'btn-primary'
   }
 })
-
-const isDisabled = computed(() => props.disabled || props.loading)
 
 const handleClick = (event: MouseEvent) => {
   if (isDisabled.value) {

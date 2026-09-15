@@ -96,6 +96,37 @@ describe('BaseButton', () => {
         expect(wrapper.get('a').classes()).toContain('btn-secondary')
     })
 
+    it('renders a hard link with shared styles when href is provided', () => {
+        const wrapper = mount(BaseButton, {
+            props: {
+                href: '/recovery-home',
+                variant: 'secondary',
+            },
+            slots: {
+                default: 'Home',
+            },
+        })
+
+        const link = wrapper.get('a')
+        expect(link.attributes()).toMatchObject({ href: '/recovery-home' })
+        expect(link.attributes('type')).toBeUndefined()
+        expect(link.classes()).toContain('btn-secondary')
+    })
+
+    it('prevents disabled hard-link navigation', async () => {
+        const wrapper = mount(BaseButton, {
+            props: { href: '/', disabled: true },
+        })
+        const link = wrapper.get('a')
+
+        expect(link.attributes()).toMatchObject({
+            'aria-disabled': 'true',
+            tabindex: '-1',
+        })
+        await link.trigger('click')
+        expect(wrapper.emitted('click')).toBeUndefined()
+    })
+
     it('falls back to primary variant for unknown variant values', () => {
         const wrapper = mount(BaseButton, {
             props: {

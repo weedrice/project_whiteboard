@@ -1,12 +1,12 @@
 <template>
     <div v-if="hasError" class="error-boundary">
         <ErrorState title-tag="h1" :title="title" :message="message" :notice="reportAccepted ? t('common.error.reportAccepted') : ''" :show-icon="false">
-                <BaseButton @click="handleRetry" variant="primary">
-                    {{ t('common.error.retry') }}
-                </BaseButton>
-                <a :href="homeHref" class="btn-secondary flex items-center justify-center" @click="handleGoHome">
-                    {{ t('common.error.goHome') }}
-                </a>
+            <BaseButton variant="primary" @click="handleRetry">
+                {{ t('common.error.retry') }}
+            </BaseButton>
+            <BaseButton :href="homeHref" variant="secondary" @click="handleGoHome">
+                {{ t('common.error.goHome') }}
+            </BaseButton>
             <template #details>
                 <details v-if="showDetails" class="error-boundary-details">
                     <summary>{{ t('common.error.showDetails') }}</summary>

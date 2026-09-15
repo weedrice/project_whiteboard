@@ -71,6 +71,8 @@ describe('ErrorBoundary', () => {
         expect(wrapper.text()).toContain('Something went wrong')
         expect(wrapper.text()).toContain('Please try again later.')
         expect(wrapper.text()).not.toContain('internal database token leaked')
+        const homeLink = wrapper.findAll('button').find((button) => button.text() === 'Go home')
+        expect(homeLink?.attributes('href')).toBe('/')
         expect(reportVueError).toHaveBeenCalledWith(
             expect.objectContaining({
                 name: 'Error',
