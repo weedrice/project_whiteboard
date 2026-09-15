@@ -105,9 +105,20 @@ vi.mock('@/composables/useConfirm', () => ({
 }))
 
 const AdminPaginatedTableStub = defineComponent({
-  props: { items: { type: Array, default: () => [] } },
+  props: {
+    caption: { type: String, default: '' },
+    items: { type: Array, default: () => [] },
+  },
   emits: ['row-click'],
-  template: '<button data-test="legacy-row" @click="$emit(\'row-click\', items[0])">{{ items[0]?.title }}</button>',
+  template: `
+    <button
+      type="button"
+      :data-test="caption === 'inquiry.admin.newTab' ? 'new-row' : 'legacy-row'"
+      @click="$emit('row-click', items[0])"
+    >
+      {{ items[0]?.title }}
+    </button>
+  `,
 })
 
 function mountView() {
@@ -146,16 +157,17 @@ describe('AdminInquiryPosts', () => {
     expect(wrapper.text()).toContain('inquiry.status.NEW')
     expect(wrapper.text()).not.toContain('Legacy inquiry')
 
-    await wrapper.get('tbody tr').trigger('click')
+    await wrapper.get('[data-test="new-row"]').trigger('click')
 
     expect(state.routerPush).toHaveBeenCalledWith('/admin/inquiries/41')
   })
 
-  it('provides a native keyboard-accessible control for opening an inquiry', async () => {
+  it('uses the shared interactive table contract for opening an inquiry', async () => {
     const wrapper = mountView()
-    const openButton = wrapper.get('tbody button[type="button"]')
+    const openButton = wrapper.get('[data-test="new-row"]')
 
     expect(openButton.text()).toBe('Account recovery')
+    expect(openButton.attributes('type')).toBe('button')
     await openButton.trigger('click')
 
     expect(state.routerPush).toHaveBeenCalledWith('/admin/inquiries/41')

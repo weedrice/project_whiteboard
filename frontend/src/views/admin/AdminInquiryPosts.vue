@@ -6,12 +6,19 @@ import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
+import AdminContentState from '@/components/admin/AdminContentState.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import InquiryTimeline from '@/components/inquiry/InquiryTimeline.vue'
 import InquiryImageUploader from '@/components/inquiry/InquiryImageUploader.vue'
+import InquiryStatusBadge from '@/components/inquiry/InquiryStatusBadge.vue'
+import InquiryPriorityBadge from '@/components/inquiry/InquiryPriorityBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
-import Pagination from '@/components/common/ui/Pagination.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useAdminInquiryPosts } from '@/features/admin/inquiries/useAdminInquiryPosts'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { useConfirm } from '@/composables/useConfirm'
@@ -49,8 +56,22 @@ const errorMessage = ref('')
 const uploadsPending = ref(false)
 const uploader = ref<InstanceType<typeof InquiryImageUploader> | null>(null)
 let composeEpoch = 0
-const statusLabel = (value: InquiryStatus) => t(`inquiry.status.${value}`)
-const priorityLabel = (value?: InquiryPriority | null) => value ? t(`inquiry.priority.${value}`) : '-'
+const statusOptions = computed(() => [
+  { value: '', label: t('inquiry.common.all') },
+  ...(['NEW', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as InquiryStatus[]).map((value) => ({ value, label: t(`inquiry.status.${value}`) })),
+])
+const categoryOptions = computed(() => [
+  { value: '', label: t('inquiry.common.all') },
+  ...(['ACCOUNT', 'SERVICE_USE', 'TECHNICAL', 'CONTENT_OPERATION', 'SUGGESTION', 'OTHER'] as InquiryCategory[]).map((value) => ({ value, label: t(`inquiry.category.${value}`) })),
+])
+const priorityOptions = computed(() => [
+  { value: '', label: t('inquiry.common.all') },
+  ...(['URGENT', 'HIGH', 'NORMAL'] as InquiryPriority[]).map((value) => ({ value, label: t(`inquiry.priority.${value}`) })),
+])
+const composeOptions = computed(() => [
+  { value: 'reply', label: t('inquiry.admin.publicReply') },
+  { value: 'note', label: t('inquiry.admin.note') },
+])
 const tabOptions = computed(() => [
   {
     value: 'new',
@@ -72,6 +93,13 @@ const legacyColumns = computed<TableColumn[]>(() => [
   { key: 'summaryText', label: t('inquiry.admin.legacyContent'), width: '35%' },
   { key: 'authorName', label: t('inquiry.admin.author'), width: '15%' },
   { key: 'createdAtText', label: t('inquiry.admin.createdAt'), width: '15%' },
+])
+const newColumns = computed<TableColumn[]>(() => [
+  { key: 'effectivePriority', label: t('inquiry.common.priority'), width: '14%' },
+  { key: 'status', label: t('inquiry.common.status'), width: '14%' },
+  { key: 'title', label: t('inquiry.admin.legacyTitle'), width: '32%' },
+  { key: 'authorName', label: t('inquiry.admin.author'), width: '18%' },
+  { key: 'staffActionSince', label: t('inquiry.admin.waitingSince'), width: '22%' },
 ])
 
 const params = computed(() => ({
@@ -270,25 +298,40 @@ function submitMessage() {
       role="tabpanel"
       aria-labelledby="admin-new-inquiries-tab"
     >
-      <form class="mt-4 flex flex-wrap items-end gap-3 rounded-xl border nv-border nv-surface p-4" @submit.prevent="applyFilters">
-        <label class="text-sm">{{ t('inquiry.common.status') }}<select v-model="status" class="ml-2 rounded-md border nv-border nv-surface px-2 py-2"><option value="">{{ t('inquiry.common.all') }}</option><option value="NEW">{{ t('inquiry.status.NEW') }}</option><option value="IN_PROGRESS">{{ t('inquiry.status.IN_PROGRESS') }}</option><option value="RESOLVED">{{ t('inquiry.status.RESOLVED') }}</option><option value="CLOSED">{{ t('inquiry.status.CLOSED') }}</option></select></label>
-        <label class="text-sm">{{ t('inquiry.common.category') }}<select v-model="category" class="ml-2 rounded-md border nv-border nv-surface px-2 py-2"><option value="">{{ t('inquiry.common.all') }}</option><option value="ACCOUNT">{{ t('inquiry.category.ACCOUNT') }}</option><option value="SERVICE_USE">{{ t('inquiry.category.SERVICE_USE') }}</option><option value="TECHNICAL">{{ t('inquiry.category.TECHNICAL') }}</option><option value="CONTENT_OPERATION">{{ t('inquiry.category.CONTENT_OPERATION') }}</option><option value="SUGGESTION">{{ t('inquiry.category.SUGGESTION') }}</option><option value="OTHER">{{ t('inquiry.category.OTHER') }}</option></select></label>
-        <label class="text-sm">{{ t('inquiry.common.priority') }}<select v-model="priority" class="ml-2 rounded-md border nv-border nv-surface px-2 py-2"><option value="">{{ t('inquiry.common.all') }}</option><option value="URGENT">{{ t('inquiry.priority.URGENT') }}</option><option value="HIGH">{{ t('inquiry.priority.HIGH') }}</option><option value="NORMAL">{{ t('inquiry.priority.NORMAL') }}</option></select></label>
-        <label class="text-sm">{{ t('inquiry.common.fromDate') }}<input v-model="fromDate" type="date" class="ml-2 rounded-md border nv-border nv-surface px-2 py-2"></label>
-        <label class="text-sm">{{ t('inquiry.common.toDate') }}<input v-model="toDate" type="date" :min="fromDate || undefined" class="ml-2 rounded-md border nv-border nv-surface px-2 py-2"></label>
-        <label class="text-sm">{{ t('inquiry.common.search') }}<input v-model="keyword" maxlength="200" class="ml-2 rounded-md border nv-border nv-surface px-3 py-2" :placeholder="t('inquiry.common.searchPlaceholder')"></label>
-        <BaseButton type="submit" size="sm">{{ t('inquiry.common.query') }}</BaseButton>
-      </form>
-      <div v-if="listQuery.isLoading.value" class="mt-4 rounded-xl border nv-border p-8 text-center">{{ t('inquiry.common.loading') }}</div>
-      <div v-else-if="listQuery.error.value" class="mt-4 rounded-xl nv-status-danger p-4">{{ t('inquiry.admin.loadFailed') }}</div>
-      <div v-else class="mt-4 overflow-x-auto rounded-xl border nv-border nv-surface">
-        <table class="w-full text-left text-sm">
-          <thead><tr class="border-b nv-border"><th class="p-3">{{ t('inquiry.common.priority') }}</th><th class="p-3">{{ t('inquiry.common.status') }}</th><th class="p-3">{{ t('inquiry.admin.legacyTitle') }}</th><th class="p-3">{{ t('inquiry.admin.author') }}</th><th class="p-3">{{ t('inquiry.admin.waitingSince') }}</th></tr></thead>
-          <tbody><tr v-for="item in listQuery.data.value?.content" :key="item.inquiryId" class="cursor-pointer border-b nv-border hover:bg-[var(--nv-surface-2)]" @click="openDetail(item.inquiryId)"><td class="p-3 font-semibold">{{ priorityLabel(item.effectivePriority) }}</td><td class="p-3">{{ statusLabel(item.status) }}</td><td class="p-3"><button type="button" class="rounded text-left font-medium hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nv-accent)]" @click.stop="openDetail(item.inquiryId)">{{ item.title }}</button></td><td class="p-3">{{ item.authorName }}</td><td class="p-3">{{ formatDateTimeOrDash(item.staffActionSince) }}</td></tr></tbody>
-        </table>
-        <p v-if="!listQuery.data.value?.content.length" class="p-8 text-center nv-text-muted">{{ t('inquiry.admin.empty') }}</p>
-      </div>
-      <Pagination class="mt-4" :current-page="page" :total-pages="listQuery.data.value?.totalPages ?? 0" @page-change="page = $event" />
+      <AdminFilterPanel class="mt-4" :title="t('inquiry.common.query')">
+        <form class="flex flex-wrap items-end gap-3" @submit.prevent="applyFilters">
+          <AdminFilterField :label="t('inquiry.common.status')" for-id="inquiry-status" width="select"><BaseSelect id="inquiry-status" v-model="status" :options="statusOptions" /></AdminFilterField>
+          <AdminFilterField :label="t('inquiry.common.category')" for-id="inquiry-category" width="select"><BaseSelect id="inquiry-category" v-model="category" :options="categoryOptions" /></AdminFilterField>
+          <AdminFilterField :label="t('inquiry.common.priority')" for-id="inquiry-priority" width="select"><BaseSelect id="inquiry-priority" v-model="priority" :options="priorityOptions" /></AdminFilterField>
+          <AdminFilterField :label="t('inquiry.common.fromDate')" for-id="inquiry-from" width="date"><BaseInput id="inquiry-from" v-model="fromDate" type="date" /></AdminFilterField>
+          <AdminFilterField :label="t('inquiry.common.toDate')" for-id="inquiry-to" width="date"><BaseInput id="inquiry-to" v-model="toDate" type="date" :min="fromDate || undefined" /></AdminFilterField>
+          <AdminFilterField :label="t('inquiry.common.search')" for-id="inquiry-keyword" width="search"><BaseInput id="inquiry-keyword" v-model="keyword" maxlength="200" :placeholder="t('inquiry.common.searchPlaceholder')" /></AdminFilterField>
+          <BaseButton type="submit" size="sm">{{ t('inquiry.common.query') }}</BaseButton>
+        </form>
+      </AdminFilterPanel>
+      <AdminContentState :error="Boolean(listQuery.error.value)" padding-class="" :error-text="t('inquiry.admin.loadFailed')" @retry="listQuery.refetch()">
+        <AdminPaginatedTable
+          :columns="newColumns"
+          :caption="t('inquiry.admin.newTab')"
+          :items="listQuery.data.value?.content ?? []"
+          row-key="inquiryId"
+          :loading="listQuery.isLoading.value"
+          :empty-text="t('inquiry.admin.empty')"
+          interactive-rows
+          :row-action-label="(item) => item.title"
+          :page="page"
+          :total-pages="listQuery.data.value?.totalPages ?? 0"
+          :total-elements="listQuery.data.value?.totalElements ?? 0"
+          :summary="t('inquiry.admin.total', { count: listQuery.data.value?.totalElements ?? 0 })"
+          @row-click="openDetail($event.inquiryId)"
+          @page-change="page = $event"
+        >
+          <template #cell-effectivePriority="{ item }"><InquiryPriorityBadge v-if="item.effectivePriority" :priority="item.effectivePriority" /><span v-else>-</span></template>
+          <template #cell-status="{ item }"><InquiryStatusBadge :status="item.status" /></template>
+          <template #cell-title="{ item }"><span class="font-medium nv-title">{{ item.title }}</span></template>
+          <template #cell-staffActionSince="{ item }">{{ formatDateTimeOrDash(item.staffActionSince) }}</template>
+        </AdminPaginatedTable>
+      </AdminContentState>
     </section>
 
     <section
@@ -337,7 +380,7 @@ function submitMessage() {
       @close="closeDetail"
     >
       <template v-if="detailQuery.data.value">
-        <p class="text-sm nv-text-muted" :data-inquiry-status="detailQuery.data.value.status">{{ detailQuery.data.value.authorName }} · {{ statusLabel(detailQuery.data.value.status) }} · {{ priorityLabel(detailQuery.data.value.effectivePriority) }}</p>
+        <div class="flex flex-wrap items-center gap-2 text-sm nv-text-muted"><span>{{ detailQuery.data.value.authorName }}</span><InquiryStatusBadge :status="detailQuery.data.value.status" /><InquiryPriorityBadge v-if="detailQuery.data.value.effectivePriority" :priority="detailQuery.data.value.effectivePriority" /></div>
         <InquiryTimeline :messages="detailQuery.data.value.messages" admin />
         <div class="flex flex-wrap gap-2">
           <BaseButton v-if="detailQuery.data.value.status === 'NEW'" size="sm" :disabled="actionMutation.isPending.value" @click="runAction('start')">{{ t('inquiry.admin.start') }}</BaseButton>
@@ -345,8 +388,8 @@ function submitMessage() {
           <BaseButton v-if="detailQuery.data.value.status !== 'CLOSED'" size="sm" variant="danger" :disabled="actionMutation.isPending.value" @click="runAction('close')">{{ t('inquiry.admin.close') }}</BaseButton>
         </div>
         <form class="space-y-3 rounded-xl border nv-border p-4" @submit.prevent="submitMessage">
-          <div class="flex gap-4"><label><input v-model="composeMode" type="radio" value="reply" :disabled="detailQuery.data.value.status === 'CLOSED' || actionMutation.isPending.value"> {{ t('inquiry.admin.publicReply') }}</label><label><input v-model="composeMode" type="radio" value="note" :disabled="actionMutation.isPending.value"> {{ t('inquiry.admin.note') }}</label></div>
-          <textarea v-model="content" maxlength="10000" rows="6" class="block w-full rounded-md border nv-border nv-surface px-3 py-2" :placeholder="composeMode === 'note' ? t('inquiry.admin.notePlaceholder') : t('inquiry.admin.replyPlaceholder')" :disabled="actionMutation.isPending.value" />
+          <BaseSegmentedControl v-model="composeMode" :options="composeOptions" :label="t('inquiry.admin.detail')" selection-mode="radio" :disabled="actionMutation.isPending.value" />
+          <BaseTextarea v-model="content" :label="composeMode === 'note' ? t('inquiry.admin.note') : t('inquiry.admin.publicReply')" maxlength="10000" rows="6" :placeholder="composeMode === 'note' ? t('inquiry.admin.notePlaceholder') : t('inquiry.admin.replyPlaceholder')" :disabled="actionMutation.isPending.value || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')" />
           <InquiryImageUploader :key="selectedId ?? 'closed'" ref="uploader" v-model="fileIds" :disabled="actionMutation.isPending.value" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
           <p v-if="errorMessage" class="nv-form-error text-sm">{{ errorMessage }}</p>
           <div class="flex justify-end"><BaseButton type="submit" :loading="actionMutation.isPending.value" :disabled="uploadsPending || actionMutation.isPending.value || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')">{{ composeMode === 'note' ? t('inquiry.admin.addNote') : t('inquiry.admin.addReply') }}</BaseButton></div>

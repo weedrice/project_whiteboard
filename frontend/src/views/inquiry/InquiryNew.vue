@@ -7,6 +7,10 @@ import { unwrapAxiosApiData } from '@/api/response'
 import type { InquiryCategory } from '@/types/inquiry'
 import InquiryImageUploader from '@/components/inquiry/InquiryImageUploader.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useI18n } from 'vue-i18n'
@@ -26,6 +30,10 @@ const createdInquiryId = ref<number | null>(null)
 const formLocked = computed(() => createMutation.isPending.value || createdInquiryId.value !== null)
 
 const categories: InquiryCategory[] = ['ACCOUNT', 'SERVICE_USE', 'TECHNICAL', 'CONTENT_OPERATION', 'SUGGESTION', 'OTHER']
+const categoryOptions = computed(() => categories.map((value) => ({
+  value,
+  label: t(`inquiry.category.${value}`),
+})))
 
 interface CreateInquiryVariables {
   category: InquiryCategory
@@ -111,25 +119,23 @@ async function cancel() {
     <PageHeader :title="t('inquiry.form.title')" :description="t('inquiry.form.description')">
       <template #actions><BaseButton to="/inquiries" variant="secondary">{{ t('inquiry.list.title') }}</BaseButton></template>
     </PageHeader>
-    <form class="space-y-5 rounded-xl border nv-border nv-surface p-5" @submit.prevent="submit">
-      <label class="block text-sm font-medium">{{ t('inquiry.form.category') }}
-        <select v-model="category" :disabled="formLocked" class="mt-2 block w-full rounded-md border nv-border nv-surface px-3 py-2">
-          <option v-for="item in categories" :key="item" :value="item">{{ t(`inquiry.category.${item}`) }}</option>
-        </select>
-      </label>
-      <label class="block text-sm font-medium">{{ t('inquiry.form.subject') }}
-        <input v-model="title" maxlength="200" required :disabled="formLocked" class="mt-2 block w-full rounded-md border nv-border nv-surface px-3 py-2" autocomplete="off">
-      </label>
-      <label class="block text-sm font-medium">{{ t('inquiry.form.content') }}
-        <textarea v-model="content" maxlength="10000" required rows="12" :disabled="formLocked" class="mt-2 block w-full resize-y rounded-md border nv-border nv-surface px-3 py-2" />
-        <span class="mt-1 block text-right text-xs nv-text-muted">{{ t('inquiry.form.count', { count: content.length }) }}</span>
-      </label>
-      <InquiryImageUploader ref="uploader" v-model="fileIds" :disabled="formLocked" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
-      <p v-if="errorMessage" class="nv-form-error text-sm" role="alert">{{ errorMessage }}</p>
-      <div v-if="createdInquiryId !== null" class="flex justify-end">
-        <BaseButton :to="`/inquiries/${createdInquiryId}`">{{ t('inquiry.form.openCreated') }}</BaseButton>
-      </div>
-      <div v-else class="flex justify-end gap-2"><BaseButton variant="secondary" :disabled="formLocked" @click="cancel">{{ t('inquiry.form.cancel') }}</BaseButton><BaseButton type="submit" :loading="createMutation.isPending.value" :disabled="uploadsPending || formLocked">{{ t('inquiry.form.submit') }}</BaseButton></div>
+    <form @submit.prevent="submit">
+      <BaseCard bordered elevation="none" padding="lg">
+        <fieldset :disabled="formLocked" class="m-0 space-y-5 border-0 p-0">
+          <BaseSelect v-model="category" :label="t('inquiry.form.category')" :options="categoryOptions" :disabled="formLocked" />
+          <BaseInput v-model="title" :label="t('inquiry.form.subject')" maxlength="200" required :disabled="formLocked" autocomplete="off" />
+          <div>
+            <BaseTextarea v-model="content" :label="t('inquiry.form.content')" maxlength="10000" required rows="12" :disabled="formLocked" input-class="resize-y" />
+            <span class="mt-1 block text-right text-xs nv-text-muted">{{ t('inquiry.form.count', { count: content.length }) }}</span>
+          </div>
+          <InquiryImageUploader ref="uploader" v-model="fileIds" :disabled="formLocked" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
+          <p v-if="errorMessage" class="nv-form-error text-sm" role="alert">{{ errorMessage }}</p>
+          <div v-if="createdInquiryId !== null" class="flex justify-end">
+            <BaseButton :to="`/inquiries/${createdInquiryId}`">{{ t('inquiry.form.openCreated') }}</BaseButton>
+          </div>
+          <div v-else class="flex justify-end gap-2"><BaseButton variant="secondary" :disabled="formLocked" @click="cancel">{{ t('inquiry.form.cancel') }}</BaseButton><BaseButton type="submit" :loading="createMutation.isPending.value" :disabled="uploadsPending || formLocked">{{ t('inquiry.form.submit') }}</BaseButton></div>
+        </fieldset>
+      </BaseCard>
     </form>
   </section>
 </template>

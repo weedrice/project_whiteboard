@@ -39,13 +39,11 @@ const allowedTemplateCalls = [
   { template: 'inquiry.status.${value}', keys: /^inquiry\.status\.(NEW|IN_PROGRESS|RESOLVED|CLOSED)$/ },
   { template: 'inquiry.priority.${value}', keys: /^inquiry\.priority\.(NORMAL|HIGH|URGENT)$/ },
   { template: 'inquiry.closureReason.${value}', keys: /^inquiry\.closureReason\.(WITHDRAWN|USER_CONFIRMED|ADMIN_CLOSED|AUTO_CLOSED)$/ },
-  { template: 'inquiry.category.${item}', keys: /^inquiry\.category\.(ACCOUNT|SERVICE_USE|TECHNICAL|CONTENT_OPERATION|SUGGESTION|OTHER)$/ },
 ] as const
 
 const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'features/notifications/notificationPresentation.ts', line: /t\(notification\.(messageKey|actorLabelKey)/ },
   { file: 'components/admin/AdminAuditLogTable.vue', line: /t\(key/ },
-  { file: 'views/admin/AdminInquiryPosts.vue', line: /t\(item\.statusLabelKey/ },
   { file: 'components/user/MyPageSummaryCards.vue', line: /\$t\(card\.titleKey/ },
   { file: 'components/user/MyPageNavigation.vue', line: /\$t\((group|item)\.nameKey/ },
   {

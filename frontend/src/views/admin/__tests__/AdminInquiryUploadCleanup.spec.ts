@@ -81,6 +81,9 @@ vi.mock('@/features/admin/inquiries/useAdminInquiryPosts', () => ({
   }),
 }))
 vi.mock('@/api/inquiry', () => ({ inquiryApi: {} }))
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirmWithReason: vi.fn().mockResolvedValue(null) }),
+}))
 
 const UploaderStub = defineComponent({
   setup(_, { expose }) {

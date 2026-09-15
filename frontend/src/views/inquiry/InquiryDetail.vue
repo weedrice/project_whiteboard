@@ -15,9 +15,14 @@ import InquiryTimeline from '@/components/inquiry/InquiryTimeline.vue'
 import InquiryImageUploader from '@/components/inquiry/InquiryImageUploader.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
+import InquiryStatusBadge from '@/components/inquiry/InquiryStatusBadge.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useI18n } from 'vue-i18n'
-import type { InquiryCategory, InquiryClosureReason, InquiryStatus } from '@/types/inquiry'
+import type { InquiryCategory, InquiryClosureReason } from '@/types/inquiry'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -33,7 +38,6 @@ const uploadsPending = ref(false)
 const uploader = ref<InstanceType<typeof InquiryImageUploader> | null>(null)
 let draftEpoch = 0
 const categoryLabel = (value: InquiryCategory) => t(`inquiry.category.${value}`)
-const statusLabel = (value: InquiryStatus) => t(`inquiry.status.${value}`)
 const closureReasonLabel = (value: InquiryClosureReason) => t(`inquiry.closureReason.${value}`)
 
 const detailQuery = useApiQuery({
@@ -170,18 +174,24 @@ async function runAction(action: 'withdraw' | 'close') {
     <PageHeader :title="detailQuery.data.value?.title || t('inquiry.detail.title')" :description="t('inquiry.detail.description')">
       <template #actions><BaseButton variant="secondary" @click="router.push('/inquiries')">{{ t('inquiry.detail.list') }}</BaseButton></template>
     </PageHeader>
-    <div v-if="detailQuery.isLoading.value" class="rounded-xl border nv-border nv-surface p-8 text-center">{{ t('inquiry.common.loading') }}</div>
-    <div v-else-if="detailQuery.error.value || !detailQuery.data.value" class="rounded-xl nv-status-danger p-4">{{ t('inquiry.common.notFound') }}</div>
+    <div v-if="detailQuery.isLoading.value" class="flex justify-center py-8" role="status" aria-live="polite"><BaseSpinner /><span class="sr-only">{{ t('inquiry.common.loading') }}</span></div>
+    <ErrorState v-else-if="detailQuery.error.value || !detailQuery.data.value" :message="t('inquiry.common.notFound')" />
     <template v-else>
-      <div class="flex flex-wrap items-center gap-2 rounded-xl border nv-border nv-surface p-4 text-sm">
-        <strong :data-inquiry-status="detailQuery.data.value.status">{{ statusLabel(detailQuery.data.value.status) }}</strong><span>{{ categoryLabel(detailQuery.data.value.category) }}</span>
-        <span v-if="detailQuery.data.value.closureReason" class="nv-text-muted">{{ closureReasonLabel(detailQuery.data.value.closureReason) }}</span>
-      </div>
+      <BaseCard bordered elevation="none" padding="sm">
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <InquiryStatusBadge :status="detailQuery.data.value.status" /><span>{{ categoryLabel(detailQuery.data.value.category) }}</span>
+          <span v-if="detailQuery.data.value.closureReason" class="nv-text-muted">{{ closureReasonLabel(detailQuery.data.value.closureReason) }}</span>
+        </div>
+      </BaseCard>
       <InquiryTimeline :messages="detailQuery.data.value.messages" />
-      <form v-if="detailQuery.data.value.allowedActions.canAddMessage" class="space-y-3 rounded-xl border nv-border nv-surface p-4" @submit.prevent="addMessage">
-        <label class="block text-sm font-medium">{{ t('inquiry.detail.addMessage') }}<textarea v-model="content" maxlength="10000" rows="6" class="mt-2 block w-full rounded-md border nv-border nv-surface px-3 py-2" :disabled="interactionPending" /></label>
-        <InquiryImageUploader :key="inquiryId" ref="uploader" v-model="fileIds" :disabled="interactionPending" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
-        <div class="flex justify-end"><BaseButton type="submit" :loading="messageMutation.isPending.value" :disabled="uploadsPending || interactionPending">{{ t('inquiry.detail.submitMessage') }}</BaseButton></div>
+      <form v-if="detailQuery.data.value.allowedActions.canAddMessage" @submit.prevent="addMessage">
+        <BaseCard bordered elevation="none" padding="sm">
+          <div class="space-y-3">
+            <BaseTextarea v-model="content" :label="t('inquiry.detail.addMessage')" maxlength="10000" rows="6" :disabled="interactionPending" />
+            <InquiryImageUploader :key="inquiryId" ref="uploader" v-model="fileIds" :disabled="interactionPending" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
+            <div class="flex justify-end"><BaseButton type="submit" :loading="messageMutation.isPending.value" :disabled="uploadsPending || interactionPending">{{ t('inquiry.detail.submitMessage') }}</BaseButton></div>
+          </div>
+        </BaseCard>
       </form>
       <p v-if="errorMessage" class="nv-form-error text-sm" role="alert">{{ errorMessage }}</p>
       <div class="flex justify-end gap-2">
