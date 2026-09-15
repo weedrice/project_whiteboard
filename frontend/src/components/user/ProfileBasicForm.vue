@@ -37,6 +37,7 @@
           id="profile-photo-input"
           ref="fileInputRef"
           type="file"
+          data-ui-native="file"
           name="profileImage"
           class="hidden"
           :accept="IMAGE_UPLOAD_ACCEPT"

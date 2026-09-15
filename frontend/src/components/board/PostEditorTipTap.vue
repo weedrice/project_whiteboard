@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
-    <input ref="imageInput" type="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
+    <input ref="imageInput" type="file" data-ui-native="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
 
     <PostEditorToolbar
       v-if="editor"

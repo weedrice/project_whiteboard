@@ -22,6 +22,7 @@
         <div class="flex items-center">
           <input
             type="file"
+            data-ui-native="file"
             :ref="setFileInputRef"
             :accept="BOARD_ICON_UPLOAD_POLICY.accept"
             class="hidden"

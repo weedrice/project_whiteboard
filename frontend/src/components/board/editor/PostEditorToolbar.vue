@@ -92,11 +92,11 @@ const { t } = useI18n()
         <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-label="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-strike')">
           <span class="line-through">S</span>
         </button>
-        <select class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" :disabled="isRawHtmlBlockSelected" @change="emit('font-size', ($event.target as HTMLSelectElement).value)">
+        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" :disabled="isRawHtmlBlockSelected" @change="emit('font-size', ($event.target as HTMLSelectElement).value)">
           <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
           <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
         </select>
-        <select class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" :disabled="isRawHtmlBlockSelected" @change="emit('line-height', ($event.target as HTMLSelectElement).value)">
+        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" :disabled="isRawHtmlBlockSelected" @change="emit('line-height', ($event.target as HTMLSelectElement).value)">
           <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
           <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
         </select>
@@ -146,6 +146,7 @@ const { t } = useI18n()
       <div class="tiptap-toolbar-group">
         <select
           v-if="editor.isActive('codeBlock')"
+          data-ui-native="specialized"
           class="tiptap-select text-xs"
           :value="currentCodeBlockLanguage"
           :aria-label="t('board.writePost.codeBlock.language')"

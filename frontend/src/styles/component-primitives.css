@@ -206,4 +206,104 @@
     color: var(--nv-accent);
   }
 
+  .input-base {
+    @apply block w-full rounded-md shadow-sm text-xs sm:text-sm px-3 py-2;
+    background: var(--nv-surface);
+    border-color: var(--nv-border-strong);
+    color: var(--nv-ink);
+  }
+
+  .input-base::placeholder {
+    color: var(--nv-muted);
+  }
+
+  .input-base:focus {
+    border-color: var(--nv-focus);
+    box-shadow: 0 0 0 1px var(--nv-focus);
+  }
+
+  .input-base.is-invalid {
+    border-color: var(--nv-danger);
+  }
+
+  .input-base.is-invalid:focus {
+    border-color: var(--nv-danger);
+    box-shadow: 0 0 0 1px var(--nv-danger);
+  }
+
+  .input-base:disabled {
+    background: var(--nv-surface-muted);
+    color: var(--nv-muted);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center px-4 py-2 border text-sm font-medium rounded-full shadow-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--nv-accent);
+    border-color: var(--nv-accent);
+    color: var(--nv-on-accent);
+  }
+
+  .btn-secondary {
+    @apply py-2 px-4 border rounded-full shadow-sm text-sm font-medium focus:outline-none;
+    background: var(--nv-surface);
+    color: var(--nv-ink);
+    border-color: var(--nv-line);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center px-4 py-2 border text-sm font-medium rounded-full shadow-sm focus:outline-none;
+    background: var(--nv-danger);
+    border-color: var(--nv-danger);
+    color: var(--nv-on-danger);
+  }
+
+  .btn-ghost {
+    @apply bg-transparent inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full focus:outline-none;
+    color: var(--nv-ink-soft);
+  }
+
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
+    border-color: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
+  }
+
+  .btn-secondary:hover,
+  .btn-ghost:hover {
+    background: var(--nv-surface-hover);
+    color: var(--nv-ink);
+  }
+
+  .btn-danger:hover {
+    background: color-mix(in srgb, var(--nv-danger) 88%, black 12%);
+    border-color: color-mix(in srgb, var(--nv-danger) 88%, black 12%);
+  }
+
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .btn-danger:focus-visible,
+  .btn-ghost:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
+  }
+
+  .btn-sm {
+    @apply px-3 py-2 text-sm leading-4;
+  }
+
+  @media (max-width: 639px) {
+    .input-base,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .btn-ghost {
+      min-height: 2.75rem;
+    }
+
+    .btn-sm {
+      min-height: 2.75rem !important;
+      padding: 0.375rem 0.5rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1rem !important;
+    }
+  }
+
 }

@@ -52,6 +52,7 @@ const { t } = useI18n()
       id="editor-custom-text-color"
       name="editorCustomTextColor"
       type="color"
+      data-ui-native="color"
       :value="currentTextColor || DEFAULT_EDITOR_TEXT_COLOR"
       class="color-panel-custom-input"
       :aria-label="t('board.writePost.toolbar.customColor')"

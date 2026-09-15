@@ -5,13 +5,11 @@ withDefaults(defineProps<{
   tone?: 'neutral' | 'accent' | 'success' | 'danger'
   iconOnly?: boolean
   disabled?: boolean
-  type?: 'button' | 'submit' | 'reset'
 }>(), {
   title: undefined,
   tone: 'neutral',
   iconOnly: false,
   disabled: false,
-  type: 'button',
 })
 
 const emit = defineEmits<{
@@ -28,7 +26,7 @@ const toneClasses = {
 
 <template>
   <button
-    :type="type"
+    type="button"
     :title="title || label"
     :aria-label="label"
     :disabled="disabled"

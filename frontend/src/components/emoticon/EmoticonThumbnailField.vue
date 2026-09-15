@@ -37,6 +37,7 @@ function openFileInput() {
       :id="inputId"
       ref="fileInput"
       type="file"
+      data-ui-native="file"
       :name="inputName"
       :accept="accept"
       class="hidden"

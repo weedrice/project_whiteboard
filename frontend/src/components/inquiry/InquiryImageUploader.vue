@@ -193,7 +193,7 @@ defineExpose({ beginSubmission, commitUploads, discardUploads, failSubmission })
 <template>
   <div class="space-y-2">
     <label :class="['inline-flex min-h-11 items-center rounded-md border nv-border px-3 py-2 text-sm', props.disabled || submissionPending || disposed ? 'cursor-not-allowed opacity-60' : 'cursor-pointer']">
-      <input class="sr-only" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple :disabled="uploading || submissionPending || disposed || props.disabled" @change="handleFiles">
+      <input class="sr-only" type="file" data-ui-native="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple :disabled="uploading || submissionPending || disposed || props.disabled" @change="handleFiles">
       {{ uploading ? t('inquiry.upload.uploading') : t('inquiry.upload.choose', { count: fileIds.length }) }}
     </label>
     <ul v-if="fileIds.length" class="space-y-1 text-sm nv-text-muted">

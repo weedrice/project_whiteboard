@@ -251,7 +251,7 @@ const columns = computed(() => createPostListColumns({
 </script>
 
 <template>
-  <div class="card border-0 bg-transparent shadow-none" :aria-busy="loading ? 'true' : 'false'">
+  <div class="w-full" :aria-busy="loading ? 'true' : 'false'">
     <div v-if="showDensityControl" class="flex items-center justify-end px-3 py-2 sm:px-4">
       <PostListDensityControl
         v-model="listDensity"

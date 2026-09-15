@@ -27,6 +27,11 @@
 ## UI Layer
 
 - Prefer existing base components before adding new wrappers: `Base*`, `PaginatedListCard`, `AdminDataPage`, `AdminPaginatedTable`, and `AdminDetailModalShell`.
+- Route views must use `BaseInput`, `BaseSelect`, `BaseTextarea`, and `BaseTable`/`AdminPaginatedTable`. Outside the base primitive implementations, a native `input`, `select`, `textarea`, or `table` is allowed only for a specialized browser or interaction capability and must declare `data-ui-native="file|color|radio|specialized"`.
+- Every raw `<button>` must declare a static `type`. Keep editor, menu, drag, and media controls native when their interaction contract is feature-specific.
+- Use `PageHeader` for standard route titles and `AdminDataPage` for administrator content pages. Identity, legal, authentication, and compact list-card headers may keep their specialized hierarchy.
+- Use `BaseBadge` for passive status labels. Counters, image overlays, and interactive status actions are not badges.
+- Retired generic classes and `legacy-components.css` must not be reintroduced. The `check:ui` primitive contract scans Vue templates (including static and literal/object class bindings), SFC styles, TypeScript, CSS, and SCSS for these boundaries.
 - Extract shared UI only when the shared part can own layout and state boundaries without hiding domain-specific behavior.
 - Keep body rendering in slots for sections that differ by domain, such as dashboard posts, dashboard comments, or admin detail contents.
 - Add variants to an existing component only when the variant uses the same semantic component, such as `BoardCard` compact results.
