@@ -3,6 +3,7 @@ import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { NodeTypes } from '@vue/compiler-dom'
 import { parse as parseSfc } from '@vue/compiler-sfc'
+import ts from 'typescript'
 
 const invokedDirectly = Boolean(
   process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href,
@@ -125,46 +126,152 @@ function isNativeClassificationValid(node, classification) {
   return false
 }
 
-function findClassPropertyValues(expression) {
-  return [...expression.matchAll(
-    /(?:^|[{,])\s*(?:class|['"]class['"])\s*:\s*([^}]+?)(?=,\s*(?:[\w$-]+|['"][\w$-]+['"])\s*:|}\s*$)/g,
-  )].map((match) => match[1])
-}
-
-function findStringLiteralClasses(value, classNames) {
-  const literals = [...value.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)].map((match) => match[2])
-  return [...new Set(literals.flatMap((literal) => (
-    [...classNames].filter((className) => (
-      new RegExp(`(^|[^\\w-])${escapeRegExp(className)}(?=$|[^\\w-])`).test(literal)
-    ))
-  )))]
-}
-
-function findScriptClassLiterals(value, classNames) {
-  const assignments = [...value.matchAll(
-    /\b(?:const|let|var)\s+[\w$]*class[\w$]*\s*=\s*([^;\r\n]+)/gi,
-  )].map((match) => match[1])
-  return [...new Set(assignments.flatMap((assignment) => (
-    findStringLiteralClasses(assignment, classNames)
-  )))]
-}
-
-export function findRetiredBoundClasses(expression) {
-  const classBearingParts = []
-  for (const match of expression.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)) {
-    classBearingParts.push(match[2])
+function getPropertyName(node) {
+  if (!node) return ''
+  if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) {
+    return node.text
   }
-  for (const match of expression.matchAll(/(?:^|[{,])\s*([A-Za-z_$][\w$-]*)\s*:/g)) {
-    classBearingParts.push(match[1])
-  }
-  if (/^[A-Za-z_$][\w$-]*$/.test(expression.trim())) {
-    classBearingParts.push(expression.trim())
-  }
-  return [...new Set(classBearingParts.flatMap(findRetiredClasses))]
+  return ''
 }
 
-export function findRetiredSpreadClasses(expression) {
-  return [...new Set(findClassPropertyValues(expression).flatMap(findRetiredBoundClasses))]
+function isClassBindingName(name) {
+  return /class(?:es|name|names)?$/i.test(name)
+}
+
+function createScriptAnalysis(value, fileName = 'source.ts') {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    value,
+    ts.ScriptTarget.Latest,
+    true,
+    fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  )
+  const bindings = new Map()
+
+  const collectBindings = (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      bindings.set(node.name.text, node.initializer)
+    }
+    ts.forEachChild(node, collectBindings)
+  }
+  collectBindings(sourceFile)
+
+  return { sourceFile, bindings }
+}
+
+function collectClassExpressionMatches(node, classNames, analysis, matches, resolving = new Set()) {
+  if (!node) return
+
+  if (ts.isStringLiteralLike(node)) {
+    findMatchingClasses(node.text, classNames).forEach((className) => matches.add(className))
+    return
+  }
+
+  if (ts.isIdentifier(node) && analysis.bindings.has(node.text) && !resolving.has(node.text)) {
+    const nextResolving = new Set(resolving).add(node.text)
+    collectClassExpressionMatches(analysis.bindings.get(node.text), classNames, analysis, matches, nextResolving)
+    return
+  }
+
+  if (
+    (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node) || ts.isMethodDeclaration(node))
+    && ts.isObjectLiteralExpression(node.parent)
+  ) {
+    const propertyName = getPropertyName(node.name)
+    findMatchingClasses(propertyName, classNames).forEach((className) => matches.add(className))
+  }
+
+  ts.forEachChild(node, (child) => (
+    collectClassExpressionMatches(child, classNames, analysis, matches, resolving)
+  ))
+}
+
+function findExpressionClasses(expression, classNames, analysis) {
+  if (!expression.trim()) return []
+  const expressionAnalysis = createScriptAnalysis(`const __uiExpression = (${expression})`, 'expression.ts')
+  const expressionNode = expressionAnalysis.bindings.get('__uiExpression')
+  const combinedAnalysis = {
+    sourceFile: expressionAnalysis.sourceFile,
+    bindings: new Map([...analysis.bindings, ...expressionAnalysis.bindings]),
+  }
+  const matches = new Set()
+  collectClassExpressionMatches(expressionNode, classNames, combinedAnalysis, matches)
+  return [...matches]
+}
+
+function collectSpreadClassMatches(node, classNames, analysis, matches, resolving = new Set()) {
+  if (!node) return
+
+  if (ts.isIdentifier(node) && analysis.bindings.has(node.text) && !resolving.has(node.text)) {
+    const nextResolving = new Set(resolving).add(node.text)
+    collectSpreadClassMatches(analysis.bindings.get(node.text), classNames, analysis, matches, nextResolving)
+    return
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const property of node.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        collectSpreadClassMatches(property.expression, classNames, analysis, matches, resolving)
+        continue
+      }
+      if (
+        (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property))
+        && getPropertyName(property.name) === 'class'
+      ) {
+        collectClassExpressionMatches(
+          ts.isPropertyAssignment(property) ? property.initializer : property.name,
+          classNames,
+          analysis,
+          matches,
+          resolving,
+        )
+      }
+    }
+    return
+  }
+
+  ts.forEachChild(node, (child) => (
+    collectSpreadClassMatches(child, classNames, analysis, matches, resolving)
+  ))
+}
+
+function findSpreadExpressionClasses(expression, classNames, analysis) {
+  if (!expression.trim()) return []
+  const expressionAnalysis = createScriptAnalysis(`const __uiSpread = (${expression})`, 'spread-expression.ts')
+  const expressionNode = expressionAnalysis.bindings.get('__uiSpread')
+  const combinedAnalysis = {
+    sourceFile: expressionAnalysis.sourceFile,
+    bindings: new Map([...analysis.bindings, ...expressionAnalysis.bindings]),
+  }
+  const matches = new Set()
+  collectSpreadClassMatches(expressionNode, classNames, combinedAnalysis, matches)
+  return [...matches]
+}
+
+function findScriptClassLiterals(value, classNames, fileName) {
+  const analysis = createScriptAnalysis(value, fileName)
+  const matches = new Set()
+
+  const visitScript = (node) => {
+    if (
+      ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && isClassBindingName(node.name.text)
+      && node.initializer
+    ) {
+      collectClassExpressionMatches(node.initializer, classNames, analysis, matches)
+    }
+    if (
+      ts.isPropertyAssignment(node)
+      && getPropertyName(node.name) === 'class'
+    ) {
+      collectClassExpressionMatches(node.initializer, classNames, analysis, matches)
+    }
+    ts.forEachChild(node, visitScript)
+  }
+  visitScript(analysis.sourceFile)
+
+  return [...matches]
 }
 
 export function findRetiredCssSelectors(value) {
@@ -192,6 +299,19 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
       }
     }
 
+    if (extname(file) === '.ts') {
+      const retiredScriptClasses = findScriptClassLiterals(source, retiredClasses, file)
+      if (retiredScriptClasses.length > 0) {
+        violations.push(`${displayPath}: retired UI class in script: ${retiredScriptClasses.join(', ')}`)
+      }
+      if (!primitiveClassOwnerFiles.has(displayPath)) {
+        const sharedScriptClasses = findScriptClassLiterals(source, sharedPrimitiveClasses, file)
+        if (sharedScriptClasses.length > 0) {
+          violations.push(`${displayPath}: shared primitive class in script: ${sharedScriptClasses.join(', ')}`)
+        }
+      }
+    }
+
     if (extname(file) !== '.vue') continue
 
     const parsed = parseSfc(source, { filename: file })
@@ -210,12 +330,13 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
     const scriptSource = [parsed.descriptor.script?.content, parsed.descriptor.scriptSetup?.content]
       .filter(Boolean)
       .join('\n')
-    const retiredScriptClasses = findScriptClassLiterals(scriptSource, retiredClasses)
+    const scriptAnalysis = createScriptAnalysis(scriptSource, file)
+    const retiredScriptClasses = findScriptClassLiterals(scriptSource, retiredClasses, file)
     if (retiredScriptClasses.length > 0) {
       violations.push(`${displayPath}: retired UI class in script: ${retiredScriptClasses.join(', ')}`)
     }
     if (!primitiveClassOwnerFiles.has(displayPath)) {
-      const sharedScriptClasses = findScriptClassLiterals(scriptSource, sharedPrimitiveClasses)
+      const sharedScriptClasses = findScriptClassLiterals(scriptSource, sharedPrimitiveClasses, file)
       if (sharedScriptClasses.length > 0) {
         violations.push(`${displayPath}: shared primitive class in script: ${sharedScriptClasses.join(', ')}`)
       }
@@ -241,10 +362,13 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
 
       const staticClasses = getStaticAttribute(node, 'class')?.value?.content ?? ''
       const boundClasses = getBoundAttributeExpression(node, 'class')
-      const spreadClasses = getSpreadBindingExpressions(node).flatMap(findRetiredSpreadClasses)
+      const spreadBindings = getSpreadBindingExpressions(node)
+      const spreadClasses = spreadBindings.flatMap((expression) => (
+        findSpreadExpressionClasses(expression, retiredClasses, scriptAnalysis)
+      ))
       const retired = new Set([
         ...findRetiredClasses(staticClasses),
-        ...findRetiredBoundClasses(boundClasses),
+        ...findExpressionClasses(boundClasses, retiredClasses, scriptAnalysis),
         ...spreadClasses,
       ])
       if (retired.size > 0) {
@@ -254,9 +378,9 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
       if (!primitiveClassOwnerFiles.has(displayPath)) {
         const shared = new Set([
           ...findMatchingClasses(staticClasses, sharedPrimitiveClasses),
-          ...findMatchingClasses(boundClasses, sharedPrimitiveClasses),
-          ...getSpreadBindingExpressions(node).flatMap((expression) => (
-            findClassPropertyValues(expression).flatMap((value) => findMatchingClasses(value, sharedPrimitiveClasses))
+          ...findExpressionClasses(boundClasses, sharedPrimitiveClasses, scriptAnalysis),
+          ...spreadBindings.flatMap((expression) => (
+            findSpreadExpressionClasses(expression, sharedPrimitiveClasses, scriptAnalysis)
           )),
         ])
         if (shared.size > 0) {
