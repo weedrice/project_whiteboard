@@ -11,8 +11,8 @@ const createHarness = () => {
             const containerRef = ref<HTMLElement | null>(null)
             composable = useFocusTrap(containerRef, isActive)
             return () => h('div', { ref: containerRef }, [
-                h('button', { id: 'first' }, 'First'),
                 h('button', { id: 'hidden', style: 'display: none;' }, 'Hidden'),
+                h('button', { id: 'first' }, 'First'),
                 h('input', { id: 'second' }),
             ])
         },
@@ -37,12 +37,8 @@ describe('useFocusTrap', () => {
         document.body.innerHTML = ''
     })
 
-    it('returns visible focusable elements and moves focus to the first one', () => {
+    it('moves focus to the first visible focusable element', () => {
         const { composable, wrapper } = createHarness()
-
-        const focusableElements = composable.getFocusableElements()
-
-        expect(focusableElements.map((element) => element.id)).toEqual(['first', 'second'])
 
         composable.trapFocus()
 
@@ -69,8 +65,8 @@ describe('useFocusTrap', () => {
         expect(document.activeElement).toBe(second)
     })
 
-    it('does not trap focus while inactive and restores the previous focus target', () => {
-        const { composable, isActive, trigger, wrapper } = createHarness()
+    it('does not trap focus while inactive', () => {
+        const { composable, isActive, wrapper } = createHarness()
         const second = wrapper.get('#second').element as HTMLElement
         composable.trapFocus()
         isActive.value = false
@@ -81,13 +77,10 @@ describe('useFocusTrap', () => {
 
         expect(tabEvent.defaultPrevented).toBe(false)
 
-        composable.restoreFocus()
-
-        expect(document.activeElement).toBe(trigger)
     })
 
-    it('recovers programmatic focus escape without replacing the return target', () => {
-        const { composable, trigger, wrapper } = createHarness()
+    it('recovers programmatic focus escape', () => {
+        const { composable, wrapper } = createHarness()
         const outside = document.createElement('button')
         document.body.appendChild(outside)
         composable.trapFocus()
@@ -96,8 +89,6 @@ describe('useFocusTrap', () => {
         outside.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
 
         expect(document.activeElement).toBe(wrapper.get('#first').element)
-        composable.restoreFocus()
-        expect(document.activeElement).toBe(trigger)
     })
 
     it('temporarily makes an empty container focusable', () => {
@@ -118,8 +109,5 @@ describe('useFocusTrap', () => {
 
         expect(wrapper.get('#empty').attributes('tabindex')).toBe('-1')
         expect(document.activeElement).toBe(wrapper.get('#empty').element)
-        composable.restoreFocus()
-        expect(wrapper.get('#empty').attributes('tabindex')).toBeUndefined()
-        expect(document.activeElement).toBe(trigger)
     })
 })

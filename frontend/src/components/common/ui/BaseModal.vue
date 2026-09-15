@@ -1,12 +1,12 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" ref="overlayRef" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick"
-      @focusin="rememberFocus" @focusout="rememberFocus" role="dialog"
-      :aria-modal="isTopModal ? 'true' : undefined" :aria-hidden="isTopModal ? undefined : 'true'"
-      :inert="isTopModal ? undefined : true" :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
+    <div v-if="isOpen" ref="overlayRef" class="modal-overlay nv-dialog-overlay nv-dialog-overlay--modal" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick"
+      role="dialog"
+      :aria-modal="isTopDialog ? 'true' : undefined" :aria-hidden="isTopDialog ? undefined : 'true'"
+      :inert="isTopDialog ? undefined : true" :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
       <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef" tabindex="-1">
         <!-- Modal content -->
-        <div class="modal-content">
+        <div :class="['modal-content', 'nv-dialog-surface', 'nv-dialog-surface--modal', { 'modal-layout-immersive': layout === 'immersive' }]">
           <!-- Modal header -->
           <div :class="['modal-header', headerClass]">
             <component :is="titleTag" :id="titleId" class="text-xl font-medium nv-title">
@@ -30,7 +30,7 @@
           </div>
           <p v-if="description" :id="descriptionId" class="sr-only">{{ description }}</p>
           <!-- Modal body -->
-          <div :class="['modal-body', bodyClass]">
+          <div :class="['modal-body', { 'modal-body-padding-none': bodyPadding === 'none' }, bodyClass]">
             <slot></slot>
           </div>
           <!-- Modal footer -->
@@ -43,57 +43,10 @@
   </Teleport>
 </template>
 
-<script lang="ts">
-import { shallowReactive } from 'vue'
-
-const modalStack = shallowReactive<symbol[]>([])
-const modalFocusTargets = new Map<symbol, HTMLElement>()
-const modalOverlayTargets = new Map<symbol, HTMLElement>()
-const managedBackgroundInert = new Set<HTMLElement>()
-
-function syncBackgroundInert() {
-  managedBackgroundInert.forEach((element) => element.removeAttribute('inert'))
-  managedBackgroundInert.clear()
-  const topId = modalStack[modalStack.length - 1]
-  const topOverlay = topId ? modalOverlayTargets.get(topId) : null
-  if (!topOverlay) return
-  Array.from(document.body.children).forEach((element) => {
-    if (!(element instanceof HTMLElement) || element === topOverlay || element.contains(topOverlay)) return
-    if (!element.hasAttribute('inert')) {
-      element.setAttribute('inert', '')
-      managedBackgroundInert.add(element)
-    }
-  })
-}
-
-function registerOpenModal(modalId: symbol) {
-  if (!modalStack.includes(modalId)) {
-    modalStack.push(modalId)
-  }
-}
-
-function unregisterOpenModal(modalId: symbol) {
-  const index = modalStack.indexOf(modalId)
-  if (index !== -1) {
-    modalStack.splice(index, 1)
-  }
-  modalFocusTargets.delete(modalId)
-  modalOverlayTargets.delete(modalId)
-  syncBackgroundInert()
-}
-
-function isTopOpenModal(modalId: symbol) {
-  return modalStack[modalStack.length - 1] === modalId
-}
-</script>
-
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick, toRef, useId } from 'vue'
+import { ref, computed, toRef, useId } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { useEventListener } from '@/composables/useEventListener'
-import { useFocusTrap } from '@/composables/useFocusTrap'
-import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
-import { isComposingKeyboardEvent } from '@/utils/keyboard'
+import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -110,6 +63,8 @@ const props = withDefaults(defineProps<{
   bodyClass?: string
   footerClass?: string
   footerAlign?: 'start' | 'center' | 'end' | 'between'
+  layout?: 'standard' | 'immersive'
+  bodyPadding?: 'default' | 'none'
   closeOnBackdrop?: boolean
   closeOnEscape?: boolean
 }>(), {
@@ -125,6 +80,8 @@ const props = withDefaults(defineProps<{
   bodyClass: '',
   footerClass: '',
   footerAlign: 'end',
+  layout: 'standard',
+  bodyPadding: 'default',
   closeOnBackdrop: true,
   closeOnEscape: true,
 })
@@ -158,113 +115,24 @@ const footerAlignClass = computed(() => {
 const modalRef = ref<HTMLElement | null>(null)
 const overlayRef = ref<HTMLElement | null>(null)
 const modalId = useId()
-const modalStackId = Symbol(`base-modal-${modalId}`)
 const titleId = `${modalId}-title`
 const descriptionId = `${modalId}-description`
-const isTopModal = computed(() => props.isOpen && isTopOpenModal(modalStackId))
-const { trapFocus } = useFocusTrap(modalRef, () => isTopModal.value)
-let returnFocusElement: HTMLElement | null = null
-useBodyScrollLock(toRef(props, 'isOpen'))
 
 const close = () => {
   emit('close')
 }
 
-const handleBackdropClick = () => {
-  if (props.closeOnBackdrop && isTopModal.value) {
-    close()
-  }
-}
-
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.defaultPrevented || isComposingKeyboardEvent(event)) return
-  if (event.key === 'Escape' && props.isOpen && props.closeOnEscape && isTopOpenModal(modalStackId)) {
-    close()
-  }
-}
-
-const rememberFocus = (event: FocusEvent) => {
-  if (
-    event.target instanceof HTMLElement
-    && modalRef.value?.contains(event.target)
-  ) {
-    modalFocusTargets.set(modalStackId, event.target)
-  }
-}
-
-const restoreReturnFocus = () => {
-  const target = returnFocusElement
-  returnFocusElement = null
-  if (!target) return
-  void nextTick(() => target.focus())
-}
-
-const focusTopModal = () => {
-  void nextTick(() => {
-    if (!isTopModal.value) return
-    if (overlayRef.value) modalOverlayTargets.set(modalStackId, overlayRef.value)
-    syncBackgroundInert()
-    const rememberedFocus = modalFocusTargets.get(modalStackId)
-    if (rememberedFocus?.isConnected) {
-      rememberedFocus.focus()
-      return
-    }
-    trapFocus()
-    if (document.activeElement instanceof HTMLElement) {
-      modalFocusTargets.set(modalStackId, document.activeElement)
-    }
-  })
-}
-
-// Focus management
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    const parentModalId = modalStack[modalStack.length - 1]
-    const activeElement = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
-    const activeParentFocus = parentModalId && activeElement?.closest('[role="dialog"]')
-      ? activeElement
-      : null
-    if (parentModalId && activeParentFocus) {
-      modalFocusTargets.set(parentModalId, activeParentFocus)
-    }
-    returnFocusElement = (
-      activeParentFocus
-      ?? (parentModalId ? modalFocusTargets.get(parentModalId) : null)
-      ?? activeElement
-    )
-    registerOpenModal(modalStackId)
-    focusTopModal()
-  } else {
-    const wasTopModal = isTopOpenModal(modalStackId)
-    unregisterOpenModal(modalStackId)
-    if (wasTopModal && modalStack.length === 0) restoreReturnFocus()
-    else returnFocusElement = null
-  }
-}, { immediate: true, flush: 'sync' })
-
-watch(isTopModal, (isTop, wasTop) => {
-  if (
-    !isTop
-    && wasTop
-    && document.activeElement instanceof HTMLElement
-    && modalRef.value?.contains(document.activeElement)
-  ) {
-    modalFocusTargets.set(modalStackId, document.activeElement)
-  }
-  if (isTop && !wasTop) focusTopModal()
-}, { flush: 'sync' })
-
-useEventListener(() => document, 'keydown', handleKeyDown)
-useEventListener(() => document, 'focusin', rememberFocus)
-useEventListener(() => document, 'focusout', rememberFocus)
-
-onUnmounted(() => {
-  // Ensure body scroll is restored
-  const wasTopModal = isTopOpenModal(modalStackId)
-  unregisterOpenModal(modalStackId)
-  if (wasTopModal && modalStack.length === 0) restoreReturnFocus()
-  else returnFocusElement = null
+const { isTopDialog } = useDialogLifecycle({
+  isOpen: toRef(props, 'isOpen'),
+  dialogRef: modalRef,
+  overlayRef,
+  close,
+  closeOnEscape: () => props.closeOnEscape,
 })
+
+const handleBackdropClick = () => {
+  if (props.closeOnBackdrop && isTopDialog.value) {
+    close()
+  }
+}
 </script>

@@ -44,6 +44,8 @@ const mountConfiguredModal = () => mount(BaseModal, {
         bodyClass: 'custom-body',
         footerClass: 'custom-footer',
         footerAlign: 'between',
+        layout: 'immersive' as const,
+        bodyPadding: 'none' as const,
         closeAriaLabel: 'Close configured modal',
         closeButtonClass: 'custom-close',
         closeOnBackdrop: false,
@@ -132,6 +134,9 @@ describe('BaseModal', () => {
         await nextTick()
 
         expect(wrapper.find('.modal-content').exists()).toBe(true)
+        expect(wrapper.get('.modal-content').classes()).toContain('nv-dialog-surface--modal')
+        expect(wrapper.get('.modal-content').classes()).not.toContain('modal-layout-immersive')
+        expect(wrapper.get('.modal-body').classes()).not.toContain('modal-body-padding-none')
         expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
         expect(wrapper.get('.modal-overlay').attributes('style')).toContain('z-index: var(--nv-z-overlay)')
     })
@@ -171,6 +176,8 @@ describe('BaseModal', () => {
         expect(wrapper.get('.modal-body').classes()).toContain('custom-body')
         expect(wrapper.get('.modal-footer').classes()).toContain('custom-footer')
         expect(wrapper.get('.modal-footer').classes()).toContain('justify-between')
+        expect(wrapper.get('.modal-content').classes()).toContain('modal-layout-immersive')
+        expect(wrapper.get('.modal-body').classes()).toContain('modal-body-padding-none')
         expect(wrapper.get('.custom-close').attributes('aria-label')).toBe('Close configured modal')
 
         await wrapper.get('.modal-overlay').trigger('click')

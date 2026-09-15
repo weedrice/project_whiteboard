@@ -1,28 +1,17 @@
-import { nextTick, watch, type Ref } from 'vue'
-import { useFocusTrap } from '@/composables/useFocusTrap'
+import type { Ref } from 'vue'
+import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
 
 export function usePopoverFocus(
   containerRef: Ref<HTMLElement | null>,
   isOpen: Ref<boolean>,
+  close: () => void,
+  returnFocusTarget?: () => HTMLElement | null,
 ) {
-  const { trapFocus, restoreFocus, getFocusableElements } = useFocusTrap(containerRef, isOpen)
-
-  watch(
+  return useDialogLifecycle({
     isOpen,
-    async (open) => {
-      if (open) {
-        await nextTick()
-        trapFocus()
-        return
-      }
-      restoreFocus()
-    },
-    { flush: 'post' },
-  )
-
-  return {
-    trapFocus,
-    restoreFocus,
-    getFocusableElements,
-  }
+    dialogRef: containerRef,
+    close,
+    lockScroll: false,
+    returnFocusTarget,
+  })
 }

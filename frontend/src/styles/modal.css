@@ -4,7 +4,85 @@
   /* Modal Component */
   .modal-overlay {
     @apply fixed inset-0 flex items-center justify-center overflow-y-auto overflow-x-hidden p-4 md:inset-0 h-full;
+  }
+
+  .nv-dialog-overlay {
+    @apply fixed inset-0;
+    z-index: var(--nv-z-overlay);
+  }
+
+  .nv-dialog-overlay--modal {
     background: color-mix(in srgb, var(--nv-scrim) 50%, transparent);
+  }
+
+  .nv-dialog-overlay--popover {
+    background: color-mix(in srgb, var(--nv-scrim) 28%, transparent);
+  }
+
+  .nv-dialog-overlay--sheet {
+    background: color-mix(in srgb, var(--nv-scrim) 40%, transparent);
+    backdrop-filter: blur(1px);
+  }
+
+  .nv-dialog-overlay--media {
+    background: color-mix(in srgb, var(--nv-scrim) 85%, transparent);
+  }
+
+  .nv-dialog-surface {
+    background: var(--nv-surface);
+    border: 1px solid var(--nv-line);
+    color: var(--nv-ink);
+    box-shadow: var(--nv-shadow-popup);
+  }
+
+  .nv-dialog-surface--modal {
+    border-radius: var(--nv-radius-sm);
+  }
+
+  .nv-dialog-surface--popover {
+    border-radius: var(--nv-radius-md);
+    box-shadow: var(--nv-shadow-soft);
+  }
+
+  .nv-dialog-surface--sheet {
+    border-radius: var(--nv-radius-xl) var(--nv-radius-xl) 0 0;
+    box-shadow: var(--nv-shadow-popup);
+  }
+
+  .nv-dialog-surface--media {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--nv-on-media);
+  }
+
+  .nv-dialog-stack {
+    @apply space-y-4;
+  }
+
+  .nv-dialog-meta {
+    @apply mt-1 text-right text-xs;
+    color: var(--nv-muted);
+  }
+
+  .nv-dialog-readonly {
+    @apply rounded-lg border px-3 py-2.5;
+    background: var(--nv-surface-2);
+    border-color: var(--nv-line);
+  }
+
+  .nv-dialog-readonly-label {
+    @apply block text-xs font-medium;
+    color: var(--nv-muted);
+  }
+
+  .nv-dialog-readonly-value {
+    @apply mt-1 block break-words text-sm font-medium;
+    color: var(--nv-ink);
+  }
+
+  .nv-dialog-actions {
+    @apply flex flex-wrap items-center justify-end gap-2;
   }
 
   .modal-container {
@@ -54,10 +132,7 @@
   }
 
   .modal-content {
-    @apply relative rounded-lg shadow border;
-    background: var(--nv-surface);
-    border-color: var(--nv-line);
-    color: var(--nv-ink);
+    @apply relative;
   }
 
   .modal-header {
@@ -70,8 +145,16 @@
     color: var(--nv-ink-soft);
   }
 
+  .modal-body-padding-none {
+    padding: 0;
+  }
+
+  .modal-layout-immersive .modal-body {
+    min-height: 0;
+  }
+
   .modal-footer {
-    @apply flex items-center justify-end w-full p-6 space-x-2 border-t rounded-b;
+    @apply flex flex-wrap items-center justify-end w-full gap-2 p-6 border-t rounded-b;
     border-color: var(--nv-line);
   }
 
