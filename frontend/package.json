@@ -97,7 +97,7 @@
     "openapi-typescript": "^7.13.0",
     "postcss": "^8.5.25",
     "rollup-plugin-visualizer": "^7.0.1",
-    "satori": "^0.29.0",
+    "satori": "^0.33.4",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.67.0",
