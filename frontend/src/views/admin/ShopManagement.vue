@@ -270,19 +270,21 @@ async function submitSaleStatus() {
       :close-on-escape="!updateMutation.isPending.value"
       @close="closeSaleStatusModal"
     >
-      <p class="mb-4 text-sm nv-text-muted">
-        {{ t('admin.shop.modal.description', { name: selectedItem?.itemName ?? '' }) }}
-      </p>
-      <BaseTextarea
-        id="shop-sale-status-reason"
-        v-model="reason"
-        :label="t('admin.shop.modal.reason')"
-        :placeholder="t('admin.shop.modal.reasonPlaceholder')"
-        :error="reasonError"
-        :disabled="updateMutation.isPending.value"
-        maxlength="500"
-        rows="4"
-      />
+      <div class="nv-dialog-stack">
+        <p class="text-sm nv-text-muted">
+          {{ t('admin.shop.modal.description', { name: selectedItem?.itemName ?? '' }) }}
+        </p>
+        <BaseTextarea
+          id="shop-sale-status-reason"
+          v-model="reason"
+          :label="t('admin.shop.modal.reason')"
+          :placeholder="t('admin.shop.modal.reasonPlaceholder')"
+          :error="reasonError"
+          :disabled="updateMutation.isPending.value"
+          maxlength="500"
+          rows="4"
+        />
+      </div>
       <template #footer>
         <BaseButton variant="secondary" :disabled="updateMutation.isPending.value" @click="closeSaleStatusModal">
           {{ t('common.cancel') }}

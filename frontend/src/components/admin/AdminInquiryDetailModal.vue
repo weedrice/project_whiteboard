@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import PostContentView from '@/components/board/PostContentView.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -34,7 +33,7 @@ const { t } = useI18n()
     :empty="!inquiry"
     empty-text=""
     :error-text="t('common.messages.loadFailed')"
-    content-class="space-y-4 p-2 sm:p-4"
+    content-class="nv-dialog-stack"
     @close="emit('close')"
   >
     <template #loading>
@@ -76,9 +75,7 @@ const { t } = useI18n()
     </template>
 
     <template #footer>
-      <AdminModalActions>
-        <BaseButton type="button" variant="secondary" @click="emit('close')">{{ t('common.close') }}</BaseButton>
-      </AdminModalActions>
+      <BaseButton type="button" variant="secondary" @click="emit('close')">{{ t('common.close') }}</BaseButton>
     </template>
   </AdminDetailModalShell>
 </template>

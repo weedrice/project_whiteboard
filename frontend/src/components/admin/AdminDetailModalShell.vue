@@ -54,6 +54,7 @@ const resolvedErrorText = computed(() => props.errorText ?? t('common.messages.l
   <BaseModal
     :is-open="isOpen"
     :title="title"
+    layout="immersive"
     :size="size"
     :mobile-full="mobileFull"
     :mobile-fit-content="mobileFitContent"

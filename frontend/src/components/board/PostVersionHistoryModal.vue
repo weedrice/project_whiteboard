@@ -32,6 +32,7 @@ function actionLabel(actionType: string) {
   <BaseModal
     :isOpen="isOpen"
     :title="t('board.postDetail.versionHistory')"
+    layout="immersive"
     size="lg"
     @close="emit('close')"
   >

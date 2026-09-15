@@ -9,7 +9,6 @@ import AdminFilterActions from '../AdminFilterActions.vue'
 import AdminFilterField from '../AdminFilterField.vue'
 import AdminFormPanel from '../AdminFormPanel.vue'
 import AdminInlineForm from '../AdminInlineForm.vue'
-import AdminModalActions from '../AdminModalActions.vue'
 import AdminMetricCard from '../AdminMetricCard.vue'
 import AdminPaginatedTable from '../AdminPaginatedTable.vue'
 import AdminStatusBadge from '../AdminStatusBadge.vue'
@@ -200,24 +199,6 @@ describe('admin common components', () => {
 
     expect(wrapper.emitted('search')).toHaveLength(1)
     expect(wrapper.emitted('reset')).toHaveLength(1)
-  })
-
-  it('renders shared admin modal action layout with configurable spacing', () => {
-    const wrapper = mount(AdminModalActions, {
-      props: {
-        gapClass: 'gap-2',
-        className: 'mt-5',
-      },
-      slots: {
-        default: '<button>Cancel</button><button>Save</button>',
-      },
-    })
-
-    expect(wrapper.classes()).toContain('flex')
-    expect(wrapper.classes()).toContain('justify-end')
-    expect(wrapper.classes()).toContain('gap-2')
-    expect(wrapper.classes()).toContain('mt-5')
-    expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['Cancel', 'Save'])
   })
 
   it('renders shared admin table action layout with configurable alignment', () => {

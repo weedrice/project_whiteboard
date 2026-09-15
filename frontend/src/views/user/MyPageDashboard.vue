@@ -178,7 +178,7 @@ onMounted(async () => {
         </DashboardListSection>
       </div>
 
-      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false" mobile-full
+      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" layout="immersive" @close="isEditModalOpen = false" mobile-full
         mobile-fit-content>
         <ProfileEditor @close="isEditModalOpen = false" @refreshed="() => { fetchMyProfile(); fetchMyAgents() }" />
       </BaseModal>

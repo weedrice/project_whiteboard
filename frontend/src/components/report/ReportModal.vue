@@ -1,12 +1,14 @@
 <template>
     <BaseModal :isOpen="isOpen" :title="title" @close="closeModal">
-        <div class="p-4">
-            <BaseInput :label="$t('report.target')" :modelValue="targetText" :disabled="true" class="mb-4" />
+        <div class="nv-dialog-stack">
+            <div class="nv-dialog-readonly">
+                <span class="nv-dialog-readonly-label">{{ $t('report.target') }}</span>
+                <span class="nv-dialog-readonly-value">{{ targetText }}</span>
+            </div>
             <BaseSelect
                 v-model="reportReasonType"
                 :label="$t('report.reasonType')"
                 :options="reasonTypeOptions"
-                class="mb-4"
                 :disabled="isReporting || !reportReasonCodesReady || !hasReasonTypeOptions"
                 :error="reportReasonCodesError ? t('common.messages.loadFailed') : ''"
             />
@@ -21,25 +23,22 @@
                 :disabled="isReporting"
                 @blur="validation.touchField('reason', validationValues)"
             />
-            <div class="mt-4 flex justify-end">
-                <BaseButton @click="closeModal" variant="secondary" class="mr-2">
-                    {{ $t('common.cancel') }}
-                </BaseButton>
-                <BaseButton
-                    @click="handleValidatedReport"
-                    :disabled="isReporting || !reportReasonCodesReady || !hasReasonTypeOptions"
-                    :variant="submitVariant"
-                >
-                    {{ isReporting ? pendingLabel : submitLabel }}
-                </BaseButton>
-            </div>
         </div>
+        <template #footer>
+            <BaseButton @click="closeModal" variant="secondary">{{ $t('common.cancel') }}</BaseButton>
+            <BaseButton
+                @click="handleValidatedReport"
+                :disabled="isReporting || !reportReasonCodesReady || !hasReasonTypeOptions"
+                :variant="submitVariant"
+            >
+                {{ isReporting ? pendingLabel : submitLabel }}
+            </BaseButton>
+        </template>
     </BaseModal>
 </template>
 
 <script setup lang="ts">
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'

@@ -12,14 +12,8 @@ const confirmStore = useConfirmStore()
             {{ confirmStore.message }}
         </div>
         <template #footer>
-            <div class="flex justify-end space-x-3">
-                <BaseButton @click="confirmStore.cancel" variant="secondary">
-                    {{ confirmStore.cancelText }}
-                </BaseButton>
-                <BaseButton @click="confirmStore.confirm" variant="primary">
-                    {{ confirmStore.confirmText }}
-                </BaseButton>
-            </div>
+            <BaseButton @click="confirmStore.cancel" variant="secondary">{{ confirmStore.cancelText }}</BaseButton>
+            <BaseButton @click="confirmStore.confirm" variant="primary">{{ confirmStore.confirmText }}</BaseButton>
         </template>
     </BaseModal>
 </template>

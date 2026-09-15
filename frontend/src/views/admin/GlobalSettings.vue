@@ -6,7 +6,6 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { useGlobalSettingsManager } from '@/features/admin/settings/useGlobalSettingsManager'
@@ -91,20 +90,18 @@ const columns = [
     <!-- Add Config Modal -->
     <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')"
       :close-on-backdrop="!isCreatingConfig" :close-on-escape="!isCreatingConfig" @close="closeCreateModal">
-      <fieldset :disabled="isCreatingConfig" :inert="isCreatingConfig ? true : undefined" class="space-y-4 border-0 p-0">
+      <fieldset :disabled="isCreatingConfig" :inert="isCreatingConfig ? true : undefined" class="nv-dialog-stack border-0 p-0">
         <BaseInput v-model="newConfig.key" :label="t('common.key')" type="text" :disabled="isCreatingConfig" />
         <BaseInput v-model="newConfig.value" :label="t('common.value')" type="text" :disabled="isCreatingConfig" />
         <BaseInput v-model="newConfig.description" :label="t('common.description')" type="text" :disabled="isCreatingConfig" />
       </fieldset>
       <template #footer>
-        <AdminModalActions>
-          <BaseButton :disabled="isCreatingConfig" @click="closeCreateModal" variant="secondary">
-            {{ t('common.cancel') }}
-          </BaseButton>
-          <BaseButton :disabled="isCreatingConfig" @click="handleCreateConfig">
-            {{ t('common.save') }}
-          </BaseButton>
-        </AdminModalActions>
+        <BaseButton :disabled="isCreatingConfig" @click="closeCreateModal" variant="secondary">
+          {{ t('common.cancel') }}
+        </BaseButton>
+        <BaseButton :disabled="isCreatingConfig" @click="handleCreateConfig">
+          {{ t('common.save') }}
+        </BaseButton>
       </template>
     </BaseModal>
   </AdminDataPage>

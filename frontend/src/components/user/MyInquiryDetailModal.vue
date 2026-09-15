@@ -32,7 +32,7 @@ const { t } = useI18n()
 
 <template>
   <BaseModal :isOpen="isOpen" :title="t('user.inquiryDetail.title')" size="2xl" mobile-full @close="$emit('close')">
-    <div class="space-y-4 p-2 sm:p-4">
+    <div class="nv-dialog-stack">
       <div v-if="isLoading" class="flex items-center justify-center py-10">
         <BaseSkeleton width="100%" height="180px" />
       </div>
@@ -66,14 +66,12 @@ const { t } = useI18n()
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <BaseButton type="button" variant="danger" :loading="isDeleting" @click="$emit('delete-post')">
-          {{ t('common.delete') }}
-        </BaseButton>
-        <BaseButton type="button" variant="secondary" @click="$emit('close')">
-          {{ t('common.close') }}
-        </BaseButton>
-      </div>
+      <BaseButton type="button" variant="danger" :loading="isDeleting" @click="$emit('delete-post')">
+        {{ t('common.delete') }}
+      </BaseButton>
+      <BaseButton type="button" variant="secondary" @click="$emit('close')">
+        {{ t('common.close') }}
+      </BaseButton>
     </template>
   </BaseModal>
 </template>

@@ -1,11 +1,11 @@
 <template>
   <BaseModal :isOpen="isOpen" :title="t('admin.sanction.title')"
     :close-on-backdrop="!isLocked" :close-on-escape="!isLocked" @close="requestClose">
-    <form @submit.prevent="submitSanction">
-      <fieldset :disabled="isLocked" :inert="isLocked ? true : undefined" class="space-y-4 border-0 p-0">
-      <div>
-        <label class="block text-sm font-medium nv-text-muted">{{ t('admin.sanction.userLabel') }}</label>
-        <p class="mt-1 text-sm nv-text">
+    <form id="sanction-form" @submit.prevent="submitSanction">
+      <fieldset :disabled="isLocked" :inert="isLocked ? true : undefined" class="nv-dialog-stack border-0 p-0">
+      <div class="nv-dialog-readonly">
+        <span class="nv-dialog-readonly-label">{{ t('admin.sanction.userLabel') }}</span>
+        <p class="nv-dialog-readonly-value">
           {{ sanctionTargetName }}<span v-if="user?.email"> ({{ user.email }})</span>
         </p>
       </div>
@@ -42,15 +42,15 @@
         </p>
       </div>
 
-      <AdminModalActions class-name="mt-5">
-        <BaseButton type="button" variant="secondary" :disabled="isLocked" @click="requestClose">{{ t('admin.sanction.cancel') }}</BaseButton>
-        <BaseButton type="submit" variant="danger"
-          :disabled="isSubmitting || loading || !sanctionTypesReady || !hasSanctionTypes">
-          {{ isSubmitting || loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
-        </BaseButton>
-      </AdminModalActions>
       </fieldset>
     </form>
+    <template #footer>
+      <BaseButton type="button" variant="secondary" :disabled="isLocked" @click="requestClose">{{ t('admin.sanction.cancel') }}</BaseButton>
+      <BaseButton type="submit" form="sanction-form" variant="danger"
+        :disabled="isSubmitting || loading || !sanctionTypesReady || !hasSanctionTypes">
+        {{ isSubmitting || loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
+      </BaseButton>
+    </template>
   </BaseModal>
 </template>
 
@@ -62,7 +62,6 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import { useFieldValidation } from '@/composables/useFieldValidation'

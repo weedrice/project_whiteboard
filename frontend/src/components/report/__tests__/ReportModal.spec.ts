@@ -108,6 +108,15 @@ describe('ReportModal', () => {
         mocks.commonCodeError = false
     })
 
+    it('renders the target as readonly content and final actions in the modal footer', () => {
+        const wrapper = mountModal()
+        const footer = wrapper.get('[data-test="modal-footer"]')
+
+        expect(wrapper.get('[data-test="modal-body"] .nv-dialog-readonly').text()).toContain('신고 대상')
+        expect(wrapper.find('[data-test="modal-body"] input[disabled]').exists()).toBe(false)
+        expect(footer.findAll('button').map(button => button.text())).toEqual(['common.cancel', 'common.report'])
+    })
+
     it('shows a warning and skips submit when reason is blank', async () => {
         const submit = vi.fn(async () => true)
         const wrapper = mountModal(submit)

@@ -114,7 +114,7 @@ onUnmounted(() => {
     footer-align="between"
     @close="close"
   >
-    <div v-if="awardedBadge" class="py-3 text-center">
+    <div v-if="awardedBadge" class="text-center">
       <div class="badge-award-art mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--nv-accent-bg)] text-[var(--nv-accent)]">
         <component :is="badgeIcon" class="h-10 w-10" aria-hidden="true" />
       </div>

@@ -1,7 +1,10 @@
 <template>
     <BaseModal :isOpen="isOpen" :title="$t('user.message.title')" @close="closeModal">
-        <div class="p-4">
-            <BaseInput :label="$t('user.message.receiver')" :modelValue="displayName" :disabled="true" class="mb-4" />
+        <div class="nv-dialog-stack">
+            <div class="nv-dialog-readonly">
+                <span class="nv-dialog-readonly-label">{{ $t('user.message.receiver') }}</span>
+                <span class="nv-dialog-readonly-value">{{ displayName }}</span>
+            </div>
             <BaseTextarea
                 id="messageContent"
                 v-model="messageContent"
@@ -11,27 +14,25 @@
                 :disabled="isSendingMessage"
                 rows="4"
             />
-            <p class="mt-1 text-right text-xs nv-text-muted">
+            <p class="nv-dialog-meta">
                 {{ $t('user.message.contentLength', {
                     current: messageContent.length,
                     max: MESSAGE_CONTENT_MAX_LENGTH,
                 }) }}
             </p>
-            <div class="mt-4 flex justify-end">
-                <BaseButton @click="closeModal" variant="secondary" class="mr-2" :disabled="isSendingMessage">{{ $t('common.cancel') }}
-                </BaseButton>
-                <BaseButton @click="handleSendMessage" :disabled="isSendingMessage">
-                    {{ isSendingMessage ? $t('common.messages.sending') : $t('common.send') }}
-                </BaseButton>
-            </div>
         </div>
+        <template #footer>
+            <BaseButton @click="closeModal" variant="secondary" :disabled="isSendingMessage">{{ $t('common.cancel') }}</BaseButton>
+            <BaseButton @click="handleSendMessage" :disabled="isSendingMessage">
+                {{ isSendingMessage ? $t('common.messages.sending') : $t('common.send') }}
+            </BaseButton>
+        </template>
     </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'

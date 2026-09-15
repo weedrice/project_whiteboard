@@ -79,6 +79,15 @@ describe('MessageModal', () => {
         vi.clearAllMocks()
     })
 
+    it('renders the receiver as readonly content and final actions in the modal footer', () => {
+        const wrapper = mountModal()
+        const footer = wrapper.get('[data-test="modal-footer"]')
+
+        expect(wrapper.get('[data-test="modal-body"] .nv-dialog-readonly').text()).toContain('받는 사람')
+        expect(wrapper.find('[data-test="modal-body"] input[disabled]').exists()).toBe(false)
+        expect(footer.findAll('button').map(button => button.text())).toEqual(['common.cancel', 'common.send'])
+    })
+
     it('shows a warning and skips the request when content is blank', async () => {
         const wrapper = mountModal()
 

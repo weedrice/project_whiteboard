@@ -19,7 +19,7 @@
     :close-on-escape="!isDeleting"
     @close="closeDeleteModal"
   >
-    <fieldset :disabled="isDeleting" :inert="isDeleting ? true : undefined" class="m-0 min-w-0 space-y-4 border-0 p-0">
+    <fieldset :disabled="isDeleting" :inert="isDeleting ? true : undefined" class="nv-dialog-stack m-0 min-w-0 border-0 p-0">
       <p class="text-sm nv-text-muted">
         {{ $t('user.settings.deleteAccountConfirmation') }}
       </p>
@@ -52,14 +52,12 @@
       />
     </fieldset>
     <template #footer>
-      <div class="flex justify-end space-x-3">
-        <BaseButton variant="secondary" :disabled="isDeleting" @click="closeDeleteModal">
-          {{ $t('common.cancel') }}
-        </BaseButton>
-        <BaseButton variant="danger" :loading="isDeleting" :disabled="isDeleting" @click="$emit('delete')">
-          {{ $t('user.settings.deleteAccount') }}
-        </BaseButton>
-      </div>
+      <BaseButton variant="secondary" :disabled="isDeleting" @click="closeDeleteModal">
+        {{ $t('common.cancel') }}
+      </BaseButton>
+      <BaseButton variant="danger" :loading="isDeleting" :disabled="isDeleting" @click="$emit('delete')">
+        {{ $t('user.settings.deleteAccount') }}
+      </BaseButton>
     </template>
   </BaseModal>
 </template>

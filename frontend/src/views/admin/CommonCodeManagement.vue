@@ -5,7 +5,6 @@ import { Plus, Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useQueryClient } from '@tanstack/vue-query'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -262,20 +261,20 @@ async function deleteDetail(detailId: number) {
 
     <BaseModal :is-open="isCodeModalOpen" :title="t('admin.commonCodes.addCode')"
       :close-on-backdrop="!isSaving" :close-on-escape="!isSaving" @close="closeCodeModal">
-      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="createCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" :disabled="isSaving" />
+      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="nv-dialog-stack border-0 p-0"><BaseInput v-model="createCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" :disabled="isSaving" />
         <BaseInput v-model="createCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" :disabled="isSaving" />
         <BaseInput v-model="createCodeForm.description" :label="t('common.description')" maxlength="255" :disabled="isSaving" /></fieldset>
-      <template #footer><AdminModalActions><BaseButton variant="secondary" :disabled="isSaving" @click="closeCodeModal">{{ t('common.cancel') }}</BaseButton>
-        <BaseButton :disabled="isSaving" @click="saveCode">{{ t('common.save') }}</BaseButton></AdminModalActions></template>
+      <template #footer><BaseButton variant="secondary" :disabled="isSaving" @click="closeCodeModal">{{ t('common.cancel') }}</BaseButton>
+        <BaseButton :disabled="isSaving" @click="saveCode">{{ t('common.save') }}</BaseButton></template>
     </BaseModal>
     <BaseModal :is-open="isDetailModalOpen" :title="editingDetailId == null ? t('admin.commonCodes.addDetail') : t('admin.commonCodes.editDetail')"
       :close-on-backdrop="!isSaving" :close-on-escape="!isSaving" @close="closeDetailModal">
-      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" :readonly="editingDetailId !== null" :disabled="isSaving" />
+      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="nv-dialog-stack border-0 p-0"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" :readonly="editingDetailId !== null" :disabled="isSaving" />
         <BaseInput v-model="detailForm.codeName" :label="t('admin.commonCodes.codeName')" maxlength="100" :disabled="isSaving" />
         <BaseInput v-model="detailForm.sortOrder" :label="t('common.sortOrder')" type="number" :disabled="isSaving" />
         <BaseCheckbox v-model="detailForm.isActive" :label="t('common.active')" :disabled="isSaving" /></fieldset>
-      <template #footer><AdminModalActions><BaseButton variant="secondary" :disabled="isSaving" @click="closeDetailModal">{{ t('common.cancel') }}</BaseButton>
-        <BaseButton :disabled="isSaving" @click="saveDetail">{{ t('common.save') }}</BaseButton></AdminModalActions></template>
+      <template #footer><BaseButton variant="secondary" :disabled="isSaving" @click="closeDetailModal">{{ t('common.cancel') }}</BaseButton>
+        <BaseButton :disabled="isSaving" @click="saveDetail">{{ t('common.save') }}</BaseButton></template>
     </BaseModal>
   </AdminDataPage>
 </template>

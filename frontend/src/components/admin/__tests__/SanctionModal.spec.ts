@@ -7,7 +7,6 @@ import {
     BaseInputStub,
     BaseModalStub,
     BaseTextareaStub,
-    PassThroughStub,
 } from '@/test/vue-test-helpers'
 import SanctionModal from '../SanctionModal.vue'
 
@@ -78,7 +77,6 @@ function mountModal(user: {
             plugins: [createPinia()],
             stubs: {
                 BaseModal: BaseModalStub,
-                AdminModalActions: PassThroughStub,
                 BaseButton: BaseButtonStub,
                 BaseInput: BaseInputStub,
                 BaseTextarea: BaseTextareaStub
@@ -108,6 +106,15 @@ describe('SanctionModal', () => {
         const wrapper = mountModal({ id: 7, displayName: 'Target', email: 'target@test.com' })
 
         expect(wrapper.text()).toContain('Target (target@test.com)')
+    })
+
+    it('keeps final actions in the modal footer and associates submit with the form', () => {
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+        const footer = wrapper.get('[data-test="modal-footer"]')
+        const buttons = footer.findAll('button')
+
+        expect(buttons.map(button => button.text())).toEqual(['admin.sanction.cancel', 'admin.sanction.submit'])
+        expect(buttons[1].attributes('form')).toBe('sanction-form')
     })
 
     it('falls back to the reason when description is blank after trimming', async () => {

@@ -25,6 +25,7 @@ const { t } = useI18n()
   <BaseModal
     :is-open="isOpen"
     :title="t('board.writePost.preview.title')"
+    layout="immersive"
     size="full"
     mobile-full
     body-class="min-h-0 overflow-y-auto sm:max-h-[calc(90dvh-10rem)]"
@@ -60,11 +61,9 @@ const { t } = useI18n()
       />
     </div>
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
-          {{ t('common.close') }}
-        </BaseButton>
-      </div>
+      <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
+        {{ t('common.close') }}
+      </BaseButton>
     </template>
   </BaseModal>
 </template>

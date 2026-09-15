@@ -96,7 +96,12 @@ const mountModal = (props: {
     stubs: {
       BaseModal: {
         props: ['isOpen'],
-        template: '<div v-if="isOpen"><slot /></div>',
+        template: `
+          <div v-if="isOpen">
+            <div data-test="modal-body"><slot /></div>
+            <footer data-test="modal-footer"><slot name="footer" /></footer>
+          </div>
+        `,
       },
       BaseInput: {
         props: ['modelValue', 'id', 'name', 'label', 'autocomplete', 'hideLabel'],
@@ -174,6 +179,16 @@ describe('UserSelectModal', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('renders cancel and save as direct modal footer actions', () => {
+    const wrapper = mountModal({ isOpen: true })
+    const footer = wrapper.get('[data-test="modal-footer"]')
+
+    expect(Array.from(footer.element.children).map((child) => child.tagName)).toEqual(['BUTTON', 'BUTTON'])
+    expect(footer.findAll('button').map((button) => button.text())).toEqual(['common.cancel', 'common.save'])
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('common.cancel')
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('common.save')
   })
 
   it('uses admin users by default', () => {

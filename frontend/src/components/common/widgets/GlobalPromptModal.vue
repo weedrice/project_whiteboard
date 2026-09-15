@@ -15,7 +15,7 @@ const handleConfirmKeyup = (event: KeyboardEvent) => {
 
 <template>
     <BaseModal :isOpen="promptStore.isOpen" :title="promptStore.title" @close="promptStore.cancel">
-        <div class="space-y-4">
+        <div class="nv-dialog-stack">
             <p class="text-sm nv-text-subtle">
                 {{ promptStore.message }}
             </p>
@@ -25,15 +25,11 @@ const handleConfirmKeyup = (event: KeyboardEvent) => {
                 @keyup.enter="handleConfirmKeyup" />
         </div>
         <template #footer>
-            <div class="flex justify-end space-x-3">
-                <BaseButton @click="promptStore.cancel" variant="secondary">
-                    {{ promptStore.cancelText }}
-                </BaseButton>
-                <BaseButton @click="promptStore.confirm" :variant="promptStore.confirmVariant"
-                    :disabled="promptStore.required && !promptStore.inputValue.trim()">
-                    {{ promptStore.confirmText }}
-                </BaseButton>
-            </div>
+            <BaseButton @click="promptStore.cancel" variant="secondary">{{ promptStore.cancelText }}</BaseButton>
+            <BaseButton @click="promptStore.confirm" :variant="promptStore.confirmVariant"
+                :disabled="promptStore.required && !promptStore.inputValue.trim()">
+                {{ promptStore.confirmText }}
+            </BaseButton>
         </template>
     </BaseModal>
 </template>

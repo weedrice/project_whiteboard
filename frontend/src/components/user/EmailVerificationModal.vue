@@ -26,7 +26,7 @@ const { t } = useI18n()
 
 <template>
   <BaseModal :isOpen="isOpen" :title="t('auth.emailNotVerified')" @close="$emit('close')">
-    <div class="space-y-6 p-4">
+    <div class="nv-dialog-stack">
       <div class="flex flex-col">
         <label class="block text-sm font-medium nv-text mb-1">
           {{ t('user.profile.email') }}
@@ -100,16 +100,18 @@ const { t } = useI18n()
           </span>
         </div>
 
-        <BaseButton
-          :disabled="verification.loading || verification.timeLeft <= 0 || !verification.code"
-          :loading="verification.loading"
-          variant="primary"
-          class="w-full"
-          @click="$emit('verify-code')"
-        >
-          {{ t('auth.verifyCode') }}
-        </BaseButton>
       </div>
     </div>
+    <template v-if="verification.isCodeSent" #footer>
+      <BaseButton
+        :disabled="verification.loading || verification.timeLeft <= 0 || !verification.code"
+        :loading="verification.loading"
+        variant="primary"
+        class="w-full"
+        @click="$emit('verify-code')"
+      >
+        {{ t('auth.verifyCode') }}
+      </BaseButton>
+    </template>
   </BaseModal>
 </template>

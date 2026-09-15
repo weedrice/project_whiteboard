@@ -5,7 +5,6 @@ import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail } from '@/types'
@@ -100,22 +99,20 @@ const emit = defineEmits<{
     </template>
 
     <template v-if="log" #footer>
-      <AdminModalActions gap-class="gap-2">
-        <BaseButton
-          v-if="log.isResolved === 'N'"
-          type="button"
-          variant="primary"
-          size="sm"
-          class="btn-resolve"
-          @click="emit('resolve', log)"
-        >
-          <CheckCircle class="mr-1 h-4 w-4" />
-          {{ $t('admin.errorLogs.actions.resolve') }}
-        </BaseButton>
-        <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
-          {{ $t('common.close') }}
-        </BaseButton>
-      </AdminModalActions>
+      <BaseButton
+        v-if="log.isResolved === 'N'"
+        type="button"
+        variant="primary"
+        size="sm"
+        class="btn-resolve"
+        @click="emit('resolve', log)"
+      >
+        <CheckCircle class="mr-1 h-4 w-4" />
+        {{ $t('admin.errorLogs.actions.resolve') }}
+      </BaseButton>
+      <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
+        {{ $t('common.close') }}
+      </BaseButton>
     </template>
   </AdminDetailModalShell>
 </template>

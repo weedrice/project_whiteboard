@@ -13,7 +13,12 @@ vi.mock('vue-i18n', () => ({
 const BaseModalStub = {
   props: ['isOpen', 'title'],
   emits: ['close'],
-  template: '<section v-if="isOpen"><slot /></section>',
+  template: `
+    <section v-if="isOpen">
+      <div data-test="modal-body"><slot /></div>
+      <footer v-if="$slots.footer" data-test="modal-footer"><slot name="footer" /></footer>
+    </section>
+  `,
 }
 
 const BaseInputStub = {
@@ -87,6 +92,20 @@ function mountModal(verification: EmailVerificationState) {
 }
 
 describe('EmailVerificationModal', () => {
+  it('renders the final verification action directly in the modal footer', () => {
+    const wrapper = mountModal(createVerification({
+      email: 'user@example.com',
+      code: '123456',
+      isCodeSent: true,
+      timeLeft: 180,
+    }))
+
+    const footer = wrapper.get('[data-test="modal-footer"]')
+    expect(Array.from(footer.element.children).map((child) => child.tagName)).toEqual(['BUTTON'])
+    expect(footer.get('button').text()).toBe('auth.verifyCode')
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('auth.verifyCode')
+  })
+
   it('validates email display state with trimmed input', () => {
     const wrapper = mountModal(createVerification({ email: ' user@example.com ' }))
 

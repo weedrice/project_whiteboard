@@ -18,8 +18,10 @@ export const BaseModalStub = defineComponent({
     return () => props.isOpen
       ? h('div', { 'data-test': 'modal' }, [
         h('h1', props.title),
-        slots.default?.(),
-        slots.footer?.(),
+        h('div', { 'data-test': 'modal-body' }, slots.default?.()),
+        slots.footer
+          ? h('footer', { 'data-test': 'modal-footer' }, slots.footer())
+          : null,
       ])
       : null
   },

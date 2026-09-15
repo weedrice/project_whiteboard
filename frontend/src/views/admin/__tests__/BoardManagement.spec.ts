@@ -157,6 +157,12 @@ describe('BoardManagement', () => {
     vm.createForm.boardUrl = 'new_board'
     await flushAll()
 
+    const footer = wrapper.get('[data-test="modal-footer"]')
+    expect(Array.from(footer.element.children).map((child) => child.tagName)).toEqual(['BUTTON', 'BUTTON'])
+    expect(footer.findAll('button').map((button) => button.text())).toEqual(['common.cancel', 'common.save'])
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('common.cancel')
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('common.save')
+
     await getButtonByText(wrapper.get('[data-test="modal"]'), 'common.save').trigger('click')
     await flushAll()
 

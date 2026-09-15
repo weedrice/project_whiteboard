@@ -77,7 +77,7 @@
         @retry="retryConversation"
     />
 
-    <BaseModal :isOpen="!!selectedMessage" :title="conversationTitle" @close="closeConversationAndSyncRoute"
+    <BaseModal :isOpen="!!selectedMessage" :title="conversationTitle" layout="immersive" @close="closeConversationAndSyncRoute"
         body-class="overflow-hidden" mobile-full mobile-fit-content size="xl">
         <div
             v-if="selectedMessage"
@@ -192,7 +192,7 @@
                             rows="3"
                             class="min-h-[96px]"
                         />
-                        <p class="mt-1 text-right text-xs nv-text-muted">
+                        <p class="nv-dialog-meta">
                             {{ $t('user.message.contentLength', {
                                 current: replyContent.length,
                                 max: MESSAGE_CONTENT_MAX_LENGTH,

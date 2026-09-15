@@ -5,6 +5,7 @@ import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardE
 import type { Notification } from '@/types'
 import { createDeferred } from '@/test/async'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { BaseModalStub } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
   getMyBadges: vi.fn(),
@@ -52,10 +53,7 @@ describe('BadgeAwardCelebration', () => {
     global: {
       mocks: { $t: (key: string) => key },
       stubs: {
-        BaseModal: {
-          props: ['isOpen'],
-          template: '<section v-if="isOpen"><slot /><slot name="footer" /></section>',
-        },
+        BaseModal: BaseModalStub,
         BaseButton: { template: '<button type="button" @click="$emit(\'click\')"><slot /></button>' },
       },
     },
@@ -86,6 +84,15 @@ describe('BadgeAwardCelebration', () => {
     expect(wrapper.text()).toContain('SILVER')
     expect(wrapper.get('h3').text()).toBe('7일 연속 출석')
     expect(wrapper.text()).toContain('7일 연속으로 출석 체크하면 획득합니다.')
+
+    const footer = wrapper.get('[data-test="modal-footer"]')
+    expect(Array.from(footer.element.children).map((child) => child.tagName)).toEqual(['BUTTON', 'BUTTON'])
+    expect(footer.findAll('button').map((button) => button.text())).toEqual([
+      'common.close',
+      'user.badgeAward.setRepresentative',
+    ])
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('common.close')
+    expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('user.badgeAward.setRepresentative')
 
     const representativeButton = wrapper.findAll('button')
       .find((button) => button.text() === 'user.badgeAward.setRepresentative')!

@@ -53,7 +53,7 @@
 
     <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')"
       :close-on-backdrop="!isCreatingBoard" :close-on-escape="!isCreatingBoard" @close="closeModal">
-      <fieldset :disabled="isCreatingBoard" :inert="isCreatingBoard ? true : undefined" class="p-4 space-y-4 border-0">
+      <fieldset :disabled="isCreatingBoard" :inert="isCreatingBoard ? true : undefined" class="nv-dialog-stack border-0 p-0">
         <AdminBoardFormFields
           v-model:board-name="createForm.boardName"
           v-model:board-url="createForm.boardUrl"
@@ -62,13 +62,13 @@
           v-model:guide-prompt="createForm.guidePrompt"
           board-url-pattern="[a-z0-9_-]*"
         />
-        <AdminModalActions class-name="pt-2">
-          <BaseButton variant="secondary" :disabled="isCreatingBoard" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
-          <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
-            {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
-          </BaseButton>
-        </AdminModalActions>
       </fieldset>
+      <template #footer>
+        <BaseButton variant="secondary" :disabled="isCreatingBoard" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
+        <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
+          {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
+        </BaseButton>
+      </template>
     </BaseModal>
 
     <UserSelectModal
@@ -91,7 +91,6 @@ import { useBoardManagerAssignment } from '@/features/admin/boards/useBoardManag
 import { useBoardIconUpload } from '@/features/board/icons/useBoardIconUpload'
 import type { AdminBoard } from '@/types'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
-import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminBoardListPanel from '@/components/admin/AdminBoardListPanel.vue'
 import AdminBoardEditPanel from '@/components/admin/AdminBoardEditPanel.vue'
 import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'

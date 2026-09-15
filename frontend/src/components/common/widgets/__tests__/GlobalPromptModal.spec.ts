@@ -3,16 +3,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GlobalPromptModal from '../GlobalPromptModal.vue'
 import { usePromptStore } from '@/stores/prompt'
+import { BaseModalStub } from '@/test/vue-test-helpers'
 
 function mountPromptModal(pinia: ReturnType<typeof createPinia>) {
     return mount(GlobalPromptModal, {
         global: {
             plugins: [pinia],
             stubs: {
-                BaseModal: {
-                    props: ['isOpen', 'title'],
-                    template: '<section v-if="isOpen"><slot /><slot name="footer" /></section>',
-                },
+                BaseModal: BaseModalStub,
             },
         },
     })
@@ -21,6 +19,21 @@ function mountPromptModal(pinia: ReturnType<typeof createPinia>) {
 describe('GlobalPromptModal', () => {
     beforeEach(() => {
         setActivePinia(createPinia())
+    })
+
+    it('renders cancel and confirm as direct modal footer actions', () => {
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        const promptStore = usePromptStore()
+        void promptStore.open('message', 'title', '', 'confirm', 'cancel')
+
+        const wrapper = mountPromptModal(pinia)
+        const footer = wrapper.get('[data-test="modal-footer"]')
+
+        expect(Array.from(footer.element.children).map((child) => child.tagName)).toEqual(['BUTTON', 'BUTTON'])
+        expect(footer.findAll('button').map((button) => button.text())).toEqual(['cancel', 'confirm'])
+        expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('cancel')
+        expect(wrapper.get('[data-test="modal-body"]').text()).not.toContain('confirm')
     })
 
     it('keeps a hidden input label when prompt placeholder is provided', () => {

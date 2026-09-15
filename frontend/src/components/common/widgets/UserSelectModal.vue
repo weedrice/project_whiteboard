@@ -5,7 +5,7 @@
     :title="modalTitle"
     @close="emit('close')"
   >
-    <div class="p-4 space-y-4">
+    <div class="nv-dialog-stack">
       <BaseInput
         id="user-select-search"
         v-model="searchQuery"
@@ -86,11 +86,11 @@
         </BaseTable>
       </div>
 
-      <div class="flex items-center justify-end gap-2">
-          <BaseButton variant="secondary" @click="emit('close')">{{ $t('common.cancel') }}</BaseButton>
-          <BaseButton :disabled="selectedUsers.length === 0" @click="confirmSelection">{{ $t('common.save') }}</BaseButton>
-      </div>
     </div>
+    <template #footer>
+      <BaseButton variant="secondary" @click="emit('close')">{{ $t('common.cancel') }}</BaseButton>
+      <BaseButton :disabled="selectedUsers.length === 0" @click="confirmSelection">{{ $t('common.save') }}</BaseButton>
+    </template>
   </BaseModal>
 </template>
 
