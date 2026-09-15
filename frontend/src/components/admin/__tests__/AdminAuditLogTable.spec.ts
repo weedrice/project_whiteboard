@@ -55,6 +55,7 @@ describe('AdminAuditLogTable', () => {
     expect(wrapper.get('[role="region"]').attributes('tabindex')).toBeUndefined()
     expect(wrapper.get('table').classes()).toContain('w-full')
     expect(wrapper.get('table').classes()).toContain('nv-base-table-table')
+    expect(wrapper.get('.nv-base-table').classes()).toContain('nv-base-table--embedded')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardName')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardUrl')
   })
@@ -66,6 +67,17 @@ describe('AdminAuditLogTable', () => {
     expect(wrapper.text()).toContain('Vue')
     expect(wrapper.text()).toContain('admin.dashboard.auditBoardUrl')
     expect(wrapper.text()).toContain('vue')
+    expect(wrapper.findAll('col').map((column) => column.attributes('style'))).toEqual([
+      'width: 13%;',
+      'width: 13%;',
+      'width: 13%;',
+      'width: 13%;',
+      'width: 13%;',
+      'width: 20%;',
+      'width: 15%;',
+    ])
+    expect(wrapper.get('span[title="vue"]').classes()).toContain('truncate')
+    expect(wrapper.get('span[title="Policy"]').classes()).toEqual(expect.arrayContaining(['whitespace-normal', 'break-words']))
   })
 
   it('uses a dash when the board name is unavailable', () => {

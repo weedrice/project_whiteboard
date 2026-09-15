@@ -20,18 +20,31 @@ const props = withDefaults(defineProps<{
 
 const { t, locale } = useI18n()
 
+const optionalBoardColumnCount = computed(() => (
+  Number(props.showBoardName) + Number(props.showBoardUrl)
+))
+const columnWidths = computed(() => {
+  if (optionalBoardColumnCount.value === 2) {
+    return { action: '13%', actor: '13%', target: '13%', board: '13%', reason: '20%', createdAt: '15%' }
+  }
+  if (optionalBoardColumnCount.value === 1) {
+    return { action: '15%', actor: '15%', target: '15%', board: '17%', reason: '22%', createdAt: '16%' }
+  }
+  return { action: '18%', actor: '18%', target: '18%', board: '0%', reason: '27%', createdAt: '19%' }
+})
+
 const columns = computed<TableColumn[]>(() => [
-  { key: 'action', label: t('admin.dashboard.auditAction') },
-  { key: 'actor', label: t('admin.dashboard.auditActor') },
-  { key: 'target', label: t('admin.dashboard.auditTarget') },
+  { key: 'action', label: t('admin.dashboard.auditAction'), width: columnWidths.value.action },
+  { key: 'actor', label: t('admin.dashboard.auditActor'), width: columnWidths.value.actor },
+  { key: 'target', label: t('admin.dashboard.auditTarget'), width: columnWidths.value.target },
   ...(props.showBoardName
-    ? [{ key: 'boardName', label: t('admin.dashboard.auditBoardName') }]
+    ? [{ key: 'boardName', label: t('admin.dashboard.auditBoardName'), width: columnWidths.value.board }]
     : []),
   ...(props.showBoardUrl
-    ? [{ key: 'boardUrl', label: t('admin.dashboard.auditBoardUrl') }]
+    ? [{ key: 'boardUrl', label: t('admin.dashboard.auditBoardUrl'), width: columnWidths.value.board }]
     : []),
-  { key: 'reason', label: t('admin.dashboard.auditReason') },
-  { key: 'createdAt', label: t('admin.dashboard.auditCreatedAt') },
+  { key: 'reason', label: t('admin.dashboard.auditReason'), width: columnWidths.value.reason },
+  { key: 'createdAt', label: t('admin.dashboard.auditCreatedAt'), width: columnWidths.value.createdAt },
 ])
 
 const actorLabel = (audit: ModerationAuditLog) => {
@@ -63,17 +76,27 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
     :empty-text="emptyText"
     row-key="auditId"
     density="compact"
-    :shadow="false"
+    appearance="embedded"
     min-width-class="min-w-[48rem]"
   >
     <template #cell-action="{ item }">
-      <span class="font-medium nv-title">{{ actionLabel(item) }}</span>
+      <span class="block truncate font-medium nv-title" :title="actionLabel(item)">{{ actionLabel(item) }}</span>
     </template>
-    <template #cell-actor="{ item }">{{ actorLabel(item) }}</template>
-    <template #cell-target="{ item }">{{ targetLabel(item) }}</template>
-    <template v-if="showBoardName" #cell-boardName="{ item }">{{ item.boardName || '-' }}</template>
-    <template v-if="showBoardUrl" #cell-boardUrl="{ item }">{{ item.boardUrl || '-' }}</template>
-    <template #cell-reason="{ item }">{{ item.reason || '-' }}</template>
+    <template #cell-actor="{ item }">
+      <span class="block truncate" :title="actorLabel(item)">{{ actorLabel(item) }}</span>
+    </template>
+    <template #cell-target="{ item }">
+      <span class="block truncate" :title="targetLabel(item)">{{ targetLabel(item) }}</span>
+    </template>
+    <template v-if="showBoardName" #cell-boardName="{ item }">
+      <span class="block truncate" :title="item.boardName || undefined">{{ item.boardName || '-' }}</span>
+    </template>
+    <template v-if="showBoardUrl" #cell-boardUrl="{ item }">
+      <span class="block truncate" :title="item.boardUrl || undefined">{{ item.boardUrl || '-' }}</span>
+    </template>
+    <template #cell-reason="{ item }">
+      <span class="block whitespace-normal break-words" :title="item.reason || undefined">{{ item.reason || '-' }}</span>
+    </template>
     <template #cell-createdAt="{ item }">{{ formattedDate(item.createdAt) }}</template>
   </BaseTable>
 </template>

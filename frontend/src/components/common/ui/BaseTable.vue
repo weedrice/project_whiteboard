@@ -27,6 +27,7 @@ const props = withDefaults(defineProps<{
     loading?: boolean
     emptyText?: string
     density?: 'default' | 'compact'
+    appearance?: 'standalone' | 'embedded'
     shadow?: boolean
     maxHeightClass?: string
     currentSortKey?: string | null
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<{
     loading: false,
     emptyText: undefined,
     density: 'default',
+    appearance: 'standalone',
     shadow: true,
     maxHeightClass: undefined,
     currentSortKey: null,
@@ -164,8 +166,11 @@ const handleRowKeydown = (event: KeyboardEvent, item: T) => {
 }
 
 const rootClasses = computed(() => [
-    'nv-base-table nv-elevated-surface overflow-hidden',
-    props.shadow ? 'shadow' : '',
+    'nv-base-table overflow-hidden',
+    props.appearance === 'standalone'
+        ? 'nv-base-table--standalone nv-elevated-surface'
+        : 'nv-base-table--embedded',
+    props.appearance === 'standalone' && props.shadow ? 'shadow' : '',
 ])
 
 const scrollContainerClasses = computed(() => [
@@ -267,8 +272,18 @@ const bodyCellClasses = computed(() => [
 
 <style scoped>
 .nv-base-table {
+    min-width: 0;
+}
+
+.nv-base-table--standalone {
     background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
     border: 1px solid var(--nv-line);
+}
+
+.nv-base-table--embedded {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 
 .nv-base-table-table {

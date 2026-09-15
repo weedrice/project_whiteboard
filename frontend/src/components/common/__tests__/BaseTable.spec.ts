@@ -127,6 +127,22 @@ describe('BaseTable', () => {
         expect(wrapper.find('.nv-base-table-cell').exists()).toBe(true)
     })
 
+    it('removes standalone surface chrome when embedded in an owning panel', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Embedded row' }],
+                appearance: 'embedded',
+            },
+        })
+
+        const root = wrapper.get('.nv-base-table')
+        expect(root.classes()).toContain('nv-base-table--embedded')
+        expect(root.classes()).not.toContain('nv-base-table--standalone')
+        expect(root.classes()).not.toContain('nv-elevated-surface')
+        expect(root.classes()).not.toContain('shadow')
+    })
+
     it('supports keyboard activation when rows opt into interactive behavior', async () => {
         const wrapper = mount(BaseTable, {
             props: {

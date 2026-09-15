@@ -72,7 +72,7 @@ watch(
     </div>
 
     <!-- Main content -->
-    <div class="md:pl-64 flex flex-col flex-1">
+    <div class="min-w-0 flex flex-1 flex-col md:pl-64">
       <header class="md:hidden sticky top-0 z-40 border-b border-[var(--nv-line)] bg-[var(--nv-surface)]/95 backdrop-blur">
         <div class="flex h-14 items-center justify-between gap-3 px-4">
           <router-link to="/" class="min-w-0 text-base font-semibold nv-title">
@@ -114,9 +114,9 @@ watch(
         </nav>
       </header>
 
-      <main class="flex-1">
-        <div class="py-6">
-          <div class="px-4 sm:px-6 md:px-8">
+      <main class="min-w-0 flex-1">
+        <div class="min-w-0 py-6">
+          <div class="min-w-0 px-4 sm:px-6 md:px-8">
             <router-view></router-view>
           </div>
         </div>

@@ -17,6 +17,9 @@ const emptyPage = {
   last: true,
 }
 
+const auditBoardUrl = 'frontend-platform-governance-and-moderation-history'
+const auditReason = 'Repeated policy violation confirmed after administrator review with supporting evidence.'
+
 const apiResponse = (data: unknown) => ({
   success: true,
   data,
@@ -167,7 +170,26 @@ async function installAdminApi(page: Page) {
     }
     return fulfill(route, { totalUsers: 1, pendingReports: 0, activeUsers: 1 })
   })
-  await page.route('**/api/v1/admin/moderation-audits**', (route) => fulfill(route, emptyPage))
+  await page.route('**/api/v1/admin/moderation-audits**', (route) => fulfill(route, {
+    ...emptyPage,
+    content: [{
+      auditId: 901,
+      actorType: 'USER',
+      actorUserId: 1,
+      actorDisplayName: 'Admin',
+      adminId: 1,
+      action: 'POST_BLIND',
+      targetType: 'POST',
+      targetId: 77,
+      boardId: 12,
+      boardName: 'Frontend',
+      boardUrl: auditBoardUrl,
+      reason: auditReason,
+      createdAt: '2026-09-15T09:00:00',
+    }],
+    totalElements: 1,
+    totalPages: 1,
+  }))
 }
 
 for (const viewport of viewports) {
@@ -225,6 +247,20 @@ for (const viewport of viewports) {
     await expect(periodControl).toBeVisible()
     await periodControl.getByRole('button', { name: '90일' }).click()
     await expect(periodControl.getByRole('button', { name: '90일' })).toHaveAttribute('aria-pressed', 'true')
+
+    const auditTable = page.locator('.nv-base-table--embedded')
+    const auditRegion = auditTable.getByRole('region')
+    await expect(auditTable).toBeVisible()
+    await expect(auditTable).not.toHaveClass(/nv-elevated-surface/)
+    await expect(auditTable).toHaveCSS('border-top-width', '0px')
+    await expect(auditTable).toHaveCSS('box-shadow', 'none')
+    await expect(auditTable.locator(`span[title="${auditBoardUrl}"]`)).toHaveText(auditBoardUrl)
+    await expect(auditTable.locator(`span[title="${auditReason}"]`)).toHaveCSS('white-space', 'normal')
+    if (viewport.name === 'mobile') {
+      await expect.poll(() => auditRegion.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+      await expect(auditRegion).toHaveAttribute('tabindex', '0')
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
     await expectNoSeriousAccessibilityViolations(page)
   })
 }
