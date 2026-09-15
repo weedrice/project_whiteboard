@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import AdminInquiryPosts from '../AdminInquiryPosts.vue'
 
 const { identityT, state } = vi.hoisted(() => {
@@ -121,15 +121,27 @@ const AdminPaginatedTableStub = defineComponent({
   `,
 })
 
-function mountView() {
+const InquiryImageUploaderStub = defineComponent({
+  setup(_, { expose }) {
+    expose({
+      beginSubmission: () => true,
+      commitUploads: vi.fn(),
+      discardUploads: vi.fn(),
+      failSubmission: vi.fn(),
+    })
+    return () => h('div', { 'data-test': 'inquiry-uploader' })
+  },
+})
+
+function mountView(options: { realTable?: boolean } = {}) {
   return mount(AdminInquiryPosts, {
     global: {
       stubs: {
         AdminDataPage: { template: '<main><slot /></main>' },
-        AdminPaginatedTable: AdminPaginatedTableStub,
+        ...(!options.realTable ? { AdminPaginatedTable: AdminPaginatedTableStub } : {}),
         AdminInquiryDetailModal: true,
         InquiryTimeline: true,
-        InquiryImageUploader: true,
+        InquiryImageUploader: InquiryImageUploaderStub,
         BaseButton: { template: '<button><slot /></button>' },
         Pagination: true,
         Teleport: true,
@@ -143,6 +155,9 @@ describe('AdminInquiryPosts', () => {
     state.routerPush.mockReset()
     state.legacy.openDetail.mockReset()
     state.route.params = {}
+    state.detailQuery.data.value = null
+    state.detailQuery.error.value = null
+    state.detailQuery.isLoading.value = false
     state.pageQueryOptions = null
     state.confirmWithReason.mockReset().mockResolvedValue('resolved reason')
     state.mutation.mutate.mockReset()
@@ -169,6 +184,16 @@ describe('AdminInquiryPosts', () => {
     expect(openButton.text()).toBe('Account recovery')
     expect(openButton.attributes('type')).toBe('button')
     await openButton.trigger('click')
+
+    expect(state.routerPush).toHaveBeenCalledWith('/admin/inquiries/41')
+  })
+
+  it('opens an inquiry from the real shared table with the keyboard', async () => {
+    const wrapper = mountView({ realTable: true })
+    const row = wrapper.get('tbody tr[tabindex="0"]')
+
+    expect(row.attributes('aria-keyshortcuts')).toBe('Enter Space')
+    await row.trigger('keydown', { key: 'Enter' })
 
     expect(state.routerPush).toHaveBeenCalledWith('/admin/inquiries/41')
   })
@@ -239,6 +264,34 @@ describe('AdminInquiryPosts', () => {
       action: 'close',
       inquiryId: 41,
       reason: 'policy violation',
+    }))
+  })
+
+  it('submits the selected internal-note mode through the inquiry action contract', async () => {
+    state.route.params = { inquiryId: '41' }
+    state.detailQuery.data.value = {
+      inquiryId: 41,
+      title: 'Account recovery',
+      authorName: 'Ada',
+      status: 'IN_PROGRESS',
+      effectivePriority: 'HIGH',
+      messages: [],
+      closureDetail: null,
+    }
+    const wrapper = mountView()
+    const modes = wrapper.findAll('[role="radio"]')
+
+    expect(modes.map((mode) => mode.attributes('aria-checked'))).toEqual(['true', 'false'])
+    await modes[1]!.trigger('click')
+    await wrapper.get('textarea').setValue('Only administrators can read this.')
+    await wrapper.get('form.space-y-3').trigger('submit')
+
+    expect(modes[1]!.attributes('aria-checked')).toBe('true')
+    expect(state.mutation.mutate).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'note',
+      inquiryId: 41,
+      content: 'Only administrators can read this.',
+      fileIds: [],
     }))
   })
 })

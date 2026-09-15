@@ -164,6 +164,10 @@ test('super admin starts and resolves a new inquiry from the support queue', asy
       current = detail({ status: 'IN_PROGRESS', allowedActions: { canAddMessage: false, canWithdraw: false, canClose: false } })
       return fulfillJson(route, current)
     }
+    if (path.endsWith('/notes') && method === 'POST') {
+      actions.push('note')
+      return fulfillJson(route, current)
+    }
     if (path.endsWith('/reply') && method === 'POST') {
       actions.push('reply')
       current = detail({
@@ -183,9 +187,15 @@ test('super admin starts and resolves a new inquiry from the support queue', asy
   await expect.poll(() => actions).toEqual(['start'])
   await expect(page.getByRole('dialog').locator('[data-inquiry-status="IN_PROGRESS"]')).toBeVisible()
 
+  await page.getByRole('dialog').getByRole('radio', { name: '내부 메모' }).click()
+  await page.getByRole('dialog').locator('textarea').fill('담당자에게만 보이는 메모입니다.')
+  await page.getByRole('dialog').getByRole('button', { name: '메모 추가' }).click()
+  await expect.poll(() => actions).toEqual(['start', 'note'])
+
+  await page.getByRole('dialog').getByRole('radio', { name: '공개 답변' }).click()
   await page.getByRole('dialog').locator('textarea').fill('조치가 완료되었습니다.')
   await page.getByRole('dialog').getByRole('button', { name: /답변 등록/ }).click()
-  await expect.poll(() => actions).toEqual(['start', 'reply'])
+  await expect.poll(() => actions).toEqual(['start', 'note', 'reply'])
   await expect(page.getByRole('dialog').locator('[data-inquiry-status="RESOLVED"]')).toBeVisible()
-  expect(actions).toEqual(['start', 'reply'])
+  expect(actions).toEqual(['start', 'note', 'reply'])
 })

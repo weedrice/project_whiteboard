@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => ({
   },
   audits: { __v_isRef: true, value: { content: [] } },
   auditParams: { value: null as unknown },
+  deepDays: { value: null as unknown },
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
@@ -49,12 +50,15 @@ vi.mock('@/features/admin/useAdmin', () => ({
       isError: mocks.statsError,
       refetch: mocks.refetchStats,
     }),
-    useDeepDashboardStats: () => ({
-      data: mocks.deepStats,
-      isLoading: mocks.deepLoading,
-      isError: mocks.deepError,
-      refetch: mocks.refetchDeep,
-    }),
+    useDeepDashboardStats: (days: unknown) => {
+      mocks.deepDays.value = days
+      return {
+        data: mocks.deepStats,
+        isLoading: mocks.deepLoading,
+        isError: mocks.deepError,
+        refetch: mocks.refetchDeep,
+      }
+    },
     useModerationAudits: (params: unknown) => {
       mocks.auditParams.value = params
       return {
@@ -141,5 +145,19 @@ describe('AdminDashboard', () => {
     }))
     expect(params.value).not.toHaveProperty('boardUrl')
     expect(params.value).not.toHaveProperty('actorUserId')
+  })
+
+  it('passes the selected common segmented period to the deep statistics query', async () => {
+    const wrapper = mount(AdminDashboard, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    const days = mocks.deepDays.value as { value: number }
+    const periodButtons = wrapper.findAll('[role="group"] button')
+
+    expect(days.value).toBe(30)
+    await periodButtons[1]!.trigger('click')
+
+    expect(days.value).toBe(90)
+    expect(periodButtons[1]!.attributes('aria-pressed')).toBe('true')
   })
 })
