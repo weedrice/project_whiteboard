@@ -11,6 +11,7 @@ const { identityT, state } = vi.hoisted(() => {
     ),
     state: {
       routerPush: vi.fn(),
+      confirmWithReason: vi.fn(),
       route: { params: {} as { inquiryId?: string } },
       pageQueryOptions: null as null | { queryKey: { value: readonly unknown[] } },
       mutation: {
@@ -99,6 +100,10 @@ vi.mock('@/features/admin/inquiries/useAdminInquiryPosts', () => ({
   useAdminInquiryPosts: () => state.legacy,
 }))
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirmWithReason: state.confirmWithReason }),
+}))
+
 const AdminPaginatedTableStub = defineComponent({
   props: { items: { type: Array, default: () => [] } },
   emits: ['row-click'],
@@ -128,6 +133,9 @@ describe('AdminInquiryPosts', () => {
     state.legacy.openDetail.mockReset()
     state.route.params = {}
     state.pageQueryOptions = null
+    state.confirmWithReason.mockReset().mockResolvedValue('resolved reason')
+    state.mutation.mutate.mockReset()
+    state.mutation.isPending.value = false
   })
 
   it('renders independent inquiries and opens their dedicated admin route', async () => {
@@ -197,5 +205,28 @@ describe('AdminInquiryPosts', () => {
     await nextTick()
 
     expect((state.pageQueryOptions!.queryKey.value[2] as { keyword?: string }).keyword).toBe('account')
+  })
+
+  it('uses the shared prompt modal before closing an inquiry', async () => {
+    state.route.params = { inquiryId: '41' }
+    state.confirmWithReason.mockResolvedValueOnce(null)
+    const wrapper = mountView()
+    const runAction = (wrapper.vm as unknown as {
+      runAction: (action: 'close') => Promise<void>
+    }).runAction
+
+    await runAction('close')
+
+    expect(state.confirmWithReason).toHaveBeenCalledWith('inquiry.admin.closePrompt')
+    expect(state.mutation.mutate).not.toHaveBeenCalled()
+
+    state.confirmWithReason.mockResolvedValueOnce('policy violation')
+    await runAction('close')
+
+    expect(state.mutation.mutate).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'close',
+      inquiryId: 41,
+      reason: 'policy violation',
+    }))
   })
 })

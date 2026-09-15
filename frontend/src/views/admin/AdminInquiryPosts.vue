@@ -14,6 +14,7 @@ import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vu
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { useAdminInquiryPosts } from '@/features/admin/inquiries/useAdminInquiryPosts'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import { useConfirm } from '@/composables/useConfirm'
 import { inquiryApi } from '@/api/inquiry'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { InquiryCategory, InquiryPriority, InquiryStatus } from '@/types/inquiry'
@@ -28,6 +29,7 @@ import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
 const { t } = useI18n()
+const { confirmWithReason } = useConfirm()
 const router = useRouter()
 const queryClient = useQueryClient()
 const tab = ref<'new' | 'legacy'>('new')
@@ -209,15 +211,18 @@ async function closeDetail() {
   await router.push('/admin/inquiries')
 }
 
-function runAction(action: AdminAction) {
+async function runAction(action: AdminAction) {
   if (selectedId.value === null || actionMutation.isPending.value) return
+  const targetInquiryId = selectedId.value
+  const targetComposeEpoch = composeEpoch
   let reason: string | undefined
   if (action === 'close') {
-    reason = window.prompt(t('inquiry.admin.closePrompt'))?.trim()
+    reason = await confirmWithReason(t('inquiry.admin.closePrompt')) ?? undefined
     if (!reason) {
       errorMessage.value = t('inquiry.admin.closeReasonRequired')
       return
     }
+    if (selectedId.value !== targetInquiryId || composeEpoch !== targetComposeEpoch) return
   }
   const submissionUploader = action === 'reply' || action === 'note' ? uploader.value : null
   if (submissionUploader && !submissionUploader.beginSubmission()) {
@@ -226,12 +231,12 @@ function runAction(action: AdminAction) {
   }
   actionMutation.mutate({
     action,
-    inquiryId: selectedId.value,
+    inquiryId: targetInquiryId,
     content: content.value.trim(),
     fileIds: [...fileIds.value],
     reason,
     generation: getCurrentSessionGeneration(),
-    composeEpoch,
+    composeEpoch: targetComposeEpoch,
     uploader: submissionUploader,
   })
 }

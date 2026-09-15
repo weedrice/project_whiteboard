@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InquiryDetail from '../InquiryDetail.vue'
+import { createDeferred } from '@/test/async'
 
 const { state } = vi.hoisted(() => {
   const refOf = <T>(value: T) => ({ __v_isRef: true, value })
@@ -24,6 +25,7 @@ const { state } = vi.hoisted(() => {
       ],
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
       setQueryData: vi.fn(),
+      confirm: vi.fn(),
       refOf,
     },
   }
@@ -54,6 +56,9 @@ vi.mock('@/composables/useApiQuery', () => ({
     isLoading: state.refOf(false),
     error: state.refOf(null),
   }),
+}))
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm: state.confirm }),
 }))
 vi.mock('@tanstack/vue-query', async (importOriginal) => ({
   ...await importOriginal<typeof import('@tanstack/vue-query')>(),
@@ -103,6 +108,7 @@ describe('InquiryDetail', () => {
     })
     state.invalidateQueries.mockClear()
     state.setQueryData.mockClear()
+    state.confirm.mockReset().mockResolvedValue(true)
   })
 
   it('discards temporary uploads when adding a message fails', async () => {
@@ -192,6 +198,44 @@ describe('InquiryDetail', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(state.mutations[0]!.mutate).not.toHaveBeenCalled()
+  })
+
+  it('uses the shared confirm modal before withdrawing an inquiry', async () => {
+    state.confirm.mockResolvedValueOnce(false)
+    const wrapper = mountView()
+    const runAction = (wrapper.vm as unknown as {
+      runAction: (action: 'withdraw' | 'close') => Promise<void>
+    }).runAction
+
+    await runAction('withdraw')
+
+    expect(state.confirm).toHaveBeenCalledWith('inquiry.detail.withdrawConfirm')
+    expect(state.mutations[1]!.mutate).not.toHaveBeenCalled()
+
+    state.confirm.mockResolvedValueOnce(true)
+    await runAction('withdraw')
+
+    expect(state.mutations[1]!.mutate).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'withdraw',
+      inquiryId: 41,
+    }))
+  })
+
+  it('ignores a confirmation resolved after navigating to another inquiry', async () => {
+    const pendingConfirm = createDeferred<boolean>()
+    state.confirm.mockReturnValueOnce(pendingConfirm.promise)
+    const wrapper = mountView()
+    const runAction = (wrapper.vm as unknown as {
+      runAction: (action: 'withdraw' | 'close') => Promise<void>
+    }).runAction
+
+    const action = runAction('withdraw')
+    state.route.params.inquiryId = '42'
+    await nextTick()
+    pendingConfirm.resolve(true)
+    await action
+
+    expect(state.mutations[1]!.mutate).not.toHaveBeenCalled()
   })
 
   it('renders localized status and category labels instead of raw enum values', () => {

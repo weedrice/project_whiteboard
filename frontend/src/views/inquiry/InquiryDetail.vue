@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { useApiQuery } from '@/composables/useApiQuery'
+import { useConfirm } from '@/composables/useConfirm'
 import { inquiryApi } from '@/api/inquiry'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
@@ -20,6 +21,7 @@ import type { InquiryCategory, InquiryClosureReason, InquiryStatus } from '@/typ
 
 const route = useRoute()
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const router = useRouter()
 const queryClient = useQueryClient()
 const inquiryId = computed(() => Number(route.params.inquiryId))
@@ -147,17 +149,19 @@ function addMessage() {
   })
 }
 
-function runAction(action: 'withdraw' | 'close') {
+async function runAction(action: 'withdraw' | 'close') {
   if (interactionPending.value) return
+  const targetInquiryId = inquiryId.value
+  const targetDraftEpoch = draftEpoch
   const message = action === 'withdraw' ? t('inquiry.detail.withdrawConfirm') : t('inquiry.detail.closeConfirm')
-  if (window.confirm(message)) {
-    actionMutation.mutate({
-      action,
-      inquiryId: inquiryId.value,
-      generation: getCurrentSessionGeneration(),
-      draftEpoch,
-    })
-  }
+  if (!(await confirm(message))) return
+  if (inquiryId.value !== targetInquiryId || draftEpoch !== targetDraftEpoch) return
+  actionMutation.mutate({
+    action,
+    inquiryId: targetInquiryId,
+    generation: getCurrentSessionGeneration(),
+    draftEpoch: targetDraftEpoch,
+  })
 }
 </script>
 

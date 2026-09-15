@@ -7,12 +7,12 @@ const srcRoot = fileURLToPath(new URL('../src', import.meta.url))
 const allowedFooterActionTags = new Set(['BaseButton', 'button', 'a', 'RouterLink', 'router-link'])
 const duplicatePaddingToken = /^(?:(?:sm|md|lg|xl|2xl):)*(?:p|px|py)-(?!0$).+$/
 
-async function collectVueFiles(directory) {
+async function collectFiles(directory, extensions) {
   const entries = await readdir(directory, { withFileTypes: true })
   const nested = await Promise.all(entries.map(async (entry) => {
     const path = join(directory, entry.name)
-    if (entry.isDirectory()) return collectVueFiles(path)
-    return extname(entry.name) === '.vue' ? [path] : []
+    if (entry.isDirectory()) return collectFiles(path, extensions)
+    return extensions.has(extname(entry.name)) ? [path] : []
   }))
 
   return nested.flat()
@@ -76,7 +76,21 @@ function hasLegacyActionContainer(element) {
 }
 
 const violations = []
-for (const file of await collectVueFiles(srcRoot)) {
+const sourceFiles = await collectFiles(srcRoot, new Set(['.ts', '.vue']))
+for (const file of sourceFiles) {
+  const displayPath = relative(srcRoot, file)
+  const isTestSource = displayPath.split(/[\\/]/).includes('__tests__') || /\.spec\.ts$/.test(displayPath)
+  if (isTestSource) continue
+
+  const source = await readFile(file, 'utf8')
+  source.split(/\r?\n/).forEach((line, index) => {
+    if (/\b(?:window|globalThis)\.(?:alert|confirm|prompt)\s*\(/.test(line)) {
+      violations.push(`${displayPath}:${index + 1} 브라우저 기본 dialog 대신 공통 confirm/prompt UI를 사용해야 합니다.`)
+    }
+  })
+}
+
+for (const file of sourceFiles.filter((path) => extname(path) === '.vue')) {
   const source = await readFile(file, 'utf8')
   const displayPath = relative(srcRoot, file)
   const template = extractTemplate(source)

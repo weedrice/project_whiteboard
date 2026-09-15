@@ -15,6 +15,7 @@ import { queryClient, configureQueryClientStoreResolvers } from '@/queryClient'
 import { configureAuthSessionEffects, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
+import { useConfirmStore } from '@/stores/confirm'
 import { validateEnv } from '@/utils/env'
 import { installClientErrorReporting } from '@/utils/clientErrorReporter'
 import { registerPwaAutoUpdate } from '@/pwa'
@@ -66,14 +67,20 @@ configureAuthSessionEffects({
         // 지워진 뒤 설정 응답이 오기 전까지 브라우저 지역으로 그려진다.
         clearUserTimeZone()
     },
-    onExplicitLogout: (userId) => {
+    onExplicitLogout: async (userId) => {
         if (userId == null) return
         const unsyncedDraftCount = countUnsyncedStoredDraftSnapshotsForUser(userId)
         const confirmation = i18n.global.t('board.writePost.draftStatus.confirmLogoutWithUnsynced', {
             count: unsyncedDraftCount,
         })
-        if (unsyncedDraftCount > 0 && !window.confirm(confirmation)) {
-            return false
+        if (unsyncedDraftCount > 0) {
+            const confirmed = await useConfirmStore(pinia).open(
+                confirmation,
+                i18n.global.t('common.confirm'),
+                i18n.global.t('common.yes'),
+                i18n.global.t('common.noValue'),
+            )
+            if (!confirmed) return false
         }
         clearStoredDraftSnapshotsForUser(userId)
         clearDraftTombstonesForUser(userId)

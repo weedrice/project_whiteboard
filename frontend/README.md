@@ -82,6 +82,7 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 - 자체 스크롤·섹션 레이아웃이 필요한 대화창, 미리보기, 상세 shell은 `layout="immersive"`를 명시합니다. 공통 body 여백이 필요 없는 경우에만 `body-padding="none"`을 사용합니다.
 - `BaseModal` 밖의 dialog는 `nv-dialog-overlay`와 `nv-dialog-surface`를 사용하고 `popover`, `sheet`, `media` 중 역할에 맞는 변형을 명시합니다. 모달 custom dialog는 `useDialogLifecycle`로 Escape, focus trap·복귀, scroll lock, 중첩 순서를 공유합니다.
 - 알림 드롭다운 같은 non-modal dialog에는 `aria-modal`과 scroll lock을 적용하지 않습니다. listbox, menu, tooltip과 단순 시각 overlay는 dialog 계약 대상이 아닙니다.
+- 확인·사유 입력은 `useConfirm()`의 `confirm` 또는 `confirmWithReason`을 사용합니다. 생산 코드에서 브라우저 기본 `window.alert`, `window.confirm`, `window.prompt`를 직접 호출하지 않습니다.
 - 새 UI는 `npm run check:ui`로 중복 패딩, 구형 액션 wrapper, 분류되지 않은 raw dialog가 없는지 확인합니다.
 
 ## 주요 기능
