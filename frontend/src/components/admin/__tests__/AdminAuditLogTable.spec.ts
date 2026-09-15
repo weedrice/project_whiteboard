@@ -51,9 +51,10 @@ describe('AdminAuditLogTable', () => {
     expect(wrapper.text()).toContain('Post #11')
     expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
       'aria-label': 'Moderation audit logs',
-      tabindex: '0',
     })
+    expect(wrapper.get('[role="region"]').attributes('tabindex')).toBeUndefined()
     expect(wrapper.get('table').classes()).toContain('w-full')
+    expect(wrapper.get('table').classes()).toContain('nv-base-table-table')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardName')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardUrl')
   })
@@ -78,5 +79,19 @@ describe('AdminAuditLogTable', () => {
     })
 
     expect(wrapper.findAll('tbody td').map((cell) => cell.text())).toContain('-')
+  })
+
+  it('uses the shared table empty state instead of a separate table shell', () => {
+    const wrapper = mount(AdminAuditLogTable, {
+      props: {
+        audits: [],
+        caption: 'Moderation audit logs',
+        emptyText: 'No logs',
+      },
+    })
+
+    expect(wrapper.get('table').classes()).toContain('nv-base-table-table')
+    expect(wrapper.get('[role="status"]').text()).toBe('No logs')
+    expect(wrapper.find('[data-ui-native]').exists()).toBe(false)
   })
 })
