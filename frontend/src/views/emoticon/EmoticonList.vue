@@ -12,6 +12,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import EmoticonGridSkeleton from '@/components/emoticon/EmoticonGridSkeleton.vue'
 import EmoticonListCard from '@/components/emoticon/EmoticonListCard.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { formatInteger } from '@/utils/numberFormat'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useEmoticonListResource } from '@/features/emoticon/list/useEmoticonListResource'
@@ -87,10 +88,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
 
 <template>
   <div class="mx-auto max-w-7xl">
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.title') }}</h1>
-      <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.list.description') }}</p>
-    </div>
+    <PageHeader class="mb-8" :title="t('emoticon.title')" :description="t('emoticon.list.description')" />
 
     <section class="mb-12">
       <div class="flex items-center justify-between mb-4">
@@ -227,3 +225,88 @@ function handleSearchKeyup(event: KeyboardEvent) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.list-search-row {
+  display: flex;
+  flex: 1 1 0%;
+  max-width: 28rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.list-search-group {
+  align-items: stretch;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-border-strong);
+  border-radius: 0.375rem;
+  display: flex;
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.list-search-group:focus-within {
+  border-color: var(--nv-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 32%, transparent);
+}
+
+:deep(.list-search-select-inline) {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem 0 0 0.375rem;
+  border-right: 1px solid var(--nv-line);
+  color: var(--nv-ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  height: 2.75rem;
+  line-height: 1.25rem;
+  min-height: 2.75rem;
+  outline: none;
+  padding-left: 0.75rem;
+  padding-right: 2rem;
+}
+
+.list-search-input-inner {
+  display: flex;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.list-search-input-inner > * {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+:deep(.list-search-input) {
+  background: transparent;
+  border: none !important;
+  border-radius: 0;
+  box-sizing: border-box;
+  box-shadow: none !important;
+  color: var(--nv-ink);
+  height: 2.75rem;
+  min-height: 2.75rem;
+  outline: none;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+:deep(.list-search-btn) {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--nv-line);
+  border-radius: 0;
+  box-shadow: none !important;
+  flex-shrink: 0;
+  font-weight: 500;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+</style>

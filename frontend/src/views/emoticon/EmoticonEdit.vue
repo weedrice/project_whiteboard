@@ -7,6 +7,8 @@ import { ArrowLeft, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
@@ -142,30 +144,29 @@ useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
       class="mb-8"
     >
       <template #actions>
-        <button type="button" :disabled="isSubmitting" @click="goToDetail"
-          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
+        <BaseButton variant="ghost" size="sm" :disabled="isSubmitting" @click="goToDetail">
           <ArrowLeft class="w-4 h-4 mr-1" />
           {{ t('emoticon.form.back') }}
-        </button>
+        </BaseButton>
       </template>
     </PageHeader>
 
     <!-- 로딩 -->
     <div v-if="isLoading" class="animate-pulse space-y-8" role="status" aria-live="polite" aria-busy="true"
       :aria-label="t('common.loading')">
-      <div class="nv-surface rounded-lg border nv-border p-6">
+      <BaseCard bordered elevation="none" padding="lg">
         <div class="flex gap-6">
           <div class="w-32 h-32 nv-surface-muted rounded-lg"></div>
           <div class="flex-1">
             <div class="h-10 nv-surface-muted rounded w-full"></div>
           </div>
         </div>
-      </div>
-      <div class="nv-surface rounded-lg border nv-border p-6">
+      </BaseCard>
+      <BaseCard bordered elevation="none" padding="lg">
         <div class="grid grid-cols-5 gap-2">
           <div v-for="i in 5" :key="i" class="aspect-square nv-surface-muted rounded"></div>
         </div>
-      </div>
+      </BaseCard>
     </div>
 
     <!-- 폼 -->
@@ -177,13 +178,12 @@ useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
         class="m-0 min-w-0 space-y-8 border-0 p-0"
       >
       <!-- 숨김/표시 전환 (등록자만) -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-4">
+      <BaseCard bordered padding="sm">
         <div class="flex items-center justify-between">
           <div>
-            <span v-if="!emoticon.isActive"
-              class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium nv-surface-muted nv-text-muted">
+            <BaseBadge v-if="!emoticon.isActive" variant="gray" size="sm" :rounded="false">
               {{ $t('emoticon.visibility.hidden') }}
-            </span>
+            </BaseBadge>
             <span v-else class="text-sm nv-text-subtle">{{ t('emoticon.form.onSale') }}</span>
           </div>
           <button type="button" @click="handleToggleVisibility" :disabled="isToggling || isSubmitting"
@@ -195,10 +195,10 @@ useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
             {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
           </button>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 이모티콘 이름과 썸네일 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
+      <BaseCard bordered padding="lg">
         <div class="flex flex-col md:flex-row gap-6">
           <EmoticonThumbnailField
             input-id="emoticon-thumbnail-input"
@@ -224,7 +224,7 @@ useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
             />
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <EmoticonImageGridUploader
         input-id="emoticon-image-input"

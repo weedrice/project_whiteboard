@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { Plus } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import EmoticonImageTile from '@/components/emoticon/EmoticonImageTile.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 
@@ -40,7 +41,7 @@ function openFileInput() {
 </script>
 
 <template>
-  <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
+  <BaseCard bordered padding="lg">
     <label :for="inputId" class="block text-sm font-medium nv-text-muted mb-2">
       {{ t('emoticon.form.image') }} <span class="nv-form-error">*</span>
       <span class="text-xs font-normal nv-text-subtle ml-2">
@@ -105,7 +106,7 @@ function openFileInput() {
     </div>
 
     <slot name="meta" />
-  </div>
+  </BaseCard>
 </template>
 
 <style scoped>

@@ -5,6 +5,8 @@ import { useHead } from '@unhead/vue'
 import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil, EyeOff, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { formatDateOnlyLongOrDash } from '@/utils/date'
@@ -63,17 +65,16 @@ useHead({
   <div class="mx-auto max-w-5xl">
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
-      <button type="button" @click="goToList"
-        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
+      <BaseButton variant="ghost" size="sm" @click="goToList">
         <ArrowLeft class="w-4 h-4 mr-1" />
         {{ t('emoticon.detail.backToList') }}
-      </button>
+      </BaseButton>
     </div>
 
     <!-- 로딩 -->
     <div v-if="isLoading" class="animate-pulse" role="status" aria-live="polite" aria-busy="true"
       :aria-label="t('common.loading')">
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+      <BaseCard bordered padding="lg" class="mb-8">
         <div class="flex flex-col sm:flex-row gap-6">
           <div class="flex-shrink-0">
             <div class="w-40 h-40 nv-surface-muted rounded-lg"></div>
@@ -96,9 +97,9 @@ useHead({
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
 
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+      <BaseCard bordered padding="lg" class="mb-8">
         <div class="h-6 nv-surface-muted rounded w-40 mb-4"></div>
         <div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3">
           <div
@@ -107,7 +108,7 @@ useHead({
             class="aspect-square w-full nv-surface-muted rounded-lg"
           ></div>
         </div>
-      </div>
+      </BaseCard>
 
       <div class="flex justify-end">
         <div class="h-11 nv-surface-muted rounded-lg w-32"></div>
@@ -125,7 +126,7 @@ useHead({
     <!-- 컨텐츠 -->
     <div v-else-if="emoticonView">
       <!-- 상단 정보 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+      <BaseCard bordered padding="lg" class="mb-8">
         <div class="flex flex-col sm:flex-row gap-6">
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
@@ -140,10 +141,9 @@ useHead({
             <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
               <div class="flex items-center gap-2 flex-wrap">
                 <h1 class="text-2xl font-bold nv-title">{{ emoticonView.name }}</h1>
-                <span v-if="!emoticonView.isActive"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium nv-surface-muted nv-text-muted">
+                <BaseBadge v-if="!emoticonView.isActive" variant="gray" size="sm" :rounded="false">
                   {{ $t('emoticon.visibility.hidden') }}
-                </span>
+                </BaseBadge>
               </div>
               <div v-if="isOwner" class="flex items-center gap-2">
                 <button type="button" @click="handleToggleVisibility" :disabled="isToggling"
@@ -178,10 +178,10 @@ useHead({
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 이모티콘 이미지 목록 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+      <BaseCard as="section" bordered padding="lg" class="mb-8">
         <h2 class="text-lg font-semibold nv-title mb-4">
           {{ t('emoticon.detail.imageList') }} <span class="text-sm font-normal nv-text-subtle">({{ t('emoticon.list.itemCount', { count: emoticonView.imageCount }) }})</span>
         </h2>
@@ -197,11 +197,10 @@ useHead({
         <div v-else class="text-center py-8 nv-text-subtle">
           {{ t('emoticon.detail.imageEmpty') }}
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 태그 -->
-      <div v-if="emoticonView.tags.length > 0"
-        class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+      <BaseCard v-if="emoticonView.tags.length > 0" as="section" bordered padding="lg" class="mb-8">
         <h2 class="text-lg font-semibold nv-title mb-4 flex items-center">
           <Tag class="w-4 h-4 mr-2" />
           {{ t('emoticon.detail.tags') }}
@@ -212,7 +211,7 @@ useHead({
             #{{ tag }}
           </span>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 구매 버튼 -->
       <div class="flex justify-end">

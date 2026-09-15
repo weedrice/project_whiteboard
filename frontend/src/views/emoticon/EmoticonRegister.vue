@@ -11,6 +11,7 @@ import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
@@ -136,15 +137,10 @@ useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
       class="mb-8"
     >
       <template #actions>
-        <button
-          type="button"
-          :disabled="isSubmitting"
-          @click="goToList"
-          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
-        >
+        <BaseButton variant="ghost" size="sm" :disabled="isSubmitting" @click="goToList">
           <ArrowLeft class="w-4 h-4 mr-1" />
           {{ t('emoticon.detail.backToList') }}
-        </button>
+        </BaseButton>
       </template>
     </PageHeader>
 
