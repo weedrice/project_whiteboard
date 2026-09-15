@@ -12,23 +12,40 @@ export function usePostEditorPopovers() {
   const colorPanelRef = ref<HTMLElement | null>(null)
   const linkPopoverRef = ref<HTMLElement | null>(null)
   const tablePopoverRef = ref<HTMLElement | null>(null)
-  const colorTriggerElement = ref<HTMLElement | null>(null)
-
-  usePopoverFocus(slashPopoverRef, showSlashMenu)
-  usePopoverFocus(colorPanelRef, showColorPanel)
-  usePopoverFocus(linkPopoverRef, showLinkPopover)
-  usePopoverFocus(tablePopoverRef, showTablePopover)
-
   const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
   const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
   const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
   const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
 
+  const { isTopDialog: isSlashDialogTop } = usePopoverFocus(
+    slashPopoverRef,
+    showSlashMenu,
+    () => { showSlashMenu.value = false },
+    () => slashPosition.anchorElement.value,
+  )
+  const { isTopDialog: isColorDialogTop } = usePopoverFocus(
+    colorPanelRef,
+    showColorPanel,
+    () => { showColorPanel.value = false },
+    () => colorPosition.anchorElement.value,
+  )
+  const { isTopDialog: isLinkDialogTop } = usePopoverFocus(
+    linkPopoverRef,
+    showLinkPopover,
+    () => { showLinkPopover.value = false },
+    () => linkPosition.anchorElement.value,
+  )
+  const { isTopDialog: isTableDialogTop } = usePopoverFocus(
+    tablePopoverRef,
+    showTablePopover,
+    () => { showTablePopover.value = false },
+    () => tablePosition.anchorElement.value,
+  )
+
   const closeFloatingMenus = () => {
     showSlashMenu.value = false
     showColorPanel.value = false
     colorPosition.clearAnchor()
-    colorTriggerElement.value = null
   }
 
   return {
@@ -40,7 +57,10 @@ export function usePostEditorPopovers() {
     colorPanelRef,
     linkPopoverRef,
     tablePopoverRef,
-    colorTriggerElement,
+    isSlashDialogTop,
+    isColorDialogTop,
+    isLinkDialogTop,
+    isTableDialogTop,
     slashPosition,
     colorPosition,
     linkPosition,

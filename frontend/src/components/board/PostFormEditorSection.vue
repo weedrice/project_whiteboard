@@ -16,6 +16,7 @@ defineProps<{
   uploadOwnerIdentity: string
   pollEnabled?: boolean
   showVideoPopover: boolean
+  isVideoPopoverTopDialog: boolean
   showEmoticonPicker: boolean
   videoUrl: string
   videoPopoverStyle: { top: string; left: string }
@@ -74,6 +75,7 @@ const emit = defineEmits<{
         />
         <PostVideoUrlPopover
           :show="showVideoPopover"
+          :is-top-dialog="isVideoPopoverTopDialog"
           :model-value="videoUrl"
           :popover-style="videoPopoverStyle"
           :assign-popover-ref="assignVideoPopover"

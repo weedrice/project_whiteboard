@@ -68,7 +68,10 @@ const {
   colorPanelRef,
   linkPopoverRef,
   tablePopoverRef,
-  colorTriggerElement,
+  isSlashDialogTop,
+  isColorDialogTop,
+  isLinkDialogTop,
+  isTableDialogTop,
   slashPosition,
   colorPosition,
   linkPosition,
@@ -215,7 +218,6 @@ const {
   showSlashMenu,
   slashPosition,
   colorPosition,
-  colorTriggerElement,
 })
 
 const {
@@ -389,6 +391,10 @@ onBeforeUnmount(() => {
       :show-color-panel="showColorPanel"
       :show-link-popover="showLinkPopover"
       :show-table-popover="showTablePopover"
+      :is-slash-dialog-top="isSlashDialogTop"
+      :is-color-dialog-top="isColorDialogTop"
+      :is-link-dialog-top="isLinkDialogTop"
+      :is-table-dialog-top="isTableDialogTop"
       :assign-slash-popover="assignSlashPopover"
       :assign-color-panel="assignColorPanel"
       :assign-link-popover="assignLinkPopover"

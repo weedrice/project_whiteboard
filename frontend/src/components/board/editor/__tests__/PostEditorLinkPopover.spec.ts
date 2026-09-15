@@ -107,14 +107,12 @@ describe('PostEditorLinkPopover', () => {
         expect(wrapper.emitted('apply')?.at(-1)).toEqual(['https://changed.test', 'Changed'])
     })
 
-    it('emits close from keyboard and cancel button', async () => {
+    it('emits close from the cancel button', async () => {
         const wrapper = mountPopover()
-        const inputs = wrapper.findAll('.link-popover-input')
 
-        await inputs[1].trigger('keydown.escape')
         await wrapper.findAll('.link-popover-actions button')[0].trigger('click')
 
-        expect(wrapper.emitted('close')).toHaveLength(2)
+        expect(wrapper.emitted('close')).toHaveLength(1)
     })
 
     it('emits remove only when remove action is available', async () => {

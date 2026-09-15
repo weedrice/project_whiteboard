@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/features/board/useBoard'
 import { useAuthGuard } from '@/composables/useAuthGuard'
-import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
+import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
 import { useToastStore } from '@/stores/toast'
 import {
   BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
@@ -28,12 +28,11 @@ export function useWriteBoardSheet() {
   const showWriteSheet = ref(false)
   const fabButtonRef = ref<HTMLButtonElement | null>(null)
   const sheetRef = ref<HTMLElement | null>(null)
-  const lastFocusedElement = ref<HTMLElement | null>(null)
+  const sheetOverlayRef = ref<HTMLElement | null>(null)
   const isVerifyingWriteAccess = ref(false)
   let verificationRevision = 0
   let verificationController: AbortController | null = null
   const shouldFetchSubscriptions = computed(() => authStore.isAuthenticated && showWriteSheet.value)
-  useBodyScrollLock(showWriteSheet)
 
   const { data: boards, isError: isBoardsError, refetch: refetchBoards } = useBoards()
   const {
@@ -64,6 +63,14 @@ export function useWriteBoardSheet() {
     showWriteSheet.value = false
   }
 
+  const { isTopDialog } = useDialogLifecycle({
+    isOpen: showWriteSheet,
+    dialogRef: sheetRef,
+    overlayRef: sheetOverlayRef,
+    close: closeWriteSheet,
+    initialFocus: 'container',
+  })
+
   const stopSessionBoundary = subscribeAuthSessionBoundary(() => closeWriteSheet())
   if (getCurrentScope()) onScopeDispose(stopSessionBoundary)
 
@@ -79,7 +86,6 @@ export function useWriteBoardSheet() {
       return
     }
 
-    lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
     showWriteSheet.value = true
   }
 
@@ -127,45 +133,6 @@ export function useWriteBoardSheet() {
     }
   }
 
-  const handleSheetKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeWriteSheet()
-      return
-    }
-
-    if (event.key !== 'Tab' || !sheetRef.value) return
-
-    const focusable = Array.from(
-      sheetRef.value.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((element) => !element.hasAttribute('disabled') && !element.getAttribute('aria-hidden'))
-
-    if (focusable.length === 0) return
-
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement as HTMLElement | null
-
-    if (active === sheetRef.value) {
-      event.preventDefault()
-      ;(event.shiftKey ? last : first).focus()
-      return
-    }
-
-    if (event.shiftKey && active === first) {
-      event.preventDefault()
-      last.focus()
-      return
-    }
-
-    if (!event.shiftKey && active === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }
-
   watch(
     () => route.fullPath,
     () => {
@@ -173,20 +140,11 @@ export function useWriteBoardSheet() {
     }
   )
 
-  watch(showWriteSheet, async (isOpen) => {
-    if (isOpen) {
-      await nextTick()
-      sheetRef.value?.focus()
-      return
-    }
-
-    const restoreTarget = lastFocusedElement.value ?? fabButtonRef.value
-    restoreTarget?.focus()
-  })
-
   return {
     fabButtonRef,
     sheetRef,
+    sheetOverlayRef,
+    isTopDialog,
     showWriteSheet,
     preferredBoards,
     isSubscribedBoardsLoading,
@@ -196,7 +154,6 @@ export function useWriteBoardSheet() {
     openWriteSheet,
     closeWriteSheet,
     goToBoardWrite,
-    handleSheetKeydown,
     retryBoardOptions,
   }
 }

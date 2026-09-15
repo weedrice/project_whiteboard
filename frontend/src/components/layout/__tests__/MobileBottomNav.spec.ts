@@ -12,8 +12,8 @@ const { mocks, refLike } = vi.hoisted(() => ({
     openWriteSheet: vi.fn(),
     closeWriteSheet: vi.fn(),
     goToBoardWrite: vi.fn(),
-    handleSheetKeydown: vi.fn(),
     showWriteSheet: { __v_isRef: true as const, value: false },
+    isTopDialog: { __v_isRef: true as const, value: true },
     unreadCount: { __v_isRef: true as const, value: 0 },
   },
 }))
@@ -51,6 +51,8 @@ vi.mock('@/features/board/write/useWriteBoardSheet', () => ({
   useWriteBoardSheet: () => ({
     fabButtonRef: refLike(null),
     sheetRef: refLike(null),
+    sheetOverlayRef: refLike(null),
+    isTopDialog: mocks.isTopDialog,
     showWriteSheet: mocks.showWriteSheet,
     preferredBoards: refLike([]),
     isSubscribedBoardsLoading: refLike(false),
@@ -59,7 +61,6 @@ vi.mock('@/features/board/write/useWriteBoardSheet', () => ({
     openWriteSheet: mocks.openWriteSheet,
     closeWriteSheet: mocks.closeWriteSheet,
     goToBoardWrite: mocks.goToBoardWrite,
-    handleSheetKeydown: mocks.handleSheetKeydown
   })
 }))
 

@@ -1,5 +1,6 @@
-import { nextTick, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, nextTick, ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWriteBoardSheet } from '../useWriteBoardSheet'
 import { boardApi } from '@/api/board'
@@ -74,6 +75,20 @@ vi.mock('@/api/board', () => ({
     },
 }))
 
+const mountedWrappers: VueWrapper[] = []
+
+function createSheet() {
+    let sheet!: ReturnType<typeof useWriteBoardSheet>
+    const Harness = defineComponent({
+        setup() {
+            sheet = useWriteBoardSheet()
+            return () => h('div')
+        },
+    })
+    mountedWrappers.push(mount(Harness))
+    return sheet
+}
+
 describe('useWriteBoardSheet', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -81,6 +96,12 @@ describe('useWriteBoardSheet', () => {
         authStore.sessionGeneration = 7
         setActivePinia(createPinia())
         fetchQuery.mockImplementation(async ({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
+        document.body.style.overflow = ''
+    })
+
+    afterEach(() => {
+        mountedWrappers.splice(0).forEach(wrapper => wrapper.unmount())
+        document.body.replaceChildren()
         document.body.style.overflow = ''
     })
 
@@ -92,7 +113,7 @@ describe('useWriteBoardSheet', () => {
             })
         )
 
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
         sheet.showWriteSheet.value = true
         await sheet.goToBoardWrite('free')
 
@@ -113,7 +134,7 @@ describe('useWriteBoardSheet', () => {
             })
         )
 
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
         sheet.showWriteSheet.value = true
         await sheet.goToBoardWrite('free')
 
@@ -125,7 +146,7 @@ describe('useWriteBoardSheet', () => {
 
     it('locks background scrolling only while the write sheet is open', async () => {
         document.body.style.overflow = 'auto'
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
 
         sheet.showWriteSheet.value = true
         await nextTick()
@@ -148,7 +169,7 @@ describe('useWriteBoardSheet', () => {
         const first = createDeferred<typeof responseA>()
         const second = createDeferred<typeof responseB>()
         vi.mocked(boardApi.getBoard).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
         sheet.showWriteSheet.value = true
 
         const requestA = sheet.goToBoardWrite('board-a')
@@ -172,7 +193,7 @@ describe('useWriteBoardSheet', () => {
         })
         const pending = createDeferred<typeof response>()
         vi.mocked(boardApi.getBoard).mockReturnValueOnce(pending.promise)
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
         sheet.showWriteSheet.value = true
 
         const request = sheet.goToBoardWrite('free')
@@ -195,7 +216,7 @@ describe('useWriteBoardSheet', () => {
         document.body.append(trigger, sheetElement)
         trigger.focus()
 
-        const sheet = useWriteBoardSheet()
+        const sheet = createSheet()
         sheet.fabButtonRef.value = trigger
         sheet.sheetRef.value = sheetElement
         await sheet.openWriteSheet()
@@ -204,19 +225,19 @@ describe('useWriteBoardSheet', () => {
         expect(sheet.showWriteSheet.value).toBe(true)
         expect(document.activeElement).toBe(sheetElement)
 
-        const initialShiftTab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true })
-        sheet.handleSheetKeydown(initialShiftTab)
+        const initialShiftTab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true, bubbles: true })
+        sheetElement.dispatchEvent(initialShiftTab)
         expect(initialShiftTab.defaultPrevented).toBe(true)
         expect(document.activeElement).toBe(last)
 
         last.focus()
-        const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true })
-        sheet.handleSheetKeydown(tab)
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true, bubbles: true })
+        sheetElement.dispatchEvent(tab)
         expect(tab.defaultPrevented).toBe(true)
         expect(document.activeElement).toBe(first)
 
-        const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-        sheet.handleSheetKeydown(escape)
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true })
+        sheetElement.dispatchEvent(escape)
         await nextTick()
         expect(sheet.showWriteSheet.value).toBe(false)
         expect(document.activeElement).toBe(trigger)

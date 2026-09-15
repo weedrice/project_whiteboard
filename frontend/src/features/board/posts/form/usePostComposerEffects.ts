@@ -37,8 +37,6 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
   const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
   const isEditorFocusWithin = ref(false)
 
-  usePopoverFocus(videoPopoverRef, showVideoPopover)
-
   function openVideoPopover() {
     if (typeof window === 'undefined') {
       videoPopoverStyle.value = { top: '300px', left: '400px' }
@@ -72,6 +70,12 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
     showVideoPopover.value = false
     videoUrl.value = ''
   }
+
+  const { isTopDialog: isVideoPopoverTopDialog } = usePopoverFocus(
+    videoPopoverRef,
+    showVideoPopover,
+    closeVideoPopover,
+  )
 
   function insertVideoFromPopover() {
     const rawVideoUrl = videoUrl.value.trim()
@@ -138,21 +142,6 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
       return
     }
     if (key === 'Escape') {
-      if (showVideoPopover.value) {
-        event.preventDefault()
-        closeVideoPopover()
-        return
-      }
-      if (showEmoticonPicker.value) {
-        event.preventDefault()
-        showEmoticonPicker.value = false
-        return
-      }
-      if (showPreview.value) {
-        event.preventDefault()
-        showPreview.value = false
-        return
-      }
       event.preventDefault()
       options.handleCancel()
     }
@@ -174,6 +163,7 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
     showPreview,
     showEmoticonPicker,
     showVideoPopover,
+    isVideoPopoverTopDialog,
     videoUrl,
     videoPopoverStyle,
     isEditorFocusWithin,

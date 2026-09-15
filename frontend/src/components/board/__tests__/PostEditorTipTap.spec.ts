@@ -260,13 +260,13 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.find('.link-popover-remove').exists()).toBe(false)
     })
 
-    it('keeps popover escape events inside the editor and exposes dialog accessibility attributes', async () => {
+    it('routes popover Escape through the shared lifecycle and exposes dialog accessibility attributes', async () => {
         const wrapper = mountEditor()
         const documentKeydown = vi.fn()
         document.addEventListener('keydown', documentKeydown)
 
-        const dispatchEscape = (element: Element) => {
-            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        const dispatchEscape = () => {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
         }
 
         expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
@@ -276,26 +276,26 @@ describe('PostEditorTipTap', () => {
 
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')
-        dispatchEscape(wrapper.get('#editor-link-url').element)
+        dispatchEscape()
         await nextTick()
         expect(wrapper.find('#editor-link-url').exists()).toBe(false)
 
         await wrapper.get(selectors.slashMenu).trigger('click')
         expect(wrapper.get('.slash-popover').attributes('aria-modal')).toBe('true')
-        dispatchEscape(wrapper.get('.slash-popover').element)
+        dispatchEscape()
         await nextTick()
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
 
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         expect(wrapper.get('.color-panel').attributes('aria-modal')).toBe('true')
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
-        dispatchEscape(wrapper.get('.color-panel').element)
+        dispatchEscape()
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
 
         await wrapper.get(selectors.tableDialog).trigger('click')
         expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')
-        dispatchEscape(wrapper.get('#editor-table-rows').element)
+        dispatchEscape()
         await nextTick()
         expect(wrapper.find('.table-popover').exists()).toBe(false)
 

@@ -17,6 +17,10 @@ const props = defineProps<{
   showColorPanel: boolean
   showLinkPopover: boolean
   showTablePopover: boolean
+  isSlashDialogTop: boolean
+  isColorDialogTop: boolean
+  isLinkDialogTop: boolean
+  isTableDialogTop: boolean
   assignSlashPopover: (value: HTMLElement | null) => void
   assignColorPanel: (value: HTMLElement | null) => void
   assignLinkPopover: (value: HTMLElement | null) => void
@@ -69,10 +73,12 @@ function getElementRef(value: unknown): HTMLElement | null {
     <div
       id="editor-slash-dialog"
       :ref="(value) => props.assignSlashPopover(getElementRef(value))"
-      class="link-popover slash-popover"
+      class="link-popover slash-popover nv-dialog-surface nv-dialog-surface--popover"
       :style="slashPosition.popoverStyle.value"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="isSlashDialogTop ? 'true' : undefined"
+      :aria-hidden="isSlashDialogTop ? undefined : 'true'"
+      :inert="isSlashDialogTop ? undefined : true"
       aria-labelledby="editor-slash-dialog-title"
     >
       <div class="mb-3">
@@ -90,18 +96,17 @@ function getElementRef(value: unknown): HTMLElement | null {
     </div>
   </PostEditorPopoverMask>
 
-  <Teleport to="body">
+  <PostEditorPopoverMask :open="showColorPanel" @close="emit('close-color-panel')">
     <div
-      v-if="showColorPanel"
       id="editor-color-dialog"
       :ref="(value) => props.assignColorPanel(getElementRef(value))"
-      class="color-panel"
+      class="color-panel nv-dialog-surface nv-dialog-surface--popover"
       :style="colorPosition.popoverStyle.value"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="isColorDialogTop ? 'true' : undefined"
+      :aria-hidden="isColorDialogTop ? undefined : 'true'"
+      :inert="isColorDialogTop ? undefined : true"
       aria-labelledby="editor-color-dialog-title"
-      @keydown.enter.stop
-      @keydown.escape.stop.prevent="emit('close-color-panel')"
     >
       <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
       <PostEditorColorPopover
@@ -114,15 +119,17 @@ function getElementRef(value: unknown): HTMLElement | null {
         @custom-color="emit('set-preset-color', $event)"
       />
     </div>
-  </Teleport>
+  </PostEditorPopoverMask>
 
   <PostEditorPopoverMask :open="showLinkPopover" @close="emit('close-link-popover')">
     <div
       :ref="(value) => props.assignLinkPopover(getElementRef(value))"
-      class="link-popover"
+      class="link-popover nv-dialog-surface nv-dialog-surface--popover"
       :style="linkPosition.popoverStyle.value"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="isLinkDialogTop ? 'true' : undefined"
+      :aria-hidden="isLinkDialogTop ? undefined : 'true'"
+      :inert="isLinkDialogTop ? undefined : true"
       aria-labelledby="editor-link-dialog-title"
     >
       <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
@@ -139,11 +146,14 @@ function getElementRef(value: unknown): HTMLElement | null {
 
   <PostEditorPopoverMask :open="showTablePopover" @close="emit('close-table-popover')">
     <div
+      id="editor-table-dialog"
       :ref="(value) => props.assignTablePopover(getElementRef(value))"
-      class="link-popover table-popover"
+      class="link-popover table-popover nv-dialog-surface nv-dialog-surface--popover"
       :style="tablePosition.popoverStyle.value"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="isTableDialogTop ? 'true' : undefined"
+      :aria-hidden="isTableDialogTop ? undefined : 'true'"
+      :inert="isTableDialogTop ? undefined : true"
       aria-labelledby="editor-table-dialog-title"
     >
       <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>

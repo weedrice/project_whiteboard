@@ -5,6 +5,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 defineProps<{
   show: boolean
+  isTopDialog: boolean
   modelValue: string
   popoverStyle: { top: string; left: string }
   assignPopoverRef: (value: Element | ComponentPublicInstance | null) => void
@@ -21,17 +22,18 @@ const emit = defineEmits<{
   <Teleport to="body">
     <div
       v-if="show"
-      class="video-url-popover-mask"
+      class="video-url-popover-mask nv-dialog-overlay nv-dialog-overlay--popover"
       @click.self="emit('close')"
       @keydown.enter.stop
-      @keydown.escape.stop.prevent="emit('close')"
     >
       <div
         :ref="assignPopoverRef"
-        class="video-url-popover"
+        class="video-url-popover nv-dialog-surface nv-dialog-surface--popover"
         :style="{ top: popoverStyle.top, left: popoverStyle.left }"
         role="dialog"
-        aria-modal="true"
+        :aria-modal="isTopDialog ? 'true' : undefined"
+        :aria-hidden="isTopDialog ? undefined : 'true'"
+        :inert="isTopDialog ? undefined : true"
         :aria-label="$t('board.writePost.video.inputLabel')"
       >
         <BaseInput
@@ -45,12 +47,11 @@ const emit = defineEmits<{
           aria-describedby="post-video-url-help"
           @update:model-value="emit('update:modelValue', String($event))"
           @keydown.enter.stop.prevent="emit('submit')"
-          @keydown.escape.stop.prevent="emit('close')"
         />
         <p id="post-video-url-help" class="video-url-popover-help">
           {{ $t('board.writePost.video.help') }}
         </p>
-        <div class="video-url-popover-actions">
+        <div class="video-url-popover-actions nv-dialog-actions">
           <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
             {{ $t('common.cancel') }}
           </BaseButton>
@@ -65,10 +66,7 @@ const emit = defineEmits<{
 
 <style>
 .video-url-popover-mask {
-  position: fixed;
-  inset: 0;
   z-index: var(--nv-z-overlay);
-  background: transparent;
 }
 
 .video-url-popover {
@@ -79,10 +77,6 @@ const emit = defineEmits<{
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   padding: 12px 14px;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 10px;
-  box-shadow: var(--nv-shadow-soft);
   z-index: var(--nv-z-popup);
 }
 
@@ -113,8 +107,6 @@ const emit = defineEmits<{
 }
 
 .video-url-popover-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  margin-top: 10px;
 }
 </style>

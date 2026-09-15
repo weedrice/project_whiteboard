@@ -518,6 +518,7 @@ const {
   showPreview,
   showEmoticonPicker,
   showVideoPopover,
+  isVideoPopoverTopDialog,
   videoUrl,
   videoPopoverStyle,
   openVideoPopover,
@@ -613,6 +614,7 @@ defineExpose({
             :editor-view-options="editorViewOptions"
             :upload-owner-identity="formIdentity"
             :show-video-popover="showVideoPopover"
+            :is-video-popover-top-dialog="isVideoPopoverTopDialog"
             :show-emoticon-picker="showEmoticonPicker"
             :video-url="videoUrl"
             :video-popover-style="videoPopoverStyle"

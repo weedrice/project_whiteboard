@@ -23,6 +23,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const pickerRef = ref<HTMLElement | null>(null)
+const pickerLayerRef = ref<HTMLElement | null>(null)
 const {
   selectedEmoticon,
   selectedEmoticonId,
@@ -63,43 +64,45 @@ const goBack = () => {
 }
 
 const close = () => {
-  resetPickerState({ clearSearch: true })
   emit('close')
 }
 
-useEmoticonPickerDialogLifecycle({
+const { isTopDialog } = useEmoticonPickerDialogLifecycle({
   isOpen: () => props.show,
   dialogRef: pickerRef,
+  overlayRef: pickerLayerRef,
   close,
   reset: () => resetPickerState({ clearSearch: true }),
 })
 </script>
 
 <template>
-  <div v-if="show" class="emoticon-picker-backdrop" @click="close" aria-hidden="true" />
-  <div
-    v-if="show"
-    ref="pickerRef"
-    class="emoticon-picker"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="emoticon-picker-title"
-    @click.stop
-  >
-    <div class="picker-header">
-      <button v-if="selectedEmoticonId" type="button" :aria-label="t('emoticon.picker.backToListAria')" @click="goBack" class="back-btn">
-        <ArrowLeft class="w-4 h-4" />
-      </button>
-      <span id="emoticon-picker-title" class="header-title">
-        {{ selectedEmoticon?.name || t('emoticon.title') }}
-      </span>
-      <button type="button" :aria-label="t('emoticon.picker.closeAria')" @click="close" class="close-btn">
-        <X class="w-4 h-4" />
-      </button>
-    </div>
+  <div v-if="show" ref="pickerLayerRef" class="emoticon-picker-layer">
+    <div class="emoticon-picker-backdrop nv-dialog-overlay nv-dialog-overlay--popover" @click="close" aria-hidden="true" />
+    <div
+      ref="pickerRef"
+      class="emoticon-picker nv-dialog-surface nv-dialog-surface--popover"
+      role="dialog"
+      :aria-modal="isTopDialog ? 'true' : undefined"
+      :aria-hidden="isTopDialog ? undefined : 'true'"
+      :inert="isTopDialog ? undefined : true"
+      aria-labelledby="emoticon-picker-title"
+      @click.stop
+    >
+      <div class="picker-header">
+        <button v-if="selectedEmoticonId" type="button" :aria-label="t('emoticon.picker.backToListAria')" @click="goBack" class="back-btn">
+          <ArrowLeft class="w-4 h-4" />
+        </button>
+        <span id="emoticon-picker-title" class="header-title">
+          {{ selectedEmoticon?.name || t('emoticon.title') }}
+        </span>
+        <button type="button" :aria-label="t('emoticon.picker.closeAria')" @click="close" class="close-btn">
+          <X class="w-4 h-4" />
+        </button>
+      </div>
 
-    <div class="picker-content">
-      <template v-if="selectedEmoticonId">
+      <div class="picker-content">
+        <template v-if="selectedEmoticonId">
         <EmoticonPickerStatePanel v-if="isLoadingDetail" state="loading" />
         <EmoticonPickerImageGrid
           v-else-if="selectedEmoticon && selectedImages.length > 0"
@@ -121,9 +124,9 @@ useEmoticonPickerDialogLifecycle({
           @retry="retryDetailLoad"
           @back="goBack"
         />
-      </template>
+        </template>
 
-      <template v-else-if="!selectedEmoticonId">
+        <template v-else-if="!selectedEmoticonId">
         <div class="search-area">
           <BaseInput
             v-model="searchKeyword"
@@ -160,15 +163,18 @@ useEmoticonPickerDialogLifecycle({
           :emoticons="filteredEmoticons"
           @select="handleEmoticonClick"
         />
-      </template>
+        </template>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.emoticon-picker-layer {
+  display: contents;
+}
+
 .emoticon-picker-backdrop {
-  position: fixed;
-  inset: 0;
   z-index: var(--nv-z-overlay);
   cursor: default;
 }
@@ -180,10 +186,6 @@ useEmoticonPickerDialogLifecycle({
   width: min(400px, calc(100vw - 24px));
   max-width: 100%;
   max-height: min(450px, 80vh);
-  background: var(--nv-surface);
-  border-radius: 8px;
-  box-shadow: var(--nv-shadow-popup);
-  color: var(--nv-ink);
   z-index: var(--nv-z-popup);
   display: flex;
   flex-direction: column;

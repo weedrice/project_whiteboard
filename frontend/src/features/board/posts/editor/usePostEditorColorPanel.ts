@@ -12,7 +12,6 @@ interface UsePostEditorColorPanelOptions {
   showSlashMenu: Ref<boolean>
   slashPosition: ColorPanelPosition
   colorPosition: ColorPanelPosition
-  colorTriggerElement: Ref<HTMLElement | null>
 }
 
 export function usePostEditorColorPanel({
@@ -21,25 +20,19 @@ export function usePostEditorColorPanel({
   showSlashMenu,
   slashPosition,
   colorPosition,
-  colorTriggerElement,
 }: UsePostEditorColorPanelOptions) {
-  function closeColorPanel(focusTarget = colorTriggerElement.value) {
+  function closeColorPanel() {
     showColorPanel.value = false
     colorPosition.clearAnchor()
-    colorTriggerElement.value = null
-    if (focusTarget instanceof HTMLElement) {
-      focusTarget.focus()
-    }
   }
 
   function toggleColorPanel(anchor?: HTMLElement) {
     if (showColorPanel.value) {
-      closeColorPanel(anchor)
+      closeColorPanel()
       return
     }
     showSlashMenu.value = false
     slashPosition.clearAnchor()
-    colorTriggerElement.value = anchor ?? null
     colorPosition.setAnchor(anchor)
     showColorPanel.value = true
   }

@@ -596,8 +596,8 @@ describe('PostForm', () => {
         await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
         const documentKeydown = vi.fn()
         document.addEventListener('keydown', documentKeydown)
-        const inputEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-        wrapper.get('#post-video-url-input').element.dispatchEvent(inputEscape)
+        const escapeForVideo = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+        document.dispatchEvent(escapeForVideo)
         await nextTick()
         expect(wrapper.find('.video-url-popover').exists()).toBe(false)
         expect(wrapper.emitted('cancel')).toBeUndefined()
@@ -605,14 +605,12 @@ describe('PostForm', () => {
         document.removeEventListener('keydown', documentKeydown)
 
         await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
-        const escapeForVideo = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-        document.dispatchEvent(escapeForVideo)
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
         await nextTick()
         expect(wrapper.find('.video-url-popover').exists()).toBe(false)
 
         await wrapper.get('[data-testid=\"open-emoticon\"]').trigger('click')
-        const escapeForEmoticon = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-        document.dispatchEvent(escapeForEmoticon)
+        await wrapper.get('[data-testid=\"close-emoticon\"]').trigger('click')
         await nextTick()
         expect(wrapper.find('[data-testid=\"pick-emoticon\"]').exists()).toBe(false)
 

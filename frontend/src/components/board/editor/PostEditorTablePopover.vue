@@ -37,7 +37,6 @@ const { t } = useI18n()
       input-class="link-popover-input"
       @update:model-value="emit('update:rows', Number($event))"
       @keydown.enter.stop.prevent="emit('apply')"
-      @keydown.escape.stop.prevent="emit('close')"
     />
   </div>
   <div class="link-popover-row">
@@ -55,7 +54,6 @@ const { t } = useI18n()
       input-class="link-popover-input"
       @update:model-value="emit('update:cols', Number($event))"
       @keydown.enter.stop.prevent="emit('apply')"
-      @keydown.escape.stop.prevent="emit('close')"
     />
   </div>
   <div class="link-popover-row">

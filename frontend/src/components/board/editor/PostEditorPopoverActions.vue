@@ -13,7 +13,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="link-popover-actions">
+  <div class="link-popover-actions nv-dialog-actions">
     <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
       {{ cancelLabel }}
     </BaseButton>

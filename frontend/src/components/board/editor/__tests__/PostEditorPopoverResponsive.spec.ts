@@ -24,7 +24,11 @@ describe('post editor popover responsive styles', () => {
     const composable = readFileSync(resolve(process.cwd(), 'src/features/board/posts/editor/usePostEditorPopovers.ts'), 'utf8')
     const panels = readFileSync(resolve(process.cwd(), 'src/components/board/editor/PostEditorFloatingPanels.vue'), 'utf8')
 
-    expect(composable).toContain('usePopoverFocus(colorPanelRef, showColorPanel)')
-    expect(panels).toMatch(/id="editor-color-dialog"[\s\S]*aria-modal="true"/)
+    expect(composable).toMatch(/usePopoverFocus\(\s*colorPanelRef,\s*showColorPanel,/)
+    expect(composable).toContain('colorPosition.anchorElement.value')
+    expect(panels).toMatch(/id="editor-color-dialog"[\s\S]*:aria-modal="isColorDialogTop \? 'true' : undefined"/)
+    expect(panels).toContain(':aria-hidden="isColorDialogTop ? undefined : \'true\'"')
+    expect(panels).toContain(':inert="isColorDialogTop ? undefined : true"')
+    expect(panels).toContain('<PostEditorPopoverMask :open="showColorPanel"')
   })
 })

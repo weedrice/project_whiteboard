@@ -108,6 +108,7 @@ export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>, isOpen: 
     })
 
     return {
+        anchorElement,
         popoverStyle,
         setAnchor,
         clearAnchor,

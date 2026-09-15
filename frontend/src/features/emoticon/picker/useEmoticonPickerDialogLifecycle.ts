@@ -1,10 +1,10 @@
-import { nextTick, onMounted, onUnmounted, watch, type Ref } from 'vue'
-import { useEventListener } from '@/composables/useEventListener'
-import { useFocusTrap } from '@/composables/useFocusTrap'
+import { computed, watch, type Ref } from 'vue'
+import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
 
 type DialogLifecycleOptions = {
     isOpen: () => boolean
     dialogRef: Ref<HTMLElement | null>
+    overlayRef: Ref<HTMLElement | null>
     close: () => void
     reset: () => void
 }
@@ -12,46 +12,22 @@ type DialogLifecycleOptions = {
 export const useEmoticonPickerDialogLifecycle = ({
     isOpen,
     dialogRef,
+    overlayRef,
     close,
     reset,
 }: DialogLifecycleOptions) => {
-    const { trapFocus, restoreFocus } = useFocusTrap(dialogRef, isOpen)
-
-    const focusWhenOpen = () => {
-        nextTick(() => {
-            if (isOpen()) {
-                trapFocus()
-            }
-        })
-    }
-
-    const handleDocumentKeydown = (event: KeyboardEvent) => {
-        if (!isOpen() || event.key !== 'Escape') return
-
-        event.preventDefault()
-        close()
-    }
+    const open = computed(isOpen)
+    const lifecycle = useDialogLifecycle({
+        isOpen: open,
+        dialogRef,
+        overlayRef,
+        close,
+        lockScroll: false,
+    })
 
     watch(isOpen, (newVal) => {
-        if (!newVal) {
-            reset()
-            restoreFocus()
-            return
-        }
-
-        focusWhenOpen()
+        if (!newVal) reset()
     })
 
-    useEventListener(() => document, 'keydown', handleDocumentKeydown)
-
-    onMounted(() => {
-        if (isOpen()) {
-            focusWhenOpen()
-        }
-    })
-
-    onUnmounted(() => {
-        reset()
-        restoreFocus()
-    })
+    return lifecycle
 }

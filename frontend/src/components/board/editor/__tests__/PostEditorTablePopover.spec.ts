@@ -54,7 +54,7 @@ describe('PostEditorTablePopover', () => {
     await wrapper.get('#editor-table-cols').setValue('6')
     await wrapper.get('#table-header-row').setValue(false)
     await wrapper.get('#editor-table-rows').trigger('keydown.enter')
-    await wrapper.get('#editor-table-cols').trigger('keydown.escape')
+    await wrapper.findAll('.link-popover-actions button')[0].trigger('click')
 
     expect(wrapper.emitted('update:rows')?.[0]).toEqual([5])
     expect(wrapper.emitted('update:cols')?.[0]).toEqual([6])

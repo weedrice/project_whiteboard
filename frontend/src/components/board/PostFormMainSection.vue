@@ -28,6 +28,7 @@ const props = defineProps<{
   editorViewOptions: SegmentedControlOption[]
   uploadOwnerIdentity: string
   showVideoPopover: boolean
+  isVideoPopoverTopDialog: boolean
   showEmoticonPicker: boolean
   videoUrl: string
   videoPopoverStyle: { top: string; left: string }
@@ -91,6 +92,7 @@ function handleOpenPoll() {
         :upload-owner-identity="uploadOwnerIdentity"
         :poll-enabled="!pollReadOnly"
         :show-video-popover="showVideoPopover"
+        :is-video-popover-top-dialog="isVideoPopoverTopDialog"
         :show-emoticon-picker="showEmoticonPicker"
         :video-url="videoUrl"
         :video-popover-style="videoPopoverStyle"

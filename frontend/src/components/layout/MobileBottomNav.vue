@@ -25,6 +25,8 @@ const notificationsLabel = computed(() => unreadCount.value && unreadCount.value
 const {
   fabButtonRef,
   sheetRef,
+  sheetOverlayRef,
+  isTopDialog,
   showWriteSheet,
   preferredBoards,
   isSubscribedBoardsLoading,
@@ -34,7 +36,6 @@ const {
   openWriteSheet,
   closeWriteSheet,
   goToBoardWrite,
-  handleSheetKeydown,
   retryBoardOptions,
 } = useWriteBoardSheet()
 
@@ -118,18 +119,19 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
     </nav>
 
     <Teleport to="body">
-      <div v-if="showWriteSheet" class="fixed inset-0 z-[var(--nv-z-overlay)] bg-[color-mix(in_srgb,var(--nv-scrim)_40%,transparent)] backdrop-blur-[1px]" @click="closeWriteSheet">
+      <div v-if="showWriteSheet" ref="sheetOverlayRef" class="nv-dialog-overlay nv-dialog-overlay--sheet" @click.self="closeWriteSheet">
         <div
           id="mobile-write-sheet"
           :ref="setSheetRef"
-          class="nv-mobile-sheet nv-elevated-surface"
+          class="nv-mobile-sheet nv-dialog-surface nv-dialog-surface--sheet"
           role="dialog"
-          aria-modal="true"
+          :aria-modal="isTopDialog ? 'true' : undefined"
+          :aria-hidden="isTopDialog ? undefined : 'true'"
+          :inert="isTopDialog ? undefined : true"
           aria-labelledby="mobile-write-sheet-title"
           tabindex="-1"
           :aria-busy="isVerifyingWriteAccess"
           @click.stop
-          @keydown="handleSheetKeydown"
         >
           <div class="mx-auto mb-4 h-1.5 w-14 rounded-full bg-[var(--nv-line)]" />
           <div class="mb-4 flex items-center justify-between">
