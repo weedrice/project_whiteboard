@@ -76,6 +76,7 @@ describe('PostPoll', () => {
   it('submits a single selected option', async () => {
     const wrapper = mountPoll()
 
+    expect(wrapper.findAll('input').every((input) => input.attributes('data-ui-native') === 'choice')).toBe(true)
     await wrapper.findAll('input[type="radio"]')[1].setValue(true)
     await wrapper.findAll('button').at(-1)?.trigger('click')
 
@@ -83,6 +84,13 @@ describe('PostPoll', () => {
       postId: 99,
       data: { optionIds: [11] },
     })
+  })
+
+  it('keeps the choice classification when options render as checkboxes', () => {
+    const wrapper = mountPoll({ poll: poll({ multipleChoiceEnabled: true }) })
+
+    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(2)
+    expect(wrapper.findAll('input').every((input) => input.attributes('data-ui-native') === 'choice')).toBe(true)
   })
 
   it('deletes the current vote', async () => {

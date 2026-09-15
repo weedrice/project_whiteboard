@@ -149,7 +149,7 @@ async function cancelVote() {
         <div class="flex items-center gap-3">
           <input
             :type="poll.multipleChoiceEnabled ? 'checkbox' : 'radio'"
-            data-ui-native="radio"
+            data-ui-native="choice"
             name="post-poll-option"
             :checked="selectedOptionIds.includes(option.optionId)"
             :disabled="!isAuthenticated || isClosed || localMutationPending"
