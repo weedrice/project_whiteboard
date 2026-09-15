@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{
   options: SegmentedControlOption[]
   label: string
   variant?: 'joined' | 'underline' | 'pill'
-  selectionMode?: 'pressed' | 'tab'
+  selectionMode?: 'pressed' | 'radio' | 'tab'
   disabled?: boolean
 }>(), {
   variant: 'joined',
@@ -58,8 +58,8 @@ async function selectAndFocus(index: number) {
   optionButtons.value[index]?.focus()
 }
 
-function handleTabKeydown(event: KeyboardEvent) {
-  if (props.selectionMode !== 'tab' || props.disabled || props.options.length === 0) return
+function handleSelectionKeydown(event: KeyboardEvent) {
+  if (!['radio', 'tab'].includes(props.selectionMode) || props.disabled || props.options.length === 0) return
 
   const currentIndex = findSelectedIndex()
   const lastIndex = props.options.length - 1
@@ -96,7 +96,7 @@ function handleTabKeydown(event: KeyboardEvent) {
       variant === 'underline' && 'flex border-b nv-border',
       variant === 'pill' && 'flex max-w-full flex-wrap items-center gap-1 rounded-[var(--nv-radius-xl)] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-1',
     ]"
-    :role="selectionMode === 'tab' ? 'tablist' : 'group'"
+    :role="selectionMode === 'tab' ? 'tablist' : selectionMode === 'radio' ? 'radiogroup' : 'group'"
     :aria-label="label"
   >
     <button
@@ -105,11 +105,12 @@ function handleTabKeydown(event: KeyboardEvent) {
       :ref="(element) => setOptionButton(element, index)"
       type="button"
       :id="selectionMode === 'tab' ? option.id : undefined"
-      :role="selectionMode === 'tab' ? 'tab' : undefined"
+      :role="selectionMode === 'tab' ? 'tab' : selectionMode === 'radio' ? 'radio' : undefined"
       :aria-selected="selectionMode === 'tab' ? modelValue === option.value : undefined"
+      :aria-checked="selectionMode === 'radio' ? modelValue === option.value : undefined"
       :aria-controls="selectionMode === 'tab' ? option.controls : undefined"
       :aria-pressed="selectionMode === 'pressed' ? modelValue === option.value : undefined"
-      :tabindex="selectionMode === 'tab' ? (modelValue === option.value ? 0 : -1) : undefined"
+      :tabindex="selectionMode === 'tab' || selectionMode === 'radio' ? (modelValue === option.value ? 0 : -1) : undefined"
       :disabled="disabled"
       :class="[
         variant === 'joined' && [
@@ -135,7 +136,7 @@ function handleTabKeydown(event: KeyboardEvent) {
         ],
       ]"
       @click="select(option.value)"
-      @keydown="handleTabKeydown"
+      @keydown="handleSelectionKeydown"
     >
       <component v-if="option.icon" :is="option.icon" class="mr-2 h-4 w-4" />
       {{ option.label }}

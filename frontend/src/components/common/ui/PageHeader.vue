@@ -4,7 +4,7 @@ import { computed } from 'vue'
 const props = withDefaults(defineProps<{
   title: string
   description?: string
-  size?: 'compact' | 'default' | 'hero'
+  size?: 'compact' | 'default' | 'admin' | 'hero'
 }>(), {
   description: '',
   size: 'default',
@@ -16,6 +16,8 @@ const titleClass = computed(() => {
       return 'text-lg font-semibold leading-6'
     case 'hero':
       return 'text-2xl font-bold leading-9 sm:text-3xl'
+    case 'admin':
+      return 'text-xl font-semibold leading-7'
     default:
       return 'text-2xl font-semibold tracking-[-0.04em]'
   }

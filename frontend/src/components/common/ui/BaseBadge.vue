@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+export type BaseBadgeVariant =
+    | 'primary'
+    | 'secondary'
+    | 'success'
+    | 'danger'
+    | 'warning'
+    | 'info'
+    | 'gray'
+    | 'accent'
+    | 'outline'
+
 const props = withDefaults(defineProps<{
-    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'gray'
+    variant?: BaseBadgeVariant
     size?: 'sm' | 'md' | 'lg'
     rounded?: boolean
 }>(), {
@@ -27,7 +38,9 @@ const classes = computed(() => {
         danger: 'nv-status-danger',
         warning: 'nv-status-warning',
         info: 'nv-status-info',
-        gray: 'nv-surface-muted nv-text-muted'
+        gray: 'nv-surface-muted nv-text-muted',
+        accent: 'bg-[var(--nv-accent)] text-[var(--nv-on-accent)]',
+        outline: 'border border-[var(--nv-line)] nv-text-subtle'
     }
 
     const roundedClass = props.rounded ? 'rounded-full' : 'rounded'
