@@ -9,7 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useNotificationListState } from '@/features/notifications/list/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
-import { getNotificationMessage, getNotificationPresentation } from '@/features/notifications/notificationPresentation'
+import NotificationListItem from '@/components/notification/NotificationListItem.vue'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
@@ -73,87 +73,14 @@ function handleMarkAllAsRead() {
     </template>
 
     <ul class="divide-y divide-[var(--nv-line)]">
-      <li v-for="notification in notifications" :key="notification.notificationId"
-        class="nv-hover-surface transition duration-150 ease-in-out"
-        :class="{ 'nv-unread-surface': !notification.isRead }">
-        <button type="button" @click="handleNotificationClick(notification)"
-          class="block w-full px-3 py-3 text-left sm:px-6 sm:py-4 min-h-[48px] active:bg-[var(--nv-surface-active)]">
-          <div class="flex flex-row items-center justify-between gap-3">
-            <span
-              class="notification-icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
-              :class="getNotificationPresentation(notification).iconClass"
-              aria-hidden="true"
-            >
-              <component :is="getNotificationPresentation(notification).icon" class="h-4 w-4" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2 mb-0.5">
-                <span class="text-xs nv-text-subtle flex-shrink-0">
-                  {{ formatDate(notification.createdAt) }}
-                </span>
-                <span
-                  class="px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0"
-                  :class="getNotificationPresentation(notification).badgeClass"
-                >
-                  {{ t(getNotificationPresentation(notification).labelKey) }}
-                </span>
-              </div>
-              <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
-                {{ getNotificationMessage(notification, t) }}
-              </div>
-              <div v-if="notification.grouped" class="mt-1 text-xs font-medium nv-accent-text">
-                {{ t('notification.groupedCount', { count: notification.groupCount }) }}
-              </div>
-            </div>
-          </div>
-        </button>
+      <li v-for="notification in notifications" :key="notification.notificationId">
+        <NotificationListItem
+          :notification="notification"
+          mode="page"
+          :time-text="formatDate(notification.createdAt)"
+          @activate="handleNotificationClick"
+        />
       </li>
     </ul>
   </PaginatedListCard>
 </template>
-
-<style scoped>
-.notification-icon-default,
-.notification-badge-default {
-  background: var(--nv-surface-muted);
-  color: var(--nv-muted);
-}
-
-.notification-icon-like,
-.notification-badge-like {
-  background: var(--nv-danger-bg);
-  color: var(--nv-danger-text);
-}
-
-.notification-icon-comment,
-.notification-badge-comment,
-.notification-icon-reply,
-.notification-badge-reply {
-  background: var(--nv-info-bg);
-  color: var(--nv-info-text);
-}
-
-.notification-icon-mention,
-.notification-badge-mention {
-  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
-  color: var(--nv-accent);
-}
-
-.notification-icon-message,
-.notification-badge-message {
-  background: var(--nv-success-bg);
-  color: var(--nv-success-text);
-}
-
-.notification-icon-system,
-.notification-badge-system {
-  background: var(--nv-success-bg);
-  color: var(--nv-success-text);
-}
-
-.notification-icon-sanction,
-.notification-badge-sanction {
-  background: var(--nv-warning-bg);
-  color: var(--nv-warning-text);
-}
-</style>

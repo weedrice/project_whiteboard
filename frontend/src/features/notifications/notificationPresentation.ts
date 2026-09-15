@@ -59,81 +59,78 @@ export function getNotificationActorDisplayName(
 
 export interface NotificationPresentation {
     icon: Component
-    labelKey: string
-    badgeClass: string
-    iconClass: string
+    label: (t: Translate) => string
+    tone: NotificationTone
 }
+
+export type NotificationTone = 'neutral' | 'danger' | 'info' | 'accent' | 'success' | 'warning'
 
 const PRESENTATION_BY_TYPE: Record<NotificationType, NotificationPresentation> = {
     LIKE: {
         icon: Heart,
-        labelKey: 'notification.types.like',
-        badgeClass: 'notification-badge-like',
-        iconClass: 'notification-icon-like',
+        label: (t) => t('notification.types.like'),
+        tone: 'danger',
     },
     COMMENT: {
         icon: MessageCircle,
-        labelKey: 'notification.types.comment',
-        badgeClass: 'notification-badge-comment',
-        iconClass: 'notification-icon-comment',
+        label: (t) => t('notification.types.comment'),
+        tone: 'info',
     },
     REPLY: {
         icon: Reply,
-        labelKey: 'notification.types.reply',
-        badgeClass: 'notification-badge-reply',
-        iconClass: 'notification-icon-reply',
+        label: (t) => t('notification.types.reply'),
+        tone: 'info',
     },
     MENTION: {
         icon: AtSign,
-        labelKey: 'notification.types.mention',
-        badgeClass: 'notification-badge-mention',
-        iconClass: 'notification-icon-mention',
+        label: (t) => t('notification.types.mention'),
+        tone: 'accent',
     },
     MESSAGE: {
         icon: Mail,
-        labelKey: 'notification.types.message',
-        badgeClass: 'notification-badge-message',
-        iconClass: 'notification-icon-message',
+        label: (t) => t('notification.types.message'),
+        tone: 'success',
     },
     SYSTEM: {
         icon: Megaphone,
-        labelKey: 'notification.types.system',
-        badgeClass: 'notification-badge-system',
-        iconClass: 'notification-icon-system',
+        label: (t) => t('notification.types.system'),
+        tone: 'success',
     },
     SANCTION: {
         icon: ShieldAlert,
-        labelKey: 'notification.types.sanction',
-        badgeClass: 'notification-badge-sanction',
-        iconClass: 'notification-icon-sanction',
+        label: (t) => t('notification.types.sanction'),
+        tone: 'warning',
     },
     KEYWORD: {
         icon: Bell,
-        labelKey: 'notification.types.keyword',
-        badgeClass: 'notification-badge-keyword',
-        iconClass: 'notification-icon-keyword',
+        label: (t) => t('notification.types.keyword'),
+        tone: 'accent',
     },
     BADGE: {
         icon: Award,
-        labelKey: 'notification.types.badge',
-        badgeClass: 'notification-badge-badge',
-        iconClass: 'notification-icon-badge',
+        label: (t) => t('notification.types.badge'),
+        tone: 'accent',
     },
     INQUIRY: {
         icon: MessageCircle,
-        labelKey: 'notification.types.inquiry',
-        badgeClass: 'notification-badge-comment',
-        iconClass: 'notification-icon-comment',
+        label: (t) => t('notification.types.inquiry'),
+        tone: 'info',
     },
 }
 
 const FALLBACK_PRESENTATION: NotificationPresentation = {
     icon: Bell,
-    labelKey: 'notification.types.default',
-    badgeClass: 'notification-badge-default',
-    iconClass: 'notification-icon-default',
+    label: (t) => t('notification.types.default'),
+    tone: 'neutral',
 }
 
 export function getNotificationPresentation(notification: Pick<Notification, 'notificationType'>): NotificationPresentation {
     return PRESENTATION_BY_TYPE[notification.notificationType] ?? FALLBACK_PRESENTATION
+}
+
+export function getNotificationTypeLabel(
+    notification: Pick<Notification, 'notificationType'>,
+    t: Translate,
+): string {
+    return getNotificationPresentation(notification).label(t)
 }

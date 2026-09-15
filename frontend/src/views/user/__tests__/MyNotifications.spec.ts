@@ -166,11 +166,11 @@ describe('MyNotifications', () => {
     const unreadRow = wrapper.get('li')
     const notificationButton = unreadRow.get('button')
 
-    expect(unreadRow.classes()).toContain('nv-hover-surface')
-    expect(unreadRow.classes()).toContain('nv-unread-surface')
+    expect(notificationButton.classes()).toContain('nv-hover-surface')
+    expect(notificationButton.classes()).toContain('nv-unread-surface')
     expect(notificationButton.attributes('type')).toBe('button')
     expect(notificationButton.attributes('href')).toBeUndefined()
-    expect(notificationButton.classes()).toContain('active:bg-[var(--nv-surface-active)]')
+    expect(notificationButton.classes()).toContain('nv-press-surface')
 
     await notificationButton.trigger('click')
 
