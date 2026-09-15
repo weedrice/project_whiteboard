@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Award, LockKeyhole, Medal } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useUser } from '@/features/user/useUser'
@@ -109,12 +110,12 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <h3 class="font-semibold nv-title">{{ badgeName(badge) }}</h3>
-                  <span v-if="badge.tier" class="rounded-full border nv-border px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
+                  <BaseBadge v-if="badge.tier" variant="outline" size="sm" class="uppercase">
                     {{ badge.tier }}
-                  </span>
-                  <span v-if="badge.representative" class="rounded-full bg-[var(--nv-accent)] px-2 py-0.5 text-xs font-semibold text-[var(--nv-on-accent)]">
+                  </BaseBadge>
+                  <BaseBadge v-if="badge.representative" variant="accent" size="sm">
                     {{ $t('user.badges.representative') }}
-                  </span>
+                  </BaseBadge>
                 </div>
                 <p class="mt-2 text-sm nv-text-subtle">{{ badgeDescription(badge) }}</p>
                 <p v-if="badge.acquiredAt" class="mt-2 text-xs nv-text-muted">
@@ -163,9 +164,9 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <h3 class="font-semibold nv-title">{{ badgeName(badge) }}</h3>
-                  <span v-if="badge.tier" class="rounded-full border nv-border px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
+                  <BaseBadge v-if="badge.tier" variant="outline" size="sm" class="uppercase">
                     {{ badge.tier }}
-                  </span>
+                  </BaseBadge>
                 </div>
                 <p class="mt-2 text-sm nv-text-subtle">{{ badgeDescription(badge) }}</p>
               </div>

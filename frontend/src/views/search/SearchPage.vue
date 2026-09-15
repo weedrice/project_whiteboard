@@ -4,7 +4,7 @@
       <!-- Main Content -->
       <div class="min-w-0 flex-1">
         <div class="mb-6">
-          <h1 class="text-2xl font-bold nv-title">{{ $t('search.results') }}</h1>
+          <PageHeader :title="$t('search.results')" />
           <p v-if="searchQuery" class="mt-2 nv-text-muted">
             {{ $t('search.query') }}: <span class="font-semibold nv-accent-text">"{{ searchQuery
             }}"</span>
@@ -135,7 +135,7 @@
           <BaseSpinner size="lg" />
         </div>
 
-        <EmptyState v-else-if="!hasSearchQuery" title-tag="h2" :title="$t('search.placeholder')" :icon="Search"
+        <EmptyState v-else-if="!hasSearchQuery" data-testid="search-page-empty" title-tag="h2" :title="$t('search.placeholder')" :icon="Search"
           container-class="nv-surface nv-elevated-surface shadow rounded-lg" />
 
         <ErrorState
@@ -147,7 +147,7 @@
           @retry="retrySearch"
         />
 
-        <EmptyState v-else-if="!hasAnyResults && !isSemanticLoading" title-tag="h2" :title="$t('search.noResults')"
+        <EmptyState v-else-if="!hasAnyResults && !isSemanticLoading" data-testid="search-page-empty" title-tag="h2" :title="$t('search.noResults')"
           :description="searchQuery ? `${$t('search.noResultsFor', { query: searchQuery })} ${$t('search.noResultsSuggestion')}` : $t('search.noResultsSuggestion')" :icon="Search"
           container-class="nv-surface nv-elevated-surface shadow rounded-lg" />
 
@@ -251,21 +251,15 @@
         </div>
       </div>
       <aside class="w-full min-w-0 space-y-4 md:w-72 md:shrink-0 lg:w-80">
-        <section
-          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
-          :aria-busy="isPopularKeywordsLoading"
+        <SearchSidebarPanel
+          :title="$t('search.popularKeywords')"
+          :loading="isPopularKeywordsLoading"
+          :error="isPopularKeywordsError"
+          :empty="popularKeywords.length === 0"
+          :empty-text="$t('search.noResults')"
+          @retry="refetchPopularKeywords"
         >
-          <h2 class="text-sm font-semibold nv-title">{{ $t('search.popularKeywords') }}</h2>
-          <BaseSpinner v-if="isPopularKeywordsLoading" class="mt-3" size="sm" />
-          <ErrorState
-            v-else-if="isPopularKeywordsError"
-            class="mt-3"
-            title-tag="h3"
-            :message="$t('common.messages.loadFailed')"
-            show-retry
-            @retry="refetchPopularKeywords"
-          />
-          <div v-else class="mt-3 flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2">
             <button
               v-for="keyword in popularKeywords"
               :key="keyword.keyword"
@@ -276,27 +270,18 @@
             >
               <span class="block max-w-full truncate">{{ keyword.keyword }}</span>
             </button>
-            <p v-if="popularKeywords.length === 0" class="text-sm nv-text-subtle">
-              {{ $t('search.noResults') }}
-            </p>
           </div>
-        </section>
+        </SearchSidebarPanel>
 
-        <section
-          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
-          :aria-busy="isPopularTagsLoading"
+        <SearchSidebarPanel
+          :title="$t('common.tags')"
+          :loading="isPopularTagsLoading"
+          :error="isPopularTagsError"
+          :empty="popularTags.length === 0"
+          :empty-text="$t('search.noResults')"
+          @retry="refetchPopularTags"
         >
-          <h2 class="text-sm font-semibold nv-title">{{ $t('common.tags') }}</h2>
-          <BaseSpinner v-if="isPopularTagsLoading" class="mt-3" size="sm" />
-          <ErrorState
-            v-else-if="isPopularTagsError"
-            class="mt-3"
-            title-tag="h3"
-            :message="$t('common.messages.loadFailed')"
-            show-retry
-            @retry="refetchPopularTags"
-          />
-          <div v-else class="mt-3 flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2">
             <RouterLink
               v-for="tag in popularTags"
               :key="tag.tagId"
@@ -305,18 +290,18 @@
             >
               <span class="block max-w-full truncate">#{{ tag.tagName }}</span>
             </RouterLink>
-            <p v-if="popularTags.length === 0" class="text-sm nv-text-subtle">
-              {{ $t('search.noResults') }}
-            </p>
           </div>
-        </section>
+        </SearchSidebarPanel>
 
-        <section
-          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
-          :aria-busy="isRecentKeywordsLoading"
+        <SearchSidebarPanel
+          :title="$t('search.recentKeywords')"
+          :loading="isRecentKeywordsLoading"
+          :error="isRecentKeywordsError"
+          :empty="recentKeywords.length === 0"
+          :empty-text="$t('search.noResults')"
+          @retry="refetchRecentKeywords"
         >
-          <div class="flex items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold nv-title">{{ $t('search.recentKeywords') }}</h2>
+          <template #actions>
             <button
               v-if="recentKeywords.length > 0"
               type="button"
@@ -325,17 +310,8 @@
             >
               {{ $t('search.clearRecent') }}
             </button>
-          </div>
-          <BaseSpinner v-if="isRecentKeywordsLoading" class="mt-3" size="sm" />
-          <ErrorState
-            v-else-if="isRecentKeywordsError"
-            class="mt-3"
-            title-tag="h3"
-            :message="$t('common.messages.loadFailed')"
-            show-retry
-            @retry="refetchRecentKeywords"
-          />
-          <div v-else class="mt-3 space-y-2">
+          </template>
+          <div class="space-y-2">
             <div
               v-for="keyword in recentKeywords"
               :key="keyword.logId"
@@ -358,11 +334,8 @@
                 ×
               </button>
             </div>
-            <p v-if="recentKeywords.length === 0" class="text-sm nv-text-subtle">
-              {{ $t('search.noResults') }}
-            </p>
           </div>
-        </section>
+        </SearchSidebarPanel>
 
         <ErrorState
           v-if="semanticEnabled && semanticSearchError"
@@ -404,7 +377,9 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import SemanticSearchResults from '@/components/search/SemanticSearchResults.vue'
+import SearchSidebarPanel from '@/components/search/SearchSidebarPanel.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { Search, Layout, MessageSquare, User } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import {

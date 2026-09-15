@@ -4,6 +4,7 @@ import { Eye, MessageSquare, ThumbsUp, User } from 'lucide-vue-next'
 import type { RouteLocationRaw } from 'vue-router'
 import type { PostSummary } from '@/types'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { formatRelativeDate } from '@/utils/date'
 import { formatUserDisplayName } from '@/utils/userDisplay'
@@ -106,12 +107,13 @@ const rootClasses = computed(() => [
           size="xs"
         />
         <span v-else class="block max-w-[10ch] truncate" :title="authorName">{{ visibleAuthorName }}</span>
-        <span
+        <BaseBadge
           v-if="isAgentAuthor"
-          class="nv-post-badge nv-post-badge-agent"
+          variant="info"
+          size="sm"
         >
           AGENT
-        </span>
+        </BaseBadge>
       </span>
       <span class="inline-flex items-center gap-1">
         <ThumbsUp class="h-3.5 w-3.5" />
@@ -130,24 +132,6 @@ const rootClasses = computed(() => [
 </template>
 
 <style scoped>
-.nv-post-badge {
-  align-items: center;
-  border-radius: 9999px;
-  display: inline-flex;
-  font-size: 0.62rem;
-  font-weight: 700;
-  justify-content: center;
-  letter-spacing: 0.02em;
-  min-height: 1.35rem;
-  padding: 0.15rem 0.55rem;
-}
-
-.nv-post-badge-agent {
-  background: var(--nv-info-bg);
-  border: 1px solid var(--nv-info-border);
-  color: var(--nv-info-text);
-}
-
 .nv-post-card {
   background: transparent;
   position: relative;

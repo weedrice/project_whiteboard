@@ -82,15 +82,15 @@ export function getMyReportStatusLabel(t: TranslateFn, status: ReportStatus) {
   }
 }
 
-export function getMyReportStatusClass(status: ReportStatus) {
+export function getMyReportStatusVariant(status: ReportStatus) {
   switch (status) {
     case 'PENDING':
-      return 'nv-status-warning'
+      return 'warning'
     case 'RESOLVED':
-      return 'nv-status-success'
+      return 'success'
     case 'REJECTED':
-      return 'nv-status-danger'
+      return 'danger'
     default:
-      return ''
+      return 'gray'
   }
 }

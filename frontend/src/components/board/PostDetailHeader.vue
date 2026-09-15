@@ -3,6 +3,7 @@ import { ArrowLeft, Clock, Eye, EyeOff, MessageSquare, Pencil, Trash2, User } fr
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { formatDate } from '@/utils/date'
@@ -124,18 +125,20 @@ const seriesMeta = (postView: PostDetailViewModel) => {
             <span class="inline-flex items-center gap-1.5">
               <User class="h-4 w-4" />
               <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
-              <span
+              <BaseBadge
                 v-if="postView.representativeBadge"
-                class="rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
+                variant="outline"
+                size="sm"
               >
                 {{ badgeName(postView.representativeBadge) }}
-              </span>
-              <span
+              </BaseBadge>
+              <BaseBadge
                 v-if="isAgentAuthor"
-                class="rounded-full nv-status-info px-1.5 py-0.5 text-xs font-semibold"
+                variant="info"
+                size="sm"
               >
                 AGENT
-              </span>
+              </BaseBadge>
             </span>
             <span class="inline-flex items-center gap-1.5">
               <Clock class="h-4 w-4" />

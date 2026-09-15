@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 
 defineProps<{
   title: string
@@ -9,11 +9,11 @@ defineProps<{
 
 <template>
   <div>
-    <AdminPageHeader :title="title" :description="description">
+    <PageHeader :title="title" :description="description" size="admin">
       <template v-if="$slots.actions" #actions>
         <slot name="actions" />
       </template>
-    </AdminPageHeader>
+    </PageHeader>
 
     <slot name="filters" />
     <slot name="toolbar" />

@@ -11,6 +11,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import {
@@ -139,23 +140,19 @@ const purchase = async (item: ShopItem) => {
 
 <template>
   <main class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <div class="mb-2 flex items-center gap-2">
-          <ShoppingBag class="h-6 w-6 nv-accent-text" aria-hidden="true" />
-          <h1 class="text-2xl font-bold nv-title">{{ t('shop.title') }}</h1>
-        </div>
-        <p class="text-sm nv-text-muted">{{ t('shop.description') }}</p>
-      </div>
-      <BaseCard padding="sm" elevation="none" bordered class="shrink-0">
-        <div v-if="authStore.isAuthenticated" class="flex items-center gap-2 text-sm">
-          <Coins class="h-4 w-4 nv-accent-text" aria-hidden="true" />
-          <span class="nv-text-muted">{{ t('shop.currentPoints') }}</span>
-          <strong class="nv-title">{{ formatInteger(currentPoints) }} P</strong>
-        </div>
-        <p v-else class="text-sm nv-text-muted">{{ t('shop.loginHint') }}</p>
-      </BaseCard>
-    </header>
+    <PageHeader class="mb-6" :title="t('shop.title')" :description="t('shop.description')">
+      <template #icon><ShoppingBag class="h-6 w-6 nv-accent-text" aria-hidden="true" /></template>
+      <template #actions>
+        <BaseCard padding="sm" elevation="none" bordered>
+          <div v-if="authStore.isAuthenticated" class="flex items-center gap-2 text-sm">
+            <Coins class="h-4 w-4 nv-accent-text" aria-hidden="true" />
+            <span class="nv-text-muted">{{ t('shop.currentPoints') }}</span>
+            <strong class="nv-title">{{ formatInteger(currentPoints) }} P</strong>
+          </div>
+          <p v-else class="text-sm nv-text-muted">{{ t('shop.loginHint') }}</p>
+        </BaseCard>
+      </template>
+    </PageHeader>
 
     <div class="mb-6 flex justify-end">
       <BaseSelect

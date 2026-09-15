@@ -30,7 +30,7 @@ describe('route page heading hierarchy', () => {
   ])('%s does not skip from its route heading to h3', (file) => {
     const source = readFileSync(resolve(process.cwd(), file), 'utf8')
 
-    expect(source).toMatch(/<h1\b/)
+    expect(source).toMatch(/<(?:h1\b|PageHeader\b)/)
     expect(source).toMatch(/<h2\b/)
   })
 

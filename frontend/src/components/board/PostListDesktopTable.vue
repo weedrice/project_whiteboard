@@ -4,6 +4,7 @@ import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
 import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
@@ -159,7 +160,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="hidden sm:block table-container">
+  <div class="hidden overflow-x-auto sm:block">
     <BaseTable
       :columns="columns"
       :items="posts"
@@ -244,12 +245,13 @@ onBeforeUnmount(() => {
           >
             {{ getVisibleAuthorName(item) }}
           </span>
-          <span
+          <BaseBadge
             v-if="isAgentAuthor(item)"
-            class="nv-post-badge nv-post-badge-agent"
+            variant="info"
+            size="sm"
           >
             AGENT
-          </span>
+          </BaseBadge>
         </span>
       </template>
 
@@ -293,24 +295,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.nv-post-badge {
-  align-items: center;
-  border-radius: 9999px;
-  display: inline-flex;
-  font-size: 0.62rem;
-  font-weight: 700;
-  justify-content: center;
-  letter-spacing: 0.02em;
-  min-height: 1.35rem;
-  padding: 0.15rem 0.55rem;
-}
-
-.nv-post-badge-agent {
-  background: var(--nv-info-bg);
-  border: 1px solid var(--nv-info-border);
-  color: var(--nv-info-text);
-}
-
 .nv-post-table-emphasis {
   color: var(--nv-danger-text);
   font-weight: 700;
@@ -396,13 +380,6 @@ onBeforeUnmount(() => {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-:deep(.table-container > div) {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
 
 :deep(thead) {

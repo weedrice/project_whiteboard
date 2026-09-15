@@ -33,20 +33,6 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-const AdminPageHeaderStub = defineComponent({
-  props: {
-    title: String,
-    description: String,
-  },
-  template: `
-    <header>
-      <h1>{{ title }}</h1>
-      <p>{{ description }}</p>
-      <slot name="actions" />
-    </header>
-  `,
-})
-
 const AdminDetailModalBaseStub = defineComponent({
   props: {
     isOpen: Boolean,
@@ -76,11 +62,6 @@ describe('admin common components', () => {
         toolbar: '<div data-test="toolbar">Toolbar</div>',
         default: '<main>Table</main>',
         footer: '<footer>Footer</footer>',
-      },
-      global: {
-        stubs: {
-          AdminPageHeader: AdminPageHeaderStub,
-        },
       },
     })
 

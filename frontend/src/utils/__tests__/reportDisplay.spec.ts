@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getAdminReportStatusLabel,
   getCommonReportTargetTypeLabel,
-  getMyReportStatusClass,
+  getMyReportStatusVariant,
   getMyReportStatusLabel,
   getMyReportTargetTypeLabel,
   getReportProcessorText,
@@ -42,9 +42,9 @@ describe('reportDisplay', () => {
   })
 
   it('maps my-report status classes', () => {
-    expect(getMyReportStatusClass('PENDING')).toBe('nv-status-warning')
-    expect(getMyReportStatusClass('RESOLVED')).toBe('nv-status-success')
-    expect(getMyReportStatusClass('REJECTED')).toBe('nv-status-danger')
+    expect(getMyReportStatusVariant('PENDING')).toBe('warning')
+    expect(getMyReportStatusVariant('RESOLVED')).toBe('success')
+    expect(getMyReportStatusVariant('REJECTED')).toBe('danger')
   })
 
   it('formats admin report processor, reason, and target display text', () => {

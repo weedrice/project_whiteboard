@@ -23,6 +23,7 @@ import { queryClient } from '@/queryClient'
 import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 import type { ReportReasonType } from '@/types'
 import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { buildPostDetailPath } from '@/utils/urlPath'
 
 defineOptions({
@@ -299,18 +300,20 @@ onUnmounted(cancelPendingCommentReport)
               :display-name="comment.author.displayName"
               size="inherit"
             />
-            <span
+            <BaseBadge
               v-if="!comment.isDeleted && isAgentAuthor"
-              class="inline-flex items-center rounded-full nv-status-info px-1.5 py-0.5 text-xs font-semibold"
+              variant="info"
+              size="sm"
             >
               {{ $t('comment.agentBadge') }}
-            </span>
-            <span
+            </BaseBadge>
+            <BaseBadge
               v-else-if="!comment.isDeleted && comment.author?.representativeBadge"
-              class="inline-flex items-center rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
+              variant="outline"
+              size="sm"
             >
               {{ badgeName(comment.author.representativeBadge) }}
-            </span>
+            </BaseBadge>
             <span
               v-else-if="comment.isDeleted"
               class="text-xs font-medium nv-text-subtle sm:text-sm"

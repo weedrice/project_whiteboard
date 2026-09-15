@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { useUser } from '@/features/user/useUser'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
@@ -193,9 +194,9 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
                   <p class="truncate text-sm font-semibold nv-title">{{ badgeName(badge) }}</p>
                   <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ badgeDescription(badge) }}</p>
                 </div>
-                <span class="rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
+                <BaseBadge variant="outline" size="sm" class="uppercase">
                   {{ badge.tier }}
-                </span>
+                </BaseBadge>
               </div>
               <div v-if="isOwnProfile" class="mt-3">
                 <BaseButton

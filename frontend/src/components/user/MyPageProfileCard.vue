@@ -3,6 +3,7 @@ import { Calendar, CheckCircle, Clock, Mail, ShieldCheck, User, XCircle } from '
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseBadge, { type BaseBadgeVariant } from '@/components/common/ui/BaseBadge.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileInfoRow from '@/components/user/ProfileInfoRow.vue'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
@@ -22,6 +23,11 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+const agentStatusVariant = (status: UserAgent['status']): BaseBadgeVariant => {
+  if (status === 'ACTIVE') return 'success'
+  if (status === 'SUSPENDED') return 'danger'
+  return 'gray'
+}
 </script>
 
 <template>
@@ -56,12 +62,9 @@ const { t } = useI18n()
         </ProfileInfoRow>
         <ProfileInfoRow :icon="Mail" :label="t('user.profile.email')">
           {{ profile?.email }}
-          <span
-            v-if="profile?.isEmailVerified"
-            class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-success"
-          >
+          <BaseBadge v-if="profile?.isEmailVerified" class="ml-2" variant="success" size="sm">
             <CheckCircle class="h-3 w-3 mr-1" /> {{ t('user.profile.verified') }}
-          </span>
+          </BaseBadge>
           <button
             v-else
             type="button"
@@ -78,19 +81,16 @@ const { t } = useI18n()
           content-class="mt-1 sm:mt-0"
         >
           <div v-if="agents.length > 0" class="flex flex-wrap gap-2">
-            <span
+            <BaseBadge
               v-for="agent in agents"
               :key="agent.agentId"
-              class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-              :class="agent.status === 'ACTIVE'
-                ? 'nv-status-success'
-                : agent.status === 'SUSPENDED'
-                  ? 'nv-status-danger'
-                  : 'nv-surface-muted nv-text-muted'"
+              :variant="agentStatusVariant(agent.status)"
+              size="sm"
+              class="gap-1"
             >
               <span>{{ agent.name }}</span>
               <span>{{ getAgentStatusLabel(agent.status) }}</span>
-            </span>
+            </BaseBadge>
           </div>
           <span v-else class="text-sm nv-text-subtle">
             {{ t('user.profile.agentEmpty') }}

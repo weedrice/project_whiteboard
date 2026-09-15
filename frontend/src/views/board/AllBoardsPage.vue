@@ -8,6 +8,7 @@ import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { useI18n } from 'vue-i18n'
 
 import { useHead } from '@unhead/vue'
@@ -73,11 +74,7 @@ const filteredBoards = computed(() => {
 
 <template>
   <div class="mx-auto max-w-7xl">
-    <header class="mb-8">
-      <h1 class="text-2xl font-bold nv-title">
-        {{ $t('board.list.title') }}
-      </h1>
-    </header>
+    <PageHeader class="mb-8" :title="$t('board.list.title')" />
 
     <BoardListSkeleton v-if="isLoading" :count="6" :show-subscribed="authStore.isAuthenticated" />
 

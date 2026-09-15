@@ -3,11 +3,12 @@ import { useI18n } from 'vue-i18n'
 import { useReport } from '@/features/user/reports/useReport'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { Flag } from 'lucide-vue-next'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import type { MyReport } from '@/types'
 import {
-  getMyReportStatusClass,
+  getMyReportStatusVariant,
   getMyReportStatusLabel,
   getMyReportTargetTypeLabel,
   getReportReasonTypeLabel,
@@ -66,12 +67,9 @@ const {
           </p>
         </div>
         <div class="flex items-center flex-shrink-0 self-center">
-          <span
-            class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap"
-            :class="getMyReportStatusClass(report.status)"
-          >
+          <BaseBadge :variant="getMyReportStatusVariant(report.status)" size="sm" class="whitespace-nowrap">
             {{ getMyReportStatusLabel($t, report.status) }}
-          </span>
+          </BaseBadge>
         </div>
       </li>
     </ul>

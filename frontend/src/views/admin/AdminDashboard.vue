@@ -6,8 +6,10 @@ import { useI18n } from 'vue-i18n'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import type { DashboardStats, ModerationAuditSearchParams } from '@/types/admin'
@@ -16,6 +18,14 @@ const { t } = useI18n()
 const admin = useAdmin()
 const { useDashboardStats, useDeepDashboardStats } = admin
 const selectedDays = ref<30 | 90>(30)
+const selectedDaysModel = computed({
+  get: () => String(selectedDays.value),
+  set: (value: string) => { selectedDays.value = value === '90' ? 90 : 30 },
+})
+const dayOptions = computed(() => [
+  { value: '30', label: t('admin.dashboard.days30') },
+  { value: '90', label: t('admin.dashboard.days90') },
+])
 const auditAction = ref('')
 const auditActorType = ref('')
 const auditBoardName = ref('')
@@ -105,9 +115,7 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
 </script>
 
 <template>
-  <div>
-    <h1 class="text-2xl font-semibold nv-title">{{ t('admin.dashboard.title') }}</h1>
-
+  <AdminDataPage :title="t('admin.dashboard.title')" description="">
     <div v-if="isStatsLoading" class="mt-4 py-8" role="status" aria-busy="true">
       <BaseSpinner />
     </div>
@@ -141,24 +149,7 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
     <div class="mt-8">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-medium nv-title">{{ t('admin.dashboard.deepStats') }}</h2>
-        <div class="inline-flex rounded-md border nv-border p-1">
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm"
-            :class="selectedDays === 30 ? 'nv-surface-muted nv-title' : 'nv-text-subtle'"
-            @click="selectedDays = 30"
-          >
-            {{ t('admin.dashboard.days30') }}
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm"
-            :class="selectedDays === 90 ? 'nv-surface-muted nv-title' : 'nv-text-subtle'"
-            @click="selectedDays = 90"
-          >
-            {{ t('admin.dashboard.days90') }}
-          </button>
-        </div>
+        <BaseSegmentedControl v-model="selectedDaysModel" :options="dayOptions" :label="t('admin.dashboard.deepStats')" />
       </div>
 
       <div v-if="isDeepStatsLoading" class="mt-4 py-8" role="status" aria-busy="true">
@@ -272,5 +263,5 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
         />
       </AdminPanel>
     </div>
-  </div>
+  </AdminDataPage>
 </template>

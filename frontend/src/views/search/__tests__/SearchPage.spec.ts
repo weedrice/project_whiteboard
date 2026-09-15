@@ -266,7 +266,7 @@ describe('SearchPage', () => {
       searchType: 'TITLE_CONTENT',
     })
     expect(wrapper.text()).toContain('"vue"')
-    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue search.noResultsSuggestion')
+    expect(wrapper.find('[data-testid="search-page-empty"]').attributes('data-description')).toBe('search.noResultsFor:vue search.noResultsSuggestion')
   })
 
   it('shows a search prompt instead of no results before a query is provided', () => {
@@ -278,8 +278,8 @@ describe('SearchPage', () => {
       name: 'searchPageQuery',
       autocomplete: 'off',
     })
-    expect(wrapper.find('[data-testid="empty-state"]').text()).toBe('search.placeholder')
-    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBeUndefined()
+    expect(wrapper.find('[data-testid="search-page-empty"]').text()).toBe('search.placeholder')
+    expect(wrapper.find('[data-testid="search-page-empty"]').attributes('data-description')).toBeUndefined()
   })
 
   it('submits page-local searches through the search route', async () => {
@@ -373,7 +373,7 @@ describe('SearchPage', () => {
 
     expect(wrapper.get('[data-testid="comment-results"]').text()).toContain('matching comment')
     expect(wrapper.get('[data-testid="user-results"]').text()).toContain('Matched User')
-    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="search-page-empty"]').exists()).toBe(false)
     expect(wrapper.get('[role="status"]').text()).toBe('search.resultSummary:2')
   })
 
@@ -401,7 +401,7 @@ describe('SearchPage', () => {
     const wrapper = mountPage()
 
     expect(wrapper.get('[role="alert"]').text()).toContain('common.messages.loadFailed')
-    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="search-page-empty"]').exists()).toBe(false)
 
     await wrapper.get('[role="alert"] button').trigger('click')
     expect(searchState.refetchIntegrated).toHaveBeenCalledOnce()
