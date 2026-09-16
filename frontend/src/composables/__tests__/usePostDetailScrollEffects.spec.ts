@@ -58,7 +58,6 @@ function mountScrollEffects(options: {
   const isPostDetailUiDisposed = vi.fn(() => false)
   const scheduleComposerFocus = vi.fn()
   const trackImageLoadTimeout = vi.fn((resolve: () => void) => resolve())
-  const setupComposerObserver = vi.fn()
   const disposePostDetailUiEffects = vi.fn()
   const syncBoardListPageForDirectEntry = vi.fn()
   const buildEditRoute = vi.fn(() => '/board/free/post/1/edit')
@@ -91,7 +90,6 @@ function mountScrollEffects(options: {
         isPostDetailUiDisposed,
         scheduleComposerFocus,
         trackImageLoadTimeout,
-        setupComposerObserver,
         disposePostDetailUiEffects,
         syncBoardListPageForDirectEntry,
         buildEditRoute,
@@ -118,7 +116,6 @@ function mountScrollEffects(options: {
     startBlurTimer,
     clearBlurTimer,
     markPostDetailUiMounted,
-    setupComposerObserver,
     disposePostDetailUiEffects,
     syncBoardListPageForDirectEntry,
     scheduleComposerFocus,

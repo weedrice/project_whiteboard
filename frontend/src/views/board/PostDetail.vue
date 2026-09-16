@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailArticleContent from '@/components/board/PostDetailArticleContent.vue'
-import PostDetailComposerCta from '@/components/board/PostDetailComposerCta.vue'
 import PostDetailErrorState from '@/components/board/PostDetailErrorState.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
@@ -161,7 +160,6 @@ watch([postId, () => authStore.sessionGeneration], () => {
 const {
   isBlurred,
   timeLeft,
-  showComposerCta,
   markPostDetailUiMounted,
   isPostDetailUiDisposed,
   startBlurTimer,
@@ -169,7 +167,6 @@ const {
   revealSpoiler,
   scheduleComposerFocus,
   trackImageLoadTimeout,
-  setupComposerObserver,
   disposePostDetailUiEffects
 } = usePostDetailUiEffects()
 
@@ -225,7 +222,6 @@ const {
   commentsRef,
   scrollToTop,
   scrollToCommentComposer,
-  scrollToComments,
 } = usePostDetailScrollEffects({
   route,
   router,
@@ -242,7 +238,6 @@ const {
   isPostDetailUiDisposed,
   scheduleComposerFocus,
   trackImageLoadTimeout,
-  setupComposerObserver,
   disposePostDetailUiEffects,
   syncBoardListPageForDirectEntry,
   buildEditRoute,
@@ -342,12 +337,10 @@ const { setLastReadCommentId } = usePostViewHistory({
 
     <PostDetailQuickActions
       :visible="!!postView"
-      @comments="scrollToComments"
+      @comments="scrollToCommentComposer"
       @list="goToList"
       @top="scrollToTop"
     />
-
-    <PostDetailComposerCta :visible="showComposerCta" @focus="scrollToCommentComposer" />
 
     <ReportModal
       :isOpen="showReportModal"

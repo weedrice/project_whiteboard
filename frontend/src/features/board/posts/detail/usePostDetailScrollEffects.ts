@@ -3,7 +3,6 @@ import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { Post } from '@/types'
 import { usePostDetailKeyboardShortcuts } from '@/features/board/posts/detail/usePostDetailKeyboardShortcuts'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
-import { useEventListener } from '@/composables/useEventListener'
 import { findPostDetailElementByHash, getPostDetailScrollTop } from '@/utils/postDetailScrollTarget'
 import { getMotionAwareScrollBehavior } from '@/utils/motion'
 
@@ -23,7 +22,6 @@ interface UsePostDetailScrollEffectsOptions {
   isPostDetailUiDisposed: () => boolean
   scheduleComposerFocus: (composer: HTMLElement) => void
   trackImageLoadTimeout: (resolve: () => void, timeoutMs: number) => void
-  setupComposerObserver: () => void
   disposePostDetailUiEffects: () => void
   syncBoardListPageForDirectEntry: () => void
   buildEditRoute: () => string
@@ -50,7 +48,6 @@ export function usePostDetailScrollEffects({
   isPostDetailUiDisposed,
   scheduleComposerFocus,
   trackImageLoadTimeout,
-  setupComposerObserver,
   disposePostDetailUiEffects,
   syncBoardListPageForDirectEntry,
   buildEditRoute,
@@ -166,10 +163,6 @@ export function usePostDetailScrollEffects({
     })
   }
 
-  function handleResize() {
-    setupComposerObserver()
-  }
-
   watch(() => route.hash, (newHash) => {
     cancelHashTargetWait()
     if (!newHash) return
@@ -198,8 +191,6 @@ export function usePostDetailScrollEffects({
       clearBlurTimer()
     }
 
-    nextTick(() => setupComposerObserver())
-
     if (!oldPost || newPost.postId !== oldPost.postId) {
       const expectedPostId = newPost.postId
       const expectedRouteName = route.name
@@ -224,7 +215,6 @@ export function usePostDetailScrollEffects({
 
   onMounted(() => {
     markPostDetailUiMounted()
-    nextTick(() => setupComposerObserver())
   })
 
   usePostDetailKeyboardShortcuts({
@@ -241,8 +231,6 @@ export function usePostDetailScrollEffects({
     handleCopyUrl,
     handleLike,
   })
-  useEventListener(() => window, 'resize', handleResize)
-
   onUnmounted(() => {
     cancelHashTargetWait()
     disposePostDetailUiEffects()

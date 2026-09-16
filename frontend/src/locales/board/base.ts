@@ -150,7 +150,6 @@ export const boardBaseMessages = {
     back: '뒤로 가기',
     toList: '목록으로',
     comments: '댓글로',
-    focusComposer: '댓글 작성창으로 이동',
     quickActions: '빠른 작업',
     tableOfContents: '목차',
     scrollTop: '상단으로',

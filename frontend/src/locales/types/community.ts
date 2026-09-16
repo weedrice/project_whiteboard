@@ -224,7 +224,6 @@ export interface BoardMessages {
     back: string
     toList: string
     comments: string
-    focusComposer: string
     quickActions: string
     tableOfContents: string
     scrollTop: string

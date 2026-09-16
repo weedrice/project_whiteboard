@@ -1,15 +1,12 @@
 import { ref } from 'vue'
-import { isNarrowViewport } from '@/utils/browserEnv'
 
 export function usePostDetailUiEffects() {
   const isBlurred = ref(false)
   const timeLeft = ref(5)
-  const showComposerCta = ref(false)
 
   let blurTimer: ReturnType<typeof setInterval> | null = null
   let composerFocusTimer: ReturnType<typeof setTimeout> | null = null
   const imageLoadTimeouts = new Map<ReturnType<typeof setTimeout>, () => void>()
-  let composerObserver: IntersectionObserver | null = null
   let isDisposed = false
 
   function clearBlurTimer() {
@@ -76,50 +73,16 @@ export function usePostDetailUiEffects() {
     imageLoadTimeouts.set(timer, resolveTimeout)
   }
 
-  function setupComposerObserver() {
-    if (isDisposed) return
-
-    if (composerObserver) {
-      composerObserver.disconnect()
-      composerObserver = null
-    }
-
-    if (!isNarrowViewport(640)) {
-      showComposerCta.value = false
-      return
-    }
-
-    const composer = document.getElementById('comment-composer')
-    if (!composer) {
-      showComposerCta.value = false
-      return
-    }
-
-    composerObserver = new IntersectionObserver(([entry]) => {
-      showComposerCta.value = !entry.isIntersecting
-    }, {
-      threshold: 0,
-      rootMargin: '0px 0px -18% 0px'
-    })
-
-    composerObserver.observe(composer)
-  }
-
   function disposePostDetailUiEffects() {
     isDisposed = true
     clearBlurTimer()
     clearComposerFocusTimer()
     clearImageLoadTimeoutTimers()
-    if (composerObserver) {
-      composerObserver.disconnect()
-      composerObserver = null
-    }
   }
 
   return {
     isBlurred,
     timeLeft,
-    showComposerCta,
     markPostDetailUiMounted,
     isPostDetailUiDisposed,
     startBlurTimer,
@@ -127,7 +90,6 @@ export function usePostDetailUiEffects() {
     revealSpoiler,
     scheduleComposerFocus,
     trackImageLoadTimeout,
-    setupComposerObserver,
     disposePostDetailUiEffects
   }
 }

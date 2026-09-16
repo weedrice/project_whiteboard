@@ -213,17 +213,6 @@ vi.mock('@/utils/errorHandler', () => ({
   isRestrictedResourceError: () => false
 }))
 
-class MockIntersectionObserver {
-  static callback: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null
-
-  constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
-    MockIntersectionObserver.callback = callback
-  }
-
-  observe() {}
-  disconnect() {}
-}
-
 const PostTagsStub = defineComponent({
   name: 'PostTags',
   props: {
@@ -281,7 +270,6 @@ describe('PostDetail', () => {
     postValue.createdAt = '2026-04-22T10:00:00'
     postValue.modifiedAt = '2026-04-22T10:00:00'
 
-    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
     vi.stubGlobal('navigator', {
       clipboard: {
         writeText: vi.fn().mockResolvedValue(undefined)
@@ -549,12 +537,8 @@ describe('PostDetail', () => {
     ])
   })
 
-  it('shows the mobile composer CTA when the composer leaves the viewport and scrolls back to it', async () => {
+  it('focuses the comment composer from the quick action without rendering a duplicate CTA', async () => {
     vi.useFakeTimers()
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      value: 390
-    })
 
     const composerStub = {
       name: 'CommentList',
@@ -588,13 +572,13 @@ describe('PostDetail', () => {
     composer.scrollIntoView = scrollSpy
     textarea.focus = focusSpy
 
-    MockIntersectionObserver.callback?.([{ isIntersecting: false }])
-    await wrapper.vm.$nextTick()
+    const commentButton = wrapper.findAll('button').find(
+      (button) => button.attributes('aria-label') === 'board.postDetail.comments'
+    )
+    expect(commentButton?.exists()).toBe(true)
+    expect(wrapper.find('.nv-post-mobile-comment-cta').exists()).toBe(false)
 
-    const ctaButton = wrapper.findAll('button').find((button) => button.text().includes('board.postDetail.focusComposer'))
-    expect(ctaButton?.exists()).toBe(true)
-
-    await ctaButton?.trigger('click')
+    await commentButton?.trigger('click')
     vi.runOnlyPendingTimers()
 
     expect(scrollSpy).toHaveBeenCalled()

@@ -155,7 +155,6 @@ export const boardEnBaseMessages = {
     back: 'Back',
     toList: 'Back to list',
     comments: 'Comments',
-    focusComposer: 'Go to comment composer',
     quickActions: 'Quick actions',
     tableOfContents: 'Table of contents',
     scrollTop: 'Scroll to top',

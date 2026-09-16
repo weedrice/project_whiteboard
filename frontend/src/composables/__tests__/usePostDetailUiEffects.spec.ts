@@ -38,36 +38,4 @@ describe('usePostDetailUiEffects', () => {
     expect(focus).not.toHaveBeenCalled()
     expect(effects.isPostDetailUiDisposed()).toBe(true)
   })
-
-  it('updates the composer CTA from IntersectionObserver entries on small screens', () => {
-    let callback: IntersectionObserverCallback | null = null
-    class MockIntersectionObserver {
-      observe = vi.fn()
-      disconnect = vi.fn()
-
-      constructor(cb: IntersectionObserverCallback) {
-        callback = cb
-      }
-    }
-    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      value: 375,
-    })
-    const composer = document.createElement('div')
-    composer.id = 'comment-composer'
-    document.body.append(composer)
-    const effects = usePostDetailUiEffects()
-
-    effects.setupComposerObserver()
-    expect(callback).toBeTypeOf('function')
-    const observerCallback = callback as unknown as IntersectionObserverCallback
-    observerCallback([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver)
-
-    expect(effects.showComposerCta.value).toBe(true)
-
-    observerCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)
-
-    expect(effects.showComposerCta.value).toBe(false)
-  })
 })
