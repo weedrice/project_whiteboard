@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, Home, Layers3, PenSquare, UserRound } from 'lucide-vue-next'
+import { Home, Layers3, PenSquare, Rss, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
-import { useNotification } from '@/features/notifications/queries/useNotification'
 import { useWriteBoardSheet } from '@/features/board/write/useWriteBoardSheet'
 
 defineProps<{
@@ -15,13 +13,7 @@ defineProps<{
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const authStore = useAuthStore()
 const { requireAuth } = useAuthGuard()
-const { useUnreadCount } = useNotification()
-const { data: unreadCount } = useUnreadCount()
-const notificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
-  ? `${t('layout.mobileNav.alerts')}. ${t('notification.unreadNotifications', { count: unreadCount.value })}`
-  : t('layout.mobileNav.alerts'))
 const {
   fabButtonRef,
   sheetRef,
@@ -49,17 +41,13 @@ const setSheetRef = (element: Element | ComponentPublicInstance | null) => {
   sheetRef.value = target
 }
 
-const isHome = computed(() => route.name === 'home')
+const isPersonalFeed = computed(() => route.name === 'home' && route.query.view === 'feed')
+const isHome = computed(() => route.name === 'home' && !isPersonalFeed.value)
 const isBoards = computed(() => route.name === 'all-boards' || route.name === 'board-detail' || route.name === 'post-detail')
-const isNotifications = computed(() => route.name === 'MyNotifications')
-const isProfile = computed(() => {
-  if (route.name === 'MyNotifications') return false
-
-  return String(route.name ?? '').startsWith('My')
-    || route.name === 'mypage'
-    || route.name === 'SubscribedBoards'
-    || route.name === 'BlockList'
-})
+const isProfile = computed(() => String(route.name ?? '').startsWith('My')
+  || route.name === 'mypage'
+  || route.name === 'SubscribedBoards'
+  || route.name === 'BlockList')
 
 const navigateOrLogin = async (path: string) => {
   if ((path.startsWith('/mypage') || path.includes('/notifications')) && !requireAuth(path)) {
@@ -100,16 +88,14 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
         <PenSquare class="h-5 w-5" aria-hidden="true" />
       </button>
       <RouterLink
-        to="/mypage/notifications"
-        class="nv-mobile-nav-item relative"
-        :class="{ 'is-active': isNotifications }"
-        :aria-current="isNotifications ? 'page' : undefined"
-        :aria-label="notificationsLabel"
-        @click="handleProtectedNavigation($event, '/mypage/notifications')"
+        :to="{ name: 'home', query: { view: 'feed' } }"
+        class="nv-mobile-nav-item"
+        :class="{ 'is-active': isPersonalFeed }"
+        :aria-current="isPersonalFeed ? 'page' : undefined"
+        @click="handleProtectedNavigation($event, '/?view=feed')"
       >
-        <Bell class="h-5 w-5" aria-hidden="true" />
-        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.alerts') }}</span>
-        <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" aria-hidden="true" />
+        <Rss class="h-5 w-5" aria-hidden="true" />
+        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.feed') }}</span>
       </RouterLink>
       <RouterLink to="/mypage" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" :aria-current="isProfile ? 'page' : undefined"
         @click="handleProtectedNavigation($event, '/mypage')">

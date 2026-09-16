@@ -6,7 +6,8 @@ const { mocks, refLike } = vi.hoisted(() => ({
   refLike: <T>(value: T) => ({ __v_isRef: true, value }),
   mocks: {
     route: {
-      name: 'home' as string | null
+      name: 'home' as string | null,
+      query: {} as Record<string, string>,
     },
     routerPush: vi.fn(),
     openWriteSheet: vi.fn(),
@@ -14,7 +15,6 @@ const { mocks, refLike } = vi.hoisted(() => ({
     goToBoardWrite: vi.fn(),
     showWriteSheet: { __v_isRef: true as const, value: false },
     isTopDialog: { __v_isRef: true as const, value: true },
-    unreadCount: { __v_isRef: true as const, value: 0 },
   },
 }))
 
@@ -27,23 +27,13 @@ vi.mock('vue-router', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string, values?: Record<string, number>) => (
-      key === 'notification.unreadNotifications' ? `${values?.count} unread notifications` : key
-    )
+    t: (key: string) => key
   })
 }))
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: true
-  })
-}))
-
-vi.mock('@/features/notifications/queries/useNotification', () => ({
-  useNotification: () => ({
-    useUnreadCount: () => ({
-      data: mocks.unreadCount
-    })
   })
 }))
 
@@ -64,8 +54,9 @@ vi.mock('@/features/board/write/useWriteBoardSheet', () => ({
   })
 }))
 
-function mountNav(routeName: string | null) {
+function mountNav(routeName: string | null, query: Record<string, string> = {}) {
   mocks.route.name = routeName
+  mocks.route.query = query
   return mount(MobileBottomNav, {
     global: {
       mocks: {
@@ -82,14 +73,14 @@ function mountNav(routeName: string | null) {
 describe('MobileBottomNav', () => {
   beforeEach(() => {
     mocks.showWriteSheet.value = false
-    mocks.unreadCount.value = 0
+    mocks.route.query = {}
     vi.clearAllMocks()
   })
 
   it.each([
     ['home', 0],
     ['board-detail', 1],
-    ['MyNotifications', 2],
+    ['MyNotifications', 3],
     ['mypage', 3]
   ])('marks only the active route as current for %s', (routeName, activeIndex) => {
     const wrapper = mountNav(routeName)
@@ -131,12 +122,14 @@ describe('MobileBottomNav', () => {
     expect(wrapper.get('.nv-mobile-nav-fab').element.tagName).toBe('BUTTON')
   })
 
-  it('includes the unread count in the notifications link label', () => {
-    mocks.unreadCount.value = 4
-    const wrapper = mountNav('home')
-    const navItems = wrapper.findAll('.nv-mobile-nav-item')
+  it('links the personal feed and marks it as the current destination', () => {
+    const wrapper = mountNav('home', { view: 'feed' })
+    const navItems = wrapper.findAllComponents(RouterLinkStub)
 
     expect(navItems).toHaveLength(4)
-    expect(navItems[2]?.attributes('aria-label')).toBe('layout.mobileNav.alerts. 4 unread notifications')
+    expect(navItems[0]?.attributes('aria-current')).toBeUndefined()
+    expect(navItems[2]?.props('to')).toEqual({ name: 'home', query: { view: 'feed' } })
+    expect(navItems[2]?.attributes('aria-current')).toBe('page')
+    expect(navItems[2]?.text()).toContain('layout.mobileNav.feed')
   })
 })

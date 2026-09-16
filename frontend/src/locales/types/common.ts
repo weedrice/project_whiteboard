@@ -445,7 +445,7 @@ export interface LayoutMessages {
     ariaLabel: string
     home: string
     boards: string
-    alerts: string
+    feed: string
     my: string
     createPost: string
     write: string

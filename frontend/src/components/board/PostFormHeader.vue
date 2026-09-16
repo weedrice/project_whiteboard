@@ -57,4 +57,18 @@ defineEmits<{
   justify-content: space-between;
   gap: 1rem;
 }
+
+@media (max-width: 639px) {
+  .nv-compose-header {
+    position: sticky;
+    top: 4rem;
+    z-index: calc(var(--nv-z-sticky) - 1);
+    padding: 0.75rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
+    box-shadow: var(--nv-shadow-card);
+    backdrop-filter: blur(12px);
+  }
+}
 </style>

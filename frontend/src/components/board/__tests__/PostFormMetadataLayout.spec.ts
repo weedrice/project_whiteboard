@@ -30,6 +30,14 @@ describe('PostForm metadata layout', () => {
     expect(editWrapper.text()).toContain('board.writePost.editTitle')
   })
 
+  it.each(['create', 'edit'] as const)('keeps actions in the header without a mobile floating bar in the %s form', (mode) => {
+    const wrapper = mountPostForm(mode)
+    const header = wrapper.get('.nv-compose-header')
+
+    expect(header.findAll('button')).toHaveLength(3)
+    expect(wrapper.find('.nv-compose-mobile-actions').exists()).toBe(false)
+  })
+
   it.each(['create', 'edit'] as const)('shows the space as plain text in the %s header', (mode) => {
     const wrapper = mountPostForm(mode)
     const boardContext = wrapper.get('.nv-compose-board-context')

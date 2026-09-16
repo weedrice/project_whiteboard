@@ -12,13 +12,11 @@ import { usePostSeriesOptions } from '@/features/board/posts/form/usePostSeriesO
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useToastStore } from '@/stores/toast'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
-import PostDraftActions from '@/components/board/PostDraftActions.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
@@ -477,14 +475,6 @@ const effectiveDraftPresentation = computed(() => ({
     disabled: action.disabled || isSubmitting.value || isSubmissionLocked.value || isImageUploadPending.value,
   })),
 }))
-const hasSaveDraftAction = computed(() => (
-  effectiveDraftPresentation.value.actions.length === 1
-  && effectiveDraftPresentation.value.actions[0]?.id === 'save'
-))
-const hasBlockingDraftActions = computed(() => (
-  effectiveDraftPresentation.value.actions.length > 0 && !hasSaveDraftAction.value
-))
-
 function handleCancel() {
   if (isSubmitting.value || isSubmissionLocked.value) return
   emit('cancel')
@@ -555,7 +545,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="w-full max-w-full overflow-x-hidden pb-24 sm:pb-0">
+  <div class="w-full max-w-full overflow-x-clip">
     <div
       ref="composePageRef"
       class="nv-compose-page"
@@ -651,63 +641,6 @@ defineExpose({
       </form>
     </div>
 
-    <div class="nv-compose-mobile-actions nv-elevated-surface sm:hidden">
-      <div v-if="effectiveDraftPresentation.label" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
-        {{ effectiveDraftPresentation.label }}
-      </div>
-      <PostDraftActions
-        v-if="hasBlockingDraftActions"
-        :presentation="effectiveDraftPresentation"
-        @action="executeDraftAction"
-      />
-      <div class="flex items-center gap-2">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[40px]"
-          :disabled="isSubmitting || isSubmissionLocked"
-          @click="handleCancel"
-        >
-          {{ $t('common.cancel') }}
-        </BaseButton>
-        <BaseButton
-          v-if="!props.hidePreview"
-          type="button"
-          variant="secondary"
-          size="sm"
-          class="min-h-[40px] flex-1"
-          :disabled="isSubmitting || isSubmissionLocked"
-          @click="showPreview = true"
-        >
-          {{ $t('board.writePost.actions.preview') }}
-        </BaseButton>
-        <PostDraftActions
-          v-else-if="hasSaveDraftAction"
-          :presentation="effectiveDraftPresentation"
-          inline
-          @action="executeDraftAction"
-        />
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="sm"
-          class="min-h-[40px] flex-1"
-          :loading="isSubmitting || isSubmissionLocked"
-          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked || isImageUploadPending"
-          @click="handleSubmit"
-        >
-          {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}
-        </BaseButton>
-      </div>
-      <PostDraftActions
-        v-if="!props.hidePreview && hasSaveDraftAction"
-        class="mt-2"
-        :presentation="effectiveDraftPresentation"
-        @action="executeDraftAction"
-      />
-    </div>
-
     <PostPreviewModal
       v-if="!props.hidePreview"
       :is-open="showPreview"
@@ -743,18 +676,6 @@ defineExpose({
   font-size: 0.75rem;
 }
 
-.nv-compose-mobile-actions {
-  background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1rem 1rem 0 0;
-  bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
-  box-shadow: var(--nv-shadow-card);
-  left: 0.75rem;
-  padding: 0.65rem;
-  position: fixed;
-  right: 0.75rem;
-  z-index: 45;
-}
 </style>
 
 

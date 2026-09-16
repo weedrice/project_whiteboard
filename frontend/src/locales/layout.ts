@@ -34,7 +34,7 @@ export const layout: LayoutMessages = {
     ariaLabel: '모바일 기본 내비게이션',
     home: '홈',
     boards: '스페이스',
-    alerts: '알림',
+    feed: '내 피드',
     my: '내 정보',
     createPost: '글 작성',
     write: '글쓰기',

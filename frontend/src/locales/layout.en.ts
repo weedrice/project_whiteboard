@@ -36,7 +36,7 @@ export const layoutEn: LayoutMessages = {
     ariaLabel: 'Mobile primary navigation',
     home: 'Home',
     boards: 'Spaces',
-    alerts: 'Alerts',
+    feed: 'My feed',
     my: 'My',
     createPost: 'Create post',
     write: 'Write',
