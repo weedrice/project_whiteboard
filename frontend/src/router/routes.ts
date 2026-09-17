@@ -68,6 +68,14 @@ export const routes: RouteRecordRaw[] = [
             { path: 'blocked', name: 'BlockList', component: () => import('@/views/user/BlockList.vue') },
             { path: 'recent', name: 'RecentViewed', component: () => import('@/views/search/RecentViewed.vue') },
             { path: 'subscriptions', name: 'SubscribedBoards', component: () => import('@/views/user/SubscribedBoards.vue') },
+            { path: '/inquiries', name: 'inquiry-list', component: () => import('@/views/inquiry/InquiryList.vue') },
+            { path: '/inquiries/new', name: 'inquiry-new', component: () => import('@/views/inquiry/InquiryNew.vue') },
+            {
+                path: '/inquiries/:inquiryId',
+                name: 'inquiry-detail',
+                component: () => import('@/views/inquiry/InquiryDetail.vue'),
+                meta: { positiveIntegerParams: ['inquiryId'] },
+            },
         ],
     },
     {
@@ -125,24 +133,6 @@ export const routes: RouteRecordRaw[] = [
     {
         path: '/inquiry',
         redirect: '/inquiries/new',
-    },
-    {
-        path: '/inquiries',
-        name: 'inquiry-list',
-        component: () => import('@/views/inquiry/InquiryList.vue'),
-        meta: { requiresAuth: true },
-    },
-    {
-        path: '/inquiries/new',
-        name: 'inquiry-new',
-        component: () => import('@/views/inquiry/InquiryNew.vue'),
-        meta: { requiresAuth: true },
-    },
-    {
-        path: '/inquiries/:inquiryId',
-        name: 'inquiry-detail',
-        component: () => import('@/views/inquiry/InquiryDetail.vue'),
-        meta: { requiresAuth: true, positiveIntegerParams: ['inquiryId'] },
     },
     {
         path: '/board/:boardUrl/write',

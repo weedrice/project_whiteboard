@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RouteRecordRaw } from 'vue-router'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '../routes'
 
 const flattenRoutes = (records: RouteRecordRaw[]): RouteRecordRaw[] =>
@@ -63,6 +64,27 @@ describe('routes table', () => {
     it('exposes earned badges under the authenticated my page', () => {
         expect(byName.get('MyBadges')).toMatchObject({ path: 'badges' })
         expect(routes.find((route) => route.path === '/mypage')?.meta).toMatchObject({ requiresAuth: true })
+    })
+
+    it('renders inquiry pages inside the authenticated my page layout', () => {
+        const myPageRoute = routes.find((route) => route.path === '/mypage')
+        const router = createRouter({ history: createMemoryHistory(), routes })
+        const resolvedDetail = router.resolve('/inquiries/42')
+
+        expect(myPageRoute?.children).toEqual(expect.arrayContaining([
+            expect.objectContaining({ name: 'inquiry-list', path: '/inquiries' }),
+            expect.objectContaining({ name: 'inquiry-new', path: '/inquiries/new' }),
+            expect.objectContaining({ name: 'inquiry-detail', path: '/inquiries/:inquiryId' }),
+        ]))
+        expect(routes.filter((route) => route.path.startsWith('/inquiries'))).toHaveLength(0)
+        expect(resolvedDetail.matched.map((route) => route.path)).toEqual([
+            '/mypage',
+            '/inquiries/:inquiryId',
+        ])
+        expect(resolvedDetail.meta).toMatchObject({
+            requiresAuth: true,
+            positiveIntegerParams: ['inquiryId'],
+        })
     })
 
     it('hides the shop route and protects purchase history through my page', () => {
