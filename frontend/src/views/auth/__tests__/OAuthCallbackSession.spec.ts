@@ -41,7 +41,7 @@ describe('OAuthCallback with the auth store hydration contract', () => {
         localStorage.clear()
         sessionStorage.clear()
         clearStoredAuthTokens(false)
-        configureAuthSessionEffects({})
+        configureAuthSessionEffects({ onExplicitLogout: async () => true })
         setActivePinia(createPinia())
         store = useAuthStore()
         vi.mocked(authApi.refreshToken).mockResolvedValue(apiSuccessDataResponse<typeof authApi.refreshToken>({
@@ -84,6 +84,19 @@ describe('OAuthCallback with the auth store hydration contract', () => {
             expect(mocks.router.replace).not.toHaveBeenCalled()
         },
     )
+
+    it('redirects after a failed refresh with asynchronous logout cleanup', async () => {
+        store.setTokens('existing-access')
+        vi.mocked(authApi.refreshToken).mockRejectedValueOnce({ response: { status: 401 } })
+
+        wrapper = mount(OAuthCallback)
+        await flushPromises()
+
+        expect(store.accessToken).toBeNull()
+        expect(authApi.logout).toHaveBeenCalledTimes(1)
+        expect(mocks.router.push).toHaveBeenCalledWith('/login')
+        expect(mocks.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
+    })
 
     it('redirects after terminal hydration has cleared its own session', async () => {
         const response = await startHydration()

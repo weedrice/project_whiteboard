@@ -69,11 +69,9 @@ onMounted(async () => {
       // hydrateUser clears its own failed session before returning terminal-failure.
       if (authStore.sessionGeneration !== ownedGeneration + 1
         || authStore.accessToken !== null) return
-      const logoutPromise = authStore.logout()
-      const loggedOutGeneration = authStore.sessionGeneration
-      await logoutPromise
-      if (!callbackController.signal.aborted
-        && authStore.sessionGeneration === loggedOutGeneration
+      const didLogout = await authStore.logout()
+      if (didLogout
+        && !callbackController.signal.aborted
         && authStore.accessToken === null) {
         toastStore.addToast(t('auth.loginFailed'), 'error')
         await router.replace('/login')
@@ -94,11 +92,9 @@ onMounted(async () => {
       : authStore.sessionGeneration === ownedGeneration && authStore.accessToken === ownedToken
     if (!ownsCurrentSession) return
     logger.error('OAuth login failed:', error)
-    const logoutPromise = authStore.logout()
-    const loggedOutGeneration = authStore.sessionGeneration
-    await logoutPromise
+    const didLogout = await authStore.logout()
     if (callbackController.signal.aborted
-      || authStore.sessionGeneration !== loggedOutGeneration
+      || !didLogout
       || authStore.accessToken !== null) return
     toastStore.addToast(t('auth.loginFailed'), 'error')
     router.push('/login')

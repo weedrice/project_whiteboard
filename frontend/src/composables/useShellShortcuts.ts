@@ -4,7 +4,7 @@ import { isInputFocused } from '@/utils/keyboard'
 
 interface ShellShortcutAuthStore {
   isAuthenticated: boolean
-  logout: () => Promise<void>
+  logout: () => Promise<unknown>
 }
 
 interface ShellShortcutKeyboardStore {

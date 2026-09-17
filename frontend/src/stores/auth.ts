@@ -161,17 +161,23 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    async function logout() {
+    async function logout(): Promise<boolean> {
+        const generation = sessionGeneration.value
+        const token = accessToken.value
         const logoutDecision = authSessionEffects.onExplicitLogout(user.value?.userId ?? null)
         const shouldLogout = logoutDecision instanceof Promise ? await logoutDecision : logoutDecision
-        if (shouldLogout === false) return
+        if (shouldLogout === false) return false
+        if (sessionGeneration.value !== generation || accessToken.value !== token) return false
+
         clearSessionState()
         clearLoginRedirect()
+        const loggedOutGeneration = sessionGeneration.value
         try {
             await authApi.logout()
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
         }
+        return sessionGeneration.value === loggedOutGeneration && accessToken.value === null
     }
 
     async function fetchUser(config?: AxiosRequestConfig, expectedUserId?: number | null): Promise<boolean> {

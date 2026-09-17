@@ -249,7 +249,7 @@ describe('Auth Store', () => {
             sessionStorage.setItem('loginRedirect', 'stale')
             vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
 
-            await store.logout()
+            await expect(store.logout()).resolves.toBe(true)
 
             expect(authApi.logout).toHaveBeenCalled()
             expect(store.accessToken).toBeNull()
@@ -263,7 +263,7 @@ describe('Auth Store', () => {
         it('cleans up state even if api call fails', async () => {
             vi.mocked(authApi.logout).mockRejectedValue(new Error('Network error'))
 
-            await store.logout()
+            await expect(store.logout()).resolves.toBe(true)
 
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
@@ -287,12 +287,29 @@ describe('Auth Store', () => {
         it('keeps the session when explicit logout cleanup is cancelled', async () => {
             mockExplicitLogout.mockResolvedValueOnce(false)
 
-            await store.logout()
+            await expect(store.logout()).resolves.toBe(false)
 
             expect(authApi.logout).not.toHaveBeenCalled()
             expect(store.accessToken).toBe('token')
             expect(store.user).toEqual(authUser())
             expect(getStoredAccessToken()).toBe('token')
+        })
+
+        it('does not clear a newer session while asynchronous logout cleanup is pending', async () => {
+            const cleanup = createDeferred<boolean>()
+            mockExplicitLogout.mockReturnValueOnce(cleanup.promise)
+
+            const logout = store.logout()
+            store.setTokens('new-session-token')
+            store.user = authUser({ userId: 2 })
+            const generation = store.sessionGeneration
+            cleanup.resolve(true)
+
+            await expect(logout).resolves.toBe(false)
+            expect(store.accessToken).toBe('new-session-token')
+            expect(store.user?.userId).toBe(2)
+            expect(store.sessionGeneration).toBe(generation)
+            expect(authApi.logout).not.toHaveBeenCalled()
         })
     })
 

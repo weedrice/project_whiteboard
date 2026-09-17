@@ -113,7 +113,7 @@ describe('OAuthCallback', () => {
         mocks.authStore.logout.mockImplementation(() => {
             mocks.authStore.sessionGeneration += 1
             mocks.authStore.accessToken = null
-            return Promise.resolve()
+            return Promise.resolve(true)
         })
         window.history.replaceState({}, '', '/auth/oauth/callback')
     })
@@ -193,6 +193,23 @@ describe('OAuthCallback', () => {
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
     })
 
+    it('redirects after asynchronous logout cleanup advances the session generation', async () => {
+        mocks.authApi.refreshToken.mockRejectedValueOnce(new Error('failed'))
+        mocks.authStore.logout.mockImplementationOnce(async () => {
+            await Promise.resolve()
+            mocks.authStore.sessionGeneration += 1
+            mocks.authStore.accessToken = null
+            return true
+        })
+
+        mount(OAuthCallback)
+        await flushMountedWork()
+
+        expect(mocks.authStore.logout).toHaveBeenCalledTimes(1)
+        expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
+        expect(mocks.router.push).toHaveBeenCalledWith('/login')
+    })
+
     it('does not log out a newer session when an obsolete callback fails', async () => {
         let rejectRefresh!: (error: Error) => void
         mocks.authApi.refreshToken.mockReturnValueOnce(new Promise((_resolve, reject) => {
@@ -231,12 +248,12 @@ describe('OAuthCallback', () => {
     })
 
     it('does not redirect a newer session after an obsolete logout request finishes', async () => {
-        let resolveLogout!: () => void
+        let resolveLogout!: (value: boolean) => void
         mocks.authApi.refreshToken.mockRejectedValueOnce(new Error('failed'))
         mocks.authStore.logout.mockImplementationOnce(() => {
             mocks.authStore.sessionGeneration += 1
             mocks.authStore.accessToken = null
-            return new Promise<void>((resolve) => {
+            return new Promise<boolean>((resolve) => {
                 resolveLogout = resolve
             })
         })
@@ -245,7 +262,7 @@ describe('OAuthCallback', () => {
         await vi.waitFor(() => expect(mocks.authStore.logout).toHaveBeenCalledTimes(1))
         mocks.authStore.sessionGeneration += 1
         mocks.authStore.accessToken = 'account-b-access'
-        resolveLogout()
+        resolveLogout(true)
         await flushMountedWork()
 
         expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginFailed', 'error')

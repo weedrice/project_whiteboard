@@ -5,7 +5,7 @@ import logger from '@/utils/logger'
 
 interface UseAccountDeletionOptions {
   deleteAccount: (password: string) => Promise<unknown>
-  logout: () => Promise<void>
+  logout: () => Promise<unknown>
   pushHome: () => unknown
   getSessionGeneration: () => number
   t: (key: string) => string
