@@ -172,6 +172,37 @@ describe('HomePostCard', () => {
     expect(wrapper.text()).not.toContain('작성자')
   })
 
+  it('renders personal feed posts as compact horizontal whole-card links', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'personal',
+      },
+    })
+
+    const card = wrapper.get('.nv-home-card')
+    const hitArea = wrapper.get('.nv-home-card-hit-area')
+    const image = wrapper.get('.nv-home-card-image-link')
+    const footer = wrapper.get('.nv-home-card-personal-footer')
+
+    expect(card.classes()).toEqual(expect.arrayContaining([
+      'nv-home-card-personal',
+      'nv-home-card-has-media',
+      'nv-home-card-clickable',
+    ]))
+    expect(hitArea.attributes('href')).toBe('/board/free/post/101/')
+    expect(image.element.tagName).toBe('DIV')
+    expect(image.get('img').classes()).toEqual(expect.arrayContaining(['h-full', 'w-full', 'object-cover']))
+    expect(wrapper.get('.nv-home-card-meta').text()).toBe('방금 전')
+    expect(footer.text()).toContain('작성자')
+    expect(footer.text()).toContain('2')
+    expect(footer.text()).toContain('1')
+    expect(wrapper.text()).not.toContain('10')
+  })
+
   it('renders blockquote HTML when the featured post has no media', () => {
     const wrapper = mount(HomePostCard, {
       props: {
@@ -226,7 +257,7 @@ describe('HomePostCard', () => {
     })
 
     expect(wrapper.find('iframe').exists()).toBe(false)
-    expect(wrapper.get('.nv-home-card-interactive').exists()).toBe(true)
+    expect(wrapper.find('.nv-home-card-interactive').exists()).toBe(true)
 
     await wrapper.get('button[aria-label="home.card.videoPreview"]').trigger('click')
 

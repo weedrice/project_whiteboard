@@ -89,7 +89,7 @@ defineExpose({ refresh: refetch })
           v-for="post in posts"
           :key="post.postId"
           :post="post"
-          variant="grid"
+          variant="personal"
         />
       </div>
 

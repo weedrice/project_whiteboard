@@ -66,7 +66,10 @@ const mountFeed = () => mount(HomePersonalFeed, {
       BaseSpinner: true,
       EmptyState: EmptyStateStub,
       ErrorState: ErrorStateStub,
-      HomePostCard: { props: ['post'], template: '<div data-testid="post-card">{{ post.postId }}</div>' },
+      HomePostCard: {
+        props: ['post', 'variant'],
+        template: '<div data-testid="post-card" :data-variant="variant">{{ post.postId }}</div>',
+      },
     },
   },
 })
@@ -121,6 +124,7 @@ describe('HomePersonalFeed', () => {
     const wrapper = mountFeed()
 
     expect(wrapper.get('[data-testid="post-card"]').text()).toBe('7')
+    expect(wrapper.get('[data-testid="post-card"]').attributes('data-variant')).toBe('personal')
     const loadMore = wrapper.findAll('button').find((button) => button.text() === 'home.personal.loadMore')
     await loadMore!.trigger('click')
     expect(state.fetchNextPage).toHaveBeenCalledOnce()

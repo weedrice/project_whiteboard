@@ -160,6 +160,81 @@
     -webkit-line-clamp: 2;
   }
 
+  .nv-home-card-personal {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-areas:
+      "top"
+      "content";
+    grid-template-rows: auto 1fr;
+    min-height: 12rem;
+  }
+
+  .nv-home-card-personal.nv-home-card-has-media {
+    align-items: stretch;
+    grid-template-areas:
+      "top media"
+      "content media";
+    grid-template-columns: minmax(0, 1fr) minmax(7.5rem, 9rem);
+  }
+
+  .nv-home-card-personal > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+  }
+
+  .nv-home-card-personal .nv-home-card-top {
+    grid-area: top;
+  }
+
+  .nv-home-card-personal .nv-home-media {
+    grid-area: media;
+    height: 100%;
+    min-height: 10rem;
+  }
+
+  .nv-home-card-personal .nv-home-card-content {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    grid-area: content;
+    min-width: 0;
+  }
+
+  .nv-home-card-personal .nv-home-card-image-link,
+  .nv-home-card-personal .nv-home-card-image-link img,
+  .nv-home-card-personal .nv-home-media > div,
+  .nv-home-card-personal .nv-home-media iframe,
+  .nv-home-card-personal .nv-home-media button {
+    height: 100%;
+    width: 100%;
+  }
+
+  .nv-home-card-personal .nv-home-media iframe,
+  .nv-home-card-personal .nv-home-media button {
+    aspect-ratio: auto;
+    min-height: 10rem;
+  }
+
+  .nv-home-card-personal .nv-home-card-title {
+    font-size: 1.125rem;
+    letter-spacing: -0.03em;
+    line-height: 1.4;
+  }
+
+  .nv-home-card-personal .nv-home-card-title-link {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .nv-home-card-personal-footer {
+    @apply flex min-w-0 items-center gap-3 text-xs;
+    color: var(--nv-muted);
+    margin-top: auto;
+  }
+
   .nv-home-card-top {
     @apply flex items-start justify-between gap-3;
   }
@@ -226,6 +301,11 @@
   .nv-home-card-body-no-media {
     --nv-home-card-body-lines: 5;
     --nv-home-card-body-max-height: 7.5rem;
+  }
+
+  .nv-home-card-body-personal {
+    --nv-home-card-body-lines: 2;
+    --nv-home-card-body-max-height: 3rem;
   }
 
   .nv-home-curation-body {
@@ -405,6 +485,10 @@
 
     .nv-home-card-trending.nv-home-card-has-media {
       grid-template-columns: minmax(7.25rem, 34%) minmax(0, 1fr);
+    }
+
+    .nv-home-card-personal.nv-home-card-has-media {
+      grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 32%);
     }
   }
 }

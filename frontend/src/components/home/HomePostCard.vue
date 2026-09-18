@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Eye, ThumbsUp, Video } from 'lucide-vue-next'
+import { Eye, MessageSquare, ThumbsUp, Video } from 'lucide-vue-next'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import type { FeedPost } from '@/types'
 import { formatTimeAgo } from '@/utils/date'
@@ -13,7 +13,7 @@ import { buildPostDetailPath } from '@/utils/urlPath'
 
 const props = withDefaults(defineProps<{
   post: FeedPost
-  variant?: 'featured' | 'compact' | 'grid' | 'trending'
+  variant?: 'featured' | 'compact' | 'grid' | 'trending' | 'personal'
   showMediaPreview?: boolean
   showBody?: boolean
   showAuthor?: boolean
@@ -41,10 +41,15 @@ const categoryName = computed(() => props.post.category?.name?.trim() || '')
 const hasMedia = computed(() => showFirstVideo.value || !!showFirstImageUrl.value)
 const isFeatured = computed(() => props.variant === 'featured')
 const isTrending = computed(() => props.variant === 'trending')
+const isPersonal = computed(() => props.variant === 'personal')
+const hasWholeCardLink = computed(() => isFeatured.value || isPersonal.value)
 const timeAgo = computed(() => formatTimeAgo(props.post.createdAt, t))
 const bodyClampClass = computed(() => {
   if (isFeatured.value) {
     return hasMedia.value ? 'nv-home-card-body-featured-with-media' : 'nv-home-card-body-featured-no-media'
+  }
+  if (isPersonal.value) {
+    return 'nv-home-card-body-personal'
   }
   return hasMedia.value ? 'nv-home-card-body-with-media' : 'nv-home-card-body-no-media'
 })
@@ -66,6 +71,8 @@ const cardClass = computed(() => {
       ? 'nv-home-card-compact'
       : props.variant === 'trending'
         ? 'nv-home-card-trending'
+        : props.variant === 'personal'
+          ? 'nv-home-card-personal'
         : 'nv-home-card-grid'
 
   return [
@@ -74,19 +81,11 @@ const cardClass = computed(() => {
     variantClass,
     {
       'nv-home-card-has-media': hasMedia.value,
-      'nv-home-card-clickable': isFeatured.value,
+      'nv-home-card-clickable': hasWholeCardLink.value,
     },
   ]
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
-
-const navigateLinkedContentToPost = (event: MouseEvent) => {
-  if (isFeatured.value) {
-    return
-  }
-
-  navigateToPost(event)
-}
 
 const navigateToPost = (event: MouseEvent) => {
   if (
@@ -104,6 +103,14 @@ const navigateToPost = (event: MouseEvent) => {
   router.push(postDetailPath.value)
 }
 
+const navigateLinkedContentToPost = (event: MouseEvent) => {
+  if (hasWholeCardLink.value) {
+    return
+  }
+
+  navigateToPost(event)
+}
+
 const loadVideoPreview = () => {
   isVideoPreviewLoaded.value = true
 }
@@ -118,7 +125,7 @@ watch(() => props.post.postId, () => {
     :class="cardClass"
   >
     <a
-      v-if="isFeatured"
+      v-if="hasWholeCardLink"
       :href="postDetailPath"
       class="nv-home-card-hit-area"
       :aria-label="post.title"
@@ -152,6 +159,7 @@ watch(() => props.post.postId, () => {
               <span v-if="showAuthor" aria-hidden="true">&middot;</span>
               <span class="whitespace-nowrap">{{ timeAgo }}</span>
             </template>
+            <span v-else-if="isPersonal" class="whitespace-nowrap">{{ timeAgo }}</span>
             <span
               v-if="isFeatured || isTrending"
               class="inline-flex items-center gap-1 whitespace-nowrap text-[var(--nv-ink-soft)]"
@@ -159,7 +167,7 @@ watch(() => props.post.postId, () => {
               <ThumbsUp class="h-3 w-3" />
               {{ formatInteger(post.likeCount) }}
             </span>
-            <span class="inline-flex items-center gap-1">
+            <span v-if="!isPersonal" class="inline-flex items-center gap-1">
               <Eye class="h-3 w-3" />
               {{ formatInteger(post.viewCount) }}
             </span>
@@ -220,11 +228,11 @@ watch(() => props.post.postId, () => {
       </div>
       <component
         v-else-if="showFirstImageUrl"
-        :is="isFeatured ? 'div' : 'a'"
-        :href="isFeatured ? undefined : postDetailPath"
+        :is="hasWholeCardLink ? 'div' : 'a'"
+        :href="hasWholeCardLink ? undefined : postDetailPath"
         class="nv-home-card-image-link rounded-[inherit]"
         :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
-        :aria-label="isFeatured ? undefined : post.title"
+        :aria-label="hasWholeCardLink ? undefined : post.title"
         @click.stop="navigateLinkedContentToPost"
       >
         <img
@@ -233,7 +241,7 @@ watch(() => props.post.postId, () => {
           class="rounded-[inherit]"
           :class="isFeatured
             ? 'h-auto w-auto max-h-[18rem] max-w-full object-contain'
-            : isTrending
+            : isTrending || isPersonal
               ? 'h-full w-full object-cover'
               : 'aspect-[16/9] w-full object-cover'"
           loading="lazy"
@@ -243,11 +251,14 @@ watch(() => props.post.postId, () => {
       </component>
     </div>
 
-    <div class="nv-home-card-content space-y-3">
+    <div
+      class="nv-home-card-content"
+      :class="isPersonal ? '' : 'space-y-3'"
+    >
       <h2 class="nv-home-card-title">
         <component
-          :is="isFeatured ? 'span' : 'a'"
-          :href="isFeatured ? undefined : postDetailPath"
+          :is="hasWholeCardLink ? 'span' : 'a'"
+          :href="hasWholeCardLink ? undefined : postDetailPath"
           class="nv-home-card-title-link"
           @click.stop="navigateLinkedContentToPost"
         >
@@ -256,10 +267,10 @@ watch(() => props.post.postId, () => {
       </h2>
       <component
         v-if="bodyHtml"
-        :is="isFeatured ? 'div' : 'a'"
+        :is="hasWholeCardLink ? 'div' : 'a'"
         :class="bodyClass"
-        :href="isFeatured ? undefined : postDetailPath"
-        :aria-label="isFeatured ? undefined : post.title"
+        :href="hasWholeCardLink ? undefined : postDetailPath"
+        :aria-label="hasWholeCardLink ? undefined : post.title"
         @click.stop="navigateLinkedContentToPost"
       >
         <SanitizedHtmlView
@@ -269,16 +280,37 @@ watch(() => props.post.postId, () => {
       </component>
       <component
         v-else-if="showBody && post.summary"
-        :is="isFeatured ? 'div' : 'a'"
+        :is="hasWholeCardLink ? 'div' : 'a'"
         :class="bodyClass"
-        :href="isFeatured ? undefined : postDetailPath"
-        :aria-label="isFeatured ? undefined : post.title"
+        :href="hasWholeCardLink ? undefined : postDetailPath"
+        :aria-label="hasWholeCardLink ? undefined : post.title"
         @click.stop="navigateLinkedContentToPost"
       >
         {{ post.summary }}
       </component>
+      <div v-if="isPersonal" class="nv-home-card-personal-footer">
+        <p v-if="showAuthor" class="min-w-0 truncate">
+          {{ post.authorName }}
+        </p>
+        <div class="ml-auto flex flex-shrink-0 items-center gap-3">
+          <span
+            class="inline-flex items-center gap-1"
+            :aria-label="`${t('common.likes')} ${formatInteger(post.likeCount)}`"
+          >
+            <ThumbsUp class="h-3.5 w-3.5" aria-hidden="true" />
+            {{ formatInteger(post.likeCount) }}
+          </span>
+          <span
+            class="inline-flex items-center gap-1"
+            :aria-label="`${t('common.comment')} ${formatInteger(post.commentCount)}`"
+          >
+            <MessageSquare class="h-3.5 w-3.5" aria-hidden="true" />
+            {{ formatInteger(post.commentCount) }}
+          </span>
+        </div>
+      </div>
       <p
-        v-if="!isFeatured && !isTrending && showAuthor"
+        v-else-if="!isFeatured && !isTrending && showAuthor"
         class="text-sm text-[var(--nv-muted)]"
       >
         {{ post.authorName }}
