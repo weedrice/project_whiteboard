@@ -172,7 +172,7 @@ describe('HomePostCard', () => {
     expect(wrapper.text()).not.toContain('작성자')
   })
 
-  it('renders personal feed posts as compact horizontal whole-card links', () => {
+  it('splits personal feed navigation between the board identity and the post card', async () => {
     const wrapper = mount(HomePostCard, {
       props: {
         post: makePost({
@@ -185,6 +185,7 @@ describe('HomePostCard', () => {
 
     const card = wrapper.get('.nv-home-card')
     const hitArea = wrapper.get('.nv-home-card-hit-area')
+    const boardLink = wrapper.get('.nv-home-card-board-link')
     const image = wrapper.get('.nv-home-card-image-link')
     const footer = wrapper.get('.nv-home-card-personal-footer')
 
@@ -194,6 +195,7 @@ describe('HomePostCard', () => {
       'nv-home-card-clickable',
     ]))
     expect(hitArea.attributes('href')).toBe('/board/free/post/101/')
+    expect(boardLink.attributes('href')).toBe('/board/free/')
     expect(image.element.tagName).toBe('DIV')
     expect(image.get('img').classes()).toEqual(expect.arrayContaining(['h-full', 'w-full', 'object-cover']))
     expect(wrapper.get('.nv-home-card-meta').text()).toBe('방금 전')
@@ -201,6 +203,12 @@ describe('HomePostCard', () => {
     expect(footer.text()).toContain('2')
     expect(footer.text()).toContain('1')
     expect(wrapper.text()).not.toContain('10')
+
+    await boardLink.trigger('click')
+    await hitArea.trigger('click')
+
+    expect(push).toHaveBeenNthCalledWith(1, '/board/free/')
+    expect(push).toHaveBeenNthCalledWith(2, '/board/free/post/101/')
   })
 
   it('renders blockquote HTML when the featured post has no media', () => {

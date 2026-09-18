@@ -9,7 +9,7 @@ import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 import { getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
 import { formatInteger } from '@/utils/numberFormat'
-import { buildPostDetailPath } from '@/utils/urlPath'
+import { buildPostDetailPath, encodePathSegment } from '@/utils/urlPath'
 
 const props = withDefaults(defineProps<{
   post: FeedPost
@@ -86,8 +86,9 @@ const cardClass = computed(() => {
   ]
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
+const boardDetailPath = computed(() => `/board/${encodePathSegment(props.post.boardUrl)}/`)
 
-const navigateToPost = (event: MouseEvent) => {
+const navigateToPath = (event: MouseEvent, path: string) => {
   if (
     event.defaultPrevented
     || event.button !== 0
@@ -100,7 +101,20 @@ const navigateToPost = (event: MouseEvent) => {
   }
 
   event.preventDefault()
-  router.push(postDetailPath.value)
+  router.push(path)
+}
+
+const navigateToPost = (event: MouseEvent) => {
+  navigateToPath(event, postDetailPath.value)
+}
+
+const navigateToBoard = (event: MouseEvent) => {
+  if (!hasWholeCardLink.value) {
+    return
+  }
+
+  event.stopPropagation()
+  navigateToPath(event, boardDetailPath.value)
 }
 
 const navigateLinkedContentToPost = (event: MouseEvent) => {
@@ -133,7 +147,13 @@ watch(() => props.post.postId, () => {
     />
 
     <div class="nv-home-card-top">
-      <div class="flex min-w-0 items-center gap-3">
+      <component
+        :is="hasWholeCardLink ? 'a' : 'div'"
+        :href="hasWholeCardLink ? boardDetailPath : undefined"
+        class="flex min-w-0 items-center gap-3"
+        :class="{ 'nv-home-card-board-link': hasWholeCardLink }"
+        @click="navigateToBoard"
+      >
         <div class="flex-shrink-0">
           <img
             v-if="post.boardIconUrl"
@@ -173,7 +193,7 @@ watch(() => props.post.postId, () => {
             </span>
           </div>
         </div>
-      </div>
+      </component>
       <span v-if="categoryName" class="nv-home-chip">
         {{ categoryName }}
       </span>

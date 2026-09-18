@@ -83,6 +83,17 @@
     outline: none;
   }
 
+  .nv-home-card-board-link {
+    border-radius: var(--nv-radius-md);
+    position: relative;
+    z-index: 2;
+  }
+
+  .nv-home-card-board-link:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 52%, transparent);
+    outline: none;
+  }
+
   .nv-home-card-interactive {
     z-index: 2;
   }
