@@ -66,6 +66,27 @@
     @apply p-5 sm:p-6;
   }
 
+  .nv-home-card-clickable {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .nv-home-card-hit-area {
+    border-radius: inherit;
+    inset: 0;
+    position: absolute;
+    z-index: 1;
+  }
+
+  .nv-home-card-hit-area:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-focus) 52%, transparent);
+    outline: none;
+  }
+
+  .nv-home-card-interactive {
+    z-index: 2;
+  }
+
   .nv-home-card-featured .nv-home-media {
     max-height: 18rem;
   }

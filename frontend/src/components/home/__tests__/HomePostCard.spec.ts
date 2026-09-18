@@ -221,10 +221,12 @@ describe('HomePostCard', () => {
           firstMediaType: 'video',
           firstMediaUrl: 'https://www.youtube.com/watch?v=video-id',
         }),
+        variant: 'featured',
       },
     })
 
     expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(wrapper.get('.nv-home-card-interactive').exists()).toBe(true)
 
     await wrapper.get('button[aria-label="home.card.videoPreview"]').trigger('click')
 
@@ -278,7 +280,7 @@ describe('HomePostCard', () => {
     expect(wrapper.text().match(/작성자/g)).toHaveLength(1)
   })
 
-  it('navigates from the featured image and body as well as the title', async () => {
+  it('uses one native link across the entire featured card', async () => {
     const wrapper = mount(HomePostCard, {
       props: {
         post: makePost({
@@ -289,20 +291,23 @@ describe('HomePostCard', () => {
       },
     })
 
-    const imageLink = wrapper.get('.nv-home-card-image-link')
-    const bodyLink = wrapper.get('.nv-home-card-body')
+    const card = wrapper.get('.nv-home-card')
+    const hitArea = wrapper.get('.nv-home-card-hit-area')
+    const image = wrapper.get('.nv-home-card-image-link')
+    const title = wrapper.get('.nv-home-card-title-link')
+    const body = wrapper.get('.nv-home-card-body')
 
-    expect(imageLink.attributes('href')).toBe('/board/free/post/101/')
-    expect(bodyLink.element.tagName).toBe('A')
-    expect(bodyLink.attributes('href')).toBe('/board/free/post/101/')
-    expect(bodyLink.find('a').exists()).toBe(false)
+    expect(card.classes()).toContain('nv-home-card-clickable')
+    expect(hitArea.attributes('href')).toBe('/board/free/post/101/')
+    expect(hitArea.attributes('aria-label')).toBe('오늘의 큐레이션')
+    expect(image.element.tagName).toBe('DIV')
+    expect(title.element.tagName).toBe('SPAN')
+    expect(body.element.tagName).toBe('DIV')
 
-    await imageLink.trigger('click')
-    await bodyLink.trigger('click')
+    await hitArea.trigger('click')
 
-    expect(push).toHaveBeenCalledTimes(2)
-    expect(push).toHaveBeenNthCalledWith(1, '/board/free/post/101/')
-    expect(push).toHaveBeenNthCalledWith(2, '/board/free/post/101/')
+    expect(push).toHaveBeenCalledTimes(1)
+    expect(push).toHaveBeenCalledWith('/board/free/post/101/')
   })
 
   it('preserves the browser default for modified link clicks', () => {
@@ -316,9 +321,9 @@ describe('HomePostCard', () => {
       },
     })
 
-    const imageLink = wrapper.get('.nv-home-card-image-link')
+    const hitArea = wrapper.get('.nv-home-card-hit-area')
     let wasDefaultPreventedByComponent = true
-    imageLink.element.addEventListener('click', (event) => {
+    hitArea.element.addEventListener('click', (event) => {
       wasDefaultPreventedByComponent = event.defaultPrevented
       event.preventDefault()
     }, { once: true })
@@ -328,13 +333,13 @@ describe('HomePostCard', () => {
       ctrlKey: true,
     })
 
-    imageLink.element.dispatchEvent(modifiedClick)
+    hitArea.element.dispatchEvent(modifiedClick)
 
     expect(wasDefaultPreventedByComponent).toBe(false)
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('keeps spoiler image and body links clickable while preserving the blur treatment', async () => {
+  it('keeps the featured card link clickable when spoiler content is blurred', async () => {
     const wrapper = mount(HomePostCard, {
       props: {
         post: makePost({
@@ -347,18 +352,17 @@ describe('HomePostCard', () => {
     })
 
     const media = wrapper.get('.nv-home-media')
-    const imageLink = wrapper.get('.nv-home-card-image-link')
-    const bodyLink = wrapper.get('.nv-home-card-body')
+    const hitArea = wrapper.get('.nv-home-card-hit-area')
+    const body = wrapper.get('.nv-home-card-body')
 
     expect(media.classes()).toContain('blur-[10px]')
     expect(media.classes()).not.toContain('pointer-events-none')
-    expect(bodyLink.classes()).toContain('blur-[8px]')
-    expect(bodyLink.classes()).not.toContain('pointer-events-none')
+    expect(body.classes()).toContain('blur-[8px]')
+    expect(body.classes()).not.toContain('pointer-events-none')
 
-    await imageLink.trigger('click')
-    await bodyLink.trigger('click')
+    await hitArea.trigger('click')
 
-    expect(push).toHaveBeenCalledTimes(2)
+    expect(push).toHaveBeenCalledTimes(1)
     expect(push).toHaveBeenCalledWith('/board/free/post/101/')
   })
 })

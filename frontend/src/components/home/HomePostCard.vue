@@ -72,10 +72,21 @@ const cardClass = computed(() => {
     'nv-home-card',
     'nv-elevated-surface',
     variantClass,
-    { 'nv-home-card-has-media': hasMedia.value },
+    {
+      'nv-home-card-has-media': hasMedia.value,
+      'nv-home-card-clickable': isFeatured.value,
+    },
   ]
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
+
+const navigateLinkedContentToPost = (event: MouseEvent) => {
+  if (isFeatured.value) {
+    return
+  }
+
+  navigateToPost(event)
+}
 
 const navigateToPost = (event: MouseEvent) => {
   if (
@@ -106,6 +117,14 @@ watch(() => props.post.postId, () => {
   <article
     :class="cardClass"
   >
+    <a
+      v-if="isFeatured"
+      :href="postDetailPath"
+      class="nv-home-card-hit-area"
+      :aria-label="post.title"
+      @click="navigateToPost"
+    />
+
     <div class="nv-home-card-top">
       <div class="flex min-w-0 items-center gap-3">
         <div class="flex-shrink-0">
@@ -162,7 +181,7 @@ watch(() => props.post.postId, () => {
     >
       <div
         v-if="showFirstVideo"
-        class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
+        class="nv-home-card-interactive relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
         :class="[
           isFeatured ? 'w-fit max-w-full' : 'w-full',
           { 'pointer-events-none': isSpoiler },
@@ -199,13 +218,14 @@ watch(() => props.post.postId, () => {
           </span>
         </button>
       </div>
-      <a
+      <component
         v-else-if="showFirstImageUrl"
-        :href="postDetailPath"
+        :is="isFeatured ? 'div' : 'a'"
+        :href="isFeatured ? undefined : postDetailPath"
         class="nv-home-card-image-link rounded-[inherit]"
         :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
-        :aria-label="post.title"
-        @click.stop="navigateToPost"
+        :aria-label="isFeatured ? undefined : post.title"
+        @click.stop="navigateLinkedContentToPost"
       >
         <img
           :src="getOptimizedPostImageUrl(showFirstImageUrl)"
@@ -220,40 +240,43 @@ watch(() => props.post.postId, () => {
           decoding="async"
           @error="handleImageError($event)"
         />
-      </a>
+      </component>
     </div>
 
     <div class="nv-home-card-content space-y-3">
       <h2 class="nv-home-card-title">
-        <a
-          :href="postDetailPath"
+        <component
+          :is="isFeatured ? 'span' : 'a'"
+          :href="isFeatured ? undefined : postDetailPath"
           class="nv-home-card-title-link"
-          @click.stop="navigateToPost"
+          @click.stop="navigateLinkedContentToPost"
         >
           {{ post.title }}
-        </a>
+        </component>
       </h2>
-      <a
+      <component
         v-if="bodyHtml"
+        :is="isFeatured ? 'div' : 'a'"
         :class="bodyClass"
-        :href="postDetailPath"
-        :aria-label="post.title"
-        @click.stop="navigateToPost"
+        :href="isFeatured ? undefined : postDetailPath"
+        :aria-label="isFeatured ? undefined : post.title"
+        @click.stop="navigateLinkedContentToPost"
       >
         <SanitizedHtmlView
           :class="bodyContentClass"
           :html="bodyHtml"
         />
-      </a>
-      <a
+      </component>
+      <component
         v-else-if="showBody && post.summary"
+        :is="isFeatured ? 'div' : 'a'"
         :class="bodyClass"
-        :href="postDetailPath"
-        :aria-label="post.title"
-        @click.stop="navigateToPost"
+        :href="isFeatured ? undefined : postDetailPath"
+        :aria-label="isFeatured ? undefined : post.title"
+        @click.stop="navigateLinkedContentToPost"
       >
         {{ post.summary }}
-      </a>
+      </component>
       <p
         v-if="!isFeatured && !isTrending && showAuthor"
         class="text-sm text-[var(--nv-muted)]"
