@@ -395,7 +395,6 @@ class PostServiceTest {
                 postInteractionService,
                 postListReadService,
                 boardAccessPolicy,
-                postAuthorCommandPolicy,
                 postCommandService,
                 postFacadeReadService,
                 postDetailContextResolver,

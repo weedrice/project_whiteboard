@@ -77,11 +77,6 @@ public class SearchService {
         return response;
     }
 
-    public Page<PostSummary> previewPosts(String keyword, String searchType, String boardUrl, String author,
-            String from, String to, String period, int size, Sort sort, Long currentUserId) {
-        return readSearchPosts(keyword, searchType, boardUrl, author, from, to, period, 0, size, sort, currentUserId);
-    }
-
     private Page<PostSummary> readSearchPosts(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);

@@ -32,17 +32,6 @@ public class BoardCategoryWritePolicy {
         return canWriteRole(board, user, BoardCategory.resolveMinWriteRole(minWriteRole), activeAdminBoardIds);
     }
 
-    public boolean canWriteLenientRole(
-            Board board, ActorUserPrincipal user, String minWriteRole, Set<Long> activeAdminBoardIds) {
-        if (Role.SUPER_ADMIN.equals(minWriteRole)) {
-            return user != null && user.isUsableSuperAdmin();
-        }
-        if (Role.BOARD_ADMIN.equals(minWriteRole)) {
-            return boardAccessPolicy.hasBoardAdminAccess(board, user, activeAdminBoardIds);
-        }
-        return true;
-    }
-
     private boolean canWriteRole(
             Board board, ActorUserPrincipal user, String resolvedMinWriteRole, Set<Long> activeAdminBoardIds) {
         return switch (resolvedMinWriteRole) {

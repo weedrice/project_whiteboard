@@ -235,13 +235,6 @@ public class PasswordResetService {
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 
-    private User getUsablePasswordResetUser(String email, ErrorCode notFoundErrorCode) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(notFoundErrorCode));
-        validateUsablePasswordResetUser(user);
-        return user;
-    }
-
     private User getUsablePasswordResetUserForUpdate(String email, ErrorCode notFoundErrorCode) {
         User lockedUser = userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new BusinessException(notFoundErrorCode));

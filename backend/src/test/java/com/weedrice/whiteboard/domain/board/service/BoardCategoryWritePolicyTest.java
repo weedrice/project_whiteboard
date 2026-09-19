@@ -83,10 +83,4 @@ class BoardCategoryWritePolicyTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
     }
 
-    @Test
-    void canWriteLenientRole_allowsLegacyUnknownRoleWithoutLookup() {
-        assertThat(boardCategoryWritePolicy.canWriteLenientRole(board, user, "LEGACY", Set.of())).isTrue();
-
-        verifyNoInteractions(boardAccessPolicy);
-    }
 }

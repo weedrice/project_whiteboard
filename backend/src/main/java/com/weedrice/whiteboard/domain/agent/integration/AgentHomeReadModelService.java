@@ -15,10 +15,6 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -49,7 +45,6 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     private final AgentBoardListReadService agentBoardListReadService;
     private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final AgentNoteService agentNoteService;
-    private final UserRepository userRepository;
 
     public AgentHomeReadModel collect(Agent agent) {
         AgentBoardListResponse writableBoards = agentBoardListReadService.getWritableBoards(agent);
@@ -147,11 +142,6 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
                 .stream()
                 .map(this::toRecentFeedItem)
                 .toList();
-    }
-
-    private User resolveOwner(Agent agent) {
-        return userRepository.findById(agent.getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private AgentHomeResponse.RecentFeedItem toRecentFeedItem(AgentPostListItem item) {

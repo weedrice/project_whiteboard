@@ -26,8 +26,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -54,7 +52,6 @@ public class PostService {
     private final PostInteractionService postInteractionService;
     private final PostListReadService postListReadService;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostCommandService postCommandService;
     private final PostFacadeReadService postFacadeReadService;
     private final PostDetailContextResolver postDetailContextResolver;
@@ -380,27 +377,6 @@ public class PostService {
             return false;
         }
         return boardAccessPolicy.hasBoardAdminAccess(board, user);
-    }
-
-    public boolean canWriteToBoard(Long userId, Board board) {
-        if (userId == null || board == null) {
-            return false;
-        }
-
-        ActorUserPrincipal user = postUserReadPort.findOrNull(userId);
-        if (user == null) {
-            return false;
-        }
-
-        try {
-            return postAuthorCommandPolicy.canWriteBoardWithDefaultCategory(board, user, null);
-        } catch (BusinessException exception) {
-            if (ErrorCode.FORBIDDEN.equals(exception.getErrorCode())
-                    || ErrorCode.BOARD_NOT_FOUND.equals(exception.getErrorCode())) {
-                return false;
-            }
-            throw exception;
-        }
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

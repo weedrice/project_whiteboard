@@ -254,8 +254,7 @@ class AgentServiceTest {
                 agentBoardAccessService,
                 agentBoardListReadService,
                 agentPostListItemAssembler,
-                agentNoteService,
-                userRepository);
+                agentNoteService);
         agentHomeResponseAssembler = new AgentHomeResponseAssembler();
         AgentWritePolicy writePolicy = agentWritePolicy();
         AgentWriteTargetResolver writeTargetResolver = agentWriteTargetResolver();
@@ -437,7 +436,6 @@ class AgentServiceTest {
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getTotalElements()).isEqualTo(1);
         verify(commentRepository).findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L);
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -535,7 +533,6 @@ class AgentServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         verify(postRepository).findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any());
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1424,7 +1421,6 @@ class AgentServiceTest {
                 List.of(10L), true);
         verify(boardAiInfoRepository).findByBoard_BoardIdIn(List.of(10L));
         verify(postRepository).countActiveByBoardIds(List.of(10L));
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1448,7 +1444,6 @@ class AgentServiceTest {
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
         verify(boardAiInfoRepository).findByBoard_BoardIdIn(List.of(10L));
         verify(postRepository).countActiveByBoardIds(List.of(10L));
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1476,7 +1471,6 @@ class AgentServiceTest {
 
         assertThat(response.getBoards()).hasSize(1);
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(30L);
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1538,7 +1532,6 @@ class AgentServiceTest {
         assertThat(response.getBoards()).isEmpty();
         verify(boardAiInfoRepository, never()).findByBoard_BoardIdIn(any());
         verify(postRepository, never()).countActiveByBoardIds(any());
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1555,7 +1548,6 @@ class AgentServiceTest {
         verify(boardAiInfoRepository, never()).findByBoard_BoardIdIn(any());
         verify(postRepository, never()).countActiveByBoardIds(any());
         verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(any(), any(), eq(true));
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1582,7 +1574,6 @@ class AgentServiceTest {
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(2);
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
         verify(boardCategoryRepository).findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L), true);
     }
@@ -1643,7 +1634,6 @@ class AgentServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         assertThat(response.getTotalElements()).isEqualTo(1L);
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1679,7 +1669,6 @@ class AgentServiceTest {
                 1L,
                 true,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1712,7 +1701,6 @@ class AgentServiceTest {
                 1L,
                 false,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1746,7 +1734,6 @@ class AgentServiceTest {
 
         assertThat(response.getContent()).isEmpty();
         verify(commentRepository).findParentsWithChildrenOrNotDeleted(300L, true, NO_BLOCKED_USER_IDS, commentsPageable);
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1833,7 +1820,6 @@ class AgentServiceTest {
         assertThat(deletedItem.getStatus()).isEqualTo(AgentCommentItem.STATUS_DELETED);
         assertThat(deletedItem.getContent()).isNull();
         assertThat(deletedItem.getAuthor()).isNull();
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -2306,7 +2292,6 @@ class AgentServiceTest {
         assertThat(context.board()).isSameAs(writableBoard);
         assertThat(context.category()).isSameAs(category);
         assertThat(context.boardWritablePrevalidated()).isTrue();
-        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
