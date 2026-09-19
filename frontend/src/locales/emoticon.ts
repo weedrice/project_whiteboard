@@ -73,6 +73,7 @@ export const emoticon: EmoticonMessages = {
     tags: '태그',
   },
   form: {
+    leaveConfirm: '저장하지 않은 노비콘 변경사항이 있습니다. 페이지를 나가시겠습니까?',
     editTitle: '노비콘 수정',
     editDescription: '노비콘 정보를 수정합니다.',
     back: '뒤로',

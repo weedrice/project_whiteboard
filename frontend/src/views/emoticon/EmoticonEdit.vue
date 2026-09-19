@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, EyeOff, Eye } from 'lucide-vue-next'
@@ -22,7 +22,7 @@ import { useEmoticonEditSubmit } from '@/features/emoticon/form/useEmoticonEditS
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
-import { useEventListener } from '@/composables/useEventListener'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -47,7 +47,6 @@ useHead({
 })
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
-let allowSuccessfulRouteLeave = false
 const {
   emoticonName,
   existingImages,
@@ -72,6 +71,7 @@ const {
   unmarkImageForDeletion,
   totalImageCount,
   isFormValid,
+  hasUnsavedChanges,
   canAddImages,
 } = useEmoticonEditForm({
   emoticonId,
@@ -101,7 +101,7 @@ const { handleSubmit } = useEmoticonEditSubmit({
   fallbackErrorMessage: t('emoticon.edit.failed'),
   onSuccess: (updatedEmoticonId) => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
-    allowSuccessfulRouteLeave = true
+    allowNextNavigation()
     router.push({ name: 'emoticon-detail', params: { emoticonId: updatedEmoticonId } })
   },
   onError: (message) => {
@@ -117,21 +117,10 @@ const goToDetail = () => {
   router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
 }
 
-onBeforeRouteLeave(() => {
-  if (allowSuccessfulRouteLeave) {
-    allowSuccessfulRouteLeave = false
-    return true
-  }
-  return !isSubmitting.value
-})
-
-onBeforeRouteUpdate(() => !isSubmitting.value)
-
-useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
-  if (!isSubmitting.value) return
-  event.preventDefault()
-  event.returnValue = ''
-})
+const { allowNextNavigation, confirmNavigation } = useUnsavedChangesGuard(
+  hasUnsavedChanges, isSubmitting, () => t('emoticon.form.leaveConfirm'), confirm,
+)
+onBeforeRouteUpdate(confirmNavigation)
 </script>
 
 

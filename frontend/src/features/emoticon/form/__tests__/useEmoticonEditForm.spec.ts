@@ -148,4 +148,18 @@ describe('useEmoticonEditForm', () => {
     expect(form.uploadProgress.value).toEqual({ current: 0, total: 0 })
     wrapper.unmount()
   })
+  it('tracks thumbnail and new image changes against the original loaded form', () => {
+    const { form, wrapper } = mountForm()
+    expect(form.hasUnsavedChanges.value).toBe(false)
+    form.thumbnailFile.value = new File(['new'], 'new.png', { type: 'image/png' })
+    expect(form.hasUnsavedChanges.value).toBe(true)
+    form.thumbnailFile.value = null
+    expect(form.hasUnsavedChanges.value).toBe(false)
+    form.newEmoticonPreviews.value = [{ clientId: 'new', file: new File(['new'], 'new.png'), preview: 'blob:new', width: 80, height: 80 }]
+    expect(form.hasUnsavedChanges.value).toBe(true)
+    form.removeNewEmoticonImage('new')
+    expect(form.hasUnsavedChanges.value).toBe(false)
+    wrapper.unmount()
+  })
+
 })

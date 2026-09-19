@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onScopeDispose } from 'vue'
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
@@ -21,7 +21,8 @@ import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUp
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
-import { useEventListener } from '@/composables/useEventListener'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -43,7 +44,6 @@ const emoticonName = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
-let allowSuccessfulRouteLeave = false
 const { tagInput, tagItems, tags, addTag, removeTag, resetTags } = useEmoticonTags({
   onMaxTags: () => {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
@@ -96,7 +96,7 @@ const { handleSubmit } = useEmoticonRegisterSubmit({
   fallbackErrorMessage: t('emoticon.register.failed'),
   onSuccess: () => {
     toastStore.addToast(t('emoticon.register.created'), 'success')
-    allowSuccessfulRouteLeave = true
+    allowNextNavigation()
     router.push({ name: 'emoticon-list' })
   },
   onError: (message) => {
@@ -112,19 +112,14 @@ const goToList = () => {
   router.push({ name: 'emoticon-list' })
 }
 
-onBeforeRouteLeave(() => {
-  if (allowSuccessfulRouteLeave) {
-    allowSuccessfulRouteLeave = false
-    return true
-  }
-  return !isSubmitting.value
-})
-
-useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
-  if (!isSubmitting.value) return
-  event.preventDefault()
-  event.returnValue = ''
-})
+const hasUnsavedChanges = computed(() => (
+  emoticonName.value !== '' || tagInput.value !== '' || tags.value.length > 0
+  || thumbnailFile.value !== null || emoticonPreviews.value.length > 0
+))
+const { confirm } = useConfirm()
+const { allowNextNavigation } = useUnsavedChangesGuard(
+  hasUnsavedChanges, isSubmitting, () => t('emoticon.form.leaveConfirm'), confirm,
+)
 </script>
 
 

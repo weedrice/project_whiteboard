@@ -1,9 +1,13 @@
 import { Editor } from '@tiptap/core'
-import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { createPostEditorExtensions } from '../postEditorExtensions'
 import PostEditorImageView from '../PostEditorImageView.vue'
+
+const mocks = vi.hoisted(() => ({ get: vi.fn() }))
+vi.mock('@/api', () => ({ default: { get: mocks.get } }))
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -12,15 +16,22 @@ vi.mock('vue-i18n', () => ({
 describe('PostEditorImageView', () => {
   let editor: Editor | null = null
 
+  beforeEach(() => {
+    mocks.get.mockReset()
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authenticated')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+  })
+
   afterEach(() => {
     editor?.destroy()
     editor = null
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   function mountImageView(
     alignment = 'inline',
-    attrs: Partial<Record<'width' | 'styleWidth', string | null>> = {},
+    attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src', string | null>> = {},
   ) {
     const editorRoot = document.createElement('div')
     Object.defineProperty(editorRoot, 'clientWidth', {
@@ -58,6 +69,105 @@ describe('PostEditorImageView', () => {
 
     return { wrapper, updateAttributes, setNodeSelection, editorRoot }
   }
+
+  it('restores protected images through authenticated blobs without changing saved node attributes', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper, updateAttributes } = mountImageView('inline', {
+      src: '/api/v1/files/42',
+      'data-server-src': '/api/v1/files/42',
+    })
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledWith('/files/42', expect.objectContaining({
+      responseType: 'blob', signal: expect.any(AbortSignal), skipGlobalErrorHandler: true,
+    }))
+    expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+    expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
+    expect(wrapper.props('node').attrs['data-server-src']).toBe('/api/v1/files/42')
+    expect(updateAttributes).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:authenticated')
+  })
+
+  it.each(['blob:local-upload', 'https://cdn.noviis.kr/files/1'])(
+    'preserves the existing %s preview without requesting or revoking it', async (src) => {
+      const { wrapper } = mountImageView('inline', { src, 'data-server-src': '/api/v1/files/42' })
+      await flushPromises()
+      expect(wrapper.get('img').attributes('src')).toBe(src)
+      expect(mocks.get).not.toHaveBeenCalled()
+      wrapper.unmount()
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    },
+  )
+
+  it('aborts an old source request and ignores its late response after the source changes', async () => {
+    let resolveOld!: (response: { data: Blob }) => void
+    mocks.get.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve }))
+    mocks.get.mockResolvedValueOnce({ data: new Blob(['new']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    const signal = mocks.get.mock.calls[0]![1].signal as AbortSignal
+    await wrapper.setProps({ node: { attrs: { src: '/api/v1/files/43' } } } as never)
+    await flushPromises()
+    expect(signal.aborted).toBe(true)
+    expect(mocks.get).toHaveBeenLastCalledWith('/files/43', expect.any(Object))
+    resolveOld({ data: new Blob(['old']) })
+    await flushPromises()
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+  })
+
+  it('revokes the previous blob when the source changes to a local preview', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    await wrapper.setProps({ node: { attrs: { src: 'blob:local-upload' } } } as never)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:authenticated')
+    expect(wrapper.get('img').attributes('src')).toBe('blob:local-upload')
+  })
+
+  it('clears the previous session image and keeps forbidden images hidden', async () => {
+    mocks.get.mockResolvedValueOnce({ data: new Blob(['image']) })
+    mocks.get.mockRejectedValueOnce({ response: { status: 403 } })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    notifyAuthSessionBoundary(1)
+    await flushPromises()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:authenticated')
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+  })
+
+  it('discards an earlier session response even when its request resolves after cancellation', async () => {
+    let resolveOld!: (response: { data: Blob }) => void
+    mocks.get.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve }))
+    mocks.get.mockRejectedValueOnce({ response: { status: 403 } })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    const signal = mocks.get.mock.calls[0]![1].signal as AbortSignal
+    notifyAuthSessionBoundary(3)
+    expect(signal.aborted).toBe(true)
+    await flushPromises()
+    resolveOld({ data: new Blob(['private image']) })
+    await flushPromises()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+  })
+
+  it('aborts pending requests on unmount and unsubscribes from session changes', async () => {
+    let resolveImage!: (response: { data: Blob }) => void
+    mocks.get.mockImplementationOnce(() => new Promise((resolve) => { resolveImage = resolve }))
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    const signal = mocks.get.mock.calls[0]![1].signal as AbortSignal
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    resolveImage({ data: new Blob(['image']) })
+    notifyAuthSessionBoundary(2)
+    await flushPromises()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+  })
 
   it('shows size and alignment controls instead of an alt text dialog', async () => {
     const { wrapper, updateAttributes, setNodeSelection } = mountImageView()

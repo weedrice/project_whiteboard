@@ -16,10 +16,12 @@ function normalizeEmoticonUrl(rawUrl: string): string | null {
 }
 
 function sanitizeCommentText(value: string): string {
-    return String(sanitizeHtml(value, {
+    const template = document.createElement('template')
+    template.innerHTML = sanitizeHtml(value, {
         ALLOWED_TAGS: [],
         ALLOWED_ATTR: [],
-    }))
+    })
+    return template.content.textContent ?? ''
 }
 
 function renderMentionHtml(mention: CommentMention): string {
@@ -72,7 +74,7 @@ export function renderCommentContentHtml(
 
     const withLineBreaks = rendered.replace(/\r\n|\r|\n/g, '<br />')
 
-    return sanitizeHtml(withLineBreaks)
+    return sanitizeHtml(withLineBreaks, { ADD_TAGS: ['span'] })
 }
 
 export function isEmoticonOnlyContent(content: string | null | undefined): boolean {

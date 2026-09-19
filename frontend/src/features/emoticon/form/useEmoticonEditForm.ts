@@ -31,6 +31,7 @@ export function useEmoticonEditForm({
   maxImageCount,
 }: UseEmoticonEditFormOptions) {
   const emoticonName = ref('')
+  const baseline = ref<{ name: string; tags: string[] } | null>(null)
   const originalThumbnailUrl = ref<string | null>(null)
   const existingImages = ref<EmoticonImage[]>([])
   const imagesToDelete = ref<number[]>([])
@@ -62,12 +63,20 @@ export function useEmoticonEditForm({
       : Math.max(0, maxImageCount.value - totalImageCount.value),
   })
 
+  const hasUnsavedChanges = computed(() => baseline.value !== null && (
+    emoticonName.value !== baseline.value.name
+    || JSON.stringify(tags.value) !== JSON.stringify(baseline.value.tags)
+    || tagInput.value !== '' || thumbnailFile.value !== null
+    || imagesToDelete.value.length > 0 || newEmoticonPreviews.value.length > 0
+  ))
+
   const changeThumbnail = openThumbnailInput
 
   watch(emoticonId, () => {
     uploadSession.cancelSubmitRun()
     uploadSession.resetUploadProgress()
     hydratedEmoticonId.value = null
+    baseline.value = null
     isSubmitting.value = false
     emoticonName.value = ''
     originalThumbnailUrl.value = null
@@ -90,6 +99,7 @@ export function useEmoticonEditForm({
     existingImages.value = [...formState.existingImages]
     originalThumbnailUrl.value = formState.thumbnailUrl
     setThumbnailPreviewFromRemote(formState.thumbnailUrl)
+    baseline.value = { name: formState.name, tags: [...formState.tags] }
   }, { immediate: true })
 
   const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
@@ -164,5 +174,6 @@ export function useEmoticonEditForm({
     totalImageCount,
     canAddImages,
     isFormValid,
+    hasUnsavedChanges,
   }
 }

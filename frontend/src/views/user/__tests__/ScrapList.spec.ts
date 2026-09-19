@@ -5,17 +5,19 @@ import ScrapList from '../ScrapList.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { userApi } from '@/api/user'
 
+type MockRef<T> = { value: T; __v_isRef?: boolean }
+
 const mocks = vi.hoisted(() => ({
-  folderData: { __v_isRef: true, value: [] as Array<{ folderId: number; name: string }> },
+  folderData: { __v_isRef: true, value: [] } as MockRef<Array<{ folderId: number; name: string }>>,
   folderError: { __v_isRef: true, value: false },
   folderFetching: { __v_isRef: true, value: false },
-  scrapItems: { __v_isRef: true, value: [] as Array<Record<string, unknown>> },
+  scrapItems: { __v_isRef: true, value: [] } as MockRef<Array<Record<string, unknown>>>,
   refetchFolders: vi.fn(),
   refetchScraps: vi.fn(),
   invalidateQueries: vi.fn(),
   confirm: vi.fn(),
   resetPage: vi.fn(),
-  page: { __v_isRef: true, value: 0 },
+  page: { __v_isRef: true, value: 0 } as MockRef<number>,
   totalPages: { __v_isRef: true, value: 0 },
 }))
 
@@ -253,18 +255,66 @@ describe('ScrapList', () => {
     expect(allFolderButton.classes()).toContain('nv-accent-bg')
   })
 
-  it('moves a saved post to the selected folder and refreshes the session-scoped list', async () => {
+  it.each(['folder', 'search', 'page'])('clears the move selection when the %s changes', async (context) => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }, { folderId: 8, name: 'Other' }]
+    mocks.scrapItems = ref([{ postId: 11, title: 'First post' }])
+    mocks.page = ref(0)
+    const wrapper = mountScrapList()
+    await wrapper.get('#scrap-move-post').setValue('11')
+    await wrapper.get('#scrap-move-folder').setValue('7')
+
+    if (context === 'folder') {
+      await wrapper.findAll('button').find((button) => button.text() === 'Other')!.trigger('click')
+    } else if (context === 'search') {
+      await wrapper.get('#scrap-search').setValue('Second')
+      await wrapper.findAll('form').find((form) => form.find('#scrap-search').exists())!.trigger('submit')
+    } else {
+      mocks.page.value = 1
+    }
+    mocks.scrapItems.value = [{ postId: 12, title: 'Second post' }]
+    await flushPromises()
+
+    expect((wrapper.get('#scrap-move-post').element as HTMLSelectElement).value).toBe('')
+    expect((wrapper.get('#scrap-move-folder').element as HTMLSelectElement).value).toBe('')
+    const moveForm = wrapper.findAll('form').find((form) => form.find('#scrap-move-post').exists())!
+    expect(moveForm.get('button').attributes('disabled')).toBeDefined()
+    await moveForm.trigger('submit')
+    expect(userApi.moveScrap).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it.each(['post', 'folder'])('rejects a move when the selected %s disappears from refreshed options', async (removed) => {
+    mocks.folderData = ref([{ folderId: 7, name: 'Saved' }, { folderId: 8, name: 'Other' }])
+    mocks.scrapItems = ref([{ postId: 11, title: 'First post' }])
+    const wrapper = mountScrapList()
+    await wrapper.get('#scrap-move-post').setValue('11')
+    await wrapper.get('#scrap-move-folder').setValue('7')
+
+    if (removed === 'post') mocks.scrapItems.value = [{ postId: 12, title: 'Second post' }]
+    else mocks.folderData.value = [{ folderId: 8, name: 'Other' }]
+    await flushPromises()
+
+    const missingSelect = wrapper.get(removed === 'post' ? '#scrap-move-post' : '#scrap-move-folder')
+    expect((missingSelect.element as HTMLSelectElement).value).toBe('')
+    const moveForm = wrapper.findAll('form').find((form) => form.find('#scrap-move-post').exists())!
+    expect(moveForm.get('button').attributes('disabled')).toBeDefined()
+    await moveForm.trigger('submit')
+    expect(userApi.moveScrap).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it.each([{ destination: '7', folderId: 7 }, { destination: '0', folderId: null }])('moves a saved post to destination $destination and refreshes the session-scoped list', async ({ destination, folderId }) => {
     mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
     mocks.scrapItems.value = [{ postId: 11, title: 'Move me' }]
     vi.mocked(userApi.moveScrap).mockResolvedValueOnce({} as never)
     const wrapper = mountScrapList()
 
     await wrapper.get('#scrap-move-post').setValue('11')
-    await wrapper.get('#scrap-move-folder').setValue('7')
+    await wrapper.get('#scrap-move-folder').setValue(destination)
     await wrapper.findAll('form').find((form) => form.find('#scrap-move-post').exists())!.trigger('submit')
     await flushPromises()
 
-    expect(userApi.moveScrap).toHaveBeenCalledWith(11, { folderId: 7 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(userApi.moveScrap).toHaveBeenCalledWith(11, { folderId }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['session', 1, 'user', 'scraps'],
     })

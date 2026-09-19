@@ -86,6 +86,11 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     isVerifyModalOpen.value = false
   }
 
+  function resetEmailVerification() {
+    cancelPendingRequests()
+    resetVerification(options.getEmail())
+  }
+
   function cancelPendingRequests() {
     requestGate.cancel()
   }
@@ -232,6 +237,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     openVerifyModal,
     closeVerifyModal,
     cancelPendingRequests,
+    resetEmailVerification,
     sendVerifyCode,
     verifyEmailCode
   }

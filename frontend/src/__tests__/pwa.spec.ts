@@ -13,11 +13,14 @@ const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
   registerSW: vi.fn(),
   updateServiceWorker: vi.fn(),
+  reloadPage: vi.fn(),
 }))
 
 vi.mock('virtual:pwa-register', () => ({
   registerSW: mocks.registerSW,
 }))
+
+vi.mock('@/utils/pageReload', () => ({ reloadPage: mocks.reloadPage }))
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast: mocks.addToast }),
@@ -26,6 +29,7 @@ vi.mock('@/stores/toast', () => ({
 type RegisterOptions = {
   immediate?: boolean
   onNeedRefresh?: () => void
+  onNeedReload?: () => void
   onOfflineReady?: () => void
   onRegisteredSW?: (swUrl: string, registration?: ServiceWorkerRegistration) => void
 }
@@ -37,6 +41,7 @@ describe('registerPwaAutoUpdate', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mocks.addToast.mockReset()
+    mocks.reloadPage.mockReset()
     mocks.registerSW.mockReset()
     mocks.updateServiceWorker.mockReset().mockResolvedValue(undefined)
     mocks.registerSW.mockReturnValue(mocks.updateServiceWorker)
@@ -76,6 +81,69 @@ describe('registerPwaAutoUpdate', () => {
     expect(mocks.updateServiceWorker).toHaveBeenCalledWith(true)
     scope.stop()
     stop()
+  })
+
+  it('defers another tabs activation until this tabs unsaved input is cleared', () => {
+    const blocked = ref(true)
+    const scope = effectScope()
+    scope.run(() => usePwaReloadBlocker(blocked))
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    const options = getRegisterOptions()
+    try {
+      options.onNeedRefresh?.()
+      options.onNeedReload?.()
+      expect(pwaUpdateStatus.value).toBe('deferred')
+      expect(mocks.updateServiceWorker).not.toHaveBeenCalled()
+      expect(mocks.reloadPage).not.toHaveBeenCalled()
+
+      blocked.value = false
+      expect(mocks.reloadPage).toHaveBeenCalledTimes(1)
+      expect(mocks.updateServiceWorker).not.toHaveBeenCalled()
+    } finally {
+      stop()
+      scope.stop()
+    }
+  })
+
+  it('rechecks input created between activation and actual reload', () => {
+    const blocked = ref(false)
+    const scope = effectScope()
+    scope.run(() => usePwaReloadBlocker(blocked))
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    const options = getRegisterOptions()
+    try {
+      options.onNeedRefresh?.()
+      expect(mocks.updateServiceWorker).toHaveBeenCalledTimes(1)
+      blocked.value = true
+      options.onNeedReload?.()
+      expect(mocks.reloadPage).not.toHaveBeenCalled()
+      blocked.value = false
+      expect(mocks.reloadPage).toHaveBeenCalledTimes(1)
+    } finally {
+      stop()
+      scope.stop()
+    }
+  })
+
+  it('reloads once when the controlling worker changes without unsaved input', () => {
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    getRegisterOptions().onNeedReload?.()
+    getRegisterOptions().onNeedReload?.()
+    expect(mocks.reloadPage).toHaveBeenCalledTimes(1)
+    expect(mocks.updateServiceWorker).not.toHaveBeenCalled()
+    stop()
+  })
+
+  it('does not reload from a deferred callback after update checks are stopped', () => {
+    const blocked = ref(true)
+    const scope = effectScope()
+    scope.run(() => usePwaReloadBlocker(blocked))
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    getRegisterOptions().onNeedReload?.()
+    stop()
+    scope.stop()
+    expect(mocks.reloadPage).not.toHaveBeenCalled()
+    expect(pwaUpdateStatus.value).toBe('idle')
   })
 
   it('checks for updates periodically and when a visible tab is resumed', async () => {

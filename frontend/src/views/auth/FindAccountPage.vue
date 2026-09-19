@@ -78,6 +78,7 @@ const {
   onLoadingChange: (loading) => {
     status.loading = loading
   },
+  onVerificationExpired: resetVerificationState,
   onVerified: (verificationTicket) => {
     status.isVerified = true
     status.verificationTicket = verificationTicket

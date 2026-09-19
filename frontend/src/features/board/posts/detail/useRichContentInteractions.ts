@@ -30,15 +30,8 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   const articleRef = ref<HTMLElement | null>(null)
   const lightboxOpen = ref(false)
   const lightboxIndex = ref(0)
-  const lightboxImages = computed(() => {
-    if (!articleRef.value || resolveBoolean(options.isDisabled)) return []
-    return Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img'))
-      .map((image) => ({
-        src: image.currentSrc || image.src,
-        alt: image.alt.trim(),
-      }))
-      .filter((image) => Boolean(image.src))
-  })
+  const openedImages = ref<RichContentLightboxImage[]>([])
+  const lightboxImages = computed(() => !articleRef.value || resolveBoolean(options.isDisabled) ? [] : openedImages.value)
 
   function prepareImagesForInteraction() {
     if (!articleRef.value || resolveBoolean(options.isDisabled)) return
@@ -93,10 +86,15 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     const image = (target as HTMLElement | null)?.closest?.('img')
     if (!(image instanceof HTMLImageElement)) return false
 
-    const source = image.currentSrc || image.src
-    const index = lightboxImages.value.findIndex((candidate) => candidate.src === source)
+    const images = Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? [])
+      .filter((candidate) => Boolean(candidate.currentSrc || candidate.src))
+    const index = images.indexOf(image)
     if (index < 0) return false
 
+    openedImages.value = images.map((candidate) => ({
+      src: candidate.currentSrc || candidate.src,
+      alt: candidate.alt.trim(),
+    }))
     image.focus({ preventScroll: true })
     lightboxIndex.value = index
     lightboxOpen.value = true

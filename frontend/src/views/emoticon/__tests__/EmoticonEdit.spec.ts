@@ -35,8 +35,8 @@ const mocks = vi.hoisted(() => ({
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
   refreshImagePolicy: vi.fn(),
-  routeLeaveGuard: null as null | (() => boolean),
-  routeUpdateGuard: null as null | (() => boolean),
+  routeLeaveGuard: null as null | (() => boolean | Promise<boolean>),
+  routeUpdateGuard: null as null | (() => boolean | Promise<boolean>),
 }))
 
 vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
@@ -47,8 +47,8 @@ vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
 }))
 
 vi.mock('vue-router', () => ({
-  onBeforeRouteLeave: (guard: () => boolean) => { mocks.routeLeaveGuard = guard },
-  onBeforeRouteUpdate: (guard: () => boolean) => { mocks.routeUpdateGuard = guard },
+  onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => { mocks.routeLeaveGuard = guard },
+  onBeforeRouteUpdate: (guard: () => boolean | Promise<boolean>) => { mocks.routeUpdateGuard = guard },
   useRoute: () => mocks.route,
   useRouter: () => ({
     push: mocks.push,
@@ -571,4 +571,39 @@ describe('EmoticonEdit', () => {
     expect(mocks.addToast).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })
+  it('protects edits on leave and route updates and stops warning after reverting them', async () => {
+    const wrapper = mount(EmoticonEdit, { global: { mocks: { $t: (key: string) => key } } })
+    await flushPromises()
+    const vm = getExposedVm<EmoticonEditExposed>(wrapper)
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    vm.emoticonName = 'Changed'
+    mocks.confirm.mockResolvedValue(false)
+    expect(await mocks.routeLeaveGuard?.()).toBe(false)
+    expect(await mocks.routeUpdateGuard?.()).toBe(false)
+    const unload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unload)
+    expect(unload.defaultPrevented).toBe(true)
+    vm.emoticonName = 'Original'
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+    vm.imagesToDelete = [10]
+    expect(await mocks.routeLeaveGuard?.()).toBe(false)
+    vm.imagesToDelete = []
+    vm.tags = ['changed-tag']
+    expect(await mocks.routeLeaveGuard?.()).toBe(false)
+    vm.tags = ['tag']
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+  })
+
+  it('allows navigation after successfully saving edited fields', async () => {
+    const wrapper = mount(EmoticonEdit, { global: { mocks: { $t: (key: string) => key } } })
+    await flushPromises()
+    getExposedVm<EmoticonEditExposed>(wrapper).emoticonName = 'Saved'
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(mocks.updateEmoticon).toHaveBeenCalled()
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+    expect(mocks.confirm).not.toHaveBeenCalled()
+  })
+
 })

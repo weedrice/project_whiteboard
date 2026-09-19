@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } f
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { AlignCenter, AlignLeft, AlignRight, Undo2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import { resolveLegacyPostEditorImageCssWidth } from '@/utils/postEditorImageLayout'
 
 type ImageAlignment = 'inline' | 'left' | 'center' | 'right'
@@ -18,6 +20,50 @@ const controlsShift = ref(0)
 const controlsMaxWidth = ref<number | null>(null)
 const measuredImageWidthPercent = ref<number | null>(null)
 const measuredContainerWidth = ref<number | null>(null)
+
+const authenticatedImageUrl = ref<string | null>(null)
+const imageSource = computed(() => String(props.node.attrs.src ?? ''))
+const imageRequestPath = computed(() => resolveAuthenticatedFileRequestPath(imageSource.value))
+const displayedImageSource = computed(() => imageRequestPath.value
+  ? authenticatedImageUrl.value ?? undefined
+  : imageSource.value || undefined)
+let imageController: AbortController | null = null
+
+function releaseAuthenticatedImage() {
+  imageController?.abort()
+  imageController = null
+  if (authenticatedImageUrl.value) URL.revokeObjectURL(authenticatedImageUrl.value)
+  authenticatedImageUrl.value = null
+}
+
+async function loadAuthenticatedImage() {
+  releaseAuthenticatedImage()
+  const path = imageRequestPath.value
+  if (!path) return
+  const controller = new AbortController()
+  imageController = controller
+  try {
+    const { default: api } = await import('@/api')
+    if (controller.signal.aborted) return
+    const response = await api.get<Blob>(path, {
+      responseType: 'blob',
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    })
+    if (!controller.signal.aborted) {
+      authenticatedImageUrl.value = URL.createObjectURL(response.data)
+    }
+  } catch {
+    // Keep inaccessible images hidden without changing the saved document.
+  } finally {
+    if (imageController === controller) imageController = null
+  }
+}
+
+watch(imageSource, loadAuthenticatedImage, { immediate: true, flush: 'sync' })
+const stopImageSessionBoundary = subscribeAuthSessionBoundary(() => {
+  void loadAuthenticatedImage()
+})
 
 let removeResizeListeners: (() => void) | null = null
 let removeControlPositionListeners: (() => void) | null = null
@@ -354,6 +400,8 @@ watch([imageAlignment, wrapperStyle], () => {
 })
 
 onBeforeUnmount(() => {
+  stopImageSessionBoundary()
+  releaseAuthenticatedImage()
   stopControlPositioning()
 })
 </script>
@@ -370,7 +418,7 @@ onBeforeUnmount(() => {
     :style="wrapperStyle"
   >
     <img
-      :src="props.node.attrs.src"
+      :src="displayedImageSource"
       :alt="props.node.attrs.alt ?? ''"
       :title="props.node.attrs.title ?? undefined"
       :loading="props.node.attrs.loading ?? undefined"

@@ -65,4 +65,49 @@ describe('commentContent', () => {
         expect(isEmoticonOnlyContent('![emoticon](https://example.com/a.png)')).toBe(true)
         expect(isEmoticonOnlyContent('text ![emoticon](https://example.com/a.png)')).toBe(false)
     })
+
+    it('renders comparison signs and ampersands as their original visible characters', () => {
+        const content = '1 < 2 and 3 > 2 & "quoted"'
+        const html = renderCommentContentHtml(content)
+        const document = new DOMParser().parseFromString(html, 'text/html')
+
+        expect(document.body.textContent).toBe(content)
+        expect(html).not.toContain('&amp;lt;')
+        expect(html).not.toContain('&amp;gt;')
+    })
+
+    it('keeps legacy HTML text while stripping tags and executable content', () => {
+        const html = renderCommentContentHtml('<strong>A &amp; B</strong><script>alert(1)</script><img src=x onerror=alert(2)>')
+        const document = new DOMParser().parseFromString(html, 'text/html')
+
+        expect(document.body.textContent).toBe('A & B')
+        expect(document.body.children).toHaveLength(0)
+    })
+
+    it('shows encoded HTML as inert text without turning it into executable markup', () => {
+        const html = renderCommentContentHtml('&lt;img src=x onerror=alert(1)&gt;')
+        const document = new DOMParser().parseFromString(html, 'text/html')
+
+        expect(document.body.textContent).toBe('<img src=x onerror=alert(1)>')
+        expect(document.querySelector('img')).toBeNull()
+    })
+
+    it('preserves mention links for display names containing ampersands', () => {
+        const html = renderCommentContentHtml('Hello @A&B: 1 < 2', 'comment-emoticon', [{ userId: 7, displayName: 'A&B' }])
+        const document = new DOMParser().parseFromString(html, 'text/html')
+        const mention = document.querySelector('[data-mention-user-id="7"]')
+
+        expect(document.body.textContent).toBe('Hello @A&B: 1 < 2')
+        expect(mention?.textContent).toBe('@A&B')
+        expect(mention?.getAttribute('role')).toBe('link')
+        expect(mention?.getAttribute('tabindex')).toBe('0')
+    })
+
+    it('does not preserve forged mention markup from comment text', () => {
+        const html = renderCommentContentHtml('<span data-mention-user-id="99" onclick="alert(1)">pretend mention</span>')
+        const document = new DOMParser().parseFromString(html, 'text/html')
+
+        expect(document.body.textContent).toBe('pretend mention')
+        expect(document.body.children).toHaveLength(0)
+    })
 })

@@ -2,6 +2,7 @@ import { registerSW } from 'virtual:pwa-register'
 import type { Pinia } from 'pinia'
 import { useToastStore } from '@/stores/toast'
 import { whenPwaReloadSafe } from '@/pwaReloadGuard'
+import { reloadPage } from '@/utils/pageReload'
 import { readonly, ref } from 'vue'
 
 type Translate = (key: string) => string
@@ -49,6 +50,9 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
   updateStatus.value = 'idle'
   let stopUpdateChecks: StopPwaUpdateChecks = () => undefined
   let swRegistration: ServiceWorkerRegistration | undefined
+  let needsReload = false
+  let reloadRequested = false
+  let stopped = false
 
   const markFailed = () => {
     updateStatus.value = 'failed'
@@ -56,8 +60,17 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
   }
 
   const applyUpdate = async () => {
+    if (stopped) return
     updateStatus.value = 'applying'
     try {
+      // A different tab can activate the worker while this tab defers its update.
+      if (needsReload) {
+        if (!reloadRequested) {
+          reloadRequested = true
+          reloadPage()
+        }
+        return
+      }
       await updateServiceWorker(true)
     } catch {
       markFailed()
@@ -98,6 +111,10 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
     onNeedRefresh() {
       void applyUpdateWhenSafe()
     },
+    onNeedReload() {
+      needsReload = true
+      void applyUpdateWhenSafe()
+    },
     onOfflineReady() {
       toastStore.addToast(t('common.pwa.offlineReady'), 'success')
     },
@@ -112,6 +129,7 @@ export function registerPwaAutoUpdate(pinia: Pinia, t: Translate): StopPwaUpdate
   })
 
   return () => {
+    stopped = true
     retryUpdate = null
     updateStatus.value = 'idle'
     stopUpdateChecks()

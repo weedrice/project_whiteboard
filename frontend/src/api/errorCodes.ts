@@ -15,6 +15,8 @@ export const API_ERROR_CODES = {
     CONCURRENT_MODIFICATION: 'C012',
     /** U009 BLOCKED_BY_USER — 상대가 나를 차단 */
     BLOCKED_BY_USER: 'U009',
+    /** U011 EMAIL_NOT_VERIFIED — 인증 티켓 만료 또는 무효 */
+    EMAIL_NOT_VERIFIED: 'U011',
     /** A009 USER_DELETED — 탈퇴 계정 */
     USER_DELETED: 'A009',
     /** P004 DRAFT_OUTDATED — 임시저장본이 서버 최신본보다 오래됨 */

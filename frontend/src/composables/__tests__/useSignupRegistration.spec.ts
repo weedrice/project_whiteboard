@@ -59,6 +59,10 @@ vi.mock('@/composables/useEmailVerificationFlow', () => ({
     mocks.setFlowOptions(options)
     return {
       emailVerification: mocks.verification,
+      resetEmailVerification: () => Object.assign(mocks.verification, {
+        code: '', verificationTicket: '', isCodeSent: false, isVerified: false,
+        loading: false, timeLeft: 0, resendCooldown: 0,
+      }),
       formatVerifyTime: (seconds: number) => String(seconds),
       sendVerifyCode: vi.fn(async () => undefined),
       verifyEmailCode: vi.fn(async () => {
@@ -212,6 +216,40 @@ describe('useSignupRegistration', () => {
       expect.not.objectContaining({ oauthRegistrationTicket: expect.anything() }),
       { signal: expect.any(AbortSignal) },
     )
+    wrapper.unmount()
+  })
+
+  it('restores verification after an expired ticket while preserving signup inputs', async () => {
+    const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
+    const form = {
+      loginId: 'login_1', password: 'Password1!', passwordConfirm: 'Password1!',
+      email: 'user@example.com', displayName: 'Display',
+    }
+    Object.assign(composable.form.value, form)
+    Object.assign(composable.verification, {
+      code: '123456', verificationTicket: 'expired-ticket', isVerified: true, isCodeSent: true,
+    })
+    vi.mocked(authApi.signup).mockRejectedValueOnce({
+      isAxiosError: true, response: { data: { error: { code: 'U011' } } },
+    })
+
+    await composable.handleSignup()
+
+    expect(composable.form.value).toEqual(form)
+    expect(composable.verification).toMatchObject({
+      isVerified: false, isCodeSent: false, verificationTicket: '', code: '',
+    })
+    expect(mocks.router.push).not.toHaveBeenCalled()
+    await composable.handleSignup()
+    expect(authApi.signup).toHaveBeenCalledTimes(1)
+    composable.verification.isVerified = true
+    composable.verification.verificationTicket = 'fresh-ticket'
+    await composable.handleSignup()
+    expect(authApi.signup).toHaveBeenLastCalledWith(
+      expect.objectContaining({ verificationTicket: 'fresh-ticket' }), { signal: expect.any(AbortSignal) },
+    )
+    expect(mocks.router.push).toHaveBeenCalledWith('/login')
     wrapper.unmount()
   })
 

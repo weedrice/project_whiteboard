@@ -18,13 +18,21 @@ export function useUnsavedChangesGuard(
     event.returnValue = ''
   }
 
-  onBeforeRouteLeave(async () => {
+  let allowNextLeave = false
+  const confirmNavigation = () => {
+    if (allowNextLeave) {
+      allowNextLeave = false
+      return true
+    }
     if (isOperationPending.value) return false
     if (!hasUnsavedChanges.value) return true
     return confirmLeave(message())
-  })
+  }
+  onBeforeRouteLeave(confirmNavigation)
 
   usePwaReloadBlocker(shouldBlockUnload)
   onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
   onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
+
+  return { confirmNavigation, allowNextNavigation: () => { allowNextLeave = true } }
 }

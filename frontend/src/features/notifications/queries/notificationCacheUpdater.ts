@@ -9,10 +9,11 @@ import {
   isNotificationPage,
 } from '@/features/notifications/stream/notificationStreamStateModel'
 import { sessionQueryKey } from '@/queryAuthScope'
+import { isNewerNotificationRevision, type NotificationRevision } from '@/features/notifications/stream/recentNotificationIdCache'
 
 export interface RecentNotificationIdCache {
-  has: (id: number) => boolean
-  remember: (id: number) => void
+  has: (id: number, revision?: NotificationRevision) => boolean
+  remember: (id: number, revision?: NotificationRevision) => void
 }
 
 export function getRawNotificationId(rawNotification: { notificationId?: unknown; notification_id?: unknown }) {
@@ -33,10 +34,13 @@ export function applyIncomingNotificationToCache(
     isRead: false,
   }
   const notificationId = normalized.notificationId
-  if (typeof notificationId === 'number' && recentNotificationIds.has(notificationId)) {
+  const wasAlreadySeen = recentNotificationIds.has(notificationId)
+  if (recentNotificationIds.has(notificationId, normalized)) {
     return
   }
 
+  // A grouped event updates an existing unread row; it never creates another row.
+  const isNewNotification = !wasAlreadySeen && (normalized.groupCount ?? 1) <= 1
   let alreadyExistsInFirstPage = false
 
   const notificationsSessionKey = sessionQueryKey(sessionGeneration, notificationsQueryKey)
@@ -49,6 +53,11 @@ export function applyIncomingNotificationToCache(
     const existingIndex = oldData.content.findIndex((item) => item.notificationId === normalized.notificationId)
     if (existingIndex >= 0) {
       alreadyExistsInFirstPage = true
+      const existing = oldData.content[existingIndex]!
+      if (!isNewerNotificationRevision(normalized, existing)) {
+        recentNotificationIds.remember(notificationId, existing)
+        return oldData
+      }
       const nextContent = [...oldData.content]
       nextContent.splice(existingIndex, 1)
       nextContent.unshift(normalized)
@@ -60,7 +69,7 @@ export function applyIncomingNotificationToCache(
 
     const nextContent = [normalized, ...oldData.content]
     const sizeLimit = oldData.size > 0 ? oldData.size : nextContent.length
-    const totalElements = oldData.totalElements + 1
+    const totalElements = oldData.totalElements + (isNewNotification ? 1 : 0)
     const totalPages = oldData.size > 0 ? Math.ceil(totalElements / oldData.size) : oldData.totalPages
 
     return {
@@ -75,13 +84,13 @@ export function applyIncomingNotificationToCache(
 
   if (alreadyExistsInFirstPage) {
     if (typeof notificationId === 'number') {
-      recentNotificationIds.remember(notificationId)
+      recentNotificationIds.remember(notificationId, normalized)
     }
     return
   }
 
   if (typeof notificationId === 'number') {
-    recentNotificationIds.remember(notificationId)
+    recentNotificationIds.remember(notificationId, normalized)
   }
 
   void queryClient.invalidateQueries({
@@ -90,5 +99,7 @@ export function applyIncomingNotificationToCache(
       && getNotificationPageNumber(query.state.data) > 0,
   })
 
-  queryClient.setQueryData(unreadSessionKey, (old: number | undefined) => (old || 0) + 1)
+  if (isNewNotification) {
+    queryClient.setQueryData(unreadSessionKey, (old: number | undefined) => (old || 0) + 1)
+  }
 }

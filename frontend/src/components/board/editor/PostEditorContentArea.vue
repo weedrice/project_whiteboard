@@ -31,7 +31,7 @@ function handleDragEnter(event: DragEvent) {
     class="tiptap-content flex-1 min-h-0 cursor-text overflow-auto"
     :class="{ 'tiptap-content--dragging-image': isDraggingImage }"
     @mousedown="emit('content-mousedown', $event)"
-    @paste="emit('content-paste', $event)"
+    @paste.capture="emit('content-paste', $event)"
     @drop="handleDrop"
     @dragenter="handleDragEnter"
     @dragleave="emit('content-dragleave', $event)"

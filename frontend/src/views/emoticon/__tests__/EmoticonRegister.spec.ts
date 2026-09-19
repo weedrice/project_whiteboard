@@ -21,6 +21,7 @@ type EmoticonRegisterExposed = {
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
+  confirm: vi.fn(),
   createEmoticon: vi.fn(),
   uploadFile: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
@@ -29,7 +30,7 @@ const mocks = vi.hoisted(() => ({
   uploadEmoticonImagePreviews: vi.fn(),
   revokeEmoticonPreviewUrl: vi.fn(),
   refreshImagePolicy: vi.fn(),
-  routeLeaveGuard: null as null | (() => boolean),
+  routeLeaveGuard: null as null | (() => boolean | Promise<boolean>),
 }))
 
 vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
@@ -40,11 +41,13 @@ vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
 }))
 
 vi.mock('vue-router', () => ({
-  onBeforeRouteLeave: (guard: () => boolean) => { mocks.routeLeaveGuard = guard },
+  onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => { mocks.routeLeaveGuard = guard },
   useRouter: () => ({
     push: mocks.push,
   }),
 }))
+
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: mocks.confirm }) }))
 
 vi.mock('@/api/emoticon', () => ({
   emoticonApi: {
@@ -134,6 +137,7 @@ describe('EmoticonRegister', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.routeLeaveGuard = null
+    mocks.confirm.mockResolvedValue(false)
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
       emoticonApiData({ fileId: file.name === 'thumb.png' ? 10 : 20 })
     ))
@@ -325,4 +329,31 @@ describe('EmoticonRegister', () => {
     expect(mocks.addToast).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })
+  it('preserves unsaved fields and selected images when leaving is cancelled', async () => {
+    const wrapper = mountRegister()
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+    setValidForm(wrapper)
+    expect(await mocks.routeLeaveGuard?.()).toBe(false)
+    expect(mocks.confirm).toHaveBeenCalledWith('emoticon.form.leaveConfirm')
+    expect(getExposedVm<EmoticonRegisterExposed>(wrapper).emoticonPreviews).toHaveLength(1)
+    const unload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unload)
+    expect(unload.defaultPrevented).toBe(true)
+    mocks.confirm.mockResolvedValueOnce(true)
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+  })
+
+  it('protects an unfinished tag and allows the successful submit navigation without confirmation', async () => {
+    const wrapper = mountRegister()
+    const vm = getExposedVm<EmoticonRegisterExposed>(wrapper)
+    vm.tagInput = 'unfinished'
+    expect(await mocks.routeLeaveGuard?.()).toBe(false)
+    mocks.confirm.mockClear()
+    setValidForm(wrapper)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(await mocks.routeLeaveGuard?.()).toBe(true)
+    expect(mocks.confirm).not.toHaveBeenCalled()
+  })
+
 })

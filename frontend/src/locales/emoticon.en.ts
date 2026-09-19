@@ -76,6 +76,7 @@ export const emoticonEn: EmoticonMessages = {
     tags: 'Tags',
   },
   form: {
+    leaveConfirm: 'You have unsaved Noviicon changes. Leave this page?',
     editTitle: 'Edit Noviicon',
     editDescription: 'Update Noviicon information.',
     back: 'Back',

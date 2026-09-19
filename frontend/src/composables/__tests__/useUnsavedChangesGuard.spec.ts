@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { whenPwaReloadSafe } from '@/pwaReloadGuard'
 import { useUnsavedChangesGuard } from '../useUnsavedChangesGuard'
 
 const routeGuard = vi.hoisted(() => ({
@@ -21,14 +22,15 @@ describe('useUnsavedChangesGuard', () => {
   function mountGuard(dirty = false, pending = false, confirm = vi.fn().mockResolvedValue(true)) {
     const hasUnsavedChanges = ref(dirty)
     const isPending = ref(pending)
+    let navigation!: ReturnType<typeof useUnsavedChangesGuard>
     const wrapper = mount(defineComponent({
       setup() {
-        useUnsavedChangesGuard(hasUnsavedChanges, isPending, () => 'leave?', confirm)
+        navigation = useUnsavedChangesGuard(hasUnsavedChanges, isPending, () => 'leave?', confirm)
         return {}
       },
       template: '<div />',
     }))
-    return { wrapper, hasUnsavedChanges, isPending, confirm }
+    return { wrapper, hasUnsavedChanges, isPending, confirm, navigation }
   }
 
   it('asks before leaving a dirty page', async () => {
@@ -56,4 +58,22 @@ describe('useUnsavedChangesGuard', () => {
     window.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(false)
   })
+  it('allows only the successful navigation while keeping later navigation protected', async () => {
+    const { wrapper, navigation, confirm } = mountGuard(true, true)
+    navigation.allowNextNavigation()
+    expect(await routeGuard.callback?.()).toBe(true)
+    expect(await routeGuard.callback?.()).toBe(false)
+    expect(confirm).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('defers PWA reload while unsaved work exists and resumes after the page closes', () => {
+    const { wrapper } = mountGuard(true)
+    const reload = vi.fn()
+    expect(whenPwaReloadSafe(reload)).toBe(false)
+    expect(reload).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
 })

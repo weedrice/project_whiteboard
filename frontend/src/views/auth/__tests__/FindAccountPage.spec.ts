@@ -51,8 +51,14 @@ function mountPage() {
       mocks: { $t: (key: string) => key },
       stubs: {
         AuthFormShell: { template: '<div><slot /></div>' },
-        AuthEmailVerificationSection: { template: '<div data-verification />' },
-        AuthPasswordPairFields: { template: '<div data-password-fields />' },
+        AuthEmailVerificationSection: {
+          props: ['email'],
+          template: '<div data-verification><input data-email :value="email" @input="$emit(\'update:email\', $event.target.value)" /></div>',
+        },
+        AuthPasswordPairFields: {
+          props: ['password', 'confirmPassword'],
+          template: '<div data-password-fields><input data-password :value="password" @input="$emit(\'update:password\', $event.target.value)" /><input data-confirm :value="confirmPassword" @input="$emit(\'update:confirmPassword\', $event.target.value)" /></div>',
+        },
         BaseButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
         BaseSegmentedControl: {
           template: '<button data-password-tab @click="$emit(\'update:modelValue\', \'password\')">tab</button>',
@@ -89,6 +95,30 @@ describe('FindAccountPage', () => {
     expect(wrapper.text()).toContain('noviis')
     await wrapper.findAll('button').at(-1)!.trigger('click')
     expect(mocks.router.push).toHaveBeenCalledWith('/login')
+  })
+
+  it('shows verification again after ticket expiry while preserving email and passwords', async () => {
+    const wrapper = mountPage()
+    await wrapper.find('[data-password-tab]').trigger('click')
+    await wrapper.find('[data-email]').setValue('user@example.com')
+    mocks.passwordOptions!.onVerified('expired-ticket' as never)
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-password]').setValue('Password1!')
+    await wrapper.find('[data-confirm]').setValue('Password1!')
+    expect(wrapper.find('[data-verification]').exists()).toBe(false)
+
+    mocks.passwordOptions!.onVerificationExpired()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-verification]').exists()).toBe(true)
+    expect((wrapper.find('[data-email]').element as HTMLInputElement).value).toBe('user@example.com')
+    expect(mocks.passwordOptions!.getVerificationTicket()).toBe('')
+    expect(mocks.passwordOptions!.getNewPassword()).toBe('Password1!')
+    expect(mocks.passwordOptions!.getConfirmPassword()).toBe('Password1!')
+    mocks.passwordOptions!.onVerified('fresh-ticket' as never)
+    await wrapper.vm.$nextTick()
+    expect((wrapper.find('[data-password]').element as HTMLInputElement).value).toBe('Password1!')
+    wrapper.unmount()
   })
 
   it('switches to password recovery and completes verification', async () => {

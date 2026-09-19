@@ -56,6 +56,29 @@ describe('useEmailVerificationFlow', () => {
     authStoreMock.user.isEmailVerified = false
   })
 
+  it('resets a completed verification and allows sending a new code for the same email', async () => {
+    const scope = effectScope()
+    const flow = scope.run(() => useEmailVerificationFlow({
+      getEmail: () => 'signup@example.com', purpose: 'SIGNUP',
+    }))!
+    Object.assign(flow.emailVerification, {
+      code: '123456', verificationTicket: 'expired-ticket', isVerified: true, isCodeSent: true,
+    })
+    vi.mocked(authApi.sendVerificationCode).mockResolvedValue(apiSuccessResponse<typeof authApi.sendVerificationCode>())
+
+    flow.resetEmailVerification()
+    expect(flow.emailVerification).toMatchObject({
+      email: 'signup@example.com', code: '', verificationTicket: '',
+      isVerified: false, isCodeSent: false, resendCooldown: 0,
+    })
+    await flow.sendVerifyCode()
+    expect(authApi.sendVerificationCode).toHaveBeenCalledWith('signup@example.com', 'SIGNUP', {
+      signal: expect.any(AbortSignal),
+    })
+    expect(flow.emailVerification.isCodeSent).toBe(true)
+    scope.stop()
+  })
+
   it('sends change-email verification code with the existing purpose', async () => {
     vi.mocked(authApi.sendVerificationCode).mockResolvedValue(
       apiSuccessResponse<typeof authApi.sendVerificationCode>()

@@ -120,6 +120,19 @@ const destinationFolderOptions = computed(() => [
   { label: t('user.scrapList.unfiled'), value: 0 },
   ...folders.value.map((folder) => ({ label: folder.name, value: folder.folderId })),
 ])
+const canMoveScrap = computed(() => (
+  movingScrapPostId.value === null
+  && selectedMovePostId.value !== ''
+  && scraps.value.some((scrap) => scrap.postId === Number(selectedMovePostId.value))
+  && selectedDestinationFolderId.value !== ''
+  && destinationFolderOptions.value.some((folder) => folder.value === Number(selectedDestinationFolderId.value))
+))
+
+watch([selectedFolderId, appliedSearch, page, size], () => {
+  selectedMovePostId.value = ''
+  selectedDestinationFolderId.value = ''
+}, { flush: 'sync' })
+
 const loading = computed(() => scrapQuery.isLoading.value)
 const errorMessage = computed(() => scrapQuery.isError.value ? t('common.messages.loadFailed') : '')
 
@@ -242,7 +255,7 @@ async function deleteFolder(folderId: number) {
 }
 
 async function moveScrap() {
-  if (selectedMovePostId.value === '' || selectedDestinationFolderId.value === '' || movingScrapPostId.value !== null) return
+  if (!canMoveScrap.value) return
   const postId = Number(selectedMovePostId.value)
   const destinationFolderId = Number(selectedDestinationFolderId.value)
   const operation = beginFolderOperation()
@@ -419,7 +432,7 @@ async function moveScrap() {
             type="submit"
             variant="secondary"
             class="h-10"
-            :disabled="selectedMovePostId === '' || selectedDestinationFolderId === '' || movingScrapPostId !== null"
+            :disabled="!canMoveScrap"
           >
             {{ $t('user.scrapList.move') }}
           </BaseButton>

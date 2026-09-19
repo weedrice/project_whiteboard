@@ -1106,6 +1106,7 @@ export interface EmoticonMessages {
     addPending: string
     updateSubmit: string
     updatingSubmit: string
+    leaveConfirm: string
     createSubmit: string
     creatingSubmit: string
     count: string

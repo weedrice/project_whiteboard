@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QueryClient } from '@tanstack/vue-query'
+import { QueryClient } from '@tanstack/vue-query'
+import { sessionQueryKey } from '@/queryAuthScope'
+import { notificationListQueryKey, notificationUnreadCountQueryKey } from '@/features/notifications/queries/notificationQueryKeys'
 import {
     createNotificationStreamController,
     resetNotificationStreamStateForTest,
@@ -434,5 +436,37 @@ describe('notificationStreamController dependencies', () => {
         )
 
         controller.closeSse()
+    })
+
+    it('applies newer grouped SSE payloads while ignoring replayed and older revisions', async () => {
+        const client = new QueryClient()
+        const listKey = sessionQueryKey(4, notificationListQueryKey({ page: 0, size: 20 }))
+        const unreadKey = sessionQueryKey(4, notificationUnreadCountQueryKey)
+        client.setQueryData(listKey, { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0, empty: true })
+        client.setQueryData(unreadKey, 0)
+        const frames = [1, 2, 1, 2].map((groupCount) => 'event: notification\ndata: ' + JSON.stringify({
+            notificationId: 12,
+            notificationType: 'COMMENT',
+            sourceType: 'POST',
+            sourceId: 3,
+            groupCount,
+            lastEventAt: `2026-09-13T00:0${groupCount}:00Z`,
+            message: `Comment ${groupCount}`,
+        }) + '\n\n').join('')
+        const { connectToSse, closeSse } = createNotificationStreamController(client, {
+            openStream: async () => ({ ok: true, body: createSseStream(frames) }) as Response,
+            resolveAuthStore: (() => ({ accessToken: 'test-token', sessionGeneration: 4 })) as never,
+        })
+
+        connectToSse()
+        await flushAsync(10)
+        closeSse()
+
+        expect(client.getQueryData(listKey)).toMatchObject({
+            content: [{ notificationId: 12, groupCount: 2, message: 'Comment 2' }],
+            totalElements: 1,
+        })
+        expect(client.getQueryData(unreadKey)).toBe(1)
+        client.clear()
     })
 })

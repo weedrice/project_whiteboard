@@ -119,6 +119,23 @@ describe('usePasswordResetByVerificationFlow', () => {
         expect(onLoadingChange).toHaveBeenLastCalledWith(false)
     })
 
+    it.each(['U011', 'U001'])('only resets verification for an invalid ticket (%s)', async (code) => {
+        const onVerificationExpired = vi.fn()
+        vi.mocked(authApi.resetPassword).mockRejectedValueOnce({
+            isAxiosError: true, response: { data: { error: { code } } },
+        })
+        const { resetPassword } = usePasswordResetByVerificationFlow({
+            getEmail: () => 'user@example.com', getVerificationTicket: () => 'ticket-1',
+            getNewPassword: () => 'Password1!', getConfirmPassword: () => 'Password1!',
+            onVerificationExpired,
+        })
+
+        await resetPassword()
+
+        expect(onVerificationExpired).toHaveBeenCalledTimes(code === 'U011' ? 1 : 0)
+        expect(routerPush).not.toHaveBeenCalled()
+    })
+
     it('redirects deleted users to signup with the existing encoded email query', async () => {
         vi.mocked(authApi.resetPassword).mockRejectedValue({
             isAxiosError: true,

@@ -18,7 +18,8 @@ import {
   type SignupForm,
 } from '@/composables/signupRegistrationModel'
 import { useToastStore } from '@/stores/toast'
-import { extractErrorMessage } from '@/utils/errorHandler'
+import { extractErrorCode, extractErrorMessage } from '@/utils/errorHandler'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 import { isCancellationError } from '@/utils/cancellationError'
 
@@ -66,7 +67,8 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     emailVerification: verification,
     formatVerifyTime: formatTime,
     sendVerifyCode: sendVerificationCode,
-    verifyEmailCode: verifyCode
+    verifyEmailCode: verifyCode,
+    resetEmailVerification,
   } = useEmailVerificationFlow({
     getEmail: () => form.value.email,
     purpose: 'SIGNUP',
@@ -228,6 +230,9 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
       }
     } catch (err: unknown) {
       if (!isCurrentRequest(revision, controller)) return
+      if (extractErrorCode(err) === API_ERROR_CODES.EMAIL_NOT_VERIFIED) {
+        resetEmailVerification()
+      }
       const message = extractErrorMessage(err) || t('auth.signupFailed')
       toastStore.addToast(message, 'error')
     } finally {

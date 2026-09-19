@@ -4,7 +4,8 @@ import { authApi } from '@/api/auth'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useLatestRequestGate } from '@/composables/useLatestAsyncTask'
 import { useToastStore } from '@/stores/toast'
-import { extractErrorMessage } from '@/utils/errorHandler'
+import { extractErrorCode, extractErrorMessage } from '@/utils/errorHandler'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
 
 interface UsePasswordResetByVerificationFlowOptions {
@@ -14,6 +15,7 @@ interface UsePasswordResetByVerificationFlowOptions {
     getConfirmPassword: () => string
     onLoadingChange?: (loading: boolean) => void
     onVerified?: (verificationTicket: string) => void
+    onVerificationExpired?: () => void
 }
 
 export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVerificationFlowOptions) {
@@ -60,6 +62,9 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
             }
         } catch (error: unknown) {
             if (!request.isCurrent()) return
+            if (extractErrorCode(error) === API_ERROR_CODES.EMAIL_NOT_VERIFIED) {
+                options.onVerificationExpired?.()
+            }
             if (handleDeletedAccountRedirect(error, {
                 email,
                 t,
