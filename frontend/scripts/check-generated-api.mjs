@@ -18,38 +18,42 @@ import { join, resolve } from 'node:path'
 const SPEC = resolve(process.cwd(), '../docs/api/openapi-frontend.json')
 const COMMITTED = resolve(process.cwd(), 'src/types/generated/api.ts')
 
-function fail(message) {
-    console.error(`[api:check] ${message}`)
-    process.exit(1)
-}
-
-let committed
-try {
-    committed = readFileSync(COMMITTED, 'utf-8')
-} catch {
-    fail(`생성 타입이 없다: ${COMMITTED}\n  npm run api:generate 로 만들 것.`)
-}
-
-const workDir = mkdtempSync(join(tmpdir(), 'api-check-'))
-const regenerated = join(workDir, 'api.ts')
-
-try {
-    // --no-install: 없으면 npx가 레지스트리에서 조용히 받아 와, 락파일과 다른 버전으로
-    // 비교하거나 오프라인 러너에서 엉뚱한 이유로 실패한다. 설치된 것만 쓴다.
-    execFileSync('npx', ['--no-install', 'openapi-typescript', SPEC, '-o', regenerated], {
-        stdio: 'pipe',
-        shell: process.platform === 'win32',
-    })
-
-    const fresh = readFileSync(regenerated, 'utf-8')
-    if (fresh !== committed) {
-        fail(
-            '커밋된 생성 타입이 스펙 스냅샷과 다르다.\n'
-            + '  스펙을 바꿨다면 npm run api:generate 결과도 함께 커밋할 것.\n'
-            + '  스펙을 바꾼 적이 없다면 openapi-typescript 버전이 올라갔을 수 있다.',
-        )
+function checkGeneratedApi() {
+    let committed
+    try {
+        committed = readFileSync(COMMITTED, 'utf-8')
+    } catch {
+        throw new Error(`생성 타입이 없다: ${COMMITTED}\n  npm run api:generate 로 만들 것.`)
     }
-    console.log('[api:check] 생성 타입이 스펙 스냅샷과 일치한다.')
-} finally {
-    rmSync(workDir, { recursive: true, force: true })
+
+    const workDir = mkdtempSync(join(tmpdir(), 'api-check-'))
+    const regenerated = join(workDir, 'api.ts')
+
+    try {
+        // --no-install: 없으면 npx가 레지스트리에서 조용히 받아 와, 락파일과 다른 버전으로
+        // 비교하거나 오프라인 러너에서 엉뚱한 이유로 실패한다. 설치된 것만 쓴다.
+        execFileSync('npx', ['--no-install', 'openapi-typescript', SPEC, '-o', regenerated], {
+            stdio: 'pipe',
+            shell: process.platform === 'win32',
+        })
+
+        const fresh = readFileSync(regenerated, 'utf-8')
+        if (fresh.replaceAll('\r\n', '\n') !== committed.replaceAll('\r\n', '\n')) {
+            throw new Error(
+                '커밋된 생성 타입이 스펙 스냅샷과 다르다.\n'
+                + '  스펙을 바꿨다면 npm run api:generate 결과도 함께 커밋할 것.\n'
+                + '  스펙을 바꾼 적이 없다면 openapi-typescript 버전이 올라갔을 수 있다.',
+            )
+        }
+        console.log('[api:check] 생성 타입이 스펙 스냅샷과 일치한다.')
+    } finally {
+        rmSync(workDir, { recursive: true, force: true })
+    }
+}
+
+try {
+    checkGeneratedApi()
+} catch (error) {
+    console.error(`[api:check] ${error instanceof Error ? error.message : String(error)}`)
+    process.exitCode = 1
 }
