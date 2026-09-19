@@ -21,10 +21,6 @@ public class FeedGenerationService {
     private final UserFeedRepository userFeedRepository;
     private final PostRepository postRepository;
 
-    public void generateFeeds() {
-        // Batch feed generation remains out of scope for this change set.
-    }
-
     @Transactional
     public void generatePostFeeds(Board board, Long postId) {
         postRepository.findActiveByIdAndBoardIdForUpdate(postId, board.getBoardId())

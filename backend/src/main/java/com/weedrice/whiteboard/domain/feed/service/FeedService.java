@@ -38,7 +38,6 @@ public class FeedService {
     private final UserFeedRepository userFeedRepository;
     private final UserReadableResolver userReadableResolver;
     private final PostFacadeReadService postFacadeReadService;
-    private final FeedGenerationService feedGenerationService;
     private final UserBlockService userBlockService;
     private final AdminRepository adminRepository;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
@@ -56,11 +55,6 @@ public class FeedService {
                 resolvedFeedPage.page(),
                 resolvedFeedPage.feeds(),
                 resolvedFeedPage.postSummariesById());
-    }
-
-    @Transactional
-    public void generateFeeds() {
-        feedGenerationService.generateFeeds();
     }
 
     private Map<Long, PostSummary> resolvePostSummaries(

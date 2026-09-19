@@ -59,9 +59,6 @@ class FeedServiceTest {
     private PostFacadeReadService postFacadeReadService;
 
     @Mock
-    private FeedGenerationService feedGenerationService;
-
-    @Mock
     private UserBlockService userBlockService;
 
     @Mock
@@ -77,7 +74,6 @@ class FeedServiceTest {
                 userFeedRepository,
                 new UserReadableResolver(userRepository),
                 postFacadeReadService,
-                feedGenerationService,
                 userBlockService,
                 adminRepository,
                 inquiryLegacyWritePolicy);
@@ -311,14 +307,6 @@ class FeedServiceTest {
         assertThatThrownBy(() -> feedService.getUserFeeds(userId, pageable))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("generateFeeds delegates to generation service")
-    void generateFeeds_delegatesToGenerationService() {
-        feedService.generateFeeds();
-
-        verify(feedGenerationService).generateFeeds();
     }
 
     @Test
