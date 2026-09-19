@@ -10,13 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -61,53 +55,4 @@ class PushSubscriptionCleanupService {
         return DeliveryJobTransitionResult.APPLIED_SUCCESS;
     }
 
-    @Transactional
-    public int deleteExpiredSubscriptions(Collection<PushSubscriptionSnapshot> subscriptions) {
-        if (subscriptions == null || subscriptions.isEmpty()) {
-            return 0;
-        }
-        List<PushSubscriptionSnapshot> orderedSnapshots = subscriptions.stream()
-                .distinct()
-                .sorted(java.util.Comparator.comparing(PushSubscriptionSnapshot::endpoint)
-                        .thenComparing(PushSubscriptionSnapshot::subscriptionId))
-                .toList();
-        orderedSnapshots.stream()
-                .map(PushSubscriptionSnapshot::endpoint)
-                .distinct()
-                .forEach(pushSubscriptionRepository::lockEndpoint);
-
-        Set<Long> snapshotUserIds = orderedSnapshots.stream()
-                .map(PushSubscriptionSnapshot::userId)
-                .collect(Collectors.toSet());
-        Map<Long, User> lockedUsersById = userWritableResolver.lockExistingUsersForUpdate(snapshotUserIds).stream()
-                .collect(Collectors.toMap(User::getUserId, Function.identity()));
-
-        Set<Long> deletedUserIds = new HashSet<>();
-        int deleted = 0;
-        for (PushSubscriptionSnapshot subscription : orderedSnapshots) {
-            int deletedSnapshot = pushSubscriptionRepository.deleteIfSnapshotMatches(
-                    subscription.subscriptionId(),
-                    subscription.userId(),
-                    subscription.endpoint(),
-                    subscription.p256dh(),
-                    subscription.auth(),
-                    subscription.modifiedAt());
-            if (deletedSnapshot == 1) {
-                pushDeliveryJobRepository.redactForSubscriptionSnapshot(
-                        subscription.subscriptionId(), subscription.modifiedAt());
-                deleted++;
-                deletedUserIds.add(subscription.userId());
-            }
-        }
-
-        deletedUserIds.stream().sorted().forEach(userId -> {
-            User user = lockedUsersById.get(userId);
-            if (user != null) {
-                userSettingsService.setPushEnabledForLockedUser(
-                        user,
-                        pushSubscriptionRepository.existsByUser_UserId(userId));
-            }
-        });
-        return deleted;
-    }
 }

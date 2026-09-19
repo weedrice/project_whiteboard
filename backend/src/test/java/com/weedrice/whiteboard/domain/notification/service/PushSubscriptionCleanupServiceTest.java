@@ -12,7 +12,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -50,47 +54,12 @@ class PushSubscriptionCleanupServiceTest {
         locks.verify(userWritableResolver).lockExistingUsersForUpdate(java.util.Set.of(10L));
         locks.verify(jobs).findByIdForUpdate(7L);
         verify(job).expire("expired");
-        verify(userSettingsService).setPushEnabledForLockedUser(user, false);
-    }
-
-    @Test
-    void deletesOnlySubscriptionsThatStillMatchDeliverySnapshots() {
-        PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
-        PushDeliveryJobRepository jobs = mock(PushDeliveryJobRepository.class);
-        UserWritableResolver userWritableResolver = mock(UserWritableResolver.class);
-        UserSettingsService userSettingsService = mock(UserSettingsService.class);
-        PushSubscriptionCleanupService service = new PushSubscriptionCleanupService(
-                repository, jobs, userWritableResolver, userSettingsService);
-        LocalDateTime modifiedAt = LocalDateTime.of(2026, 7, 17, 12, 0);
-        PushSubscriptionSnapshot stale = new PushSubscriptionSnapshot(
-                1L, 10L, "https://push/stale", "old-key", "old-auth", modifiedAt);
-        PushSubscriptionSnapshot unchanged = new PushSubscriptionSnapshot(
-                2L, 10L, "https://push/expired", "key", "auth", modifiedAt);
-        when(repository.deleteIfSnapshotMatches(
-                1L, 10L, "https://push/stale", "old-key", "old-auth", modifiedAt)).thenReturn(0);
-        when(repository.deleteIfSnapshotMatches(
-                2L, 10L, "https://push/expired", "key", "auth", modifiedAt)).thenReturn(1);
-        User user = mock(User.class);
-        when(user.getUserId()).thenReturn(10L);
-        when(userWritableResolver.lockExistingUsersForUpdate(java.util.Set.of(10L))).thenReturn(List.of(user));
-        when(repository.existsByUser_UserId(10L)).thenReturn(false);
-
-        int deleted = service.deleteExpiredSubscriptions(List.of(stale, unchanged));
-
-        assertThat(deleted).isEqualTo(1);
-        var endpointLocks = inOrder(repository);
-        endpointLocks.verify(repository).lockEndpoint("https://push/expired");
-        endpointLocks.verify(repository).lockEndpoint("https://push/stale");
-        verify(repository).deleteIfSnapshotMatches(
-                1L, 10L, "https://push/stale", "old-key", "old-auth", modifiedAt);
-        verify(repository).deleteIfSnapshotMatches(
-                2L, 10L, "https://push/expired", "key", "auth", modifiedAt);
         verify(jobs).redactForSubscriptionSnapshot(2L, modifiedAt);
         verify(userSettingsService).setPushEnabledForLockedUser(user, false);
     }
 
     @Test
-    void skipsSettingsUpdateWhenEveryDeliverySnapshotBecameStale() {
+    void expiredLeaseDoesNotDeleteRefreshedSubscriptionOrChangeSettings() {
         PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
         PushDeliveryJobRepository jobs = mock(PushDeliveryJobRepository.class);
         UserWritableResolver userWritableResolver = mock(UserWritableResolver.class);
@@ -98,15 +67,55 @@ class PushSubscriptionCleanupServiceTest {
         PushSubscriptionCleanupService service = new PushSubscriptionCleanupService(
                 repository, jobs, userWritableResolver, userSettingsService);
         LocalDateTime modifiedAt = LocalDateTime.of(2026, 7, 17, 12, 0);
+        LocalDateTime claimedAt = modifiedAt.plusMinutes(1);
         PushSubscriptionSnapshot stale = new PushSubscriptionSnapshot(
                 1L, 10L, "https://push/refreshed", "old-key", "old-auth", modifiedAt);
+        PushDeliveryLease lease = new PushDeliveryLease(7L, claimedAt, stale, "payload");
         User user = mock(User.class);
-        when(user.getUserId()).thenReturn(10L);
+        var job = mock(com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.class);
         when(userWritableResolver.lockExistingUsersForUpdate(java.util.Set.of(10L))).thenReturn(List.of(user));
+        when(jobs.findByIdForUpdate(7L)).thenReturn(Optional.of(job));
+        when(job.hasLease(claimedAt)).thenReturn(true);
+        when(repository.deleteIfSnapshotMatches(
+                1L, 10L, "https://push/refreshed", "old-key", "old-auth", modifiedAt)).thenReturn(0);
 
-        int deleted = service.deleteExpiredSubscriptions(List.of(stale));
+        DeliveryJobTransitionResult result = service.expireDeliveryLease(lease, "expired");
 
-        assertThat(deleted).isZero();
+        assertThat(result).isEqualTo(DeliveryJobTransitionResult.APPLIED_SUCCESS);
+        verify(repository).deleteIfSnapshotMatches(
+                1L, 10L, "https://push/refreshed", "old-key", "old-auth", modifiedAt);
+        verify(job).expire("expired");
+        verify(jobs, never()).redactForSubscriptionSnapshot(anyLong(), any());
+        verify(repository, never()).existsByUser_UserId(anyLong());
+        verifyNoInteractions(userSettingsService);
+    }
+
+    @Test
+    void lostLeaseDoesNotDeleteSubscriptionOrChangeSettings() {
+        PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
+        PushDeliveryJobRepository jobs = mock(PushDeliveryJobRepository.class);
+        UserWritableResolver userWritableResolver = mock(UserWritableResolver.class);
+        UserSettingsService userSettingsService = mock(UserSettingsService.class);
+        PushSubscriptionCleanupService service = new PushSubscriptionCleanupService(
+                repository, jobs, userWritableResolver, userSettingsService);
+        LocalDateTime modifiedAt = LocalDateTime.of(2026, 7, 17, 12, 0);
+        LocalDateTime claimedAt = modifiedAt.plusMinutes(1);
+        PushSubscriptionSnapshot snapshot = new PushSubscriptionSnapshot(
+                1L, 10L, "https://push/current", "key", "auth", modifiedAt);
+        PushDeliveryLease lease = new PushDeliveryLease(7L, claimedAt, snapshot, "payload");
+        User user = mock(User.class);
+        var job = mock(com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.class);
+        when(userWritableResolver.lockExistingUsersForUpdate(java.util.Set.of(10L))).thenReturn(List.of(user));
+        when(jobs.findByIdForUpdate(7L)).thenReturn(Optional.of(job));
+        when(job.hasLease(claimedAt)).thenReturn(false);
+
+        DeliveryJobTransitionResult result = service.expireDeliveryLease(lease, "expired");
+
+        assertThat(result).isEqualTo(DeliveryJobTransitionResult.LEASE_LOST);
+        verify(repository, never()).deleteIfSnapshotMatches(
+                anyLong(), anyLong(), anyString(), anyString(), anyString(), any());
+        verify(job, never()).expire(anyString());
+        verify(jobs, never()).redactForSubscriptionSnapshot(anyLong(), any());
         verifyNoInteractions(userSettingsService);
     }
 }
