@@ -452,14 +452,12 @@ class UserRepositoryTest {
 
     @Test
     @DisplayName("관리자 대시보드 사용자 집계는 ACTIVE 이고 삭제되지 않은 사용자만 포함한다")
-    void countActiveUsersForAdminDashboard_filtersSuspendedAndDeletedUsers() {
+    void aggregateUserStats_filterSuspendedAndDeletedUsers() {
         LocalDateTime since = LocalDateTime.now().minusDays(1);
-        long activeUsersBefore = userRepository.countActiveUsersForAdminDashboard();
-        long recentlyLoggedInBefore = userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since);
         UserRepository.AdminDashboardUserStatsProjection dashboardStatsBefore =
                 userRepository.countAdminDashboardUserStats(since);
-        long publicLandingRecentlyLoggedInBefore =
-                userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(since);
+        UserRepository.PublicLandingUserStatsProjection landingStatsBefore =
+                userRepository.countPublicLandingUserStats(since);
 
         User recentActive = User.builder()
                 .loginId("recent-active")
@@ -501,15 +499,15 @@ class UserRepositoryTest {
         entityManager.persist(deletedRecent);
         entityManager.flush();
 
-        assertThat(userRepository.countActiveUsersForAdminDashboard()).isEqualTo(activeUsersBefore + 2);
-        assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since))
-                .isEqualTo(recentlyLoggedInBefore + 1);
         UserRepository.AdminDashboardUserStatsProjection dashboardStats =
                 userRepository.countAdminDashboardUserStats(since);
         assertThat(dashboardStats.getTotalUsers()).isEqualTo(dashboardStatsBefore.getTotalUsers() + 2);
         assertThat(dashboardStats.getActiveUsers()).isEqualTo(dashboardStatsBefore.getActiveUsers() + 1);
-        assertThat(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(since))
-                .isEqualTo(publicLandingRecentlyLoggedInBefore + 1);
+        UserRepository.PublicLandingUserStatsProjection landingStats =
+                userRepository.countPublicLandingUserStats(since);
+        assertThat(landingStats.getOnlineCount()).isEqualTo(landingStatsBefore.getOnlineCount() + 1);
+        assertThat(landingStats.getNewMembersLast24Hours())
+                .isEqualTo(landingStatsBefore.getNewMembersLast24Hours() + 2);
     }
 
     @Test

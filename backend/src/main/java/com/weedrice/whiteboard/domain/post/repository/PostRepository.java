@@ -169,20 +169,6 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         long countVisiblePostsForAdminDashboard();
 
         @Query("""
-                SELECT COUNT(p)
-                FROM Post p
-                JOIN p.board b
-                WHERE p.isDeleted = false
-                  AND p.isBlinded = false
-                  AND p.isSecret = false
-                  AND b.isActive = true
-                  AND b.isPublic = true
-                  AND (b.isListed = true OR b.isListed IS NULL)
-                  AND LOWER(b.boardUrl) <> :inquiryBoardUrl
-                """)
-        long countPublicLandingVisiblePosts(@Param("inquiryBoardUrl") String inquiryBoardUrl);
-
-        @Query("""
                 SELECT
                     COUNT(p) AS totalPosts,
                     COALESCE(SUM(CASE
@@ -209,24 +195,6 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 @Param("yesterdayStart") LocalDateTime yesterdayStart,
                 @Param("inquiryBoardUrl") String inquiryBoardUrl);
 
-        @Query("""
-                SELECT COUNT(p)
-                FROM Post p
-                JOIN p.board b
-                WHERE p.createdAt >= :start
-                  AND p.createdAt < :end
-                  AND p.isDeleted = false
-                  AND p.isBlinded = false
-                  AND p.isSecret = false
-                  AND b.isActive = true
-                  AND b.isPublic = true
-                  AND (b.isListed = true OR b.isListed IS NULL)
-                  AND LOWER(b.boardUrl) <> :inquiryBoardUrl
-                """)
-        long countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                @Param("start") LocalDateTime start,
-                @Param("end") LocalDateTime end,
-                @Param("inquiryBoardUrl") String inquiryBoardUrl);
         @EntityGraph(attributePaths = {"board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"board", "category"})

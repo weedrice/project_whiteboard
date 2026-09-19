@@ -100,23 +100,6 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     List<User> findTop200ByUserIdGreaterThanOrderByUserIdAsc(Long userId);
 
     @Query("""
-            SELECT COUNT(u)
-            FROM User u
-            WHERE u.status = 'ACTIVE'
-              AND u.deletedAt IS NULL
-            """)
-    long countActiveUsersForAdminDashboard();
-
-    @Query("""
-            SELECT COUNT(u)
-            FROM User u
-            WHERE u.status = 'ACTIVE'
-              AND u.deletedAt IS NULL
-              AND u.lastLoginAt > :since
-            """)
-    long countRecentlyLoggedInActiveUsersForAdminDashboard(@Param("since") LocalDateTime since);
-
-    @Query("""
             SELECT
                 COUNT(u) AS totalUsers,
                 COALESCE(SUM(CASE WHEN u.lastLoginAt > :since THEN 1L ELSE 0L END), 0L) AS activeUsers
@@ -125,15 +108,6 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
               AND u.deletedAt IS NULL
             """)
     AdminDashboardUserStatsProjection countAdminDashboardUserStats(@Param("since") LocalDateTime since);
-
-    @Query("""
-            SELECT COUNT(u)
-            FROM User u
-            WHERE u.status = 'ACTIVE'
-              AND u.deletedAt IS NULL
-              AND u.lastLoginAt > :since
-            """)
-    long countRecentlyLoggedInActiveUsersForPublicLanding(@Param("since") LocalDateTime since);
 
     @Query("""
             SELECT

@@ -314,7 +314,7 @@ class PostRepositoryTest {
 
     @Test
     @DisplayName("홈 랜딩 게시글 수는 공개 활성 노드의 비밀글이 아닌 미삭제 게시글만 집계한다")
-    void countPublicLandingVisiblePosts_countsOnlyPublicLandingVisiblePosts() {
+    void countPublicLandingPostStats_countsOnlyPublicLandingVisiblePosts() {
         Board privateBoard = persistBoard("Landing Private Board", "landing-private-board", false);
         Board inactiveBoard = persistBoard("Landing Inactive Board", "landing-inactive-board", true);
         inactiveBoard.deactivate();
@@ -328,9 +328,14 @@ class PostRepositoryTest {
         entityManager.persist(landingPost("Landing Inquiry Post", inquiryBoard, false, false));
         entityManager.flush();
 
-        long count = postRepository.countPublicLandingVisiblePosts(BoardPolicyConstants.INQUIRY_BOARD_URL);
+        LocalDateTime todayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
+        PostRepository.PublicLandingPostStatsProjection stats = postRepository.countPublicLandingPostStats(
+                todayStart,
+                todayStart.plusDays(1),
+                todayStart.minusDays(1),
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
-        assertThat(count).isEqualTo(2L);
+        assertThat(stats.getTotalPosts()).isEqualTo(2L);
     }
 
     @Test
@@ -368,7 +373,7 @@ class PostRepositoryTest {
 
     @Test
     @DisplayName("홈 랜딩 날짜별 게시글 수는 공개 랜딩 노출 범위와 기간 조건을 함께 적용한다")
-    void countPublicLandingVisiblePostsCreatedBetween_countsOnlyVisiblePostsInRange() {
+    void countPublicLandingPostStats_countsOnlyVisiblePostsInRange() {
         LocalDateTime todayStart = LocalDateTime.of(2026, 5, 4, 0, 0);
         LocalDateTime tomorrowStart = todayStart.plusDays(1);
         Board privateBoard = persistBoard("Landing Date Private Board", "landing-date-private-board", false);
@@ -393,7 +398,7 @@ class PostRepositoryTest {
         entityManager.flush();
 
         updateCreatedAt(post, todayStart.minusDays(1));
-        updateCreatedAt(visibleToday, todayStart.plusHours(1));
+        updateCreatedAt(visibleToday, todayStart);
         updateCreatedAt(visibleYesterday, todayStart.minusHours(1));
         updateCreatedAt(visibleAtEnd, tomorrowStart);
         updateCreatedAt(secretToday, todayStart.plusHours(2));
@@ -403,12 +408,15 @@ class PostRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        long count = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+        PostRepository.PublicLandingPostStatsProjection stats = postRepository.countPublicLandingPostStats(
                 todayStart,
                 tomorrowStart,
+                todayStart.minusDays(1),
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
 
-        assertThat(count).isEqualTo(1L);
+        assertThat(stats.getPostsToday()).isEqualTo(1L);
+        assertThat(stats.getPostsYesterday()).isEqualTo(2L);
+        assertThat(stats.getTotalPosts()).isEqualTo(4L);
     }
 
     @Test

@@ -19,7 +19,6 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,7 +81,5 @@ class AdminDashboardServiceTest {
         ArgumentCaptor<LocalDateTime> cutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(userRepository).countAdminDashboardUserStats(cutoffCaptor.capture());
         assertThat(cutoffCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 7, 6, 3, 0));
-        verify(userRepository, never()).countActiveUsersForAdminDashboard();
-        verify(userRepository, never()).countRecentlyLoggedInActiveUsersForAdminDashboard(any(LocalDateTime.class));
     }
 }
