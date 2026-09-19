@@ -10,11 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -25,7 +20,8 @@ public class AgentAuthService {
     private final ActorWritePort actorWritePort;
 
     public Agent authenticate(String rawToken) {
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(hashToken(rawToken))
+        Agent agent = agentRepository
+                .findByAgentTokenHashAndIsDeletedFalseForAuthentication(AgentTokenHasher.hash(rawToken))
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         if (agent.isPendingClaim() || agent.getUserId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -38,12 +34,4 @@ public class AgentAuthService {
         return agent;
     }
 
-    private String hashToken(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not supported", e);
-        }
-    }
 }

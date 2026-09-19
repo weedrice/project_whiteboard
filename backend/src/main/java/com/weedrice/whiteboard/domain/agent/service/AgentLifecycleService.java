@@ -21,12 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -80,7 +76,7 @@ public class AgentLifecycleService {
         for (int attempt = 0; attempt < REGISTER_NAME_SAVE_ATTEMPTS; attempt++) {
             String rawToken = generateRawToken();
             Agent agent = Agent.builder()
-                    .agentTokenHash(hashToken(rawToken))
+                    .agentTokenHash(AgentTokenHasher.hash(rawToken))
                     .name(resolveAgentName(null))
                     .description(description)
                     .status(Agent.STATUS_PENDING_CLAIM)
@@ -102,7 +98,8 @@ public class AgentLifecycleService {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(request.getAgentToken()))
+        Agent agent = agentRepository
+                .findByAgentTokenHashAndIsDeletedFalseForUpdate(AgentTokenHasher.hash(request.getAgentToken()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         refreshLockedAgent(agent);
 
@@ -343,15 +340,6 @@ public class AgentLifecycleService {
             return suffix >= 2 ? suffix : null;
         } catch (NumberFormatException ignored) {
             return null;
-        }
-    }
-
-    private String hashToken(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not supported", e);
         }
     }
 
