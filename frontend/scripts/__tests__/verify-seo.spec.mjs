@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
     assertAllowedSeoUrl,
     assertPostUrlsPresent,
     assertStableActiveReleaseSha,
+    createImageMetadataFetcher,
     isPrivateOrReservedAddress,
     resolveAllowedRedirect,
     resolveActiveReleaseSha,
@@ -133,5 +134,74 @@ describe('runtime SEO release verification', () => {
         expect(first).toContain(urls[0])
         expect(first).toContain(urls.at(-1))
         expect(next).not.toEqual(first)
+    })
+})
+
+
+describe('SEO image request reuse', () => {
+    const imageUrl = 'https://noviis.kr/img/og/site.png'
+    const success = { ok: true, status: 200, contentType: 'image/png' }
+
+    it('fetches a shared image once while checking ten pages', async () => {
+        const fetchMetadata = vi.fn().mockResolvedValue(success)
+        const fetchImage = createImageMetadataFetcher(fetchMetadata)
+
+        for (let page = 0; page < 10; page += 1) {
+            await expect(fetchImage(imageUrl, 'googlebot')).resolves.toEqual(success)
+        }
+        expect(fetchMetadata).toHaveBeenCalledTimes(1)
+        expect(fetchMetadata).toHaveBeenCalledWith(imageUrl, 'googlebot')
+    })
+
+    it('checks each distinct image URL and user agent separately', async () => {
+        const fetchMetadata = vi.fn().mockResolvedValue(success)
+        const fetchImage = createImageMetadataFetcher(fetchMetadata)
+        const otherImage = 'https://noviis.kr/img/og/other.png'
+
+        await fetchImage(imageUrl, 'googlebot')
+        await fetchImage(imageUrl, 'otherbot')
+        await fetchImage(otherImage, 'googlebot')
+        await fetchImage(imageUrl, 'googlebot')
+
+        expect(fetchMetadata.mock.calls).toEqual([
+            [imageUrl, 'googlebot'],
+            [imageUrl, 'otherbot'],
+            [otherImage, 'googlebot'],
+        ])
+    })
+
+    it.each([
+        { ok: false, status: 503, contentType: 'image/png' },
+        { ok: true, status: 200, contentType: 'text/html' },
+        { ok: true, status: 200, contentType: '' },
+    ])('does not reuse unsuccessful image verification: %j', async (failure) => {
+        const fetchMetadata = vi.fn().mockResolvedValueOnce(failure).mockResolvedValue(success)
+        const fetchImage = createImageMetadataFetcher(fetchMetadata)
+
+        await expect(fetchImage(imageUrl, 'googlebot')).resolves.toEqual(failure)
+        await expect(fetchImage(imageUrl, 'googlebot')).resolves.toEqual(success)
+        await expect(fetchImage(imageUrl, 'googlebot')).resolves.toEqual(success)
+        expect(fetchMetadata).toHaveBeenCalledTimes(2)
+    })
+
+    it('propagates request errors and allows a later request', async () => {
+        const fetchMetadata = vi.fn()
+            .mockRejectedValueOnce(new Error('blocked redirect'))
+            .mockResolvedValue(success)
+        const fetchImage = createImageMetadataFetcher(fetchMetadata)
+
+        await expect(fetchImage(imageUrl, 'googlebot')).rejects.toThrow('blocked redirect')
+        await expect(fetchImage(imageUrl, 'googlebot')).resolves.toEqual(success)
+        expect(fetchMetadata).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not reuse successful results across verification runs', async () => {
+        const fetchMetadata = vi.fn().mockResolvedValue(success)
+        const firstRun = createImageMetadataFetcher(fetchMetadata)
+        const nextRun = createImageMetadataFetcher(fetchMetadata)
+
+        await firstRun(imageUrl, 'googlebot')
+        await nextRun(imageUrl, 'googlebot')
+        expect(fetchMetadata).toHaveBeenCalledTimes(2)
     })
 })

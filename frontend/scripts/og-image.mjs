@@ -1,3 +1,4 @@
+import { escapeHtml } from './html-meta.mjs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import satori from 'satori'
@@ -188,18 +189,9 @@ export async function resolveSiteOgImage({ siteUrl, distDir }) {
     }
 }
 
-export function escapeMetaContent(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-}
-
 export function buildPostOgMeta(ogImage) {
-    const imageUrl = escapeMetaContent(ogImage.url)
-    const imageAlt = escapeMetaContent(ogImage.alt)
+    const imageUrl = escapeHtml(ogImage.url)
+    const imageAlt = escapeHtml(ogImage.alt)
     const tags = [
         `<meta property="og:image" content="${imageUrl}">`,
         `<meta property="og:image:alt" content="${imageAlt}">`,

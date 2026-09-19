@@ -1,3 +1,4 @@
+import { extractMetaContent } from './html-meta.mjs'
 import { createHash } from 'node:crypto'
 import { lookup } from 'node:dns/promises'
 import { request as httpsRequest } from 'node:https'
@@ -223,6 +224,20 @@ async function fetchImageMetadata(url, userAgent) {
     }
 }
 
+export function createImageMetadataFetcher(fetchMetadata = fetchImageMetadata) {
+    const successfulImages = new Map()
+    return async (url, userAgent) => {
+        const key = JSON.stringify([url, userAgent])
+        if (successfulImages.has(key)) return successfulImages.get(key)
+
+        const image = await fetchMetadata(url, userAgent)
+        if (image.ok && image.contentType.toLowerCase().startsWith('image/')) {
+            successfulImages.set(key, image)
+        }
+        return image
+    }
+}
+
 function parseSitemapUrls(xmlText) {
     return [...xmlText.matchAll(/<loc>(.*?)<\/loc>/g)]
         .map((match) => match[1].trim())
@@ -346,24 +361,9 @@ function greatestCommonDivisor(left, right) {
     return a
 }
 
-function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function extractMetaContent(html, key) {
-    const escapedKey = escapeRegExp(key)
-    const forward = new RegExp(`<meta[^>]+(?:property|name)=["']${escapedKey}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i')
-    const reverse = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escapedKey}["'][^>]*>`, 'i')
-    return (html.match(forward)?.[1] ?? html.match(reverse)?.[1] ?? '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-}
-
 async function main() {
     const failures = []
+    const fetchVerifiedImageMetadata = createImageMetadataFetcher()
     if (expectedReleaseSha && !/^[0-9a-f]{40}$/.test(expectedReleaseSha)) {
         throw new Error('SEO_EXPECTED_RELEASE_SHA must be a full lowercase commit SHA')
     }
@@ -450,7 +450,7 @@ async function main() {
                     failures.push(`[${ua.name}] ${url} has a non-absolute og:image URL`)
                 }
                 if (parsedImageUrl) {
-                    const image = await fetchImageMetadata(parsedImageUrl.toString(), ua.value)
+                    const image = await fetchVerifiedImageMetadata(parsedImageUrl.toString(), ua.value)
                     if (!image.ok) {
                         failures.push(`[${ua.name}] ${url} og:image returned HTTP ${image.status}`)
                     } else if (!image.contentType.toLowerCase().startsWith('image/')) {

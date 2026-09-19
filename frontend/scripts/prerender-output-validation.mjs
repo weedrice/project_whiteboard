@@ -1,20 +1,7 @@
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { extractMetaContent } from './html-meta.mjs'
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from './og-image.mjs'
-
-function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-export function extractMetaContent(html, key) {
-    const escapedKey = escapeRegExp(key)
-    const forward = new RegExp(`<meta[^>]+(?:property|name)=["']${escapedKey}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i')
-    const reverse = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escapedKey}["'][^>]*>`, 'i')
-    return (html.match(forward)?.[1] ?? html.match(reverse)?.[1] ?? '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-}
 
 export function validatePng(png) {
     const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -40,4 +27,20 @@ export function validatePrerenderHtml(html) {
         throw new Error('twitter:card must be summary_large_image')
     }
     return parsed
+}
+
+export async function verifyPrerenderPages(distDir, postIndexes, readContent = readFile) {
+    const validatedImagePaths = new Set()
+    for (const entry of postIndexes) {
+        const html = await readContent(resolve(distDir, entry), 'utf8')
+        const imageUrl = validatePrerenderHtml(html)
+        if (imageUrl.pathname.startsWith('/img/og/')) {
+            const imagePath = resolve(distDir, imageUrl.pathname.replace(/^\//, ''))
+            if (!validatedImagePaths.has(imagePath)) {
+                const png = await readContent(imagePath)
+                validatePng(png)
+                validatedImagePaths.add(imagePath)
+            }
+        }
+    }
 }

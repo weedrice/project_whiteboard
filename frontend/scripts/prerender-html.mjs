@@ -1,13 +1,5 @@
+import { escapeHtml } from './html-meta.mjs'
 import { buildPostOgMeta } from './og-image.mjs'
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-}
 
 // Public files outlive API visibility changes. Never persist mutable post content here.
 export function buildPreRenderedSnippet(canonicalUrl, ogImage) {

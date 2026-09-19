@@ -8,7 +8,8 @@ import {
     renderSiteOgImage,
     resolveSiteOgImage,
 } from '../og-image.mjs'
-import { extractMetaContent, validatePng, validatePrerenderHtml } from '../prerender-output-validation.mjs'
+import { extractMetaContent } from '../html-meta.mjs'
+import { validatePng, validatePrerenderHtml } from '../prerender-output-validation.mjs'
 import { buildPreRenderedListingSnippet, buildPreRenderedSnippet, injectIntoTemplate } from '../prerender-html.mjs'
 
 const tempDirs = []
