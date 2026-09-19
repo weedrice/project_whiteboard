@@ -132,7 +132,6 @@ export default defineConfig(({ mode }) => {
                             { name: 'vendor-highlight', test: /node_modules[\\/](?:lowlight|highlight\.js)[\\/]/, priority: 20 },
                             { name: 'vendor-editor', test: /node_modules[\\/](?:@tiptap|linkifyjs)[\\/]/, priority: 20 },
                             { name: 'vendor-icons', test: /node_modules[\\/]lucide-vue-next[\\/]/, priority: 20 },
-                            { name: 'vendor-date', test: /node_modules[\\/]date-fns[\\/]/, priority: 20 },
                             { name: 'vendor-drag', test: /node_modules[\\/]vuedraggable[\\/]/, priority: 20 },
                             { name: 'vendor-i18n', test: /node_modules[\\/]vue-i18n[\\/]/, priority: 20 },
                             { name: 'vendor-http', test: /node_modules[\\/]axios[\\/]/, priority: 20 },
