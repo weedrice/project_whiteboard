@@ -193,7 +193,8 @@ describe('SubscribedBoards', () => {
       signal: expect.any(AbortSignal),
     })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home', 'landing'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
   it('invalidates board subscription caches after reorder', async () => {
@@ -210,7 +211,8 @@ describe('SubscribedBoards', () => {
       signal: expect.any(AbortSignal),
     })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home', 'landing'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
   it('supports moving subscriptions with accessible order buttons', async () => {

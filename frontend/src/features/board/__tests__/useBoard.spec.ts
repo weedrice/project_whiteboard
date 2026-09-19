@@ -440,7 +440,6 @@ describe('useBoard', () => {
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('forwards subscribe requestConfig when provided', async () => {
@@ -474,7 +473,6 @@ describe('useBoard', () => {
         )
         expect(result).toEqual({ boardId: 3, boardUrl: 'new' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('assigns local error ownership to board form mutations', () => {
@@ -526,7 +524,6 @@ describe('useBoard', () => {
         )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('invalidates old and new board detail caches when board URL changes', async () => {
@@ -551,7 +548,6 @@ describe('useBoard', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'categories', 'new-free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'new-free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('transfers board manager and invalidates detail plus lists', async () => {
@@ -571,7 +567,6 @@ describe('useBoard', () => {
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('fetches board manager candidates with enabled guard', async () => {
@@ -638,6 +633,5 @@ describe('useBoard', () => {
         expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'categories', 'free'] })
         expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 })

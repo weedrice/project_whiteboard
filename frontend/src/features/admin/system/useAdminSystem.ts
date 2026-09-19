@@ -168,12 +168,11 @@ export function useAdminSystem(queryClient: QueryClient) {
         return useMutation({
             onMutate: captureMutationSession,
             mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
-            onSuccess: (_data, variables, context) => {
+            onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminErrorLogCaches(
                     queryClient,
                     context.sessionGeneration,
-                    variables.errorLogId,
                 )
             }
         })

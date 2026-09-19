@@ -163,7 +163,8 @@ describe('useSubscribedBoardsManager', () => {
     expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free', { signal: expect.any(AbortSignal) })
     expect(mocks.addToast).toHaveBeenCalledWith('user.subscriptions.unsubscribeSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home', 'landing'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
     expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
   })
 

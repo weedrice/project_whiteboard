@@ -109,6 +109,9 @@ describe('OnboardingPage', () => {
     const { invalidateQueries, queryClient, wrapper } = mountPage()
     await flushAll()
 
+    const subscriptionKey = sessionQueryKey(0, ['boards', 'subscriptions', 10])
+    queryClient.setQueryData(subscriptionKey, [board()])
+
     expect(wrapper.text()).toContain('General')
     await wrapper.findAll('button')[0].trigger('click')
     await flushAll()
@@ -117,7 +120,8 @@ describe('OnboardingPage', () => {
     expect(queryClient.getQueryData<BoardListItem[]>(sessionQueryKey(0, ['onboarding', 'board-recommendations']))?.[0]?.isSubscribed).toBe(true)
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['board', 'detail', 'general']) })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['boards']) })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['boards', 'subscriptions']) })
+    expect(queryClient.getQueryState(subscriptionKey)?.isInvalidated).toBe(true)
+    expect(invalidateQueries).toHaveBeenCalledTimes(3)
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['home', 'landing']) })
   })
 

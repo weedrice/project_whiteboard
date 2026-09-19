@@ -7,7 +7,6 @@ import { sessionQueryKey } from '@/queryAuthScope'
 export function invalidateBoardListCaches(queryClient: QueryClient, sessionGeneration: number) {
   invalidateQueryKeys(queryClient, [
     sessionQueryKey(sessionGeneration, boardQueryKeys.all),
-    sessionQueryKey(sessionGeneration, boardQueryKeys.subscriptions),
     sessionQueryKey(sessionGeneration, homeQueryKeys.landingRoot),
   ])
 }
@@ -20,7 +19,6 @@ export function invalidateBoardSubscriptionCaches(
   invalidateQueryKeys(queryClient, [
     sessionQueryKey(sessionGeneration, boardQueryKeys.detail(boardUrl)),
     sessionQueryKey(sessionGeneration, boardQueryKeys.all),
-    sessionQueryKey(sessionGeneration, boardQueryKeys.subscriptions),
     sessionQueryKey(sessionGeneration, homeQueryKeys.landingRoot),
   ])
 }

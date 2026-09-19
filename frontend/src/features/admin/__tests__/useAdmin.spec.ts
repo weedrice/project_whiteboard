@@ -346,7 +346,6 @@ describe('useAdmin', () => {
 
             expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE', 'reviewed')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users', 'detail'] })
         })
 
         it('useSanctionUser calls adminApi.sanctionUser', async () => {
@@ -359,7 +358,6 @@ describe('useAdmin', () => {
 
             expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users', 'detail'] })
         })
 
         it('admin user detail queries forward user-specific params', async () => {
@@ -911,7 +909,6 @@ describe('useAdmin', () => {
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs', 'detail', 1] })
         })
 
         it('useResolveErrorLog calls adminApi.resolveErrorLog without memo', async () => {
@@ -925,7 +922,6 @@ describe('useAdmin', () => {
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined)
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs', 'detail', 2] })
         })
 
         it('useErrorLogStats returns query hooks', () => {

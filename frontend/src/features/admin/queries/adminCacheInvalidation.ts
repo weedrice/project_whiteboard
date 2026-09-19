@@ -17,7 +17,6 @@ function invalidateAdminQueryKeys(
 export function invalidateAdminUserCaches(queryClient: QueryClient, sessionGeneration: number) {
   invalidateAdminQueryKeys(queryClient, sessionGeneration, [
     adminQueryKeys.usersRoot,
-    adminQueryKeys.userDetailRoot,
   ])
 }
 
@@ -62,12 +61,6 @@ export function invalidateAdminConfigCaches(queryClient: QueryClient, sessionGen
   ])
 }
 
-export function invalidateAdminReportCaches(queryClient: QueryClient, sessionGeneration: number) {
-  invalidateAdminQueryKeys(queryClient, sessionGeneration, [
-    adminQueryKeys.reportsRoot,
-  ])
-}
-
 export function invalidateAdminIpBlockCaches(queryClient: QueryClient, sessionGeneration: number) {
   invalidateAdminQueryKeys(queryClient, sessionGeneration, [
     adminQueryKeys.ipBlocksRoot,
@@ -77,11 +70,9 @@ export function invalidateAdminIpBlockCaches(queryClient: QueryClient, sessionGe
 export function invalidateAdminErrorLogCaches(
   queryClient: QueryClient,
   sessionGeneration: number,
-  errorLogId?: number,
 ) {
   invalidateAdminQueryKeys(queryClient, sessionGeneration, [
     adminQueryKeys.errorLogsRoot,
     adminQueryKeys.errorLogStats,
-    ...(errorLogId === undefined ? [] : [adminQueryKeys.errorLogDetailById(errorLogId)]),
   ])
 }
