@@ -17,13 +17,6 @@ export type DraftPersistence =
   | { type: 'saved', scope: 'server' | 'browser', at: string }
   | { type: 'failed', target: 'server' | 'browser', exhausted: boolean }
 
-export interface DraftSessionIdentity {
-  draftId: number | null
-  clientDraftKey: string
-  version: number | null
-  updatedAt: string | null
-}
-
 type DraftRequestKind = 'save' | 'recovery'
 
 type DraftBlockingStatus = DraftAvailability['type']
@@ -242,5 +235,3 @@ export function createDraftSessionStatusController(
     reset,
   }
 }
-
-export const createDraftBlockingStatusController = createDraftSessionStatusController

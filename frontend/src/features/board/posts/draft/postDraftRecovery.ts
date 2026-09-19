@@ -1,7 +1,6 @@
 import { isAxiosError } from 'axios'
 import type { AxiosRequestConfig } from 'axios'
 import { postApi, type PostDraftData } from '@/api/post'
-import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { API_ERROR_CODES } from '@/api/errorCodes'
 import type { DraftPost } from '@/types'
@@ -140,22 +139,6 @@ export const isDraftMissingError = (error: unknown): boolean => {
     if (!isAxiosError(error) || error.response?.status !== 404) return false
     const data = error.response.data as ApiErrorPayload | undefined
     return data?.error?.code === DRAFT_NOT_FOUND_ERROR_CODE || data?.code === DRAFT_NOT_FOUND_ERROR_CODE
-}
-
-interface MatchingServerDraftResolution {
-    draftId: number | null
-    multipleMatchesFound: boolean
-}
-
-export const resolveMatchingServerDraft = async (
-    payload: PostDraftData,
-    config?: AxiosRequestConfig,
-): Promise<MatchingServerDraftResolution> => {
-    return unwrapAxiosApiData(await userApi.getMatchingDraft({
-        boardUrl: payload.boardUrl,
-        ...(payload.originalPostId != null ? { originalPostId: payload.originalPostId } : {}),
-        ...(payload.clientDraftKey ? { clientDraftKey: payload.clientDraftKey } : {}),
-    }, config))
 }
 
 export const loadDraftById = async (draftId: number, config?: AxiosRequestConfig) => (

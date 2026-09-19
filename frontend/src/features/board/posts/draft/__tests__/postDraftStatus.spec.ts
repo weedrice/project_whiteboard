@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  createDraftBlockingStatusController,
   createDraftSessionStatusController,
 } from '@/features/board/posts/draft/postDraftStatus'
 
 describe('draft status model', () => {
   it('keeps conflict, protected, and deleted mutually exclusive', () => {
-    const state = createDraftBlockingStatusController()
+    const state = createDraftSessionStatusController()
 
     state.draftConflict.value = true
     expect(state.draftConflict.value).toBe(true)
@@ -24,7 +23,7 @@ describe('draft status model', () => {
   })
 
   it('only clears the status represented by the flag being reset', () => {
-    const state = createDraftBlockingStatusController('protected')
+    const state = createDraftSessionStatusController('protected')
 
     state.draftConflict.value = false
     expect(state.draftProtected.value).toBe(true)

@@ -20,7 +20,6 @@ const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
     const deleteDraftMutateAsync = vi.fn()
     const getDraft = vi.fn()
-    const getMatchingDraft = vi.fn()
     const resolveDraftRecovery = vi.fn()
     const loggerError = vi.fn()
     const reportDraftOperationalEvent = vi.fn()
@@ -29,7 +28,6 @@ const mocks = vi.hoisted(() => {
         saveDraftMutateAsync,
         deleteDraftMutateAsync,
         getDraft,
-        getMatchingDraft,
         resolveDraftRecovery,
         loggerError,
         reportDraftOperationalEvent,
@@ -61,7 +59,6 @@ vi.mock('@/api/post', () => ({
 
 vi.mock('@/api/user', () => ({
     userApi: {
-        getMatchingDraft: mocks.getMatchingDraft,
         resolveDraftRecovery: mocks.resolveDraftRecovery,
     },
 }))
@@ -195,14 +192,6 @@ describe('usePostDraft', () => {
             },
         })
         mocks.deleteDraftMutateAsync.mockResolvedValue({ data: { data: null } })
-        mocks.getMatchingDraft.mockResolvedValue({
-            data: {
-                data: {
-                    draftId: null,
-                    multipleMatchesFound: false,
-                },
-            },
-        })
         mocks.resolveDraftRecovery.mockResolvedValue({
             data: { data: { status: 'MISSING', staleCandidate: false } },
         })
@@ -675,7 +664,6 @@ describe('usePostDraft', () => {
             { boardUrl: 'free', originalPostId: 7 },
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
-        expect(mocks.getMatchingDraft).not.toHaveBeenCalled()
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Recovered draft',
@@ -2111,7 +2099,6 @@ describe('usePostDraft', () => {
             expect.objectContaining({ boardUrl: 'free', originalPostId: 7, draftId: 91 }),
             expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
         )
-        expect(mocks.getMatchingDraft).not.toHaveBeenCalled()
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',

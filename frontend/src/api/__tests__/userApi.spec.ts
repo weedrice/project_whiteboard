@@ -146,11 +146,6 @@ describe('userApi', () => {
         userApi.getMyComments(params)
         const scrapsResponse = await userApi.getMyScraps(params)
         userApi.getMyDrafts(params)
-        userApi.getMatchingDraft({
-            boardUrl: 'free',
-            originalPostId: 7,
-            clientDraftKey: 'client-draft-key-1234',
-        })
         userApi.resolveDraftRecovery({
             boardUrl: 'free',
             originalPostId: 7,
@@ -170,14 +165,7 @@ describe('userApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/users/me/comments', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/scraps', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(6, '/users/me/drafts', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(7, '/users/me/drafts/match', {
-            params: {
-                boardUrl: 'free',
-                originalPostId: 7,
-                clientDraftKey: 'client-draft-key-1234',
-            },
-        })
-        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/drafts/recovery', {
+        expect(apiMock.get).toHaveBeenNthCalledWith(7, '/users/me/drafts/recovery', {
             params: {
                 boardUrl: 'free',
                 originalPostId: 7,
@@ -185,10 +173,10 @@ describe('userApi', () => {
                 clientDraftKey: 'client-draft-key-1234',
             },
         })
-        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/users/me/history/views', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(10, '/users/me/subscriptions', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(11, '/points/me')
-        expect(apiMock.get).toHaveBeenNthCalledWith(12, '/points/me/history', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/history/views', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/users/me/subscriptions', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(10, '/points/me')
+        expect(apiMock.get).toHaveBeenNthCalledWith(11, '/points/me/history', { params })
         expect(blockListResponse.data.data.number).toBe(1)
         expect(scrapsResponse.data.data.number).toBe(1)
         expect(pointResponse.data.data.number).toBe(1)

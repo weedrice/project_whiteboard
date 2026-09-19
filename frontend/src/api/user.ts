@@ -21,7 +21,6 @@ export {
     type UserUpdatePayload,
 } from '@/api/userAccountApi'
 export {
-    type DraftMatchResponse,
     type DraftRecoveryParams,
     type DraftRecoveryResponse,
     type DraftRecoveryStatus,

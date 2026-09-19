@@ -27,11 +27,6 @@ import {
     type BlockListRawResponse,
 } from '@/api/userMappers'
 
-export interface DraftMatchResponse {
-    draftId: number | null
-    multipleMatchesFound: boolean
-}
-
 export type DraftRecoveryStatus = 'AVAILABLE' | 'MISSING' | 'PROTECTED' | 'AMBIGUOUS'
 
 export interface DraftRecoveryResponse {
@@ -119,20 +114,8 @@ export const userActivityApi = {
     createPostSeries(payload: PostSeriesPayload, config?: AxiosRequestConfig) {
         return api.post<ApiResponse<PostSeries>>('/users/me/post-series', payload, config)
     },
-    updatePostSeries(seriesId: string | number, payload: PostSeriesPayload) {
-        return api.patch<ApiResponse<PostSeries>>(`/users/me/post-series/${encodePathSegment(seriesId)}`, payload)
-    },
-    deletePostSeries(seriesId: string | number) {
-        return api.delete<ApiResponse<void>>(`/users/me/post-series/${encodePathSegment(seriesId)}`)
-    },
     getMyDrafts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })
-    },
-    getMatchingDraft(
-        params: { boardUrl: string, originalPostId?: number, clientDraftKey?: string },
-        config?: AxiosRequestConfig,
-    ) {
-        return api.get<ApiResponse<DraftMatchResponse>>('/users/me/drafts/match', { ...config, params })
     },
     resolveDraftRecovery(params: DraftRecoveryParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<DraftRecoveryResponse>>('/users/me/drafts/recovery', { ...config, params })
