@@ -76,6 +76,7 @@ function hasLegacyActionContainer(element) {
 }
 
 const violations = []
+const vueSourceByFile = new Map()
 const sourceFiles = await collectFiles(srcRoot, new Set(['.ts', '.vue']))
 for (const file of sourceFiles) {
   const displayPath = relative(srcRoot, file)
@@ -83,6 +84,7 @@ for (const file of sourceFiles) {
   if (isTestSource) continue
 
   const source = await readFile(file, 'utf8')
+  if (extname(file) === '.vue') vueSourceByFile.set(file, source)
   source.split(/\r?\n/).forEach((line, index) => {
     if (/\b(?:window|globalThis)\.(?:alert|confirm|prompt)\s*\(/.test(line)) {
       violations.push(`${displayPath}:${index + 1} 브라우저 기본 dialog 대신 공통 confirm/prompt UI를 사용해야 합니다.`)
@@ -91,7 +93,7 @@ for (const file of sourceFiles) {
 }
 
 for (const file of sourceFiles.filter((path) => extname(path) === '.vue')) {
-  const source = await readFile(file, 'utf8')
+  const source = vueSourceByFile.get(file) ?? await readFile(file, 'utf8')
   const displayPath = relative(srcRoot, file)
   const template = extractTemplate(source)
   if (!template) continue

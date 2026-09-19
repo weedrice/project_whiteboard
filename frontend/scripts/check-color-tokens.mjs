@@ -110,13 +110,15 @@ const files = walk(srcDir)
 const violations = []
 const definedNvTokens = new Set()
 const foundationSource = readFileSync(foundationPath, 'utf8')
+const sourceByFile = new Map([[foundationPath, foundationSource]])
 const themeBaseColorCounts = {
   light: countUniqueBaseColors(extractCssBlock(foundationSource, /^\s*:root\s*\{/m)),
   dark: countUniqueBaseColors(extractCssBlock(foundationSource, /^\s*\.dark:root,/m)),
 }
 
 for (const file of files) {
-  const source = readFileSync(file, 'utf8')
+  const source = sourceByFile.get(file) ?? readFileSync(file, 'utf8')
+  sourceByFile.set(file, source)
   for (const match of source.matchAll(/(--nv-[\w-]+)\s*:/g)) {
     definedNvTokens.add(match[1])
   }
@@ -135,7 +137,7 @@ for (const [theme, count] of Object.entries(themeBaseColorCounts)) {
 }
 
 for (const file of files) {
-  const source = readFileSync(file, 'utf8')
+  const source = sourceByFile.get(file)
 
   for (const rule of rules) {
     for (const match of source.matchAll(rule.pattern)) {
