@@ -15,6 +15,25 @@ class HtmlSafetyUtilsTest {
     }
 
     @Test
+    void stripTags_preservesComparisonsWhitespaceAndEntities() {
+        String text = "1 < 2 and 3 > 2\nprice < 1000, stock > 0\n  &lt;  &amp;  ";
+        assertThat(HtmlSafetyUtils.stripTags(text)).isEqualTo(text);
+        assertThat(HtmlSafetyUtils.containsHtmlTag(text)).isFalse();
+        assertThat(HtmlSafetyUtils.stripTags(null)).isNull();
+    }
+
+    @Test
+    void stripTags_removesRealMarkupWithoutRemovingComparisonsInsideIt() {
+        assertThat(HtmlSafetyUtils.stripTags("<p>1 < 2 and 3 > 2</p><br><strong>safe</strong>"))
+                .isEqualTo("1 < 2 and 3 > 2safe");
+        assertThat(HtmlSafetyUtils.stripTags("<!-- hidden --><!DOCTYPE html><?xml version='1.0'?><img src=x onerror=evil>"))
+                .isEmpty();
+        assertThat(HtmlSafetyUtils.stripTags("<script>alert(1)</script><svg/onload=evil>safe</svg>"))
+                .isEqualTo("alert(1)safe");
+        assertThat(HtmlSafetyUtils.containsHtmlTag("<img src=x onerror=evil>")).isTrue();
+    }
+
+    @Test
     @DisplayName("script and event handler patterns are detected as unsafe HTML")
     void containsUnsafeHtml_detectsScriptAndEventHandlers() {
         assertThat(HtmlSafetyUtils.containsUnsafeHtml("<script>alert(1)</script>")).isTrue();

@@ -37,6 +37,8 @@ public interface AgentContentPort {
 
     Page<AgentCommentItem> getPostComments(Agent agent, Long postId, Pageable pageable);
 
+    Page<AgentCommentItem> getCommentReplies(Agent agent, Long commentId, Pageable pageable);
+
     boolean isOwnerEmailVerified(Agent agent);
 
     void validateProfileVisible(Agent viewer, Agent target);

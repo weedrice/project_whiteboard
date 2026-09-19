@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 public final class HtmlSafetyUtils {
 
     private static final Pattern HTML_TAG_PATTERN = Pattern.compile(
-            "<[^>]+>",
+            "</?[A-Za-z][^>]*>|<![^>]*>|<\\?[^>]*>",
             Pattern.CASE_INSENSITIVE | Pattern.MULTILINE
     );
     private static final Pattern SCRIPT_PATTERN = Pattern.compile(

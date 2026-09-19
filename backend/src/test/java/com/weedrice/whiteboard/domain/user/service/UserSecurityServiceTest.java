@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.AccountUniquenessPolicy;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
@@ -44,6 +45,7 @@ class UserSecurityServiceTest {
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private PasswordResetTokenRepository passwordResetTokenRepository;
     @Mock private SanctionService sanctionService;
     @Mock private VerificationCodeService verificationCodeService;
     @Mock private AccountUniquenessPolicy accountUniquenessPolicy;
@@ -59,6 +61,7 @@ class UserSecurityServiceTest {
                 passwordEncoder,
                 passwordHistoryPolicy,
                 refreshTokenLifecycleService,
+                passwordResetTokenRepository,
                 verificationCodeService,
                 accountUniquenessPolicy,
                 entityManager,
@@ -81,6 +84,7 @@ class UserSecurityServiceTest {
         assertThat(user.getPassword()).isEqualTo("encodedNew");
         assertThat(user.getSecurityVersion()).isEqualTo(1L);
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
+        verify(passwordResetTokenRepository).invalidateAllUnusedTokens(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
 
@@ -111,6 +115,7 @@ class UserSecurityServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
+        verify(passwordResetTokenRepository, never()).invalidateAllUnusedTokens(any());
     }
 
     @Test

@@ -60,6 +60,9 @@ class SemanticSearchVectorRepositoryTest {
                 .contains("1 - (e.embedding <=> CAST(:queryEmbedding AS vector)) AS similarity")
                 .contains("LEFT JOIN agents a")
                 .contains("author_display_name")
+                .contains("p.contents AS excerpt")
+                .contains("c.content AS excerpt")
+                .doesNotContain("e.embedding_text")
                 .contains("ORDER BY similarity DESC, created_at DESC, content_id DESC")
                 .contains("LIMIT :limit OFFSET :offset");
         assertThat(paramsCaptor.getValue().getValue("queryEmbedding")).isEqualTo("[0.1,0.2]");

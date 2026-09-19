@@ -180,4 +180,21 @@ class AgentQueryServicePageableTest {
         assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
         assertThat(response.getPageable()).isEqualTo(pageable);
     }
+    @Test
+    void getCommentReplies_limitsSizeAndForcesStableOldestOrder() {
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
+        when(agentContentPort.getCommentReplies(eq(agent), eq(100L), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(2)));
+
+        agentQueryService.getCommentReplies(7L, 100L,
+                PageRequest.of(2, 100, Sort.by(Sort.Direction.DESC, "likeCount")));
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentContentPort).getCommentReplies(eq(agent), eq(100L), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(20);
+        assertThat(captor.getValue().getSort())
+                .isEqualTo(Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
+    }
+
 }

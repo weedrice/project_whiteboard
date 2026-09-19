@@ -177,6 +177,14 @@ class AuthPasswordResetMailFlowTest {
                     });
             return invalidatedCount[0];
         }).when(passwordResetTokenRepository).invalidatePreviousSentUnusedTokens(any(User.class), nullable(Long.class));
+        doAnswer(invocation -> {
+            User targetUser = invocation.getArgument(0);
+            List<PasswordResetToken> unusedTokens = passwordResetTokens.values().stream()
+                    .filter(token -> token.getUser().equals(targetUser) && !token.getIsUsed())
+                    .toList();
+            unusedTokens.forEach(PasswordResetToken::invalidate);
+            return unusedTokens.size();
+        }).when(passwordResetTokenRepository).invalidateAllUnusedTokens(any(User.class));
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
@@ -601,6 +609,7 @@ class AuthPasswordResetMailFlowTest {
         inOrder.verify(passwordResetTokenRepository).findLatestSentByUser(user);
         inOrder.verify(passwordResetTokenRepository).save(latestSentToken);
         inOrder.verify(passwordHistoryRepository).save(any());
+        inOrder.verify(passwordResetTokenRepository).invalidateAllUnusedTokens(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
 
@@ -625,6 +634,27 @@ class AuthPasswordResetMailFlowTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USED_PASSWORD_RESET_TOKEN);
+    }
+
+    @Test
+    @DisplayName("code reset invalidates an earlier emailed reset link")
+    void resetPasswordByCode_rejectsPreviouslySentLinkAfterSuccess() {
+        passwordResetService.sendPasswordResetLinkByEmail(user.getEmail(), "mail-ticket");
+        var bodyCaptor = forClass(String.class);
+        verify(emailService).sendEmail(eq(user.getEmail()), anyString(), bodyCaptor.capture());
+        String previousRawToken = extractResetToken(bodyCaptor.getValue());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of());
+        when(passwordEncoder.encode("NewPassword1!")).thenReturn("newEncodedPassword");
+
+        passwordResetService.resetPasswordByCode(user.getEmail(), "code-ticket", "NewPassword1!");
+
+        assertThat(user.getPassword()).isEqualTo("newEncodedPassword");
+        verify(passwordResetTokenRepository).invalidateAllUnusedTokens(user);
+        assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken(previousRawToken, "AnotherPassword2!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USED_PASSWORD_RESET_TOKEN);
+        assertThat(user.getPassword()).isEqualTo("newEncodedPassword");
     }
 
     private String extractResetToken(String emailBody) {

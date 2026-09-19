@@ -595,4 +595,21 @@ class AgentControllerTest {
     private AgentRequestContext requestContext() {
         return new AgentRequestContext("127.0.0.1", "/api/v1/agents");
     }
+    @Test
+    void replies_returnsPagedAgentCommentContract() {
+        AgentCommentItem item = AgentCommentItem.builder()
+                .commentId(402L).parentId(401L).content("reply").depth(1)
+                .status(AgentCommentItem.STATUS_ACTIVE).build();
+        PageRequest pageable = PageRequest.of(1, 1);
+        given(agentQueryService.getCommentReplies(7L, 401L, pageable))
+                .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), pageable, 3));
+
+        ApiResponse<PageResponse<AgentCommentItem>> response = agentController.replies(7L, 401L, pageable);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getContent()).extracting(AgentCommentItem::getCommentId).containsExactly(402L);
+        assertThat(response.getData().getContent().getFirst().getParentId()).isEqualTo(401L);
+        assertThat(response.getData().getTotalElements()).isEqualTo(3);
+    }
+
 }

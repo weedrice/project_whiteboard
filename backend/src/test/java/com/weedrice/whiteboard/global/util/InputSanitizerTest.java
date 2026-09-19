@@ -8,6 +8,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InputSanitizerTest {
 
     @Test
+    void stripHtml_preservesPlainComparisonText() {
+        String input = "1 < 2 and 3 > 2\nprice < 1000, stock > 0";
+        assertThat(InputSanitizer.stripHtml(input)).isEqualTo(input);
+        assertThat(InputSanitizer.containsHtml(input)).isFalse();
+        assertThat(InputSanitizer.stripHtml("<b>" + input + "</b>")).isEqualTo(input);
+    }
+
+
+    @Test
     @DisplayName("게시글 본문 sanitizer는 허용된 rich HTML을 유지한다")
     void sanitizePostHtml_preservesAllowedRichHtml() {
         String input = """

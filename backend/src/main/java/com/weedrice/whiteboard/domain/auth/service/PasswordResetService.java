@@ -231,6 +231,7 @@ public class PasswordResetService {
 
         passwordHistoryPolicy.record(user, newPasswordHash);
 
+        passwordResetTokenRepository.invalidateAllUnusedTokens(user);
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 

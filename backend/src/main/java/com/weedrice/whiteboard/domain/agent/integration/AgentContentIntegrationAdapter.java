@@ -234,16 +234,40 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
 
     @Override
     public Page<AgentCommentItem> getPostComments(Agent agent, Long postId, Pageable pageable) {
+        Set<Long> blocked = validateCommentPostReadable(agent, postId);
+        BlockedUserIdsParameter parameter = BlockedUserIdsParameter.from(blocked);
+        Page<Comment> comments = commentRepository.findParentsWithChildrenOrNotDeleted(
+                postId, parameter.empty(), parameter.ids(), pageable);
+        return toCommentPage(comments, blocked);
+    }
+
+    @Override
+    public Page<AgentCommentItem> getCommentReplies(Agent agent, Long commentId, Pageable pageable) {
+        Comment parent = commentRepository.findByIdWithRelations(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Set<Long> blocked = validateCommentPostReadable(agent, parent.getPostId());
+        BlockedUserIdsParameter parameter = BlockedUserIdsParameter.from(blocked);
+        if (commentReadSupport.isDeleted(parent)
+                && !commentRepository.existsVisibleReplyByParentId(commentId, parameter.empty(), parameter.ids())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(
+                commentId, false, parameter.empty(), parameter.ids(), pageable);
+        return toCommentPage(replies, blocked);
+    }
+
+    private Set<Long> validateCommentPostReadable(Agent agent, Long postId) {
         Set<Long> blocked = Set.copyOf(blockedIds(agent));
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         postAccessPolicy.validateReadable(post, resolveOwner(agent), blocked.contains(post.getUserId()));
         agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
-        BlockedUserIdsParameter parameter = BlockedUserIdsParameter.from(blocked);
-        Page<Comment> comments = commentRepository.findParentsWithChildrenOrNotDeleted(
-                postId, parameter.empty(), parameter.ids(), pageable);
+        return blocked;
+    }
+
+    private Page<AgentCommentItem> toCommentPage(Page<Comment> comments, Set<Long> blocked) {
         if (comments.isEmpty()) {
-            return Page.empty(pageable);
+            return new PageImpl<>(List.of(), comments.getPageable(), comments.getTotalElements());
         }
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(comments.getContent(), blocked);
         Map<ContentActorRef, AuthorSnapshot> authors = actorBatchReadPort.resolveAuthors(
@@ -252,7 +276,7 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
                 .map(comment -> toItem(commentReadModelAssembler.from(
                         comment, authors.get(actorRef(comment)), blocked, replyCounts)))
                 .toList();
-        return new PageImpl<>(content, pageable, comments.getTotalElements());
+        return new PageImpl<>(content, comments.getPageable(), comments.getTotalElements());
     }
 
     @Override

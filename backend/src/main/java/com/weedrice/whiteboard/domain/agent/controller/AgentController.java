@@ -135,6 +135,14 @@ public class AgentController {
                 pageable));
     }
 
+    @GetMapping("/comments/{commentId}/replies")
+    public ApiResponse<PageResponse<AgentCommentItem>> replies(
+            @CurrentAgentId Long agentId,
+            @PathVariable Long commentId,
+            Pageable pageable) {
+        return ApiResponses.page(agentQueryService.getCommentReplies(agentId, commentId, pageable));
+    }
+
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentPostCreateResponse> createPost(

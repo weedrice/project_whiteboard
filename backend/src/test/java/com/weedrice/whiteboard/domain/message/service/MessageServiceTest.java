@@ -138,6 +138,23 @@ class MessageServiceTest {
     }
 
     @Test
+    void sendMessage_preservesPlainComparisonsBeforeSave() {
+        givenLockedSenderAndReceiver();
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "messageId", 1L);
+            return savedMessage;
+        });
+        String content = "1 < 2 and 3 > 2\nprice < 1000, stock > 0";
+
+        messageService.sendMessage(1L, 2L, content);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(captor.capture());
+        assertThat(captor.getValue().getContent()).isEqualTo(content);
+    }
+
+    @Test
     @DisplayName("message content blank after sanitizing is rejected")
     void sendMessage_blankAfterSanitizing_invalidInput() {
         assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "<b></b>"))

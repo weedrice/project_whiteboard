@@ -2,10 +2,14 @@ package com.weedrice.whiteboard.domain.search.semantic;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -75,6 +79,56 @@ class SemanticSearchServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getRankSource()).isEqualTo("VECTOR");
         verify(transactionService, never()).searchKeyword(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "COMMENT"})
+    void search_formatsCurrentVectorContentAsBoundedPlainText(String contentType) {
+        properties.setEnabled(true);
+        String currentText = "수정된 내용 " + "가😀".repeat(150);
+        String currentHtml = "<p>" + currentText + "</p>";
+        when(transactionService.loadQueryContext(null, null))
+                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+        when(embeddingClient.isAvailable()).thenReturn(true);
+        when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
+        when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
+                new SemanticSearchQueryRows(List.of(
+                        new SemanticSearchRow(contentType, 100L, 100L, 10L, "board", "Board", "hello",
+                                currentHtml, 0.91, "VECTOR", null, 1L, null, "USER", "author", null)), 1L));
+
+        Page<SemanticSearchResultResponse> result = semanticSearchService.search(
+                "hello", contentType, null, 0, 20, null);
+
+        String excerpt = result.getContent().getFirst().getExcerpt();
+        assertThat(excerpt).isEqualTo(currentText.substring(0, currentText.offsetByCodePoints(0, 240)));
+        assertThat(excerpt.codePointCount(0, excerpt.length())).isEqualTo(240);
+        assertThat(result.getContent().getFirst().getRankSource()).isEqualTo("VECTOR");
+        assertThat(result.getContent().getFirst().getSimilarity()).isEqualTo(0.91);
+        verify(transactionService, never()).searchKeyword(any());
+    }
+
+    @Test
+    void search_expandsCurrentPreservedHtmlForVectorExcerpt() {
+        properties.setEnabled(true);
+        String preservedHtml = "<style>.card{display:grid}</style><p>현재 보존 HTML 본문</p>";
+        String marker = "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(preservedHtml.getBytes(StandardCharsets.UTF_8))
+                + "\"></div>";
+        when(transactionService.loadQueryContext(null, null))
+                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+        when(embeddingClient.isAvailable()).thenReturn(true);
+        when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
+        when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
+                new SemanticSearchQueryRows(List.of(
+                        new SemanticSearchRow("POST", 100L, 100L, 10L, "board", "Board", "hello",
+                                "<p>앞 본문</p>" + marker + "<p>뒤 본문</p>",
+                                0.91, "VECTOR", null, 1L, null, "USER", "author", null)), 1L));
+
+        Page<SemanticSearchResultResponse> result = semanticSearchService.search(
+                "hello", "POST", null, 0, 20, null);
+
+        assertThat(result.getContent().getFirst().getExcerpt())
+                .isEqualTo("앞 본문 현재 보존 HTML 본문 뒤 본문");
     }
 
     @Test

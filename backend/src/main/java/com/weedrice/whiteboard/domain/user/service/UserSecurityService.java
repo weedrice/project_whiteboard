@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.AccountUniquenessPolicy;
 import com.weedrice.whiteboard.domain.auth.service.AuthEmailNormalizer;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
@@ -27,6 +28,7 @@ public class UserSecurityService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final VerificationCodeService verificationCodeService;
     private final AccountUniquenessPolicy accountUniquenessPolicy;
     private final EntityManager entityManager;
@@ -47,6 +49,7 @@ public class UserSecurityService {
         user.advanceSecurityVersion();
         passwordHistoryPolicy.record(user, newPasswordHash);
 
+        passwordResetTokenRepository.invalidateAllUnusedTokens(user);
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 

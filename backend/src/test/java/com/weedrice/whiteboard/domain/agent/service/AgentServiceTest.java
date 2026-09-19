@@ -73,6 +73,8 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -2899,4 +2901,146 @@ class AgentServiceTest {
             return usedCount;
         }
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void getCommentReplies_returnsFullReplyAndPreservesPageTotals(boolean parentDeleted) {
+        Comment parent = replyTestComment(301L, writablePost, user, null, "root");
+        Comment reply = replyTestComment(302L, writablePost, user, parent, "full reply content");
+        ReflectionTestUtils.setField(parent, "isDeleted", parentDeleted);
+        if (parentDeleted) {
+            when(commentRepository.existsVisibleReplyByParentId(301L, true, NO_BLOCKED_USER_IDS)).thenReturn(true);
+        }
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        Pageable pageable = agentCommentReadPageable(1, 2);
+        when(commentRepository.findRepliesWithRelations(301L, false, true, NO_BLOCKED_USER_IDS, pageable))
+                .thenReturn(new PageImpl<>(List.of(reply), pageable, 3));
+
+        Page<AgentCommentItem> result = agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(1, 2));
+
+        assertThat(result.getTotalElements()).isEqualTo(3);
+        assertThat(result.getNumber()).isEqualTo(1);
+        AgentCommentItem item = result.getContent().getFirst();
+        assertThat(item.getCommentId()).isEqualTo(302L);
+        assertThat(item.getParentId()).isEqualTo(301L);
+        assertThat(item.getContent()).isEqualTo("full reply content");
+        assertThat(item.getDepth()).isEqualTo(1);
+        assertThat(item.getStatus()).isEqualTo(AgentCommentItem.STATUS_ACTIVE);
+    }
+
+    @Test
+    void getCommentReplies_allowsDeletedParentWithLiveDescendantsEvenBeyondLastPage() {
+        Comment parent = replyTestComment(301L, writablePost, user, null, "deleted root");
+        ReflectionTestUtils.setField(parent, "isDeleted", true);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(commentRepository.existsVisibleReplyByParentId(301L, true, NO_BLOCKED_USER_IDS)).thenReturn(true);
+        Pageable pageable = agentCommentReadPageable(4, 2);
+        when(commentRepository.findRepliesWithRelations(301L, false, true, NO_BLOCKED_USER_IDS, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 3));
+
+        Page<AgentCommentItem> result = agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(4, 2));
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isEqualTo(3);
+    }
+
+    @Test
+    void getCommentReplies_rejectsDeletedParentWithoutVisibleDescendants() {
+        Comment parent = replyTestComment(301L, writablePost, user, null, "deleted root");
+        ReflectionTestUtils.setField(parent, "isDeleted", true);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+
+        assertThatThrownBy(() -> agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+        verify(commentRepository).existsVisibleReplyByParentId(301L, false, List.of(2L));
+        verify(commentRepository, never()).findRepliesWithRelations(anyLong(), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void getCommentReplies_masksBlockedBlindedAndDeletedRepliesButKeepsChildNavigation() {
+        User blockedUser = User.builder().loginId("blocked").displayName("Blocked").build();
+        ReflectionTestUtils.setField(blockedUser, "userId", 2L);
+        Comment parent = replyTestComment(301L, writablePost, user, null, "root");
+        Comment blocked = replyTestComment(302L, writablePost, blockedUser, parent, "blocked content");
+        Comment blinded = replyTestComment(303L, writablePost, user, parent, "blinded content");
+        ReflectionTestUtils.setField(blinded, "isBlinded", true);
+        Comment deleted = replyTestComment(304L, writablePost, user, parent, "deleted content");
+        ReflectionTestUtils.setField(deleted, "isDeleted", true);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+        Pageable pageable = agentCommentReadPageable(0, 10);
+        when(commentRepository.findRepliesWithRelations(301L, false, false, List.of(2L), pageable))
+                .thenReturn(new PageImpl<>(List.of(blocked, blinded, deleted), pageable, 3));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(302L, 303L, 304L), false, List.of(2L)))
+                .thenReturn(List.of(replyCount(304L, 1L)));
+
+        Page<AgentCommentItem> result = agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(AgentCommentItem::getStatus)
+                .containsExactly(AgentCommentItem.STATUS_BLOCKED_AUTHOR,
+                        AgentCommentItem.STATUS_BLINDED, AgentCommentItem.STATUS_DELETED);
+        assertThat(result.getContent()).allSatisfy(item -> assertThat(item.getContent()).isNull());
+        assertThat(result.getContent().get(0).getAuthor()).isNull();
+        assertThat(result.getContent().get(1).getAuthor()).isNotNull();
+        assertThat(result.getContent().get(2).getAuthor()).isNull();
+        assertThat(result.getContent().get(2).isHasReplies()).isTrue();
+        assertThat(result.getContent().get(2).getReplyCount()).isEqualTo(1);
+    }
+
+    @Test
+    void getCommentReplies_rejectsUnreadableBoard() {
+        Comment parent = replyTestComment(301L, blockedPost, user, null, "root");
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(200L)).thenReturn(Optional.of(blockedPost));
+
+        assertThatThrownBy(() -> agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+        verify(commentRepository, never()).findRepliesWithRelations(anyLong(), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void getCommentReplies_rejectsBlockedPostAuthor() {
+        User blockedAuthor = User.builder().loginId("blocked").displayName("Blocked").build();
+        ReflectionTestUtils.setField(blockedAuthor, "userId", 2L);
+        Post post = Post.builder().board(writableBoard).user(blockedAuthor).title("post").contents("text").build();
+        ReflectionTestUtils.setField(post, "postId", 400L);
+        Comment parent = replyTestComment(301L, post, user, null, "root");
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(301L)).thenReturn(Optional.of(parent));
+        when(postRepository.findByIdWithRelations(400L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+
+        assertThatThrownBy(() -> agentQueryService.getCommentReplies(7L, 301L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(commentRepository, never()).findRepliesWithRelations(anyLong(), anyBoolean(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void getCommentReplies_rejectsMissingParent() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentQueryService.getCommentReplies(7L, 999L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+    }
+
+    private Comment replyTestComment(Long id, Post post, User author, Comment parent, String content) {
+        Comment comment = Comment.builder().post(post).user(author).parent(parent)
+                .depth(parent == null ? 0 : parent.getDepth() + 1).content(content).build();
+        ReflectionTestUtils.setField(comment, "commentId", id);
+        return comment;
+    }
+
 }

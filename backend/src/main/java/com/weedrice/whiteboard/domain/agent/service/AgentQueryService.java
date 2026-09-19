@@ -135,6 +135,11 @@ public class AgentQueryService {
         return agentContentPort.getPostComments(agent, postId, commentPageable(pageable));
     }
 
+    public Page<AgentCommentItem> getCommentReplies(Long agentId, Long commentId, Pageable pageable) {
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        return agentContentPort.getCommentReplies(agent, commentId, commentPageable(pageable));
+    }
+
     private Pageable feedPageable(Pageable pageable) {
         return PageRequestUtils.bounded(pageable, FEED_PAGE_SIZE_LIMIT, DEFAULT_AGENT_FEED_SORT, Set.of());
     }

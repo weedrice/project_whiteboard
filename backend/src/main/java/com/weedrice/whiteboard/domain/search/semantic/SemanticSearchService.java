@@ -43,7 +43,7 @@ public class SemanticSearchService {
                 SemanticSearchQueryRows rows = transactionService.searchVector(query);
                 List<SemanticSearchResultResponse> results = rows.results()
                         .stream()
-                        .map(SemanticSearchRow::toResponse)
+                        .map(this::toSearchResponse)
                         .toList();
                 return new PageImpl<>(results, pageable, rows.totalElements());
             }
@@ -75,12 +75,12 @@ public class SemanticSearchService {
         SemanticSearchQueryRows rows = transactionService.searchKeyword(query);
         List<SemanticSearchResultResponse> results = rows.results()
                 .stream()
-                .map(this::toKeywordFallbackResponse)
+                .map(this::toSearchResponse)
                 .toList();
         return new PageImpl<>(results, pageable, rows.totalElements());
     }
 
-    private SemanticSearchResultResponse toKeywordFallbackResponse(SemanticSearchRow row) {
+    private SemanticSearchResultResponse toSearchResponse(SemanticSearchRow row) {
         return row.toResponse(textBuilder.excerpt(row.excerpt()));
     }
 
