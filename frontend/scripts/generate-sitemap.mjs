@@ -13,6 +13,12 @@ const maxPagesPerBoard = parsePositiveInt(process.env.SITEMAP_MAX_PAGES_PER_BOAR
 const requestTimeoutMs = parsePositiveInt(process.env.SITEMAP_REQUEST_TIMEOUT_MS, 15000)
 const strict = process.env.SEO_STRICT === 'true'
 const postUrlCapacity = readSeoPostUrlCapacity()
+const lastmodFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SERVICE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+})
 
 function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
@@ -38,12 +44,7 @@ function toLastmod(value) {
     if (!date) return null
     // toISOString()은 UTC 기준이라 KST 새벽에 작성된 글이 하루 이르게 기록된다.
     // 서비스 기준 지역의 날짜를 쓴다.
-    return new Intl.DateTimeFormat('en-CA', {
-        timeZone: SERVICE_TIME_ZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(date)
+    return lastmodFormatter.format(date)
 }
 
 function toSortTimestamp(value) {
