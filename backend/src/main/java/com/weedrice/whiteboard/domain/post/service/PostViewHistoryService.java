@@ -21,11 +21,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -118,16 +116,5 @@ public class PostViewHistoryService {
             return null;
         }
         return postCommentStatusPort.requireActiveCommentId(postId, lastReadCommentId);
-    }
-
-    private record BlockedUserFilter(boolean empty, List<Long> ids) {
-        private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
-
-        static BlockedUserFilter from(Set<Long> blockedUserIds) {
-            if (blockedUserIds == null || blockedUserIds.isEmpty()) {
-                return new BlockedUserFilter(true, NO_BLOCKED_USER_IDS);
-            }
-            return new BlockedUserFilter(false, new ArrayList<>(blockedUserIds));
-        }
     }
 }

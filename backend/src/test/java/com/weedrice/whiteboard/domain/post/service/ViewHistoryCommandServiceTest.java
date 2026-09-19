@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -18,7 +17,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -60,17 +58,6 @@ class ViewHistoryCommandServiceTest {
     }
 
     @Test
-    @DisplayName("insert 후 조회 이력이 없으면 POST_NOT_FOUND 예외로 변환한다")
-    void getOrCreate_insertedButMissing_throwsPostNotFound() {
-        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(1);
-
-        assertThatThrownBy(() -> viewHistoryCommandService.getOrCreate(user, post))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
-    }
-
-    @Test
     @DisplayName("touch 갱신 대상이 없으면 POST_NOT_FOUND 예외로 변환한다")
     void touchView_missingAfterInsertConflict_throwsPostNotFound() {
         when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(0);
@@ -79,19 +66,6 @@ class ViewHistoryCommandServiceTest {
         assertThatThrownBy(() -> viewHistoryCommandService.touchView(user, post))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("touch-and-load는 갱신된 조회 이력을 반환한다")
-    void touchAndLoadView_existingHistory_returnsLoadedHistory() {
-        ViewHistory viewHistory = ViewHistory.builder().user(user).post(post).build();
-        when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(0);
-        when(viewHistoryRepository.touchModifiedAt(user.getUserId(), post.getPostId())).thenReturn(1);
-        when(viewHistoryRepository.findByUserIdAndPost(user.getUserId(), post)).thenReturn(Optional.of(viewHistory));
-
-        ViewHistory result = viewHistoryCommandService.touchAndLoadView(user, post);
-
-        assertThat(result).isSameAs(viewHistory);
     }
 
     @Test

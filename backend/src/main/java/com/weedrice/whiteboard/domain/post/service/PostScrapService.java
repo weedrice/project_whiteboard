@@ -29,10 +29,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -218,16 +216,5 @@ public class PostScrapService {
     private ScrapFolder getOwnedScrapFolderForUpdate(Long userId, Long folderId) {
         return scrapFolderRepository.findOwnedByIdForUpdate(folderId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-    }
-
-    private record BlockedUserFilter(boolean empty, List<Long> ids) {
-        private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
-
-        static BlockedUserFilter from(Set<Long> blockedUserIds) {
-            if (blockedUserIds == null || blockedUserIds.isEmpty()) {
-                return new BlockedUserFilter(true, NO_BLOCKED_USER_IDS);
-            }
-            return new BlockedUserFilter(false, new ArrayList<>(blockedUserIds));
-        }
     }
 }
