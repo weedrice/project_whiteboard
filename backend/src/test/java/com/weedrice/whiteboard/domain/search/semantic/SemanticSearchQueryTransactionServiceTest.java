@@ -78,7 +78,6 @@ class SemanticSearchQueryTransactionServiceTest {
 
         SemanticSearchQueryContext context = transactionService.loadQueryContext(null, 7L);
 
-        assertThat(context.viewerUserId()).isEqualTo(7L);
         assertThat(context.blockedUserIds()).containsExactly(8L);
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(7L);
         verify(userBlockService, never()).getBlockedUserIdsEitherDirection(7L);

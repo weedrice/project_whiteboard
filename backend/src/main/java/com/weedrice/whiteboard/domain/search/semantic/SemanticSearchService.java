@@ -34,8 +34,6 @@ public class SemanticSearchService {
                 SemanticSearchQuery query = new SemanticSearchQuery(
                         normalizedContentType,
                         context.boardUrl(),
-                        context.viewerUserId(),
-                        context.viewerSuperAdmin(),
                         context.blockedUserIds(),
                         SemanticSearchVectorFormatter.format(queryEmbedding),
                         pageable.getPageSize(),
@@ -67,8 +65,6 @@ public class SemanticSearchService {
                 contentType,
                 keyword,
                 context.boardUrl(),
-                context.viewerUserId(),
-                context.viewerSuperAdmin(),
                 context.blockedUserIds(),
                 pageable.getPageSize(),
                 pageable.getOffset());

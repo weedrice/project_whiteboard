@@ -5,8 +5,6 @@ import java.util.List;
 record SemanticSearchQuery(
         SemanticSearchContentType contentType,
         String boardUrl,
-        Long viewerUserId,
-        boolean viewerSuperAdmin,
         List<Long> blockedUserIds,
         String embeddingVector,
         int limit,

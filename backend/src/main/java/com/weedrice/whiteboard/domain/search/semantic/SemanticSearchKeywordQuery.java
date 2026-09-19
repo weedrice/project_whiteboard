@@ -6,8 +6,6 @@ record SemanticSearchKeywordQuery(
         SemanticSearchContentType contentType,
         String keyword,
         String boardUrl,
-        Long viewerUserId,
-        boolean viewerSuperAdmin,
         List<Long> blockedUserIds,
         int limit,
         long offset) implements SemanticSearchSqlCriteria {

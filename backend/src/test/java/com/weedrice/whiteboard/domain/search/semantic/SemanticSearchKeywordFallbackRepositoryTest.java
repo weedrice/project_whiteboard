@@ -39,8 +39,6 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 SemanticSearchContentType.ALL,
                 "100%_match!",
                 null,
-                7L,
-                false,
                 List.of(9L),
                 20,
                 40);
@@ -79,8 +77,6 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 SemanticSearchContentType.ALL,
                 "hello",
                 "private",
-                7L,
-                true,
                 List.of(),
                 10,
                 0);

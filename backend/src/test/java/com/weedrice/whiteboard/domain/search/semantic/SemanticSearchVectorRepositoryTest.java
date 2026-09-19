@@ -40,8 +40,6 @@ class SemanticSearchVectorRepositoryTest {
         SemanticSearchQuery query = new SemanticSearchQuery(
                 SemanticSearchContentType.ALL,
                 null,
-                7L,
-                false,
                 List.of(9L),
                 "[0.1,0.2]",
                 20,
@@ -78,8 +76,6 @@ class SemanticSearchVectorRepositoryTest {
         SemanticSearchQuery query = new SemanticSearchQuery(
                 SemanticSearchContentType.ALL,
                 "private",
-                7L,
-                true,
                 List.of(9L),
                 "[0.1,0.2]",
                 10,
@@ -117,7 +113,7 @@ class SemanticSearchVectorRepositoryTest {
         noMatchRow.put("post_id", null);
         when(jdbcTemplate.queryForList(anyString(), any(MapSqlParameterSource.class)))
                 .thenReturn(List.of(noMatchRow));
-        SemanticSearchQueryContext context = new SemanticSearchQueryContext("free", 7L, false, List.of(9L));
+        SemanticSearchQueryContext context = new SemanticSearchQueryContext("free", List.of(9L));
 
         SemanticRelatedPostResult result = repository.findRelatedPostIds(1L, context, 3, 0.55);
 
@@ -146,7 +142,7 @@ class SemanticSearchVectorRepositoryTest {
 
         SemanticRelatedPostResult result = repository.findRelatedPostIds(
                 1L,
-                new SemanticSearchQueryContext("free", null, false, List.of()),
+                new SemanticSearchQueryContext("free", List.of()),
                 3,
                 0.55);
 

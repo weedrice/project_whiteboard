@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -112,8 +113,6 @@ class SemanticSearchSqlBuilderTest {
                         SemanticSearchContentType.COMMENT,
                         "100%_match!",
                         "free",
-                        7L,
-                        true,
                         List.of(9L),
                         20,
                         40));
@@ -123,7 +122,33 @@ class SemanticSearchSqlBuilderTest {
         assertThat(keywordParams.getValue("blockedUserIds")).isEqualTo(List.of(9L));
         assertThat(keywordParams.getValue("keywordPattern")).isEqualTo("%100!%!_match!!%");
         assertThat(keywordParams.getValue("boardUrl")).isEqualTo("free");
-        assertThat(keywordParams.getValue("viewerSuperAdmin")).isEqualTo(true);
+    }
+
+    @Test
+    void authorVisibility_appliesToSearchAndCountForEveryContentType() {
+        for (SemanticSearchContentType contentType : SemanticSearchContentType.values()) {
+            SemanticSearchQuery vector = vectorQuery(contentType, null, List.of());
+            SemanticSearchKeywordQuery keyword = keywordQuery(contentType, null, List.of());
+            for (String sql : List.of(vectorRepository.searchSql(vector), vectorRepository.countSql(vector),
+                    keywordRepository.searchSql(keyword), keywordRepository.countSql(keyword))) {
+                String normalized = sql.replaceAll("\\s+", " ");
+                int contentAuthors = (contentType.includesPosts() ? 1 : 0) + (contentType.includesComments() ? 1 : 0);
+                assertAuthorVisibility(normalized, "u", contentAuthors);
+                assertAuthorVisibility(normalized, "post_author", contentType.includesComments() ? 1 : 0);
+            }
+        }
+    }
+
+    private static void assertAuthorVisibility(String sql, String alias, int expectedOccurrences) {
+        String banExclusion = "AND NOT EXISTS ( SELECT 1 FROM sanctions s WHERE s.target_user_id = "
+                + alias + ".user_id AND UPPER(s.type) = 'BAN' AND s.start_date <= CURRENT_TIMESTAMP "
+                + "AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP) )";
+        for (String condition : List.of("AND " + alias + ".status = 'ACTIVE'",
+                "AND " + alias + ".deleted_at IS NULL", banExclusion)) {
+            assertThat(Pattern.compile(Pattern.quote(condition)).matcher(sql).results().count())
+                    .as("%s occurs in each applicable content branch", condition)
+                    .isEqualTo(expectedOccurrences);
+        }
     }
 
     private static void assertContentTypeSelection(String sql, SemanticSearchContentType contentType) {
@@ -189,8 +214,6 @@ class SemanticSearchSqlBuilderTest {
         return new SemanticSearchQuery(
                 contentType,
                 boardUrl,
-                7L,
-                false,
                 blockedUserIds,
                 "[0.1,0.2]",
                 20,
@@ -205,8 +228,6 @@ class SemanticSearchSqlBuilderTest {
                 contentType,
                 "hello",
                 boardUrl,
-                7L,
-                false,
                 blockedUserIds,
                 20,
                 40);

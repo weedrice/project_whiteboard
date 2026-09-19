@@ -31,14 +31,12 @@ class SemanticSearchQueryTransactionService {
         String normalizedBoardUrl = normalizeBoardUrl(boardUrl);
         User viewer = resolveViewerForBoardAccess(currentUserId);
         validateBoardAccess(normalizedBoardUrl, viewer);
-        viewer = requireViewerIfRequested(currentUserId, viewer);
+        requireViewerIfRequested(currentUserId, viewer);
         List<Long> blockedUserIds = currentUserId == null
                 ? List.of()
                 : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         return new SemanticSearchQueryContext(
                 normalizedBoardUrl,
-                viewer != null ? viewer.getUserId() : null,
-                viewer != null && viewer.isUsableSuperAdmin(),
                 blockedUserIds);
     }
 
@@ -95,13 +93,12 @@ class SemanticSearchQueryTransactionService {
         return userRepository.findById(currentUserId).orElse(null);
     }
 
-    private User requireViewerIfRequested(Long currentUserId, User viewer) {
+    private void requireViewerIfRequested(Long currentUserId, User viewer) {
         if (currentUserId == null) {
-            return null;
+            return;
         }
         if (viewer == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        return viewer;
     }
 }

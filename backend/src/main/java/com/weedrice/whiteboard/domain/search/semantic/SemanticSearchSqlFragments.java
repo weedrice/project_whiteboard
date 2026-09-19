@@ -44,11 +44,30 @@ final class SemanticSearchSqlFragments {
         return "p.is_secret = 'N'";
     }
 
+    static String authorVisibilityPredicate(boolean includePostAuthor) {
+        List<String> authorAliases = includePostAuthor ? List.of("u", "post_author") : List.of("u");
+        StringBuilder sql = new StringBuilder();
+        for (String alias : authorAliases) {
+            sql.append("  AND ").append(alias).append(".status = 'ACTIVE'\n")
+                    .append("  AND ").append(alias).append(".deleted_at IS NULL\n");
+        }
+        for (String alias : authorAliases) {
+            sql.append("""
+                      AND NOT EXISTS (
+                            SELECT 1 FROM sanctions s
+                            WHERE s.target_user_id = %s.user_id
+                              AND UPPER(s.type) = 'BAN'
+                              AND s.start_date <= CURRENT_TIMESTAMP
+                              AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+                      )
+                    """.formatted(alias));
+        }
+        return sql.toString();
+    }
+
     static MapSqlParameterSource commonParams(SemanticSearchSqlCriteria query) {
         return new MapSqlParameterSource()
                 .addValue("boardUrl", query.boardUrl())
-                .addValue("viewerUserId", query.viewerUserId())
-                .addValue("viewerSuperAdmin", query.viewerSuperAdmin())
                 .addValue("blockedUserIds", blockedUserIdsOrSentinel(query))
                 .addValue("limit", query.limit())
                 .addValue("offset", query.offset());

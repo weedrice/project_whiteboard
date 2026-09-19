@@ -16,7 +16,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SemanticSearchJobService {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
-    private static final int REINDEX_ENQUEUE_CHUNK_SIZE = 500;
     private static final String STALE_PROCESSING_ERROR = "Processing lease expired";
 
     private final SemanticSearchProperties properties;

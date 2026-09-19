@@ -40,7 +40,7 @@ class SemanticSearchServiceTest {
     @Test
     void search_usesKeywordFallbackWhenDisabled() {
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class))).thenReturn(
                 new SemanticSearchQueryRows(List.of(
                         new SemanticSearchRow("POST", 100L, 100L, 10L, "board", "Board", "hello",
@@ -65,7 +65,7 @@ class SemanticSearchServiceTest {
     void search_usesVectorRepositoryWhenEnabled() {
         properties.setEnabled(true);
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
         when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
@@ -88,7 +88,7 @@ class SemanticSearchServiceTest {
         String currentText = "수정된 내용 " + "가😀".repeat(150);
         String currentHtml = "<p>" + currentText + "</p>";
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
         when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
@@ -115,7 +115,7 @@ class SemanticSearchServiceTest {
                 + Base64.getEncoder().encodeToString(preservedHtml.getBytes(StandardCharsets.UTF_8))
                 + "\"></div>";
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
         when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
@@ -135,7 +135,7 @@ class SemanticSearchServiceTest {
     void search_usesKeywordFallbackWhenEmbeddingFails() {
         properties.setEnabled(true);
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenThrow(new IllegalStateException("provider down"));
         when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class))).thenReturn(
@@ -157,7 +157,7 @@ class SemanticSearchServiceTest {
     void search_propagatesVectorSearchFailureWithoutKeywordFallback() {
         properties.setEnabled(true);
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
         when(transactionService.searchVector(any(SemanticSearchQuery.class)))
@@ -192,7 +192,7 @@ class SemanticSearchServiceTest {
                 null);
 
         when(transactionService.loadQueryContext("public-board", 7L))
-                .thenReturn(new SemanticSearchQueryContext("public-board", 7L, false, List.of(9L)));
+                .thenReturn(new SemanticSearchQueryContext("public-board", List.of(9L)));
         when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class)))
                 .thenReturn(new SemanticSearchQueryRows(List.of(row), 1L));
 
@@ -205,14 +205,13 @@ class SemanticSearchServiceTest {
         verify(transactionService).searchKeyword(argThat(query ->
                 query.contentType() == SemanticSearchContentType.COMMENT
                         && query.boardUrl().equals("public-board")
-                        && query.viewerUserId().equals(7L)
                         && query.blockedUserIds().equals(List.of(9L))));
     }
 
     @Test
     void search_usesUnionKeywordFallbackForAllContentTypes() {
         when(transactionService.loadQueryContext(null, null))
-                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+                .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class))).thenReturn(
                 new SemanticSearchQueryRows(List.of(
                         new SemanticSearchRow("COMMENT", 300L, 200L, 70L, "board", "Board", "post title",

@@ -44,16 +44,7 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-              AND u.status = 'ACTIVE'
-              AND u.deleted_at IS NULL
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = u.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-            """;
+            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
 
     private static final String COMMENT_SELECT = """
             SELECT
@@ -86,25 +77,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-              AND u.status = 'ACTIVE'
-              AND u.deleted_at IS NULL
-              AND post_author.status = 'ACTIVE'
-              AND post_author.deleted_at IS NULL
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = u.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = post_author.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-            """;
+            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
 
     private static final String POST_COUNT_SELECT = """
             SELECT p.post_id AS content_id
@@ -119,16 +92,7 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-              AND u.status = 'ACTIVE'
-              AND u.deleted_at IS NULL
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = u.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-            """;
+            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
 
     private static final String COMMENT_COUNT_SELECT = """
             SELECT c.comment_id AS content_id
@@ -144,25 +108,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-              AND u.status = 'ACTIVE'
-              AND u.deleted_at IS NULL
-              AND post_author.status = 'ACTIVE'
-              AND post_author.deleted_at IS NULL
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = u.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-              AND NOT EXISTS (
-                    SELECT 1 FROM sanctions s
-                    WHERE s.target_user_id = post_author.user_id
-                      AND UPPER(s.type) = 'BAN'
-                      AND s.start_date <= CURRENT_TIMESTAMP
-                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
-              )
-            """;
+            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 

@@ -8,10 +8,6 @@ interface SemanticSearchSqlCriteria {
 
     String boardUrl();
 
-    Long viewerUserId();
-
-    boolean viewerSuperAdmin();
-
     List<Long> blockedUserIds();
 
     int limit();
