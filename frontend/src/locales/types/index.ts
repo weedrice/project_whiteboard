@@ -3,20 +3,6 @@ export * from './community'
 export * from './admin'
 
 export interface ShopMessages {
-  title: string
-  description: string
-  currentPoints: string
-  loginHint: string
-  loginToPurchase: string
-  itemType: string
-  price: string
-  purchase: string
-  purchasing: string
-  purchaseConfirm: string
-  purchaseSuccess: string
-  purchaseFailed: string
-  insufficientPoints: string
-  empty: string
   itemTypes: {
     ALL: string
     EMOTICON: string
