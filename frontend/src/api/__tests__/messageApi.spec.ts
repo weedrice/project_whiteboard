@@ -50,10 +50,8 @@ describe('messageApi', () => {
 
         messageApi.getMessage('box/9', config)
         messageApi.markAsRead('box/9', config)
-        messageApi.deleteMessage('box/9')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/messages/box%2F9', config)
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/messages/box%2F9/read', null, config)
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/messages/box%2F9')
     })
 })

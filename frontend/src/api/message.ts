@@ -28,7 +28,6 @@ export const messageApi = {
         api.get<ApiResponse<MessageSummaryDto>>(`/messages/${encodePathSegment(messageId)}`, config),
     markAsRead: (messageId: string | number, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<void>>(`/messages/${encodePathSegment(messageId)}/read`, null, config),
-    deleteMessage: (messageId: string | number) => api.delete<ApiResponse<void>>(`/messages/${encodePathSegment(messageId)}`),
     deleteMessages: (messageIds: (string | number)[], config?: AxiosRequestConfig) =>
         api.delete<ApiResponse<void>>('/messages', { ...config, data: messageIds }),
 }

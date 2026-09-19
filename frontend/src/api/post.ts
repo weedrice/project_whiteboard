@@ -3,7 +3,6 @@ import { mapApiDataResponse } from '@/api/response'
 import {
     normalizePostDetail,
     normalizePostSummaryList,
-    normalizePostSummaryPage,
     type PostDetailWire,
     type PostSummaryWire,
 } from '@/api/postContract'
@@ -264,11 +263,6 @@ export const postApi = {
 
     // Unscrap post
     unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
-
-    // Get trending posts
-    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') =>
-        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/posts/trending', { params: { page, size, period } })
-            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage)),
 
     // Get home landing data
     getHomeLanding: (period: HomeLandingPeriod = '24h', config?: AxiosRequestConfig) => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {

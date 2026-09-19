@@ -17,7 +17,6 @@ import { postApi } from '../post'
 import { searchApi } from '../search'
 import { fileApi, resolveFileUploadUrl } from '../file'
 import { emoticonApi } from '../emoticon'
-import { adApi } from '../ad'
 import { notificationApi } from '../notification'
 import { reportApi } from '../report'
 import { apiEmptySuccess, apiSuccess, axiosApiResponse, axiosApiSuccess } from '@/test/factories'
@@ -168,8 +167,6 @@ describe('postApi', () => {
         postApi.unlikePost(3)
         postApi.scrapPost(3)
         postApi.unscrapPost(3)
-        postApi.getTrendingPosts()
-        postApi.getTrendingPosts(2, 5)
         postApi.getHomeLanding('7d')
         postApi.reportPost(reportData)
 
@@ -184,9 +181,7 @@ describe('postApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(4, '/posts/3/scrap')
         expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/posts/3/scrap')
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/posts/3/versions', requestConfig)
-        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/posts/trending', { params: { page: 0, size: 10, period: '24h' } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/posts/trending', { params: { page: 2, size: 5, period: '24h' } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(5, '/home/landing', { params: { period: '7d' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/home/landing', { params: { period: '7d' } })
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
     })
 
@@ -414,28 +409,6 @@ describe('fileApi', () => {
     })
 })
 
-describe('adApi', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
-    it('calls ad endpoints and unwraps response envelopes', async () => {
-        const ad = { adId: 1, title: 'Ad', imageUrl: null, targetUrl: 'https://example.com' }
-        apiMock.get.mockResolvedValueOnce(axiosApiSuccess(ad))
-        apiMock.post
-            .mockResolvedValueOnce(axiosApiResponse(apiEmptySuccess()))
-            .mockResolvedValueOnce(axiosApiSuccess('https://example.com'))
-
-        await expect(adApi.getAd('SIDEBAR')).resolves.toEqual(ad)
-        await adApi.recordImpression(1)
-        await expect(adApi.recordClick(1)).resolves.toBe('https://example.com')
-
-        expect(apiMock.get).toHaveBeenCalledWith('/ads', { params: { placement: 'SIDEBAR' } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression', undefined, undefined)
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/ads/1/click')
-    })
-})
-
 describe('notificationApi', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -494,17 +467,15 @@ describe('emoticonApi', () => {
         emoticonApi.createEmoticon(createData)
         emoticonApi.updateEmoticon(9, updateData)
         emoticonApi.toggleVisibility(9)
-        emoticonApi.deleteEmoticon(9)
         emoticonApi.purchaseEmoticon(9)
 
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/emoticons', createData)
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/emoticons/9', updateData)
         expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/emoticons/9/visibility')
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/emoticons/9')
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/emoticons/9/purchase')
     })
 
-    it('unwraps emoticon response helpers without changing endpoint calls', async () => {
+    it('normalizes live emoticon responses and unwraps active detail helpers', async () => {
         const listPage = { content: [{ emoticonId: 1, name: 'cat' }], totalPages: 1, totalElements: 1 }
         const detail = { emoticonId: 1, name: 'cat', isActive: true }
         const purchaseStatus = { purchased: false, available: true, price: 100 }
@@ -515,13 +486,13 @@ describe('emoticonApi', () => {
             .mockResolvedValueOnce(axiosApiSuccess(purchaseStatus))
         apiMock.patch.mockResolvedValueOnce(axiosApiResponse(apiSuccess({ ...detail, isActive: false })))
 
-        await expect(emoticonApi.searchAllData({ keyword: 'cat' })).resolves.toMatchObject({
+        await expect(emoticonApi.searchAll({ keyword: 'cat' }).then(({ data }) => data.data)).resolves.toMatchObject({
             content: [{ emoticonId: 1, name: 'cat', images: [] }],
             number: 0,
             last: true,
         })
         await expect(emoticonApi.getEmoticonData(1)).resolves.toEqual({ ...detail, images: [] })
-        await expect(emoticonApi.checkPurchaseStatusData(1)).resolves.toBe(purchaseStatus)
+        await expect(emoticonApi.checkPurchaseStatus(1).then(({ data }) => data.data)).resolves.toBe(purchaseStatus)
         await expect(emoticonApi.toggleVisibilityData(1)).resolves.toEqual({ ...detail, isActive: false, images: [] })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/emoticons/search/all', { params: { keyword: 'cat' } })

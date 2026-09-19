@@ -73,7 +73,6 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/emoticon', () => ({
   emoticonApi: {
     getEmoticonData: vi.fn(),
-    checkPurchaseStatusData: vi.fn(),
     purchaseEmoticon,
   },
 }))

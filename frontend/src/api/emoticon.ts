@@ -51,17 +51,11 @@ export const emoticonApi = {
             params: { ...config?.params, period },
         }).then(mapEmoticonListResponse)
     },
-    async getPopularEmoticonsData(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.getPopularEmoticons(period, config))
-    },
 
     // Search by keyword, tag, creator, or pack name.
     searchAll(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search/all', { ...config, params })
             .then(mapEmoticonPageResponse)
-    },
-    async searchAllData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.searchAll(params, config))
     },
 
     // List emoticon packs owned by the current user.
@@ -92,9 +86,6 @@ export const emoticonApi = {
         }
         return api.post<ApiResponse<EmoticonMasterWire>>('/emoticons', data).then(mapEmoticonResponse)
     },
-    async createEmoticonData(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.createEmoticon(data, config))
-    },
 
     // Update an emoticon pack.
     updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
@@ -103,9 +94,6 @@ export const emoticonApi = {
             return api.put<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`, data, config).then(mapEmoticonResponse)
         }
         return api.put<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`, data).then(mapEmoticonResponse)
-    },
-    async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.updateEmoticon(emoticonId, data, config))
     },
 
     // Toggle sale or visibility state.
@@ -120,11 +108,6 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId, config))
     },
 
-    // Delete an emoticon pack.
-    deleteEmoticon(emoticonId: number) {
-        return api.delete(`/emoticons/${encodePathSegment(emoticonId)}`)
-    },
-
     // Purchase an emoticon pack.
     purchaseEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
         const url = `/emoticons/${encodePathSegment(emoticonId)}/purchase`
@@ -133,9 +116,6 @@ export const emoticonApi = {
             : api.post<ApiResponse<EmoticonMasterWire>>(url)
         return request
             .then(mapEmoticonResponse)
-    },
-    async purchaseEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.purchaseEmoticon(emoticonId, config))
     },
 
     // List purchased emoticon packs.
@@ -152,8 +132,5 @@ export const emoticonApi = {
         return config
             ? api.get<ApiResponse<EmoticonPurchaseStatus>>(`/emoticons/${encodePathSegment(emoticonId)}/purchased`, config)
             : api.get<ApiResponse<EmoticonPurchaseStatus>>(`/emoticons/${encodePathSegment(emoticonId)}/purchased`)
-    },
-    async checkPurchaseStatusData(emoticonId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.checkPurchaseStatus(emoticonId, config))
     },
 }
