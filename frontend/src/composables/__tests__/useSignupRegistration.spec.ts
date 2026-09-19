@@ -47,7 +47,6 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/api/auth', () => ({
   authApi: {
-    checkEmailForReregister: vi.fn(),
     getOAuthSignupTicket: vi.fn(),
     deleteOAuthSignupTicket: vi.fn(),
     signup: vi.fn()
@@ -140,7 +139,6 @@ describe('useSignupRegistration', () => {
     expect(composable.form.value.displayName).toBe('Display')
     expect(composable.form.value.loginId).toBe('')
     expect(composable.isReregister.value).toBe(false)
-    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -150,7 +148,6 @@ describe('useSignupRegistration', () => {
     await composable.sendVerificationCode()
     await composable.verifyCode()
 
-    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     expect(composable.form.value.loginId).toBe('restored-login')
     expect(composable.isReregister.value).toBe(true)
     wrapper.unmount()
@@ -211,7 +208,6 @@ describe('useSignupRegistration', () => {
 
     expect(composable.form.value.email).toBe('user@example.com')
     expect(composable.form.value.displayName).toBe('Display')
-    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     expect(authApi.signup).toHaveBeenCalledWith(
       expect.not.objectContaining({ oauthRegistrationTicket: expect.anything() }),
       { signal: expect.any(AbortSignal) },

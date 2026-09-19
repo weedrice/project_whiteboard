@@ -95,18 +95,6 @@ describe('authApi', () => {
         )
     })
 
-    it('calls reregister check with params and auth refresh skip', () => {
-        authApi.checkEmailForReregister('test@example.com')
-
-        expect(apiMock.get).toHaveBeenCalledWith(
-            '/auth/reregister/check-email',
-            {
-                params: { email: 'test@example.com' },
-                skipAuthRefresh: true,
-            },
-        )
-    })
-
     it('calls OAuth signup ticket endpoint with skip flags', () => {
         authApi.getOAuthSignupTicket()
 
@@ -151,31 +139,24 @@ describe('authApi', () => {
             newPassword: 'new-password',
         }
 
-        authApi.sendPasswordReset('test@example.com', 'ticket-1')
         authApi.resetPassword(resetData)
         authApi.sendPasswordResetLinkByEmail('test@example.com', 'ticket-3')
         authApi.resetPasswordWithToken('token-1', 'new-password')
 
         expect(apiMock.post).toHaveBeenNthCalledWith(
             1,
-            '/auth/password/send-reset-link',
-            { email: 'test@example.com', verificationTicket: 'ticket-1' },
-            { skipAuthRefresh: true },
-        )
-        expect(apiMock.post).toHaveBeenNthCalledWith(
-            2,
             '/auth/password/reset-by-code',
             resetData,
             { skipAuthRefresh: true, skipGlobalErrorHandler: true },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(
-            3,
+            2,
             '/auth/password/send-reset-link-by-email',
             { email: 'test@example.com', verificationTicket: 'ticket-3' },
             { skipAuthRefresh: true, skipGlobalErrorHandler: true },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(
-            4,
+            3,
             '/auth/password/reset',
             { token: 'token-1', newPassword: 'new-password' },
             { skipAuthRefresh: true, skipGlobalErrorHandler: true },

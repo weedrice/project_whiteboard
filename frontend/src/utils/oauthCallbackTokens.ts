@@ -1,9 +1,3 @@
-export function getHashToken(key: string): string | null {
-  const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
-  if (!rawHash) return null
-  return new URLSearchParams(rawHash).get(key)
-}
-
 export function clearSensitiveTokensFromUrl() {
   const current = new URL(window.location.href)
   const hadQueryToken = current.searchParams.has('accessToken') || current.searchParams.has('refreshToken')

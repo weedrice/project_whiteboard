@@ -11,11 +11,6 @@ export interface VerifyCodeResponse {
     isReregister: boolean
 }
 
-export interface ReregisterCheckResponse {
-    canReregister: boolean
-    maskedLoginId?: string
-}
-
 interface PasswordResetData {
     email: string
     verificationTicket: string
@@ -66,12 +61,6 @@ export const authApi = {
             },
         ),
 
-    checkEmailForReregister: (email: string) =>
-        api.get<ApiResponse<ReregisterCheckResponse>>('/auth/reregister/check-email', {
-            params: { email },
-            skipAuthRefresh: true,
-        } as AxiosRequestConfig),
-
     getOAuthSignupTicket: (config?: AxiosRequestConfig) =>
         api.get<ApiResponse<OAuthSignupTicket>>('/auth/oauth/signup-ticket', {
             ...config,
@@ -95,13 +84,6 @@ export const authApi = {
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
             },
-        ),
-
-    sendPasswordReset: (email: string, verificationTicket: string) =>
-        api.post<ApiResponse<void>>(
-            '/auth/password/send-reset-link',
-            { email, verificationTicket },
-            { skipAuthRefresh: true },
         ),
 
     resetPassword: (data: PasswordResetData, config?: AxiosRequestConfig) =>

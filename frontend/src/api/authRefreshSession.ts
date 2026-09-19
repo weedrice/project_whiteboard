@@ -37,10 +37,6 @@ export class AuthSessionChangedError extends Error {
 
 export const isRefreshInProgress = () => isRefreshing
 
-export const setRefreshInProgress = (value: boolean) => {
-  isRefreshing = value
-}
-
 export const beginAuthRefresh = () => {
   refreshOperation += 1
   isRefreshing = true

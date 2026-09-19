@@ -3,7 +3,6 @@ import {
   cancelAuthRefreshCoordinator,
   closeAuthRefreshCoordinatorForTest,
   coordinateAuthRefresh,
-  runWithAuthRefreshLock,
 } from '@/api/authRefreshCoordinator'
 import { createDeferred } from '@/test/async'
 
@@ -54,7 +53,11 @@ describe('auth refresh coordinator', () => {
     const request = vi.fn(async (_name: string, callback: () => Promise<string>) => callback())
     vi.stubGlobal('navigator', { ...navigator, locks: { request } })
 
-    await expect(runWithAuthRefreshLock(async () => 'locked-access')).resolves.toBe('locked-access')
+    vi.stubGlobal('BroadcastChannel', undefined)
+    const refresh = vi.fn(async () => 'locked-access')
+
+    await expect(coordinateAuthRefresh(refresh)).resolves.toBe('locked-access')
+    expect(refresh).toHaveBeenCalledOnce()
     expect(request).toHaveBeenCalledWith('noviis-auth-refresh', expect.any(Function))
   })
 

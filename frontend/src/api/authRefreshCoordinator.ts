@@ -332,11 +332,6 @@ function getLocks() {
     : (navigator as Navigator & { locks?: LockManagerLike }).locks
 }
 
-export async function runWithAuthRefreshLock<T>(refresh: () => Promise<T>): Promise<T> {
-  const locks = getLocks()
-  return locks ? locks.request(AUTH_REFRESH_LOCK, refresh) : refresh()
-}
-
 async function coordinateWithBroadcast(
   sessionId: string,
   previousToken: string | null,
