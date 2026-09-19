@@ -10,7 +10,7 @@
 
 - Backend: Java 25, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
-- Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성
+- Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
 - CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
 - Deployment gate: CI 성공 뒤 요청된 backend/frontend production 배포가 `success`가 아니면 workflow를 실패시켜 contract 승인 누락이나 조건식 skip을 숨기지 않음
@@ -33,9 +33,11 @@ backend는 새 JAR 복사·digest 검증과 daemon reload, 이전 JAR backup·di
 
 ## SEO
 
-production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. sitemap과 prerender는 공통 `SEO_POST_URL_CAPACITY` 계약을 사용하며 기본 2,000개의 최신 게시글 URL만 포함한다. 전체 sitemap은 프로토콜 상한 50,000 URL을 넘지 못한다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수, 용량 상한과 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor는 `/.noviis-release`의 현재 활성 SHA를 manifest와 항상 결합한다. 배포 직후는 SHA 기반 결정적 표본을 사용하고, 정기 monitor는 SHA와 workflow run identity를 결합한 순환 표본으로 sitemap 앞부분만 반복 검사하는 편향을 피한다.
+production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. prerender HTML·PNG의 strict 검증은 `build:seo`에 포함된 `seo:verify:dist`에서 한 번 수행한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. sitemap과 prerender는 공통 `SEO_POST_URL_CAPACITY` 계약을 사용하며 기본 2,000개의 최신 게시글 URL만 포함한다. 전체 sitemap은 프로토콜 상한 50,000 URL을 넘지 못한다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수, 용량 상한과 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor는 `/.noviis-release`의 현재 활성 SHA를 manifest와 항상 결합한다. 배포 직후는 SHA 기반 결정적 표본을 사용하고, 정기 monitor는 SHA와 workflow run identity를 결합한 순환 표본으로 sitemap 앞부분만 반복 검사하는 편향을 피한다.
 
 정적 HTML과 OG PNG에는 변경 가능한 게시글·게시판 원문을 저장하지 않는다. canonical과 목록 URL은 유지하고 공통 안내·사이트 브랜드만 렌더링한다. 실제 내용은 기존 API 권한 검사 후 Vue 화면에 표시된다. 이는 빌드 이후 삭제·비공개 전환된 콘텐츠가 정적 파일에 남는 것을 막기 위한 정책이며, JavaScript를 실행하지 않는 검색·공유 봇에는 게시글별 미리보기 대신 공통 안내가 보인다. 적용과 rollback 주의는 [SEO 정적 콘텐츠 정책](../../docs/ops/seo-static-content-policy.md)을 따른다.
+
+배포 후 SEO 검증과 정기 monitor는 Node 내장 모듈과 저장소의 SEO helper만 사용하므로 frontend npm 의존성을 설치하거나 캐시하지 않는다. 이미지 요청은 같은 실행 안에서 동일한 이미지 URL·User-Agent 조합의 HTTP 성공 및 `image/*` MIME 검증 결과만 재사용하며, 실패 결과나 이전 실행의 결과는 재사용하지 않는다.
 
 production 배포와 정기 monitor는 공개 SEO endpoint 검증만 수행한다. 검색 엔진 제출 API와 제출 자격 증명은 운영하지 않는다.
 

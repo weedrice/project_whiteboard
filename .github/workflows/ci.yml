@@ -295,10 +295,6 @@ jobs:
         run: npm run lint:ci
         working-directory: frontend
 
-      - name: Check i18n keys
-        run: npm run check:i18n
-        working-directory: frontend
-
       - name: Check UI conventions
         run: npm run check:ui
         working-directory: frontend
@@ -335,8 +331,8 @@ jobs:
         run: npm run test:e2e:run
         working-directory: frontend
 
-      - name: Run protected download cross-browser tests
-        run: npm run test:e2e:download
+      - name: Run protected download Firefox and WebKit tests
+        run: npm run test:e2e:download -- --project=firefox-download --project=webkit-download
         working-directory: frontend
 
       - name: Upload test coverage
@@ -1023,7 +1019,6 @@ jobs:
           [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
           printf '%s\n' "$GITHUB_SHA" > dist/.noviis-release
           printf '%s\n' "$api_contract_revision" > dist/.noviis-api-contract
-          npm run seo:verify:dist
           tar -C dist -czf frontend-release.tar.gz .
           printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
             "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > RELEASE_METADATA
