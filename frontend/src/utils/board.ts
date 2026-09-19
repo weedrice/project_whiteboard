@@ -44,10 +44,6 @@ export const BOARD_WRITE_LIMITS = {
 
 const BOARD_URL_PATTERN = /^[a-z0-9_-]+$/
 
-export function hasRequiredBoardFields(board: BoardRequiredFields): boolean {
-  return validateRequiredBoardFields(board).valid
-}
-
 export function validateRequiredBoardFields(board: BoardRequiredFields): BoardRequiredFieldValidationResult {
   if (isEmpty(board.boardName) || isEmpty(board.boardUrl)) {
     return BOARD_REQUIRED_FIELD_ERROR

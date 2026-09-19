@@ -2,17 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   PUSH_NOTIFICATION_FALLBACK_PATH,
   PUSH_NOTIFICATION_IMAGE_FALLBACK_PATH,
-  resolveInternalPushNotificationUrl,
   resolvePushImageUrl,
   resolvePushNavigationUrl,
 } from '@/utils/pushNotificationUrl'
 
-describe('resolveInternalPushNotificationUrl', () => {
+describe('push notification URL resolvers', () => {
   const origin = 'https://noviis.kr'
   const fallback = `${origin}${PUSH_NOTIFICATION_FALLBACK_PATH}`
 
   it('accepts only same-origin absolute paths', () => {
-    expect(resolveInternalPushNotificationUrl('/board/free/post/1?from=push', origin))
+    expect(resolvePushNavigationUrl('/board/free/post/1?from=push', origin))
       .toBe('https://noviis.kr/board/free/post/1?from=push')
   })
 
@@ -25,14 +24,13 @@ describe('resolveInternalPushNotificationUrl', () => {
     'notifications',
     null,
   ])('falls back for an unsafe target: %s', (candidate) => {
-    expect(resolveInternalPushNotificationUrl(candidate, origin)).toBe(fallback)
+    expect(resolvePushNavigationUrl(candidate, origin)).toBe(fallback)
   })
 
   it('uses an internal asset fallback for an external notification image', () => {
-    expect(resolveInternalPushNotificationUrl(
+    expect(resolvePushImageUrl(
       'https://tracker.example/icon.png',
       origin,
-      '/pwa-192x192.png',
     )).toBe('https://noviis.kr/pwa-192x192.png')
   })
 

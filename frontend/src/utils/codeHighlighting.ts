@@ -1,6 +1,5 @@
 import { createLowlight, common } from 'lowlight'
 import { escapeHtmlAttribute, escapeHtmlText } from '@/utils/htmlEscape'
-import { transformHtmlDocument } from '@/utils/htmlTransformPipeline'
 
 export const lowlight = createLowlight(common)
 
@@ -77,13 +76,4 @@ export function highlightCodeBlocksInDocument(
     pre.parentNode?.insertBefore(wrapper, pre)
     wrapper.append(toolbar, pre)
   })
-}
-
-export function highlightCodeBlocks(
-  html: string,
-  labels: CodeBlockHighlightLabels = DEFAULT_CODE_BLOCK_LABELS
-): string {
-  return transformHtmlDocument(html, [
-    (doc) => highlightCodeBlocksInDocument(doc, labels),
-  ])
 }

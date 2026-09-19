@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   canWriteBoardPost,
   canWriteCategory,
-  hasRequiredBoardFields,
   isDefaultCategory,
   isGeneralCategoryName,
   normalizeBoardUrlInput,
   resolveDefaultCategory,
-  validateRequiredBoardFields
+  validateBoardWriteFields
 } from '../board'
 
 describe('board utils', () => {
@@ -23,11 +22,11 @@ describe('board utils', () => {
   })
 
   it('checks required board form fields with shared trimmed validation semantics', () => {
-    expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: 'board' })).toBe(true)
-    expect(hasRequiredBoardFields({ boardName: '', boardUrl: 'board' })).toBe(false)
-    expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: '' })).toBe(false)
-    expect(hasRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toBe(false)
-    expect(validateRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toEqual({
+    expect(validateBoardWriteFields({ boardName: 'Board', boardUrl: 'board' }).valid).toBe(true)
+    expect(validateBoardWriteFields({ boardName: '', boardUrl: 'board' }).valid).toBe(false)
+    expect(validateBoardWriteFields({ boardName: 'Board', boardUrl: '' }).valid).toBe(false)
+    expect(validateBoardWriteFields({ boardName: ' ', boardUrl: 'board' }).valid).toBe(false)
+    expect(validateBoardWriteFields({ boardName: ' ', boardUrl: 'board' })).toEqual({
       valid: false,
       messageKey: 'board.form.validation',
       toastType: 'error'

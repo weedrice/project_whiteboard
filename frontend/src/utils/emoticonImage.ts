@@ -126,23 +126,6 @@ export async function createUploadableEmoticonThumbnailFile(
   return wrapUploadBlob(await resizeEmoticonImage(file, maxSize), file)
 }
 
-export async function uploadEmoticonImagePreviews<T>(
-  items: EmoticonImagePreview[],
-  uploadFile: (file: File, item: EmoticonImagePreview, index: number) => Promise<T>,
-  onProgress?: (completed: number, total: number) => void
-): Promise<T[]> {
-  let completed = 0
-  const total = items.length
-
-  return Promise.all(items.map(async (item, index) => {
-    const file = await createUploadableEmoticonImageFile(item)
-    const result = await uploadFile(file, item, index)
-    completed += 1
-    onProgress?.(completed, total)
-    return result
-  }))
-}
-
 export function resolveEmoticonTagAddition(
   rawTag: string,
   currentTags: string[],

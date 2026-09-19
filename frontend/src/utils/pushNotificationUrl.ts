@@ -72,14 +72,3 @@ export function resolvePushImageUrl(candidate: unknown, origin: string): string 
     && IMAGE_FILE_PATTERN.test(resolved.pathname)
   return isBundledPwaImage || isAllowedAsset ? resolved.href : fallback
 }
-
-/** @deprecated Use the purpose-specific navigation or image resolver. */
-export function resolveInternalPushNotificationUrl(
-  candidate: unknown,
-  origin: string,
-  fallbackPath = PUSH_NOTIFICATION_FALLBACK_PATH,
-): string {
-  return fallbackPath === PUSH_NOTIFICATION_IMAGE_FALLBACK_PATH
-    ? resolvePushImageUrl(candidate, origin)
-    : resolvePushNavigationUrl(candidate, origin)
-}

@@ -27,7 +27,6 @@ const mocks = vi.hoisted(() => ({
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
   addToast: vi.fn(),
-  uploadEmoticonImagePreviews: vi.fn(),
   revokeEmoticonPreviewUrl: vi.fn(),
   refreshImagePolicy: vi.fn(),
   routeLeaveGuard: null as null | (() => boolean | Promise<boolean>),
@@ -95,7 +94,6 @@ vi.mock('@/utils/emoticonImage', () => ({
   resolveEmoticonTagAddition: vi.fn(() => ({ tag: 'tag' })),
   revokeEmoticonPreviewUrl: mocks.revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT: 'image/png',
-  uploadEmoticonImagePreviews: mocks.uploadEmoticonImagePreviews,
 }))
 
 const baseButtonStub = {
@@ -144,14 +142,6 @@ describe('EmoticonRegister', () => {
     mocks.createEmoticon.mockResolvedValue(emoticonApiSuccess())
     mocks.createUploadableEmoticonImageFile.mockImplementation(async (item) => item.file)
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation(async (file) => file)
-    mocks.uploadEmoticonImagePreviews.mockImplementation(async (items, uploadFile, onProgress) => {
-      const results = []
-      for (const [index, item] of items.entries()) {
-        results.push(await uploadFile(item.file, item, index))
-        onProgress?.(index + 1, items.length)
-      }
-      return results
-    })
   })
 
   it('connects register form labels to named controls', async () => {
