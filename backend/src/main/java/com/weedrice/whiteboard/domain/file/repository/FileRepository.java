@@ -272,31 +272,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
     @Query("""
             SELECT f
             FROM File f
-            WHERE f.relatedId = :relatedId
-              AND f.relatedType = :relatedType
-              AND f.mimeType LIKE CONCAT(:mimeTypePrefix, '%')
-              AND (f.storageStatus = :storageStatus
-                   OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
-                       AND f.storageStatus IS NULL))
-            ORDER BY f.fileId ASC
-            """)
-    Optional<File> findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
-            @Param("relatedId") Long relatedId,
-            @Param("relatedType") String relatedType,
-            @Param("mimeTypePrefix") String mimeTypePrefix,
-            @Param("storageStatus") FileStorageStatus storageStatus);
-
-    default Optional<File> findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(
-            Long relatedId,
-            String relatedType,
-            String mimeTypePrefix) {
-        return findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
-                relatedId, relatedType, mimeTypePrefix, FileStorageStatus.ACTIVE);
-    }
-
-    @Query("""
-            SELECT f
-            FROM File f
             WHERE f.fileId = :fileId
               AND f.relatedId = :relatedId
               AND f.relatedType = :relatedType

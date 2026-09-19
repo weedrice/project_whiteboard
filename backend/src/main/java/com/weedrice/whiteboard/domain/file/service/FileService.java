@@ -197,14 +197,6 @@ public class FileService {
         return getFirstImageFileIdsByRelatedIds(postIds, RELATED_TYPE_POST_CONTENT);
     }
 
-    public Long getOneImageFileIdForPost(Long postId) {
-        return fileRepository
-                .findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
-                        postId, RELATED_TYPE_POST_CONTENT, "image/", FileStorageStatus.ACTIVE)
-                .map(File::getFileId)
-                .orElse(null);
-    }
-
     public static Long extractFileIdFromUrl(String url) {
         return extractFileId(url, FILE_URL_PATTERN);
     }

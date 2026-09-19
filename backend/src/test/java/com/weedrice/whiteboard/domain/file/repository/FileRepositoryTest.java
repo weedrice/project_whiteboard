@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -299,18 +298,6 @@ class FileRepositoryTest {
         assertThat(candidates).extracting(FileRepository.FileCleanupCandidateProjection::getFileId)
                 .containsExactly(sameCreatedAtNext.getFileId(), later.getFileId())
                 .doesNotContain(first.getFileId(), file.getFileId(), pendingDelete.getFileId());
-    }
-
-    @Test
-    @DisplayName("특정 관련 ID, 타입, MIME 타입으로 첫 번째 파일 조회")
-    void findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith_success() {
-        // when
-        Optional<File> found = fileRepository.findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(
-                1L, "POST_CONTENT", "image/");
-
-        // then
-        assertThat(found).isPresent();
-        assertThat(found.get().getMimeType()).startsWith("image/");
     }
 
     @Test
