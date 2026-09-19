@@ -60,9 +60,9 @@ public class CommentQueryService {
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
-        CommentPostSnapshot post = commentPostPort.getRequired(postId);
+        CommentPostPort.ReadAccess postRead = commentPostPort.loadForRead(postId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostPort.validateReadable(postId, currentUserId, context.blockedUserIds());
+        CommentPostSnapshot post = postRead.validateReadable(currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         Page<Comment> parentComments = findParentComments(
@@ -91,9 +91,9 @@ public class CommentQueryService {
     }
 
     public List<CommentResponse> getBestComments(Long postId, Long currentUserId) {
-        CommentPostSnapshot post = commentPostPort.getRequired(postId);
+        CommentPostPort.ReadAccess postRead = commentPostPort.loadForRead(postId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        commentPostPort.validateReadable(postId, currentUserId, context.blockedUserIds());
+        CommentPostSnapshot post = postRead.validateReadable(currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         List<Comment> comments = commentRepository.findBestRootComments(
@@ -145,8 +145,8 @@ public class CommentQueryService {
         Comment parentComment = commentRepository.findByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         CommentReadContext context = resolveReadContext(currentUserId);
-        CommentPostSnapshot post = commentPostPort.getRequired(parentComment.getPostId());
-        commentPostPort.validateReadable(parentComment.getPostId(), currentUserId, context.blockedUserIds());
+        CommentPostSnapshot post = commentPostPort.loadForRead(parentComment.getPostId())
+                .validateReadable(currentUserId, context.blockedUserIds());
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
         Page<Comment> replies = commentRepository.findRepliesWithRelations(
@@ -173,22 +173,14 @@ public class CommentQueryService {
                 .toList();
         attachMentions(maskedReplies, context.blockedUserIds());
 
-        return CommentListResponse.builder()
-                .content(maskedReplies)
-                .page(replies.getNumber())
-                .size(replies.getSize())
-                .totalElements(replies.getTotalElements())
-                .totalPages(replies.getTotalPages())
-                .hasNext(replies.hasNext())
-                .hasPrevious(replies.hasPrevious())
-                .build();
+        return CommentListResponse.from(replies, maskedReplies);
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {
         Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);
-        CommentPostSnapshot post = commentPostPort.getRequired(comment.getPostId());
-        commentPostPort.validateReadable(comment.getPostId(), currentUserId, context.blockedUserIds());
+        CommentPostSnapshot post = commentPostPort.loadForRead(comment.getPostId())
+                .validateReadable(currentUserId, context.blockedUserIds());
         AuthorSnapshot author = actorBatchReadPort.resolveAuthors(List.of(actorRef(comment))).get(actorRef(comment));
         CommentResponse response = toCommentResponse(
                 commentReadModelAssembler.from(comment, author, context.blockedUserIds()), post);

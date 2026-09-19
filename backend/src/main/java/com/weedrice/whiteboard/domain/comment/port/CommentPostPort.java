@@ -6,6 +6,14 @@ import java.util.Map;
 public interface CommentPostPort {
     CommentPostSnapshot getRequired(Long postId);
 
+    // Keep loading separate from viewer resolution to preserve each caller's error order.
+    // The returned handle must be consumed within the caller's read transaction.
+    ReadAccess loadForRead(Long postId);
+
+    interface ReadAccess {
+        CommentPostSnapshot validateReadable(Long viewerUserId, Collection<Long> blockedUserIds);
+    }
+
     Map<Long, CommentPostSnapshot> getAll(Collection<Long> postIds);
 
     CommentPostSnapshot lockForWrite(Long postId);

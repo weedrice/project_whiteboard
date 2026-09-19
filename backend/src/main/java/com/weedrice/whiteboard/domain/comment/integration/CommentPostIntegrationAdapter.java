@@ -48,6 +48,15 @@ public class CommentPostIntegrationAdapter implements CommentPostPort {
     }
 
     @Override
+    public ReadAccess loadForRead(Long postId) {
+        Post post = load(postId);
+        return (viewerUserId, blockedUserIds) -> {
+            validateReadable(post, viewerUserId, blockedUserIds);
+            return snapshot(post);
+        };
+    }
+
+    @Override
     public Map<Long, CommentPostSnapshot> getAll(Collection<Long> postIds) {
         if (postIds == null || postIds.isEmpty()) {
             return Map.of();
@@ -77,7 +86,10 @@ public class CommentPostIntegrationAdapter implements CommentPostPort {
 
     @Override
     public void validateReadable(Long postId, Long viewerUserId, Collection<Long> knownBlockedUserIds) {
-        Post post = load(postId);
+        validateReadable(load(postId), viewerUserId, knownBlockedUserIds);
+    }
+
+    private void validateReadable(Post post, Long viewerUserId, Collection<Long> knownBlockedUserIds) {
         User viewer = viewerUserId == null ? null : userReadableResolver.resolve(viewerUserId);
         Set<Long> blockedUserIds = viewer == null ? Set.of()
                 : knownBlockedUserIds != null ? Set.copyOf(knownBlockedUserIds)

@@ -5,7 +5,6 @@ import lombok.Getter;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 @Builder
@@ -18,18 +17,15 @@ public class CommentListResponse {
     private boolean hasNext;
     private boolean hasPrevious;
 
-    public static CommentListResponse fromResponses(Page<CommentResponse> commentPage) {
-        List<CommentResponse> content = commentPage.getContent().stream()
-                .collect(Collectors.toList());
-
+    public static CommentListResponse from(Page<?> page, List<CommentResponse> content) {
         return CommentListResponse.builder()
                 .content(content)
-                .page(commentPage.getNumber())
-                .size(commentPage.getSize())
-                .totalElements(commentPage.getTotalElements())
-                .totalPages(commentPage.getTotalPages())
-                .hasNext(commentPage.hasNext())
-                .hasPrevious(commentPage.hasPrevious())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
                 .build();
     }
 }

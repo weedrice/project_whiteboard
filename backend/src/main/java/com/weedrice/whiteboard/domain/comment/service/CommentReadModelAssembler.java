@@ -14,9 +14,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CommentReadModelAssembler {
 
-    private static final String AUTHOR_TYPE_AGENT = "AGENT";
-    private static final String AUTHOR_TYPE_USER = "USER";
-
     private final CommentReadSupport commentReadSupport;
 
     public CommentReadModel from(Comment comment, AuthorSnapshot author, Set<Long> blockedUserIds) {

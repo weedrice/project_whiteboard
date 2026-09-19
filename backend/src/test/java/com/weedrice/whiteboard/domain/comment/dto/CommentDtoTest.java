@@ -126,21 +126,22 @@ class CommentDtoTest {
         Comment comment1 = Comment.builder().content("C1").user(user).post(post).depth(0).build();
         Comment comment2 = Comment.builder().content("C2").user(user).post(post).depth(0).build();
         
-        Page<Comment> page = new PageImpl<>(List.of(comment1, comment2), PageRequest.of(0, 10), 2);
+        Page<Comment> page = new PageImpl<>(List.of(comment1, comment2), PageRequest.of(1, 2), 6);
 
         // when
         Page<CommentResponse> responsePage = page.map(comment ->
                 CommentResponse.from(comment, author(null, "User", null), post(post)));
-        CommentListResponse response = CommentListResponse.fromResponses(responsePage);
+        List<CommentResponse> preparedContent = responsePage.getContent();
+        CommentListResponse response = CommentListResponse.from(page, preparedContent);
 
         // then
-        assertThat(response.getContent()).hasSize(2);
-        assertThat(response.getPage()).isZero();
-        assertThat(response.getSize()).isEqualTo(10);
-        assertThat(response.getTotalElements()).isEqualTo(2);
-        assertThat(response.getTotalPages()).isEqualTo(1);
-        assertThat(response.isHasNext()).isFalse();
-        assertThat(response.isHasPrevious()).isFalse();
+        assertThat(response.getContent()).isSameAs(preparedContent);
+        assertThat(response.getPage()).isEqualTo(1);
+        assertThat(response.getSize()).isEqualTo(2);
+        assertThat(response.getTotalElements()).isEqualTo(6);
+        assertThat(response.getTotalPages()).isEqualTo(3);
+        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.isHasPrevious()).isTrue();
     }
 
     @Test
