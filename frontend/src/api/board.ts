@@ -117,16 +117,6 @@ export const boardApi = {
             : api.post<ApiResponse<BoardDetailWire>>('/boards', data)
         ).then(mapBoardDetailResponse),
 
-    // Ensure inquiry board exists (create if absent)
-    ensureInquiryBoard: (boardUrl?: string, config?: AxiosRequestConfig) =>
-        api.post<ApiResponse<void>>('/boards/inquiry/ensure', null, {
-            ...config,
-            params: {
-                ...config?.params,
-                ...(boardUrl ? { boardUrl } : {})
-            }
-        }),
-
     // Get posts in a board
     getPosts: (boardUrl: string, params: PostsParams, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>(`/boards/${encodePathSegment(boardUrl)}/posts`, { ...config, params })

@@ -275,14 +275,6 @@ export interface BoardMessages {
       cancelVote: string
     }
   }
-  inquiryWrite: {
-    title: string
-    description: string
-    preparing: string
-    leaveConfirm: string
-    createTitle: string
-    createSuccess: string
-  }
   writePost: {
     createTitle: string
     editTitle: string
@@ -835,9 +827,6 @@ export interface UserMessages {
   }
   recentViewed: {
     empty: string
-  }
-  inquiryDetail: {
-    title: string
   }
   settings: {
     leaveConfirm: string

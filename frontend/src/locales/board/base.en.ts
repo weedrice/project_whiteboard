@@ -206,14 +206,6 @@ export const boardEnBaseMessages = {
       cancelVote: 'Cancel my vote',
     },
   },
-  inquiryWrite: {
-    title: 'Contact the moderators',
-    description: 'Moderators will review your inquiry. Please describe the details clearly.',
-    preparing: 'Preparing the inquiry space.',
-    leaveConfirm: 'Leave this page? Unsaved changes may be lost.',
-    createTitle: 'Write inquiry',
-    createSuccess: 'Your inquiry has been submitted.',
-  },
   tags: {
     placeholder: 'Add tag...',
     help: 'Press Enter to add',

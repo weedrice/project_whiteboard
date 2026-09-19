@@ -201,14 +201,6 @@ export const boardBaseMessages = {
       cancelVote: '내 투표 취소',
     },
   },
-  inquiryWrite: {
-    title: '운영진에게 문의하기',
-    description: '문의 글은 운영진이 확인합니다. 필요한 내용을 상세히 작성해 주세요.',
-    preparing: '문의 스페이스를 준비하고 있습니다.',
-    leaveConfirm: '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.',
-    createTitle: '문의 작성',
-    createSuccess: '문의가 성공적으로 등록되었습니다.',
-  },
   tags: {
     placeholder: '태그 추가...',
     help: 'Enter로 추가',

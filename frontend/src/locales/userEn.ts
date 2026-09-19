@@ -260,9 +260,6 @@ export const userEn: UserMessages = {
   recentViewed: {
     empty: 'No recently viewed posts.',
   },
-  inquiryDetail: {
-    title: 'Inquiry details',
-  },
   settings: {
     leaveConfirm: 'You have unsaved settings changes. Leave this page?',
     title: 'Settings',

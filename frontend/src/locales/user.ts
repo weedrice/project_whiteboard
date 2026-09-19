@@ -260,9 +260,6 @@ export const user: UserMessages = {
   recentViewed: {
     empty: '최근 읽은 글이 없습니다.',
   },
-  inquiryDetail: {
-    title: '문의 상세',
-  },
   settings: {
     leaveConfirm: '저장하지 않은 설정 변경사항이 있습니다. 페이지를 나가시겠습니까?',
     title: '설정',

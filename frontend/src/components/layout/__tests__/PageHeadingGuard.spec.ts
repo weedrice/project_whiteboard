@@ -66,7 +66,6 @@ describe('route page heading hierarchy', () => {
   it.each([
     'src/views/board/BoardCreate.vue',
     'src/views/board/BoardEdit.vue',
-    'src/views/board/InquiryWrite.vue',
     'src/views/user/UserSettings.vue',
     'src/views/emoticon/EmoticonRegister.vue',
     'src/views/emoticon/EmoticonEdit.vue',
@@ -84,7 +83,6 @@ describe('route page heading hierarchy', () => {
 
   it.each([
     'src/components/user/BadgeAwardCelebration.vue',
-    'src/components/user/MyInquiryDetailModal.vue',
     'src/components/admin/AdminInquiryDetailModal.vue',
   ])('%s nests its content heading below the shared modal title', (file) => {
     const source = readFileSync(resolve(process.cwd(), file), 'utf8')

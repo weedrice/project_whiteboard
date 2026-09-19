@@ -98,7 +98,6 @@ vi.mock('@/views/board/BoardCreate.vue', () => ({ default: { template: '<div>Boa
 vi.mock('@/views/board/BoardEdit.vue', () => ({ default: { template: '<div>BoardEdit</div>' } }))
 vi.mock('@/views/board/BoardDetail.vue', () => ({ default: { template: '<div>BoardDetail</div>' } }))
 vi.mock('@/views/board/PostDetail.vue', () => ({ default: { template: '<div>PostDetail</div>' } }))
-vi.mock('@/views/board/InquiryWrite.vue', () => ({ default: { template: '<div>InquiryWrite</div>' } }))
 vi.mock('@/views/board/PostWrite.vue', () => ({ default: { template: '<div>PostWrite</div>' } }))
 vi.mock('@/views/board/PostEdit.vue', () => ({ default: { template: '<div>PostEdit</div>' } }))
 vi.mock('@/views/emoticon/EmoticonList.vue', () => ({ default: { template: '<div>EmoticonList</div>' } }))

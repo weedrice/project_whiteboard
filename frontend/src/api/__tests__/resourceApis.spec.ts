@@ -84,25 +84,6 @@ describe('boardApi', () => {
         expect(apiMock.put).toHaveBeenNthCalledWith(5, '/boards/subscriptions/order', { boardUrls: ['general', 'tech'] })
     })
 
-    it('passes inquiry board ensure params with request config', () => {
-        const controller = new AbortController()
-
-        boardApi.ensureInquiryBoard('inquiry', {
-            signal: controller.signal,
-            skipGlobalErrorHandler: true,
-            params: { existing: 'value' }
-        })
-
-        expect(apiMock.post).toHaveBeenCalledWith('/boards/inquiry/ensure', null, {
-            signal: controller.signal,
-            skipGlobalErrorHandler: true,
-            params: {
-                existing: 'value',
-                boardUrl: 'inquiry'
-            }
-        })
-    })
-
     it('forwards board-manager report and audit filters with an abort signal', () => {
         const controller = new AbortController()
         const config = { signal: controller.signal }

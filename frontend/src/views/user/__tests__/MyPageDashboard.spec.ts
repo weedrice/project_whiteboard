@@ -33,8 +33,6 @@ const mocks = vi.hoisted(() => ({
   fetchMyPosts: vi.fn(),
   fetchMyComments: vi.fn(),
   loadDashboard: vi.fn(),
-  isInquiryDetailOpen: { __v_isRef: true, value: false },
-  selectedInquiryPost: { __v_isRef: true, value: null as null | { postId: number; title: string; contents: string; createdAt: string } },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -82,20 +80,6 @@ vi.mock('@/features/user/dashboard/useMyPageDashboardResource', () => ({
     handleMyCommentsPageChange: vi.fn(),
     getAgentStatusLabel: vi.fn((status: string) => status),
     loadDashboard: mocks.loadDashboard,
-  }),
-}))
-
-vi.mock('@/features/user/dashboard/useInquiryDetailModal', () => ({
-  useInquiryDetailModal: () => ({
-    isInquiryDetailOpen: mocks.isInquiryDetailOpen,
-    selectedInquiryPost: mocks.selectedInquiryPost,
-    isInquiryDetailLoading: ref(false),
-    inquiryDetailError: ref(''),
-    isDeletingInquiry: ref(false),
-    isInquiryPostItem: vi.fn(() => false),
-    openMyInquiryPost: vi.fn(),
-    closeInquiryModal: vi.fn(),
-    deleteInquiryPost: vi.fn(),
   }),
 }))
 
@@ -195,8 +179,6 @@ describe('MyPageDashboard', () => {
     mocks.fetchMyComments.mockReset()
     mocks.loadDashboard.mockReset()
     mocks.isVerifyModalOpen.value = true
-    mocks.isInquiryDetailOpen.value = false
-    mocks.selectedInquiryPost.value = null
   })
 
   it('renders profile information rows and email verification action', () => {
@@ -277,18 +259,4 @@ describe('MyPageDashboard', () => {
     expect(mocks.fetchMyComments).toHaveBeenCalledOnce()
   })
 
-  it('does not expose the retired legacy inquiry detail modal', () => {
-    mocks.isInquiryDetailOpen.value = true
-    mocks.selectedInquiryPost.value = {
-      postId: 9,
-      title: 'Inquiry title',
-      contents: '<p>Unsafe</p><script>alert(1)</script>',
-      createdAt: '2026-01-03T00:00:00',
-    }
-
-    const wrapper = mountDashboard()
-
-    expect(wrapper.find('iframe').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Inquiry title')
-  })
 })
