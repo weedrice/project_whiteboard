@@ -32,6 +32,37 @@ describe('UI primitive contract guard', () => {
     expect(findRetiredCssSelectors('.auth-card { padding: 1rem; }')).toEqual([])
   })
 
+  it('keeps repeated expression bindings file-local and checks each class rule independently', async () => {
+    const component = (token) => `<script setup>const styleToken = '${token}'</script>
+<template>
+  <div :class="styleToken" />
+  <div :class="styleToken" />
+  <div v-bind="{ class: styleToken }" />
+</template>`
+    const fixture = await createSourceFixture({
+      'First.vue': component('card btn-primary'),
+      'Second.vue': component('table-row btn-danger'),
+      'Valid.vue': component('nv-surface'),
+    })
+
+    const violations = await checkUiPrimitiveContracts(fixture)
+
+    expect(violations.map((violation) => violation.slice(violation.lastIndexOf('/') + 1))).toEqual([
+      'First.vue:3 retired UI class: card',
+      'First.vue:3 shared primitive class must be owned by a Base component: btn-primary',
+      'First.vue:4 retired UI class: card',
+      'First.vue:4 shared primitive class must be owned by a Base component: btn-primary',
+      'First.vue:5 retired UI class: card',
+      'First.vue:5 shared primitive class must be owned by a Base component: btn-primary',
+      'Second.vue:3 retired UI class: table-row',
+      'Second.vue:3 shared primitive class must be owned by a Base component: btn-danger',
+      'Second.vue:4 retired UI class: table-row',
+      'Second.vue:4 shared primitive class must be owned by a Base component: btn-danger',
+      'Second.vue:5 retired UI class: table-row',
+      'Second.vue:5 shared primitive class must be owned by a Base component: btn-danger',
+    ])
+  })
+
   it('checks legacy files, imports, primitive ownership, and native classifications outside route views', async () => {
     const fixture = await createSourceFixture({
       'feature.ts': "import './legacy-components.css'",

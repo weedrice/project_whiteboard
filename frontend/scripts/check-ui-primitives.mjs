@@ -156,7 +156,7 @@ function createScriptAnalysis(value, fileName = 'source.ts') {
   }
   collectBindings(sourceFile)
 
-  return { sourceFile, bindings }
+  return { sourceFile, bindings, expressionAnalyses: new Map() }
 }
 
 function collectClassExpressionMatches(node, classNames, analysis, matches, resolving = new Set()) {
@@ -186,16 +186,28 @@ function collectClassExpressionMatches(node, classNames, analysis, matches, reso
   ))
 }
 
+function getExpressionAnalysis(expression, analysis, spread = false) {
+  const bindingName = spread ? '__uiSpread' : '__uiExpression'
+  const cacheKey = `${bindingName}:${expression}`
+  if (!analysis.expressionAnalyses.has(cacheKey)) {
+    const expressionAnalysis = createScriptAnalysis(
+      `const ${bindingName} = (${expression})`,
+      spread ? 'spread-expression.ts' : 'expression.ts',
+    )
+    analysis.expressionAnalyses.set(cacheKey, {
+      sourceFile: expressionAnalysis.sourceFile,
+      bindings: new Map([...analysis.bindings, ...expressionAnalysis.bindings]),
+      expressionNode: expressionAnalysis.bindings.get(bindingName),
+    })
+  }
+  return analysis.expressionAnalyses.get(cacheKey)
+}
+
 function findExpressionClasses(expression, classNames, analysis) {
   if (!expression.trim()) return []
-  const expressionAnalysis = createScriptAnalysis(`const __uiExpression = (${expression})`, 'expression.ts')
-  const expressionNode = expressionAnalysis.bindings.get('__uiExpression')
-  const combinedAnalysis = {
-    sourceFile: expressionAnalysis.sourceFile,
-    bindings: new Map([...analysis.bindings, ...expressionAnalysis.bindings]),
-  }
+  const combinedAnalysis = getExpressionAnalysis(expression, analysis)
   const matches = new Set()
-  collectClassExpressionMatches(expressionNode, classNames, combinedAnalysis, matches)
+  collectClassExpressionMatches(combinedAnalysis.expressionNode, classNames, combinedAnalysis, matches)
   return [...matches]
 }
 
@@ -237,19 +249,13 @@ function collectSpreadClassMatches(node, classNames, analysis, matches, resolvin
 
 function findSpreadExpressionClasses(expression, classNames, analysis) {
   if (!expression.trim()) return []
-  const expressionAnalysis = createScriptAnalysis(`const __uiSpread = (${expression})`, 'spread-expression.ts')
-  const expressionNode = expressionAnalysis.bindings.get('__uiSpread')
-  const combinedAnalysis = {
-    sourceFile: expressionAnalysis.sourceFile,
-    bindings: new Map([...analysis.bindings, ...expressionAnalysis.bindings]),
-  }
+  const combinedAnalysis = getExpressionAnalysis(expression, analysis, true)
   const matches = new Set()
-  collectSpreadClassMatches(expressionNode, classNames, combinedAnalysis, matches)
+  collectSpreadClassMatches(combinedAnalysis.expressionNode, classNames, combinedAnalysis, matches)
   return [...matches]
 }
 
-function findScriptClassLiterals(value, classNames, fileName) {
-  const analysis = createScriptAnalysis(value, fileName)
+function findScriptClassLiterals(analysis, classNames) {
   const matches = new Set()
 
   const visitScript = (node) => {
@@ -300,12 +306,13 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
     }
 
     if (extname(file) === '.ts') {
-      const retiredScriptClasses = findScriptClassLiterals(source, retiredClasses, file)
+      const scriptAnalysis = createScriptAnalysis(source, file)
+      const retiredScriptClasses = findScriptClassLiterals(scriptAnalysis, retiredClasses)
       if (retiredScriptClasses.length > 0) {
         violations.push(`${displayPath}: retired UI class in script: ${retiredScriptClasses.join(', ')}`)
       }
       if (!primitiveClassOwnerFiles.has(displayPath)) {
-        const sharedScriptClasses = findScriptClassLiterals(source, sharedPrimitiveClasses, file)
+        const sharedScriptClasses = findScriptClassLiterals(scriptAnalysis, sharedPrimitiveClasses)
         if (sharedScriptClasses.length > 0) {
           violations.push(`${displayPath}: shared primitive class in script: ${sharedScriptClasses.join(', ')}`)
         }
@@ -331,12 +338,12 @@ export async function checkUiPrimitiveContracts(sourceDirectory = srcDir) {
       .filter(Boolean)
       .join('\n')
     const scriptAnalysis = createScriptAnalysis(scriptSource, file)
-    const retiredScriptClasses = findScriptClassLiterals(scriptSource, retiredClasses, file)
+    const retiredScriptClasses = findScriptClassLiterals(scriptAnalysis, retiredClasses)
     if (retiredScriptClasses.length > 0) {
       violations.push(`${displayPath}: retired UI class in script: ${retiredScriptClasses.join(', ')}`)
     }
     if (!primitiveClassOwnerFiles.has(displayPath)) {
-      const sharedScriptClasses = findScriptClassLiterals(scriptSource, sharedPrimitiveClasses, file)
+      const sharedScriptClasses = findScriptClassLiterals(scriptAnalysis, sharedPrimitiveClasses)
       if (sharedScriptClasses.length > 0) {
         violations.push(`${displayPath}: shared primitive class in script: ${sharedScriptClasses.join(', ')}`)
       }
