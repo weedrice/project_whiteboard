@@ -96,57 +96,40 @@ async function fetchJson(path) {
     }
 }
 
-function extractPostPathsFromSitemap(xmlText) {
-    const matches = [...xmlText.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1].trim())
+export function extractPathsFromSitemap(xmlText) {
     const seen = new Set()
-    const results = []
+    const postPaths = []
+    const listingPaths = []
 
-    for (const loc of matches) {
+    for (const match of xmlText.matchAll(/<loc>(.*?)<\/loc>/g)) {
         let url
         try {
-            url = new URL(loc)
+            url = new URL(match[1].trim())
         } catch {
             continue
         }
 
         const path = decodeURI(url.pathname)
         const postMatch = path.match(/^\/board\/([^/]+)\/post\/(\d+)\/?$/)
-        if (!postMatch) continue
-
-        const boardUrl = postMatch[1]
-        const postId = postMatch[2]
-        const key = `${boardUrl}:${postId}`
-        if (seen.has(key)) continue
-
-        seen.add(key)
-        results.push({ boardUrl, postId, path: `/board/${boardUrl}/post/${postId}/` })
-    }
-
-    return results
-}
-
-function extractListingPathsFromSitemap(xmlText) {
-    const matches = [...xmlText.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1].trim())
-    const results = []
-
-    for (const loc of matches) {
-        let url
-        try {
-            url = new URL(loc)
-        } catch {
-            continue
+        if (postMatch) {
+            const boardUrl = postMatch[1]
+            const postId = postMatch[2]
+            const key = `${boardUrl}:${postId}`
+            if (!seen.has(key)) {
+                seen.add(key)
+                postPaths.push({ boardUrl, postId, path: `/board/${boardUrl}/post/${postId}/` })
+            }
         }
 
-        const path = decodeURI(url.pathname)
         if (path === '/boards/' || /^\/board\/[^/]+\/$/.test(path)) {
-            results.push({
+            listingPaths.push({
                 path,
                 boardUrl: path === '/boards/' ? null : path.split('/')[2]
             })
         }
     }
 
-    return results
+    return { postPaths, listingPaths }
 }
 
 async function writeIfMissing(outputPath, html) {
@@ -236,8 +219,7 @@ async function main() {
         readFile(sourceSitemapPath, 'utf8')
     ])
 
-    const postPaths = extractPostPathsFromSitemap(sitemapXml)
-    const listingPaths = extractListingPathsFromSitemap(sitemapXml)
+    const { postPaths, listingPaths } = extractPathsFromSitemap(sitemapXml)
     assertSeoPostUrlCountWithinCapacity(postPaths.length, maxUrls)
     if (postPaths.length === 0) {
         if (strict) throw new Error('strict production prerender requires at least one post URL')
@@ -269,8 +251,14 @@ async function main() {
         }
     }
 
-    const fallbackIndexCount = await ensureSpaFallbackIndexes(indexHtml, postPaths)
-    const listingResult = await renderListingPages(indexHtml, listingPaths, postsByBoard)
+    let listingResult
+    let fallbackIndexCount
+    try {
+        listingResult = await renderListingPages(indexHtml, listingPaths, postsByBoard)
+    } finally {
+        // Failed listings still need SPA fallbacks, including a failed board-list fetch.
+        fallbackIndexCount = await ensureSpaFallbackIndexes(indexHtml, postPaths)
+    }
     console.log(`[prerender] wrote ${fallbackIndexCount} SPA fallback index files for parent directories`)
     console.log(`[prerender] wrote ${successCount}/${postPaths.length} pre-rendered post pages`)
     console.log(`[prerender] wrote ${listingResult.successCount}/${listingPaths.length} pre-rendered listing pages`)
