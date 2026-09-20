@@ -268,9 +268,8 @@ export function useComment() {
                     queryClient.setQueryData(queryKey, value)
                 })
             },
-            onSettled: (_data, _error, variables, context) => {
+            onSettled: (_data, _error, _variables, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
-                invalidatePostCommentQueries(variables.postId)
                 queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.all) })
             },
         })

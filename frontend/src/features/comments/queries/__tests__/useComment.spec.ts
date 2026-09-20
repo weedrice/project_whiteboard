@@ -288,7 +288,7 @@ describe('useComment', () => {
         expect(commentApi.unlikeComment).toHaveBeenCalledWith(7)
         expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(mockSetQueriesData).toHaveBeenCalled()
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledTimes(2)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
     })
 
