@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -91,7 +96,8 @@ class NotificationQueryServiceTest {
                 .build();
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(blockedNotification), PageRequest.of(0, 10), 17));
-        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(2L));
+        when(userBlockRepository.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L)))
+                .thenReturn(List.of(2L));
 
         var response = queryService.getNotifications(1L, PageRequest.of(0, 10));
 
@@ -122,7 +128,6 @@ class NotificationQueryServiceTest {
                 .build();
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(deletedActorNotification)));
-        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of());
 
         var response = queryService.getNotifications(1L, PageRequest.of(0, 10));
 
@@ -131,6 +136,76 @@ class NotificationQueryServiceTest {
             assertThat(summary.getActor().getDisplayName()).isEmpty();
             assertThat(summary.getMessage()).doesNotContain("Deleted Actor");
         });
+        verifyNoInteractions(userBlockRepository);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void getNotifications_agentActor_checksOwnerAndPreservesMessageFields(boolean blocked) {
+        User owner = User.builder().displayName("Agent Owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        Agent agent = Agent.builder().userId(2L).name("Current Agent").build();
+        ReflectionTestUtils.setField(agent, "agentId", 30L);
+        LocalDateTime eventAt = LocalDateTime.of(2026, 9, 21, 10, 0);
+        Notification agentNotification = Notification.builder()
+                .actor(owner)
+                .actorAgent(agent)
+                .notificationType(NotificationType.LIKE)
+                .sourceType("POST")
+                .sourceId(10L)
+                .content("Stored Agent / Current Agent liked the post")
+                .messageKey("notification.post.liked")
+                .messageParams("[\"Stored Agent\",\"Post Title\"]")
+                .lastEventAt(eventAt)
+                .build();
+        ReflectionTestUtils.setField(agentNotification, "notificationId", 50L);
+        ReflectionTestUtils.setField(agentNotification, "createdAt", eventAt);
+        queryService = new NotificationQueryService(
+                notificationRepository,
+                notifications -> Map.of(50L, "/posts/10"),
+                new NotificationActorVisibilityService(userBlockRepository));
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(agentNotification), PageRequest.of(1, 10), 25));
+        when(userBlockRepository.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L)))
+                .thenReturn(blocked ? List.of(2L) : List.of());
+
+        var response = queryService.getNotifications(1L, PageRequest.of(1, 10));
+
+        assertThat(response.getPage()).isEqualTo(1);
+        assertThat(response.getSize()).isEqualTo(10);
+        assertThat(response.getTotalElements()).isEqualTo(25);
+        assertThat(response.getTotalPages()).isEqualTo(3);
+        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.isHasPrevious()).isTrue();
+        assertThat(response.getContent()).singleElement().satisfies(summary -> {
+            assertThat(summary.getNotificationId()).isEqualTo(50L);
+            assertThat(summary.getNotificationType()).isEqualTo("LIKE");
+            assertThat(summary.getMessageKey()).isEqualTo("notification.post.liked");
+            assertThat(summary.getSourceType()).isEqualTo("POST");
+            assertThat(summary.getSourceId()).isEqualTo(10L);
+            assertThat(summary.getTargetUrl()).isEqualTo("/posts/10");
+            assertThat(summary.getIsRead()).isFalse();
+            assertThat(summary.getCreatedAt()).isEqualTo(eventAt);
+            assertThat(summary.getLastEventAt()).isEqualTo(eventAt);
+            assertThat(summary.getGroupCount()).isEqualTo(1);
+            assertThat(summary.getGrouped()).isFalse();
+            if (blocked) {
+                assertThat(summary.getActor().getUserId()).isNull();
+                assertThat(summary.getActor().getAgentId()).isNull();
+                assertThat(summary.getActor().getDisplayName()).isEmpty();
+                assertThat(summary.getMessage()).isEqualTo(" /  liked the post");
+                assertThat(summary.getMessageParams()).containsExactly("", "Post Title");
+            } else {
+                assertThat(summary.getActor().getUserId()).isEqualTo(2L);
+                assertThat(summary.getActor().getAgentId()).isEqualTo(30L);
+                assertThat(summary.getActor().getAuthorType()).isEqualTo("AGENT");
+                assertThat(summary.getActor().getDisplayName()).isEqualTo("Current Agent");
+                assertThat(summary.getMessage()).isEqualTo("Stored Agent / Current Agent liked the post");
+                assertThat(summary.getMessageParams()).containsExactly("Stored Agent", "Post Title");
+            }
+        });
+        verify(userBlockRepository).findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L));
+        verifyNoMoreInteractions(userBlockRepository);
     }
 
     @Test

@@ -8,8 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -19,20 +19,29 @@ class NotificationActorVisibilityService {
     private final UserBlockRepository userBlockRepository;
 
     Set<Long> resolveHiddenActorUserIds(Long receiverUserId, Collection<Notification> notifications) {
-        List<Long> blockedUserIds = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(receiverUserId);
-        Set<Long> hiddenActorUserIds = blockedUserIds == null
-                ? new HashSet<>()
-                : new HashSet<>(blockedUserIds);
+        Set<Long> hiddenActorUserIds = new HashSet<>();
         if (notifications == null) {
             return hiddenActorUserIds;
         }
-        notifications.stream()
-                .map(Notification::getActor)
-                .filter(Objects::nonNull)
-                .filter(this::isInactive)
-                .map(User::getUserId)
-                .filter(Objects::nonNull)
-                .forEach(hiddenActorUserIds::add);
+        Set<Long> activeActorUserIds = new LinkedHashSet<>();
+        for (Notification notification : notifications) {
+            User actor = notification.getActor();
+            if (actor == null || actor.getUserId() == null) {
+                continue;
+            }
+            if (isInactive(actor)) {
+                hiddenActorUserIds.add(actor.getUserId());
+            } else {
+                activeActorUserIds.add(actor.getUserId());
+            }
+        }
+        if (!activeActorUserIds.isEmpty()) {
+            List<Long> blockedUserIds = userBlockRepository.findBlockedCandidateUserIdsEitherDirection(
+                    receiverUserId, List.copyOf(activeActorUserIds));
+            if (blockedUserIds != null) {
+                hiddenActorUserIds.addAll(blockedUserIds);
+            }
+        }
         return hiddenActorUserIds;
     }
 
