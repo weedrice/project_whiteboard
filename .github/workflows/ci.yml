@@ -878,7 +878,8 @@ jobs:
           set -euo pipefail
           sha256sum app.jar RELEASE_METADATA sbom.spdx.json > SHA256SUMS
           printf 'release_type=backend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
-          sha256sum app.jar RELEASE_METADATA sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
+          cat SHA256SUMS >> RELEASE_ENVELOPE
+          sha256sum SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: backend/release
       - name: Upload untrusted backend candidate
         id: upload-candidate
@@ -1034,7 +1035,8 @@ jobs:
           set -euo pipefail
           sha256sum frontend-release.tar.gz RELEASE_METADATA sbom.spdx.json > SHA256SUMS
           printf 'release_type=frontend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
-          sha256sum frontend-release.tar.gz RELEASE_METADATA sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
+          cat SHA256SUMS >> RELEASE_ENVELOPE
+          sha256sum SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: frontend
       - name: Upload untrusted frontend candidate
         id: upload-candidate
