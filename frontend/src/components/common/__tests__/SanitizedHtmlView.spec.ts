@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { asSanitizedHtml } from '@/utils/sanitize'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -113,7 +114,7 @@ describe('SanitizedHtmlView', () => {
   it('revokes old object URLs and reloads images at an authentication boundary', async () => {
     mocks.get.mockResolvedValue({ data: new Blob(['image'], { type: 'image/png' }) })
     const wrapper = mount(SanitizedHtmlView, {
-      props: { html: asSanitizedHtml('<img src="/api/v1/files/21">') },
+      props: { html: asSanitizedHtml('<img src="/api/v1/files/21"><img src="/api/v1/files/21">') },
     })
     await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
 
@@ -126,15 +127,109 @@ describe('SanitizedHtmlView', () => {
     expect(revokeObjectUrlSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('uses the existing fallback when an authenticated image request fails', async () => {
-    mocks.get.mockRejectedValue(new Error('forbidden'))
+  it('shares one request and object URL for repeated normalized image paths', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image'], { type: 'image/png' }) })
     const wrapper = mount(SanitizedHtmlView, {
-      props: { html: asSanitizedHtml('<img alt="protected" src="/api/v1/files/22">') },
+      props: {
+        html: asSanitizedHtml(
+          `<img src="/api/v1/files/17?size=sm"><img src="${window.location.origin}/api/v1/files/17?size=sm">`,
+        ),
+      },
     })
 
-    await vi.waitFor(() => {
-      expect(wrapper.get('img').attributes('src')).toBe('/images/default-emoticon.png')
-    })
+    await vi.waitFor(() => expect(createObjectUrlSpy).toHaveBeenCalledTimes(1))
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+    expect(mocks.get).toHaveBeenCalledWith('/files/17?size=sm', expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual(['blob:preview', 'blob:preview'])
+
     wrapper.unmount()
+    expect(revokeObjectUrlSpy).toHaveBeenCalledExactlyOnceWith('blob:preview')
+  })
+
+  it('keeps different file variants and query strings in separate requests', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image'], { type: 'image/png' }) })
+    createObjectUrlSpy
+      .mockReturnValueOnce('blob:small')
+      .mockReturnValueOnce('blob:large')
+      .mockReturnValueOnce('blob:variant')
+    const wrapper = mount(SanitizedHtmlView, {
+      props: {
+        html: asSanitizedHtml(
+          '<img src="/api/v1/files/17?size=sm"><img src="/api/v1/files/17?size=lg">'
+          + '<img src="/api/v1/files/17/variants/thumbnail"><img src="/api/v1/files/17?size=sm">',
+        ),
+      },
+    })
+
+    await vi.waitFor(() => expect(createObjectUrlSpy).toHaveBeenCalledTimes(3))
+    expect(mocks.get.mock.calls.map(([path]) => path)).toEqual([
+      '/files/17?size=sm', '/files/17?size=lg', '/files/17/variants/thumbnail',
+    ])
+    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual([
+      'blob:small', 'blob:large', 'blob:variant', 'blob:small',
+    ])
+    wrapper.unmount()
+    expect(revokeObjectUrlSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it.each([true, false])('preserves fallback policy %s for every image sharing a failed request', async (useImageFallback) => {
+    mocks.get.mockRejectedValue(new Error('forbidden'))
+    const wrapper = mount(SanitizedHtmlView, {
+      props: {
+        html: asSanitizedHtml('<img src="/api/v1/files/22"><img src="/api/v1/files/22">'),
+        useImageFallback,
+      },
+    })
+
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+    await flushPromises()
+    const expectedSource = useImageFallback ? '/images/default-emoticon.png' : undefined
+    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual([expectedSource, expectedSource])
+    expect(createObjectUrlSpy).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it.each(['content', 'session'])('ignores a shared request resolved after its %s generation changed', async (boundary) => {
+    const previous = createDeferred<{ data: Blob }>()
+    mocks.get
+      .mockReturnValueOnce(previous.promise)
+      .mockResolvedValueOnce({ data: new Blob(['current'], { type: 'image/png' }) })
+    const wrapper = mount(SanitizedHtmlView, {
+      props: { html: asSanitizedHtml('<img src="/api/v1/files/23"><img src="/api/v1/files/23">') },
+    })
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+    const previousSignal = mocks.get.mock.calls[0]?.[1].signal as AbortSignal
+
+    if (boundary === 'session') notifyAuthSessionBoundary(2)
+    else await wrapper.setProps({
+      html: asSanitizedHtml('<img alt="updated" src="/api/v1/files/23"><img src="/api/v1/files/23">'),
+    })
+    await vi.waitFor(() => expect(createObjectUrlSpy).toHaveBeenCalledTimes(1))
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(previousSignal.aborted).toBe(true)
+
+    previous.resolve({ data: new Blob(['stale'], { type: 'image/png' }) })
+    await flushPromises()
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual(['blob:preview', 'blob:preview'])
+    wrapper.unmount()
+    expect(revokeObjectUrlSpy).toHaveBeenCalledExactlyOnceWith('blob:preview')
+  })
+
+  it('aborts an unfinished shared request on unmount without creating an object URL', async () => {
+    const response = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(response.promise)
+    const wrapper = mount(SanitizedHtmlView, {
+      props: { html: asSanitizedHtml('<img src="/api/v1/files/24"><img src="/api/v1/files/24">') },
+    })
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+    const signal = mocks.get.mock.calls[0]?.[1].signal as AbortSignal
+
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    response.resolve({ data: new Blob(['late'], { type: 'image/png' }) })
+    await flushPromises()
+    expect(createObjectUrlSpy).not.toHaveBeenCalled()
+    expect(revokeObjectUrlSpy).not.toHaveBeenCalled()
   })
 })

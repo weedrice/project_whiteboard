@@ -90,24 +90,34 @@ async function hydrateAuthenticatedFiles() {
   const { default: api } = await import('@/api')
   if (controller.signal.aborted || generation !== hydrationGeneration) return
 
-  await Promise.allSettled(images.map(async (node) => {
+  const imagesByPath = new Map<string, HTMLImageElement[]>()
+  images.forEach((node) => {
     const requestPath = node.getAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE)
     if (!requestPath) return
+    const matchingImages = imagesByPath.get(requestPath) ?? []
+    matchingImages.push(node)
+    imagesByPath.set(requestPath, matchingImages)
+  })
 
+  await Promise.allSettled(Array.from(imagesByPath, async ([requestPath, nodes]) => {
     try {
       const response = await api.get<Blob>(requestPath, {
         responseType: 'blob',
         signal: controller.signal,
         skipGlobalErrorHandler: true,
       })
-      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(node)) return
+      if (controller.signal.aborted || generation !== hydrationGeneration) return
+      const currentNodes = nodes.filter((node) => root.contains(node))
+      if (currentNodes.length === 0) return
 
       const objectUrl = URL.createObjectURL(response.data)
       objectUrls.add(objectUrl)
-      node.src = objectUrl
+      currentNodes.forEach((node) => { node.src = objectUrl })
     } catch {
-      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(node)) return
-      if (props.useImageFallback) node.src = '/images/default-emoticon.png'
+      if (controller.signal.aborted || generation !== hydrationGeneration || !props.useImageFallback) return
+      nodes.forEach((node) => {
+        if (root.contains(node)) node.src = '/images/default-emoticon.png'
+      })
     }
   }))
 
