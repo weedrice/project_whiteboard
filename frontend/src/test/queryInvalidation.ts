@@ -5,7 +5,7 @@ import { expect, vi } from 'vitest'
 import { createDeferred } from '@/test/async'
 
 export async function expectQueriesRefetchedOnce(
-  invalidate: (queryClient: QueryClient) => void,
+  invalidate: (queryClient: QueryClient) => void | Promise<void>,
   affectedKeys: readonly QueryKey[],
   unaffectedKeys: readonly QueryKey[],
 ) {
@@ -26,7 +26,7 @@ export async function expectQueriesRefetchedOnce(
   })
 
   try {
-    invalidate(queryClient)
+    await invalidate(queryClient)
     await nextTick()
 
     for (const query of queries) {

@@ -142,16 +142,6 @@ export function invalidatePostCollectionCaches(queryClient: QueryClient, session
   queryClient.invalidateQueries({
     predicate: (query) => {
       const key = query.queryKey
-      return Array.isArray(key)
-        && key[0] === 'session'
-        && key[1] === sessionGeneration
-        && key[2] === 'board'
-        && key[3] === 'posts'
-    },
-  })
-  queryClient.invalidateQueries({
-    predicate: (query) => {
-      const key = query.queryKey
       if (!Array.isArray(key) || key[0] !== 'session' || key[1] !== sessionGeneration || key[2] !== 'user') {
         return false
       }

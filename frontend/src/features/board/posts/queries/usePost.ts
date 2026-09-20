@@ -11,7 +11,6 @@ import {
     savePostCacheSnapshots,
     updatePostInAllCaches,
 } from '@/features/board/posts/queries/postCacheUpdates'
-import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
@@ -114,7 +113,6 @@ export function usePost() {
                 )
                 invalidatePostCollectionCaches(queryClient, context.sessionGeneration)
                 queryClient.invalidateQueries({ queryKey: sessionKey(userQueryKeys.pointsRoot) })
-                queryClient.invalidateQueries({ queryKey: sessionKey(tagQueryKeys.all) })
             },
         })
     }

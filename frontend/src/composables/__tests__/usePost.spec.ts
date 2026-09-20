@@ -401,7 +401,8 @@ describe('usePost', () => {
             | ((query: { queryKey: unknown }) => boolean)
             | undefined
         expect(predicate).toBeTypeOf('function')
-        expect(predicate?.({ queryKey: sessionKey(['board', 'posts', 'free']) })).toBe(true)
+        expect(predicate?.({ queryKey: sessionKey(['user', '7', 'posts']) })).toBe(true)
+        expect(predicate?.({ queryKey: sessionKey(['board', 'posts', 'free']) })).toBe(false)
         expect(predicate?.({ queryKey: sessionKey(['board', 'detail', 'free']) })).toBe(false)
         expect(predicate?.({ queryKey: 'not-array' })).toBe(false)
     })
