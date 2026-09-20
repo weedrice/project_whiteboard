@@ -2,6 +2,9 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
@@ -15,6 +18,9 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -32,6 +38,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -132,6 +139,55 @@ class MentionServiceTest {
 
         verify(postAccessPolicy).isReadable(sourcePost, recipient, false, java.util.Set.of());
         verify(events).publishEvent(any(NotificationEvent.class));
+    }
+
+    @Test
+    void missingSourceBoardDoesNotLoadAdminMemberships() {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
+        Post source = post(10L);
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(source));
+        when(users.findAllById(List.of(2L))).thenReturn(List.of(recipient));
+
+        service.publishMentions(actor, null, NotificationSourceType.POST, 10L, List.of(2L));
+
+        verifyNoMoreInteractions(admins);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = NotificationSourceType.class, names = {"POST", "COMMENT"})
+    void restrictedSourceUsesOnlyTargetBoardMembershipAndStillFiltersBlockedRecipients(NotificationSourceType sourceType) {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User manager = user(2L, "Manager", User.STATUS_ACTIVE);
+        User nonManager = user(3L, "Non-manager", User.STATUS_ACTIVE);
+        User blockedManager = user(4L, "Blocked manager", User.STATUS_ACTIVE);
+        User inactive = user(5L, "Inactive", "SUSPENDED");
+        Board board = mock(Board.class);
+        when(board.getBoardId()).thenReturn(100L);
+        when(board.getBoardUrl()).thenReturn("private-board");
+        when(board.getIsActive()).thenReturn(true);
+        when(board.getIsPublic()).thenReturn(false);
+        Post source = post(10L);
+        when(source.getBoard()).thenReturn(board);
+        when(source.getIsSecret()).thenReturn(true);
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(source));
+        Comment comment = mock(Comment.class);
+        when(comment.getPostId()).thenReturn(10L);
+        when(comments.findNonDeletedByIdWithRelations(10L)).thenReturn(java.util.Optional.of(comment));
+        when(users.findAllById(any())).thenReturn(List.of(actor, manager, nonManager, blockedManager, inactive));
+        when(blocks.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L, 3L, 4L))).thenReturn(List.of(4L));
+        when(admins.findActiveUserIdsByBoardIdAndUserIds(100L, List.of(2L, 3L, 4L))).thenReturn(List.of(2L, 4L));
+        service = new MentionService(users, blocks, events, posts, comments, admins,
+                new PostAccessPolicy(new BoardAccessPolicy(admins), mock(InquiryLegacyWritePolicy.class)), agents);
+
+        service.publishMentions(actor, null, sourceType, 10L, List.of(1L, 2L, 3L, 4L, 5L));
+
+        var event = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(events).publishEvent(event.capture());
+        assertEquals(manager, event.getValue().getUserToNotify());
+        assertEquals(sourceType, event.getValue().getSourceType());
+        verify(admins).findActiveUserIdsByBoardIdAndUserIds(100L, List.of(2L, 3L, 4L));
+        verifyNoMoreInteractions(admins, events);
     }
 
     @Test

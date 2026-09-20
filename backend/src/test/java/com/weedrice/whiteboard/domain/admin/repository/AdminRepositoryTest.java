@@ -127,6 +127,31 @@ class AdminRepositoryTest {
     }
 
     @Test
+    void findActiveUserIdsByBoardIdAndUserIds_limitsBoardCandidatesAndStatusWithoutDuplicates() {
+        User first = entityManager.find(User.class, olderAdmin.getUser().getUserId());
+        User second = entityManager.find(User.class, newerAdmin.getUser().getUserId());
+        Board originalBoard = entityManager.find(Board.class, olderAdmin.getBoard().getBoardId());
+        Board otherBoard = entityManager.persist(Board.builder()
+                .boardName("other").boardUrl("other").creator(first).build());
+        entityManager.find(Admin.class, newerAdmin.getAdminId()).deactivate();
+        entityManager.persist(Admin.builder().user(first).board(originalBoard).role(Role.BOARD_ADMIN).build());
+        entityManager.persist(Admin.builder().user(first).board(otherBoard).role(Role.BOARD_ADMIN).build());
+        entityManager.persist(Admin.builder().user(second).board(otherBoard).role(Role.BOARD_ADMIN).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adminRepository.findActiveUserIdsByBoardIdAndUserIds(
+                originalBoard.getBoardId(), List.of(first.getUserId(), second.getUserId())))
+                .containsExactly(first.getUserId());
+        assertThat(adminRepository.findActiveUserIdsByBoardIdAndUserIds(
+                otherBoard.getBoardId(), List.of(second.getUserId())))
+                .containsExactly(second.getUserId());
+        assertThat(adminRepository.findActiveUserIdsByBoardIdAndUserIds(
+                originalBoard.getBoardId(), List.of(second.getUserId())))
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("board와 role로 활성 관리자 조회 시 user를 함께 로드한다")
     void findByBoardAndRoleAndIsActive_fetchesUser() {
         Board board = olderAdmin.getBoard();

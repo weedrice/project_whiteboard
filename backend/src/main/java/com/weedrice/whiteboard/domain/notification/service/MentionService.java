@@ -184,15 +184,9 @@ public class MentionService {
             return Map.of();
         }
         Long boardId = sourcePost.getBoard().getBoardId();
-        return adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(candidateUserIds, true)
+        return adminRepository.findActiveUserIdsByBoardIdAndUserIds(boardId, candidateUserIds)
                 .stream()
-                .filter(admin -> admin.getUser() != null && admin.getBoard() != null)
-                .filter(admin -> boardId.equals(admin.getBoard().getBoardId()))
-                .collect(Collectors.groupingBy(
-                        admin -> admin.getUser().getUserId(),
-                        Collectors.mapping(
-                                admin -> admin.getBoard().getBoardId(),
-                                Collectors.toSet())));
+                .collect(Collectors.toMap(userId -> userId, userId -> Set.of(boardId)));
     }
 
     private Post resolveSourcePost(NotificationSourceType sourceType, Long sourceId) {

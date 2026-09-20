@@ -52,6 +52,17 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     @EntityGraph(attributePaths = "user")
     List<Admin> findByUserUserIdInAndIsActiveOrderByAdminIdAsc(Collection<Long> userIds, Boolean isActive);
     @Query("""
+            SELECT DISTINCT admin.user.userId
+            FROM Admin admin
+            WHERE admin.board.boardId = :boardId
+              AND admin.user.userId IN :userIds
+              AND admin.isActive = true
+            """)
+    List<Long> findActiveUserIdsByBoardIdAndUserIds(
+            @Param("boardId") Long boardId,
+            @Param("userIds") Collection<Long> userIds);
+
+    @Query("""
             SELECT DISTINCT admin.board.boardId
             FROM Admin admin
             WHERE admin.user = :user
