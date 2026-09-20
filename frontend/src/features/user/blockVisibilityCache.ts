@@ -22,8 +22,6 @@ export function invalidateBlockVisibilityCaches(
   const visibilityRoots: readonly (readonly unknown[])[] = [
     userQueryKeys.blocksRoot,
     userQueryKeys.profile(targetUserId),
-    userQueryKeys.publicPostsRoot(targetUserId),
-    userQueryKeys.publicCommentsRoot(targetUserId),
     postQueryKeys.detailsRoot,
     postQueryKeys.lists,
     postQueryKeys.boardPostsRoot,

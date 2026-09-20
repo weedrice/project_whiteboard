@@ -16,8 +16,6 @@ export function invalidateProfileAuthorCaches(
     userQueryKeys.me,
     ...(userId == null ? [] : [
       userQueryKeys.profile(userId),
-      userQueryKeys.publicPostsRoot(userId),
-      userQueryKeys.publicCommentsRoot(userId),
     ]),
     userQueryKeys.scrapsRoot,
     userQueryKeys.recentlyViewedPostsRoot,

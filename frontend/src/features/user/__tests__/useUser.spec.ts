@@ -481,8 +481,6 @@ describe('useUser', () => {
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'posts'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'comments'] })
     })
 
     it('updates the representative badge and invalidates cached author projections', async () => {
