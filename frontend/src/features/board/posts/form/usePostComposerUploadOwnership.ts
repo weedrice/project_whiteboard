@@ -10,6 +10,8 @@ type UsePostComposerUploadOwnershipOptions = {
 }
 
 export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500
+// FileUploadDiscardRequest limits each request to 101 file IDs.
+const UPLOAD_DISCARD_BATCH_SIZE = 101
 
 /**
  * Tracks uploads created by the current editor session.
@@ -20,7 +22,9 @@ export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500
  */
 export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwnershipOptions) {
   const ownedUploadedFileIds = ref<number[]>([])
-  const pendingDiscardTimers = new Map<number, ReturnType<typeof setTimeout>>()
+  const pendingDiscardDeadlines = new Map<number, number>()
+  let discardTimer: ReturnType<typeof setTimeout> | undefined
+  let scheduledDiscardDeadline: number | undefined
   const inFlightDiscardFileIds = new Set<number>()
   const releasedInFlightFileIds = new Set<number>()
   let ownershipGeneration = 0
@@ -28,20 +32,38 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
 
   const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== false
 
-  function cancelScheduledDiscard(fileId: number) {
-    const timer = pendingDiscardTimers.get(fileId)
-    if (!timer) return
-    clearTimeout(timer)
-    pendingDiscardTimers.delete(fileId)
+  function scheduleNextDiscard() {
+    const nextDeadline = pendingDiscardDeadlines.size > 0
+      ? Math.min(...pendingDiscardDeadlines.values())
+      : undefined
+    if (nextDeadline === scheduledDiscardDeadline) return
+    if (discardTimer !== undefined) clearTimeout(discardTimer)
+    discardTimer = undefined
+    scheduledDiscardDeadline = nextDeadline
+    if (nextDeadline === undefined) return
+
+    discardTimer = setTimeout(() => {
+      discardTimer = undefined
+      scheduledDiscardDeadline = undefined
+      const now = performance.now()
+      const dueFileIds = [...pendingDiscardDeadlines]
+        .filter(([, deadline]) => deadline <= now)
+        .map(([fileId]) => fileId)
+      dueFileIds.forEach((fileId) => pendingDiscardDeadlines.delete(fileId))
+      scheduleNextDiscard()
+      if (dueFileIds.length === 0) return
+
+      const referencedIds = new Set(extractPostFileIdsFromContent(options.content.value))
+      const discardedIds = dueFileIds.filter((fileId) => !referencedIds.has(fileId))
+      for (let offset = 0; offset < discardedIds.length; offset += UPLOAD_DISCARD_BATCH_SIZE) {
+        void discardUploadedFiles(discardedIds.slice(offset, offset + UPLOAD_DISCARD_BATCH_SIZE))
+      }
+    }, Math.max(0, nextDeadline - performance.now()))
   }
 
-  function scheduleDiscard(fileId: number) {
-    if (pendingDiscardTimers.has(fileId)) return
-    pendingDiscardTimers.set(fileId, setTimeout(() => {
-      pendingDiscardTimers.delete(fileId)
-      if (extractPostFileIdsFromContent(options.content.value).includes(fileId)) return
-      void discardUploadedFiles([fileId])
-    }, POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS))
+  function cancelScheduledDiscard(fileId: number) {
+    if (!pendingDiscardDeadlines.delete(fileId)) return
+    scheduleNextDiscard()
   }
 
   function recordUploadedFile(fileId: number) {
@@ -107,9 +129,13 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     ownedUploadedFileIds.value
       .filter((fileId) => referencedIds.has(fileId))
       .forEach(cancelScheduledDiscard)
+    const deadline = performance.now() + POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS
     ownedUploadedFileIds.value
       .filter((fileId) => !referencedIds.has(fileId))
-      .forEach(scheduleDiscard)
+      .forEach((fileId) => {
+        if (!pendingDiscardDeadlines.has(fileId)) pendingDiscardDeadlines.set(fileId, deadline)
+      })
+    scheduleNextDiscard()
   }
 
   function discardAllOwnedUploads() {
