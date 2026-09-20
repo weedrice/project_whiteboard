@@ -15,6 +15,16 @@ public interface AgentBoardAccessPort {
     Set<Long> resolveWritableBoardIds(
             Agent agent, List<Board> boards, Map<Long, List<CategoryResponse>> categoriesByBoardId);
 
+    BoardAccess resolveBoardAccess(
+            Agent agent, List<Board> boards, Map<Long, List<CategoryResponse>> categoriesByBoardId);
+
+    record BoardAccess(Set<Long> writableBoardIds, Set<Long> adminBoardIds) {
+        public BoardAccess {
+            writableBoardIds = Set.copyOf(writableBoardIds);
+            adminBoardIds = Set.copyOf(adminBoardIds);
+        }
+    }
+
     Set<Long> resolveBoardAdminIds(Agent agent, List<Board> boards, List<Long> boardIds);
 
     void validateAgentBoardWritable(Agent agent, Board board);

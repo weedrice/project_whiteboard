@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.agent.integration;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
-import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.port.AgentHomeReadPort;
 import com.weedrice.whiteboard.domain.agent.service.AgentBoardListReadService;
@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.agent.service.AgentContentPreviewer;
 import com.weedrice.whiteboard.domain.agent.service.AgentDateTimes;
 import com.weedrice.whiteboard.domain.agent.service.AgentHomeReadModel;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -41,20 +40,19 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final UserBlockService userBlockService;
-    private final AgentBoardAccessService agentBoardAccessService;
     private final AgentBoardListReadService agentBoardListReadService;
-    private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final AgentNoteService agentNoteService;
 
     public AgentHomeReadModel collect(Agent agent) {
-        AgentBoardListResponse writableBoards = agentBoardListReadService.getWritableBoards(agent);
+        AgentBoardListReadService.WritableBoards boards = agentBoardListReadService.getWritableBoardsWithAccess(agent);
+        AgentBoardListResponse writableBoards = boards.response();
         return new AgentHomeReadModel(
                 !writableBoards.getBoards().isEmpty(),
                 agentNoteService.getSummary(agent.getAgentId()),
                 getActivityOnMyPosts(agent.getAgentId()),
                 getHomeMyRecentPosts(agent),
                 getHomeRecommendedBoards(writableBoards),
-                getHomeRecentFeed(agent));
+                getHomeRecentFeed(agent, boards));
     }
 
     private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
@@ -86,17 +84,15 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
                 agent.getAgentId(),
                 false,
                 PageRequest.of(0, HOME_RECENT_POST_LIMIT, DEFAULT_POST_SORT));
-        return agentPostListItemAssembler.fromPosts(posts, agent.getAgentId())
-                .getContent()
-                .stream()
-                .map(item -> AgentHomeResponse.MyRecentPost.builder()
-                        .postId(item.getPostId())
-                        .title(item.getTitle())
-                        .boardId(item.getBoardId())
-                        .boardName(item.getBoardName())
-                        .commentCount(item.getCommentCount())
-                        .likeCount(item.getLikeCount())
-                        .createdAt(item.getCreatedAt())
+        return posts.getContent().stream()
+                .map(post -> AgentHomeResponse.MyRecentPost.builder()
+                        .postId(post.getPostId())
+                        .title(post.getTitle())
+                        .boardId(post.getBoard().getBoardId())
+                        .boardName(post.getBoard().getBoardName())
+                        .commentCount(post.getCommentCount())
+                        .likeCount(post.getLikeCount())
+                        .createdAt(post.getCreatedAt())
                         .build())
                 .toList();
     }
@@ -117,44 +113,46 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
                 .toList();
     }
 
-    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(Agent agent) {
-        Long agentId = agent.getAgentId();
-        List<Board> accessibleBoards = agentBoardAccessService.getAccessibleFeedBoards(agent, null);
+    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(
+            Agent agent, AgentBoardListReadService.WritableBoards boards) {
+        List<AgentBoardItem> accessibleBoards = boards.response().getBoards();
         if (accessibleBoards.isEmpty()) {
             return List.of();
         }
 
         List<Long> accessibleBoardIds = accessibleBoards.stream()
-                .map(Board::getBoardId)
+                .map(AgentBoardItem::getBoardId)
                 .toList();
-        Set<Long> secretVisibleBoardIds = agentBoardAccessService.resolveBoardAdminIds(
-                agent, accessibleBoards, accessibleBoardIds);
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(agent.getUserId());
 
         Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 accessibleBoardIds,
                 blockedUserIds,
-                secretVisibleBoardIds,
+                boards.secretVisibleBoardIds(),
                 agent.getUserId(),
                 PageRequest.of(0, HOME_RECENT_FEED_LIMIT, DEFAULT_AGENT_FEED_SORT));
-        return agentPostListItemAssembler.fromPosts(posts, agentId)
-                .getContent()
-                .stream()
-                .map(this::toRecentFeedItem)
+        if (posts.isEmpty()) {
+            return List.of();
+        }
+        List<Long> postIds = posts.getContent().stream().map(Post::getPostId).toList();
+        Set<Long> postIdsWithMyComment = Set.copyOf(
+                commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(postIds, agent.getAgentId()));
+        return posts.getContent().stream()
+                .map(post -> toRecentFeedItem(post, postIdsWithMyComment.contains(post.getPostId())))
                 .toList();
     }
 
-    private AgentHomeResponse.RecentFeedItem toRecentFeedItem(AgentPostListItem item) {
+    private AgentHomeResponse.RecentFeedItem toRecentFeedItem(Post post, boolean hasMyComment) {
         return AgentHomeResponse.RecentFeedItem.builder()
-                .postId(item.getPostId())
-                .title(item.getTitle())
-                .contentPreview(AgentContentPreviewer.preview(item.getContent()))
-                .boardId(item.getBoardId())
-                .boardName(item.getBoardName())
-                .commentCount(item.getCommentCount())
-                .likeCount(item.getLikeCount())
-                .createdAt(item.getCreatedAt())
-                .hasMyComment(item.isHasMyComment())
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .contentPreview(AgentContentPreviewer.preview(post.getContents()))
+                .boardId(post.getBoard().getBoardId())
+                .boardName(post.getBoard().getBoardName())
+                .commentCount(post.getCommentCount())
+                .likeCount(post.getLikeCount())
+                .createdAt(post.getCreatedAt())
+                .hasMyComment(hasMyComment)
                 .build();
     }
 

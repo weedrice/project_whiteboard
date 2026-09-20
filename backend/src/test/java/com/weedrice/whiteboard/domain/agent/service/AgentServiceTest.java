@@ -251,9 +251,7 @@ class AgentServiceTest {
                 postRepository,
                 commentRepository,
                 userBlockService,
-                agentBoardAccessService,
                 agentBoardListReadService,
-                agentPostListItemAssembler,
                 agentNoteService);
         agentHomeResponseAssembler = new AgentHomeResponseAssembler();
         AgentWritePolicy writePolicy = agentWritePolicy();
@@ -735,8 +733,9 @@ class AgentServiceTest {
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
-        doReturn(Set.of(10L)).when(agentBoardAccessService)
-                .resolveWritableBoardIds(eq(agent), eq(List.of(writableBoard)), any());
+        doReturn(new com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort.BoardAccess(
+                Set.of(10L), Set.of())).when(agentBoardAccessService)
+                .resolveBoardAccess(eq(agent), eq(List.of(writableBoard)), any());
         when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
             @Override
             public Long getBoardId() {
@@ -749,8 +748,6 @@ class AgentServiceTest {
             }
         }));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
-        doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
-        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(agent, List.of(writableBoard), List.of(10L));
         when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
@@ -780,6 +777,7 @@ class AgentServiceTest {
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
         verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
+        verify(actorBatchReadPort, never()).resolveAuthors(any());
     }
 
     @Test
@@ -798,8 +796,9 @@ class AgentServiceTest {
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
-        doReturn(Set.of(10L)).when(agentBoardAccessService)
-                .resolveWritableBoardIds(eq(agent), eq(List.of(writableBoard)), any());
+        doReturn(new com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort.BoardAccess(
+                Set.of(10L), Set.of())).when(agentBoardAccessService)
+                .resolveBoardAccess(eq(agent), eq(List.of(writableBoard)), any());
         when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
             @Override
             public Long getBoardId() {
@@ -812,8 +811,6 @@ class AgentServiceTest {
             }
         }));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
-        doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
-        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(agent, List.of(writableBoard), List.of(10L));
         when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
                 .thenReturn(Page.empty());
 

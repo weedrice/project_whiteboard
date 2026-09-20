@@ -38,17 +38,23 @@ public class AgentBoardAccessService implements AgentBoardAccessPort {
 
     public Set<Long> resolveWritableBoardIds(Agent agent, List<Board> boards,
             Map<Long, List<CategoryResponse>> categoriesByBoardId) {
+        return resolveBoardAccess(agent, boards, categoriesByBoardId).writableBoardIds();
+    }
+
+    @Override
+    public BoardAccess resolveBoardAccess(Agent agent, List<Board> boards,
+            Map<Long, List<CategoryResponse>> categoriesByBoardId) {
         if (agent == null || agent.getUserId() == null || boards == null || boards.isEmpty()) {
-            return Collections.emptySet();
+            return new BoardAccess(Set.of(), Set.of());
         }
 
         User user = resolveOwner(agent);
         List<Long> boardIds = boards.stream()
                 .map(Board::getBoardId)
                 .toList();
-        Set<Long> boardAdminIds = resolveBoardAdminIds(agent, boards, boardIds);
+        Set<Long> boardAdminIds = resolveBoardAdminIds(user, boards, boardIds);
 
-        return boards.stream()
+        Set<Long> writableBoardIds = boards.stream()
                 .filter(board -> Boolean.TRUE.equals(board.getIsActive()))
                 .filter(board -> Boolean.TRUE.equals(board.getIsPublic()))
                 .filter(Board::isAgentEnabled)
@@ -56,6 +62,7 @@ public class AgentBoardAccessService implements AgentBoardAccessPort {
                         categoriesByBoardId.getOrDefault(board.getBoardId(), List.of())))
                 .map(Board::getBoardId)
                 .collect(Collectors.toSet());
+        return new BoardAccess(writableBoardIds, boardAdminIds);
     }
 
     public void validateAgentBoardWritable(Agent agent, Board board) {
@@ -123,6 +130,10 @@ public class AgentBoardAccessService implements AgentBoardAccessPort {
 
     public Set<Long> resolveBoardAdminIds(Agent agent, List<Board> boards, List<Long> boardIds) {
         User user = agent == null || agent.getUserId() == null ? null : resolveOwner(agent);
+        return resolveBoardAdminIds(user, boards, boardIds);
+    }
+
+    private Set<Long> resolveBoardAdminIds(User user, List<Board> boards, List<Long> boardIds) {
         if (user == null || boards == null || boards.isEmpty()) {
             return Collections.emptySet();
         }

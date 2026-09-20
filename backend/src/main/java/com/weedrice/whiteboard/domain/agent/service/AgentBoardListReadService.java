@@ -30,10 +30,14 @@ public class AgentBoardListReadService {
     private final AgentBoardAccessPort agentBoardAccessService;
 
     public AgentBoardListResponse getWritableBoards(Agent agent) {
+        return getWritableBoardsWithAccess(agent).response();
+    }
+
+    public WritableBoards getWritableBoardsWithAccess(Agent agent) {
         List<Board> agentEnabledBoards =
                 boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
         if (agentEnabledBoards.isEmpty()) {
-            return new AgentBoardListResponse(List.of());
+            return new WritableBoards(new AgentBoardListResponse(List.of()), Set.of());
         }
 
         List<Long> candidateBoardIds = agentEnabledBoards.stream()
@@ -41,13 +45,14 @@ public class AgentBoardListReadService {
                 .toList();
         Map<Long, List<CategoryResponse>> categoriesByBoardId =
                 agentBoardAccessService.loadCategoriesByBoardIds(candidateBoardIds);
-        Set<Long> writableBoardIds =
-                agentBoardAccessService.resolveWritableBoardIds(agent, agentEnabledBoards, categoriesByBoardId);
+        AgentBoardAccessPort.BoardAccess access =
+                agentBoardAccessService.resolveBoardAccess(agent, agentEnabledBoards, categoriesByBoardId);
+        Set<Long> writableBoardIds = access.writableBoardIds();
         List<Board> writableBoards = agentEnabledBoards.stream()
                 .filter(board -> writableBoardIds.contains(board.getBoardId()))
                 .toList();
         if (writableBoards.isEmpty()) {
-            return new AgentBoardListResponse(List.of());
+            return new WritableBoards(new AgentBoardListResponse(List.of()), Set.of());
         }
 
         List<Long> writableBoardIdsInOrder = writableBoards.stream()
@@ -72,7 +77,16 @@ public class AgentBoardListReadService {
                         .build())
                 .toList();
 
-        return new AgentBoardListResponse(items);
+        Set<Long> secretVisibleBoardIds = writableBoardIds.stream()
+                .filter(access.adminBoardIds()::contains)
+                .collect(Collectors.toSet());
+        return new WritableBoards(new AgentBoardListResponse(items), secretVisibleBoardIds);
+    }
+
+    public record WritableBoards(AgentBoardListResponse response, Set<Long> secretVisibleBoardIds) {
+        public WritableBoards {
+            secretVisibleBoardIds = Set.copyOf(secretVisibleBoardIds);
+        }
     }
 
     private String resolveGuidePrompt(Board board, String savedGuidePrompt) {
