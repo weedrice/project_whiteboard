@@ -303,13 +303,15 @@ class PointServiceTest {
         userPoint.addPoint(300);
         when(userPointRepository.findByUserId(1L)).thenReturn(Optional.of(userPoint));
 
-        pointService.spendPointForPrevalidatedUser(user, 120, "Test Spend", 10L, "SHOP_ITEM");
+        int balance = pointService.spendPointForPrevalidatedUser(user, 120, "Test Spend", 10L, "SHOP_ITEM");
 
         ArgumentCaptor<PointHistory> historyCaptor = ArgumentCaptor.forClass(PointHistory.class);
         verify(pointHistoryRepository).save(historyCaptor.capture());
         verify(userRepository, never()).findByIdForUpdate(any());
         verify(sanctionService, never()).validateNotBanned(any(User.class));
         assertThat(userPoint.getCurrentPoint()).isEqualTo(180);
+        assertThat(balance).isEqualTo(userPoint.getCurrentPoint());
+        assertThat(historyCaptor.getValue().getBalanceAfter()).isEqualTo(balance);
         assertThat(historyCaptor.getValue().getType()).isEqualTo("SPEND");
         assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
         assertThat(historyCaptor.getValue().getRelatedId()).isEqualTo(10L);

@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -26,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +52,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
@@ -69,6 +75,7 @@ class UserProfileServiceTest {
     @Mock private PointService pointService;
     @Mock private GlobalConfigService globalConfigService;
     @Mock private UserPointRepository userPointRepository;
+    @Mock private PointHistoryRepository pointHistoryRepository;
     @Mock private SanctionService sanctionService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserLifecycleService userLifecycleService;
@@ -239,26 +246,71 @@ class UserProfileServiceTest {
         verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(ints = {1000, 1500})
     @DisplayName("무료 변경권 사용 후 양수 비용은 차감하고 잔액을 응답한다")
-    void updateMyProfile_positiveCostAfterFreeChange_chargesPointsAndReturnsBalance() {
+    void updateMyProfile_positiveCostAfterFreeChange_chargesPointsAndReturnsBalance(int initialBalance) {
         User user = User.builder().displayName("Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         user.markProfileImageChangeFreeUsed();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(globalConfigService.getConfig("POINT_PROFILE_IMAGE_CHANGE_COST")).thenReturn("1000");
-        when(pointService.getCurrentBalance(1L)).thenReturn(500);
+        UserPoint wallet = UserPoint.builder().user(user).build();
+        wallet.addPoint(initialBalance);
+        when(userPointRepository.findByUserId(1L)).thenReturn(Optional.of(wallet));
+        useRealPointService();
         when(fileService.replaceUserProfileImageForLockedUser(100L, 1L, user)).thenReturn("/api/v1/files/100");
 
         UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
 
         assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
         assertThat(response.getSpentPoints()).isEqualTo(1000);
-        assertThat(response.getRemainingPoints()).isEqualTo(500);
+        assertThat(response.getRemainingPoints()).isEqualTo(initialBalance - 1000);
+        assertThat(wallet.getCurrentPoint()).isEqualTo(response.getRemainingPoints());
         assertThat(user.canUseFreeProfileImageChange()).isFalse();
-        verify(pointService).spendPointForPrevalidatedUser(
-                user, 1000, "프로필 이미지 변경", 100L, "PROFILE_IMAGE");
-        verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
+        var history = ArgumentCaptor.forClass(PointHistory.class);
+        var order = inOrder(userRepository, sanctionService, userPointRepository, pointHistoryRepository, fileService);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(sanctionService).validateNotBanned(user);
+        order.verify(userPointRepository).findByUserId(1L);
+        order.verify(userPointRepository).save(wallet);
+        order.verify(pointHistoryRepository).save(history.capture());
+        order.verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
+        assertThat(history.getValue().getBalanceAfter()).isEqualTo(response.getRemainingPoints());
+        assertThat(history.getValue().getAmount()).isEqualTo(-1000);
+        assertThat(history.getValue().getRelatedType()).isEqualTo("PROFILE_IMAGE");
+        verifyNoMoreInteractions(userRepository, sanctionService, userPointRepository, pointHistoryRepository, fileService);
+    }
+
+    @Test
+    void updateMyProfile_insufficientPointsDoesNotReplaceImageOrRecordSpend() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        user.updateProfileImage("/api/v1/files/99");
+        user.markProfileImageChangeFreeUsed();
+        UserPoint wallet = UserPoint.builder().user(user).build();
+        wallet.addPoint(500);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(globalConfigService.getConfig("POINT_PROFILE_IMAGE_CHANGE_COST")).thenReturn("1000");
+        when(userPointRepository.findByUserId(1L)).thenReturn(Optional.of(wallet));
+        useRealPointService();
+
+        assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, null, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INSUFFICIENT_POINTS);
+
+        assertThat(wallet.getCurrentPoint()).isEqualTo(500);
+        assertThat(user.getProfileImageUrl()).isEqualTo("/api/v1/files/99");
+        verify(userRepository).findByIdForUpdate(1L);
+        verify(userPointRepository).findByUserId(1L);
+        verifyNoMoreInteractions(userRepository, userPointRepository);
+        verifyNoInteractions(pointHistoryRepository, fileService, anonymousReadCacheInvalidator);
+    }
+
+    private void useRealPointService() {
+        ReflectionTestUtils.setField(userProfileService, "pointService", new PointService(
+                userPointRepository, pointHistoryRepository, userRepository, sanctionService,
+                new UserReadableResolver(userRepository)));
     }
 
     @Test

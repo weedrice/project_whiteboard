@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -112,11 +113,11 @@ public class PointService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void spendPointForPrevalidatedUser(@NonNull User user, int amount, String description, Long relatedId,
+    public int spendPointForPrevalidatedUser(@NonNull User user, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(user, -amount, PointHistoryType.SPEND, description, relatedId, relatedType, false, true, false,
-                false);
+        return changePoint(user, -amount, PointHistoryType.SPEND, description, relatedId, relatedType, false, true, false,
+                false).getCurrentPoint();
     }
 
     public int getCurrentBalance(@NonNull Long userId) {
@@ -140,10 +141,10 @@ public class PointService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return changePoint(user, delta, historyType, description, relatedId, relatedType, createIfMissing,
-                validateSufficientBalance, skipExistingHistory, true);
+                validateSufficientBalance, skipExistingHistory, true) != null;
     }
 
-    private boolean changePoint(@NonNull User user, int delta, PointHistoryType historyType, String description,
+    private @Nullable UserPoint changePoint(@NonNull User user, int delta, PointHistoryType historyType, String description,
             Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
             boolean skipExistingHistory, boolean validateSpendSanction) {
@@ -161,7 +162,7 @@ public class PointService {
                 historyType.name(),
                 normalizedRelatedType,
                 relatedId)) {
-            return false;
+            return null;
         }
         UserPoint userPoint = getOrCreateUserPoint(user, createIfMissing);
 
@@ -187,7 +188,7 @@ public class PointService {
                 .relatedId(relatedId)
                 .relatedType(normalizedRelatedType)
                 .build());
-        return true;
+        return userPoint;
     }
 
     private UserPoint getOrCreateUserPoint(User user, boolean createIfMissing) {

@@ -195,7 +195,7 @@ public class UserProfileService {
         if (cost == 0) {
             return new ProfileImageChargeResult(null, null);
         }
-        pointService.spendPointForPrevalidatedUser(
+        int remainingPoints = pointService.spendPointForPrevalidatedUser(
                 user,
                 cost,
                 resolveMessage(
@@ -204,7 +204,7 @@ public class UserProfileService {
                         PROFILE_IMAGE_CHANGE_DESCRIPTION),
                 profileImageId,
                 PROFILE_IMAGE_RELATED_TYPE);
-        return new ProfileImageChargeResult(cost, pointService.getCurrentBalance(user.getUserId()));
+        return new ProfileImageChargeResult(cost, remainingPoints);
     }
 
     private boolean isCurrentProfileImage(User user, Long profileImageId) {
