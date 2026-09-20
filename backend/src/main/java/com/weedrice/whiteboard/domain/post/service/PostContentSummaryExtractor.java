@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Component
@@ -56,6 +57,22 @@ public class PostContentSummaryExtractor {
 
     PostThumbnailInfo resolveThumbnail(Long postId, String contents, Set<Long> postIdsWithImages,
             Map<Long, Long> thumbnailFileIdsByPostId) {
+        return resolveThumbnail(postId, postIdsWithImages, thumbnailFileIdsByPostId,
+                () -> extractFirstAllowedImageUrl(parseContent(contents)));
+    }
+
+    FeedMedia resolveFeedMedia(Post post, Set<Long> postIdsWithImages, Map<Long, Long> thumbnailFileIdsByPostId) {
+        Document document = parseContent(post.getContents());
+        PostThumbnailInfo thumbnail = resolveThumbnail(post.getPostId(), postIdsWithImages, thumbnailFileIdsByPostId,
+                () -> extractFirstAllowedImageUrl(document));
+        return new FeedMedia(thumbnail, extractFirstAllowedMedia(document));
+    }
+
+    record FeedMedia(PostThumbnailInfo thumbnail, PostMediaCandidate firstMedia) {
+    }
+
+    private PostThumbnailInfo resolveThumbnail(Long postId, Set<Long> postIdsWithImages,
+            Map<Long, Long> thumbnailFileIdsByPostId, Supplier<String> contentImage) {
         String thumbnailUrl = null;
         boolean hasImage = false;
 
@@ -68,7 +85,7 @@ public class PostContentSummaryExtractor {
         }
 
         if (thumbnailUrl == null) {
-            String contentImageUrl = extractFirstAllowedImageUrlFromContent(contents);
+            String contentImageUrl = contentImage.get();
             if (contentImageUrl != null) {
                 thumbnailUrl = contentImageUrl;
                 hasImage = true;
@@ -116,7 +133,10 @@ public class PostContentSummaryExtractor {
     }
 
     PostMediaCandidate extractFirstAllowedMediaFromContent(String content) {
-        Document document = parseContent(content);
+        return extractFirstAllowedMedia(parseContent(content));
+    }
+
+    private PostMediaCandidate extractFirstAllowedMedia(Document document) {
         if (document == null) {
             return null;
         }
@@ -132,8 +152,7 @@ public class PostContentSummaryExtractor {
         return null;
     }
 
-    private String extractFirstAllowedImageUrlFromContent(String content) {
-        Document document = parseContent(content);
+    private String extractFirstAllowedImageUrl(Document document) {
         if (document == null) {
             return null;
         }

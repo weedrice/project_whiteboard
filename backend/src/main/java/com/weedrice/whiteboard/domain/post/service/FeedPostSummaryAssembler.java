@@ -62,17 +62,18 @@ class FeedPostSummaryAssembler {
             AuthorSnapshot author,
             boolean includeContentsExcerpt, boolean includeFirstMedia) {
         String summaryText = contentSummaryExtractor.extractSummary(post);
-        PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
-                post,
-                postIdsWithImages,
-                thumbnailFileIdsByPostId);
+        PostContentSummaryExtractor.FeedMedia feedMedia = includeFirstMedia
+                ? contentSummaryExtractor.resolveFeedMedia(post, postIdsWithImages, thumbnailFileIdsByPostId)
+                : null;
+        PostThumbnailInfo thumbnailInfo = feedMedia != null
+                ? feedMedia.thumbnail()
+                : contentSummaryExtractor.resolveThumbnail(post, postIdsWithImages, thumbnailFileIdsByPostId);
         PostSummaryFields fields = PostSummaryFields.from(post, author, post.getBoard().getIconUrl());
 
         String firstMediaType = null;
         String firstMediaUrl = null;
         if (includeFirstMedia) {
-            PostMediaCandidate firstMedia = contentSummaryExtractor
-                    .extractFirstAllowedMediaFromContent(post.getContents());
+            PostMediaCandidate firstMedia = feedMedia.firstMedia();
             if (firstMedia != null && firstMedia.type() == PostMediaCandidate.Type.IMAGE) {
                 firstMediaType = "image";
                 firstMediaUrl = resolveFirstMediaImageUrl(firstMedia.url());

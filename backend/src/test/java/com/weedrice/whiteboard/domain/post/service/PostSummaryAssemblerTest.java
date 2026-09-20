@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.integration.PostCommentStatusIntegrationAdapter;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import org.jsoup.Jsoup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,8 @@ import java.util.Collections;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -40,6 +43,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 
 @ExtendWith(MockitoExtension.class)
 class PostSummaryAssemblerTest {
@@ -320,6 +325,34 @@ class PostSummaryAssemblerTest {
         assertThat(latest.get(0).getContentsExcerpt()).isNull();
         assertThat(latest.get(0).getFirstMediaType()).isNull();
         assertThat(latest.get(0).getFirstMediaUrl()).isNull();
+    }
+
+    @Test
+    void assembleTrendingPosts_parsesPreservedMediaOnceAndKeepsVideoAndThumbnailOrder() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardName("Free").boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        String html = "<p>Preserved content</p><img src=\"https://tracker.example/pixel.gif\">"
+                + "<iframe src=\"https://www.youtube.com/embed/abc123?start=10&amp;autoplay=0\"></iframe>"
+                + "<img src=\"/api/v1/files/78\">";
+        String marker = "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(html.getBytes(StandardCharsets.UTF_8)) + "\"></div>";
+        Post post = Post.builder().title("Title").contents(marker).user(author).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        try (var jsoup = mockStatic(Jsoup.class, CALLS_REAL_METHODS)) {
+            FeedPostSummary summary = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null).get(0);
+
+            assertThat(summary.getSummary()).isEqualTo("Preserved content");
+            assertThat(summary.getContentsExcerpt()).isEqualTo(html);
+            assertThat(summary.getThumbnailUrl()).isEqualTo("/api/v1/files/78");
+            assertThat(summary.isHasImage()).isTrue();
+            assertThat(summary.getFirstMediaType()).isEqualTo("video");
+            assertThat(summary.getFirstMediaUrl())
+                    .isEqualTo("https://www.youtube.com/embed/abc123?start=10&autoplay=0");
+            jsoup.verify(() -> Jsoup.parseBodyFragment(html));
+        }
     }
 
     @Test

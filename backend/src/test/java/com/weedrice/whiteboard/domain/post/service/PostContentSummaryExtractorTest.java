@@ -6,6 +6,9 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
@@ -50,6 +53,30 @@ class PostContentSummaryExtractorTest {
 
         assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.noviis.kr/image.png");
         assertThat(thumbnailInfo.hasImage()).isTrue();
+    }
+
+    @Test
+    void resolveFeedMedia_keepsAttachedThumbnailSeparateFromContentImage() {
+        var media = extractor.resolveFeedMedia(post, Set.of(100L), Map.of(100L, 55L));
+
+        assertThat(media.thumbnail()).isEqualTo(new PostThumbnailInfo("/api/v1/files/55/variants/thumbnail", true));
+        assertThat(media.firstMedia())
+                .isEqualTo(new PostMediaCandidate(PostMediaCandidate.Type.IMAGE, "https://cdn.noviis.kr/image.png"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"<p>Text</p>", "<img src=\"https://tracker.example/pixel.gif\">"})
+    void resolveFeedMedia_handlesMissingOrDisallowedMedia(String contents) {
+        ReflectionTestUtils.setField(post, "contents", contents);
+
+        var withoutAttachment = extractor.resolveFeedMedia(post, Set.of(), Map.of());
+        var withAttachment = extractor.resolveFeedMedia(post, Set.of(100L), Map.of(100L, 55L));
+
+        assertThat(withoutAttachment.thumbnail()).isEqualTo(new PostThumbnailInfo(null, false));
+        assertThat(withoutAttachment.firstMedia()).isNull();
+        assertThat(withAttachment.thumbnail()).isEqualTo(new PostThumbnailInfo("/api/v1/files/55/variants/thumbnail", true));
+        assertThat(withAttachment.firstMedia()).isNull();
     }
 
     @Test
