@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 @Component
 @RequiredArgsConstructor
@@ -78,6 +79,10 @@ public class BoardAccessPolicy {
     }
 
     public boolean canReadBoard(Board board, ActorUserPrincipal user, Set<Long> activeAdminBoardIds) {
+        return canReadBoard(board, () -> hasBoardAdminAccess(board, user, activeAdminBoardIds));
+    }
+
+    private boolean canReadBoard(Board board, BooleanSupplier adminAccess) {
         if (board == null) {
             return false;
         }
@@ -85,7 +90,7 @@ public class BoardAccessPolicy {
             return true;
         }
 
-        boolean hasAdminAccess = hasBoardAdminAccess(board, user, activeAdminBoardIds);
+        boolean hasAdminAccess = adminAccess.getAsBoolean();
         if (!Boolean.TRUE.equals(board.getIsActive()) && !hasAdminAccess) {
             return false;
         }
@@ -93,6 +98,37 @@ public class BoardAccessPolicy {
             return false;
         }
         return true;
+    }
+
+    // Keep this result local to one read operation; do not retain it across requests or writes.
+    public ReadAccess readAccess(Board board, ActorUserPrincipal user) {
+        return new ReadAccess(board, user);
+    }
+
+    public final class ReadAccess {
+        private final Board board;
+        private final ActorUserPrincipal user;
+        private Boolean adminAccess;
+
+        private ReadAccess(Board board, ActorUserPrincipal user) {
+            this.board = board;
+            this.user = user;
+        }
+
+        public boolean canReadBoard() {
+            return BoardAccessPolicy.this.canReadBoard(board, this::hasAdminAccess);
+        }
+
+        public boolean canViewSecretPosts() {
+            return hasAdminAccess();
+        }
+
+        private boolean hasAdminAccess() {
+            if (adminAccess == null) {
+                adminAccess = hasBoardAdminAccess(board, user);
+            }
+            return adminAccess;
+        }
     }
 
     public void validateReadable(Board board, ActorUserPrincipal user) {

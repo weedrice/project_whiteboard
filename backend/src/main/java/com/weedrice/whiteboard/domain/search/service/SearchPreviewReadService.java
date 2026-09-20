@@ -176,13 +176,14 @@ public class SearchPreviewReadService {
         Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User viewer = searchUserLookupPolicy.resolveOptional(currentUserId);
-        if (!boardAccessPolicy.canReadBoard(board, viewer)) {
+        BoardAccessPolicy.ReadAccess access = boardAccessPolicy.readAccess(board, viewer);
+        if (!access.canReadBoard()) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
         inquiryLegacyWritePolicy.requireBoardReadable(board, viewer);
         return new BoardSearchContext(
                 canonicalBoardUrl,
-                boardAccessPolicy.canViewSecretPosts(board, viewer),
+                access.canViewSecretPosts(),
                 viewer);
     }
 

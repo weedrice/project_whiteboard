@@ -91,11 +91,12 @@ public class SearchService {
             Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
             currentUser = searchUserLookupPolicy.resolveOptional(currentUserId);
-            if (!boardAccessPolicy.canReadBoard(board, currentUser)) {
+            BoardAccessPolicy.ReadAccess access = boardAccessPolicy.readAccess(board, currentUser);
+            if (!access.canReadBoard()) {
                 throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
             }
             inquiryLegacyWritePolicy.requireBoardReadable(board, currentUser);
-            includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
+            includeSecret = access.canViewSecretPosts();
         }
 
         List<Long> blockedUserIds = null;
