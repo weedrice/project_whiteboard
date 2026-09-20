@@ -61,7 +61,6 @@ export function useNotification() {
             onSuccess: (_data, _variables, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
                 queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
-                queryClient.invalidateQueries({ queryKey: authKey(notificationUnreadCountQueryKey) })
             }
         })
     }
@@ -76,7 +75,6 @@ export function useNotification() {
             onSuccess: (_data, _variables, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
                 queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
-                queryClient.invalidateQueries({ queryKey: authKey(notificationUnreadCountQueryKey) })
             }
         })
     }

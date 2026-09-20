@@ -65,7 +65,7 @@ describe('useNotification queries and mutations', () => {
 
     expect(mocks.notificationApi.markAsRead).toHaveBeenCalledWith(10)
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
-    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications', 'unread-count'] })
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledTimes(1)
   })
 
   it('marks all as read and reconciles unread count with notifications that arrived concurrently', async () => {
@@ -77,7 +77,7 @@ describe('useNotification queries and mutations', () => {
 
     expect(mocks.notificationApi.markAllAsRead).toHaveBeenCalled()
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
-    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications', 'unread-count'] })
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledTimes(1)
     expect(mocks.queryClient.setQueryData).not.toHaveBeenCalledWith(
       ['session', 0, 'notifications', 'unread-count'],
       0,
