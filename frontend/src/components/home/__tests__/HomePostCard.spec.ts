@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import HomePostCard from '../HomePostCard.vue'
@@ -50,6 +52,14 @@ const makePost = (overrides: Partial<FeedPost> = {}): FeedPost => ({
 describe('HomePostCard', () => {
   beforeEach(() => {
     push.mockClear()
+  })
+
+  it('keeps the whole-card link flush with every card edge', () => {
+    const styles = readFileSync(resolve(process.cwd(), 'src/styles/home-feed.css'), 'utf8')
+    const hitAreaRule = styles.match(/\.nv-home-card\s*>\s*\.nv-home-card-hit-area\s*\{([^}]*)\}/)?.[1]
+
+    expect(hitAreaRule).toContain('inset: 0')
+    expect(hitAreaRule).toContain('margin-block: 0')
   })
 
   it('renders formatted excerpt HTML and uses the no-media featured line limit', () => {
