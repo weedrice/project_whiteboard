@@ -159,7 +159,7 @@ describe('HomePostCard', () => {
     expect(body.classes()).not.toContain('prose')
   })
 
-  it('lays out trending media beside the text and shows likes before views without the author', () => {
+  it('lays out trending media beside a whole-card post link', async () => {
     const wrapper = mount(HomePostCard, {
       props: {
         post: makePost({
@@ -171,15 +171,25 @@ describe('HomePostCard', () => {
     })
 
     const card = wrapper.get('.nv-home-card')
+    const hitArea = wrapper.get('.nv-home-card-hit-area')
+    const boardLink = wrapper.get('.nv-home-card-board-link')
     const metaValues = wrapper.get('.nv-home-card-meta').findAll('span').map(span => span.text())
 
     expect(card.classes()).toContain('nv-home-card-trending')
     expect(card.classes()).toContain('nv-home-card-has-media')
+    expect(card.classes()).toContain('nv-home-card-clickable')
+    expect(hitArea.attributes('href')).toBe('/board/free/post/101/')
+    expect(boardLink.attributes('href')).toBe('/board/free/')
+    expect(wrapper.get('.nv-home-card-image-link').element.tagName).toBe('DIV')
     expect(wrapper.get('.nv-home-media img').classes()).toEqual(expect.arrayContaining(['h-full', 'w-full', 'object-cover']))
     expect(wrapper.get('.nv-home-card-content').text()).toContain('오늘의 큐레이션')
     expect(wrapper.get('.nv-home-card-content').text()).toContain('강조 문단')
     expect(metaValues).toEqual(['2', '10'])
     expect(wrapper.text()).not.toContain('작성자')
+
+    await hitArea.trigger('click')
+
+    expect(push).toHaveBeenCalledWith('/board/free/post/101/')
   })
 
   it('splits personal feed navigation between the board identity and the post card', async () => {
