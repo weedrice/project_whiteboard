@@ -27,6 +27,7 @@
         "properties" : {
           "boardIds" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
               "type" : "integer"
             },
@@ -2757,6 +2758,7 @@
         "properties" : {
           "categoryIds" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
               "type" : "integer"
             },
@@ -6197,6 +6199,7 @@
         "properties" : {
           "optionIds" : {
             "items" : {
+              "exclusiveMinimum" : 0,
               "format" : "int64",
               "type" : "integer"
             },
@@ -6546,6 +6549,7 @@
       "PostScrapRequest" : {
         "properties" : {
           "folderId" : {
+            "exclusiveMinimum" : 0,
             "format" : "int64",
             "type" : "integer"
           },
@@ -7363,6 +7367,7 @@
       "ScrapFolderAssignmentRequest" : {
         "properties" : {
           "folderId" : {
+            "exclusiveMinimum" : 0,
             "format" : "int64",
             "type" : "integer"
           }
@@ -8351,6 +8356,7 @@
           "durationMs" : {
             "format" : "int64",
             "maximum" : 86400000,
+            "minimum" : 0,
             "type" : "integer"
           },
           "lastReadCommentId" : {
