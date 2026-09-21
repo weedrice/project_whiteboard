@@ -42,7 +42,7 @@ const hasMedia = computed(() => showFirstVideo.value || !!showFirstImageUrl.valu
 const isFeatured = computed(() => props.variant === 'featured')
 const isTrending = computed(() => props.variant === 'trending')
 const isPersonal = computed(() => props.variant === 'personal')
-const hasWholeCardLink = computed(() => isFeatured.value || isPersonal.value)
+const hasWholeCardLink = computed(() => isFeatured.value || isTrending.value || isPersonal.value)
 const timeAgo = computed(() => formatTimeAgo(props.post.createdAt, t))
 const bodyClampClass = computed(() => {
   if (isFeatured.value) {
