@@ -63,7 +63,7 @@ dependencies {
 	implementation 'nl.martijndwars:web-push:5.1.2'
 	// web-push 5.1.2 exposes implementation-scoped types in its public API.
 	implementation 'org.apache.httpcomponents:httpasyncclient:4.1.5'
-	implementation 'org.bitbucket.b_c:jose4j:0.9.6'
+	implementation 'org.bitbucket.b_c:jose4j:0.9.7'
 
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
