@@ -11,6 +11,7 @@ import {
 import { extractMetaContent } from '../html-meta.mjs'
 import { validatePng, validatePrerenderHtml } from '../prerender-output-validation.mjs'
 import { buildPreRenderedListingSnippet, buildPreRenderedSnippet, injectIntoTemplate } from '../prerender-html.mjs'
+import { OG_TEXT_SIZE } from '../static-typography-tokens.mjs'
 
 const tempDirs = []
 
@@ -19,6 +20,17 @@ afterEach(async () => {
 })
 
 describe('static community OG images', () => {
+    it('keeps generated-image typography in one named scale', () => {
+        expect(OG_TEXT_SIZE).toEqual({
+            brand: 30,
+            boardName: 22,
+            title: 56,
+            titleCompact: 46,
+            tagline: 21,
+            siteUrl: 22,
+        })
+    })
+
     it('loads the favicon PNG as a stable data URL', async () => {
         await expect(loadOgIcon()).resolves.toMatch(/^data:image\/png;base64,/)
     })
@@ -58,6 +70,8 @@ describe('static community OG images', () => {
         expect(extractMetaContent(html, 'og:image:alt')).toBe(image.alt)
         expect(extractMetaContent(html, 'twitter:image')).toBe(image.url)
         expect(extractMetaContent(html, 'twitter:card')).toBe('summary_large_image')
+        expect(html).toContain('class="text-3xl font-bold"')
+        expect(html).not.toContain('font-size:')
     })
 
     it('injects canonical metadata and crawlable links into listing HTML', () => {

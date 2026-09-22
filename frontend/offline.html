@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>NoviIs Offline</title>
+    <script>
+      document.documentElement.classList.toggle(
+        'dark',
+        window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false,
+      )
+    </script>
+    <link rel="stylesheet" href="/src/style.css">
+    <link rel="stylesheet" href="/src/styles/foundation.css">
+    <link rel="stylesheet" href="/src/styles/components.css">
+  </head>
+  <body class="flex min-h-screen items-center justify-center p-6">
+    <main class="nv-surface w-full max-w-[26.25rem] rounded-lg border nv-border p-6">
+      <h1 id="offline-title" class="text-2xl font-bold leading-tight nv-title">오프라인 상태입니다</h1>
+      <p id="offline-description" class="mt-3 text-base leading-relaxed nv-text-subtle">네트워크 연결을 확인한 뒤 다시 시도해주세요. 이미 방문한 일부 화면은 계속 열릴 수 있습니다.</p>
+      <a id="offline-home" class="mt-5 inline-flex text-base font-bold nv-accent-text hover:underline focus-visible:underline" href="/">홈으로 돌아가기</a>
+    </main>
+    <script>
+      const offlineMessages = {
+        ko: {
+          title: '오프라인 상태입니다',
+          description: '네트워크 연결을 확인한 뒤 다시 시도해주세요. 이미 방문한 일부 화면은 계속 열릴 수 있습니다.',
+          home: '홈으로 돌아가기',
+        },
+        en: {
+          title: 'You are offline',
+          description: 'Check your network connection and try again. Some pages you already visited may remain available.',
+          home: 'Return home',
+        },
+      }
+      const offlineLocale = navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'ko'
+      const offlineCopy = offlineMessages[offlineLocale]
+      document.documentElement.lang = offlineLocale
+      document.getElementById('offline-title').textContent = offlineCopy.title
+      document.getElementById('offline-description').textContent = offlineCopy.description
+      document.getElementById('offline-home').textContent = offlineCopy.home
+    </script>
+  </body>
+</html>

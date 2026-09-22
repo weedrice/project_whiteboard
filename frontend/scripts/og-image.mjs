@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
+import { OG_TEXT_SIZE } from './static-typography-tokens.mjs'
 
 export const OG_IMAGE_WIDTH = 1200
 export const OG_IMAGE_HEIGHT = 630
@@ -106,13 +107,13 @@ export async function renderSiteOgImage(fontData, iconDataUrl) {
                                     children: [
                                         text('NOVIIS', {
                                             color: '#1d2433',
-                                            fontSize: 30,
+                                            fontSize: OG_TEXT_SIZE.brand,
                                             fontWeight: 700,
                                             letterSpacing: '0.12em',
                                         }),
                                         text(boardName, {
                                             color: '#646772',
-                                            fontSize: 22,
+                                            fontSize: OG_TEXT_SIZE.boardName,
                                             fontWeight: 500,
                                         }),
                                     ],
@@ -123,7 +124,7 @@ export async function renderSiteOgImage(fontData, iconDataUrl) {
                 },
                 text(title, {
                     display: 'block',
-                    fontSize: title.length > 54 ? 46 : 56,
+                    fontSize: title.length > 54 ? OG_TEXT_SIZE.titleCompact : OG_TEXT_SIZE.title,
                     fontWeight: 700,
                     letterSpacing: '-0.035em',
                     lineClamp: 3,
@@ -144,12 +145,12 @@ export async function renderSiteOgImage(fontData, iconDataUrl) {
                         children: [
                             text('생각을 나누는 커뮤니티', {
                                 color: '#646772',
-                                fontSize: 21,
+                                fontSize: OG_TEXT_SIZE.tagline,
                                 fontWeight: 500,
                             }),
                             text('noviis.kr', {
                                 color: '#646772',
-                                fontSize: 22,
+                                fontSize: OG_TEXT_SIZE.siteUrl,
                                 fontWeight: 500,
                             }),
                         ],

@@ -6,11 +6,13 @@ const DEFAULT_MAX_BYTES = 2_500_000
 const DEFAULT_MAX_ENTRIES = 60
 const DEFAULT_MAX_JS_CHUNK_BYTES = 450_000
 const REQUIRED_LOGICAL_PRECACHE_ENTRIES = [
+  ['offline page', /^offline\.html$/],
   ['app JavaScript', /^js\/index-[^.]+\.js$/],
   ['home feed JavaScript', /^js\/HomeFeed-[^.]+\.js$/],
   ['empty state JavaScript', /^js\/EmptyState-[^.]+\.js$/],
   ['pull-to-refresh JavaScript', /^js\/PullToRefresh-[^.]+\.js$/],
   ['app stylesheet', /^assets\/index-[^.]+\.css$/],
+  ['shared typography stylesheet', /^assets\/components-[^.]+\.css$/],
   ['home feed stylesheet', /^assets\/HomeFeed-[^.]+\.css$/],
   ['empty state stylesheet', /^assets\/EmptyState-[^.]+\.css$/],
   ['pull-to-refresh stylesheet', /^assets\/PullToRefresh-[^.]+\.css$/],

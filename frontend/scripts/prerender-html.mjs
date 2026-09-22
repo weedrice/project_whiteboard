@@ -26,7 +26,7 @@ export function buildPreRenderedSnippet(canonicalUrl, ogImage) {
         ].join('\n    '),
         body: `
 <article data-prerendered="true" style="max-width:760px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
-  <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
+  <h1 class="text-3xl font-bold" style="margin:0 0 12px;">${escapeHtml(title)}</h1>
   <p>${escapeHtml(description)}</p>
 </article>`.trim()
     }
@@ -77,7 +77,7 @@ export function buildPreRenderedListingSnippet({ canonicalUrl, isAllBoards, urls
         ].join('\n    '),
         body: `
 <main data-prerendered="true" style="max-width:960px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
-  <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
+  <h1 class="text-3xl font-bold" style="margin:0 0 12px;">${escapeHtml(title)}</h1>
   <p style="color:#4b5563;margin:0 0 20px;">${escapeHtml(description)}</p>
   ${itemMarkup}
 </main>`.trim()

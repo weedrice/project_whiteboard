@@ -50,7 +50,6 @@ export default defineConfig(({ mode }) => {
                 includeAssets: [
                     'favicon.ico',
                     'favicon_dark.ico',
-                    'offline.html',
                     'pwa-192x192.png',
                     'pwa-512x512.png',
                     'pwa-maskable-512x512.png',
@@ -91,7 +90,8 @@ export default defineConfig(({ mode }) => {
                 injectManifest: {
                     globPatterns: [
                         'index.html',
-                        'assets/{index,HomeFeed,EmptyState,PullToRefresh}-*.css',
+                        'offline.html',
+                        'assets/{index,components,HomeFeed,EmptyState,PullToRefresh}-*.css',
                         'js/{index,HomeFeed,auth,authenticatedFile,authSessionIntent,BaseButton,BaseSegmentedControl,BaseSkeleton,BaseSpinner,comment,date,EmptyState,emoticon,fileUrl,imageFallback,keyboard,logger,message,notification,postHtmlSandbox,PullToRefresh,postViewModel,rolldown-runtime,sanitize,SanitizedHtmlView,theme,useAttendance,useEventListener,useFocusTrap,useNotification,vendor-vue,vendor-query,vendor-i18n,vendor-http,vendor-icons,vendor-core}-*.js',
                     ],
                 },
@@ -123,6 +123,10 @@ export default defineConfig(({ mode }) => {
             cssMinify: true,
             sourcemap: !isProduction,
             rolldownOptions: {
+                input: {
+                    index: fileURLToPath(new URL('./index.html', import.meta.url)),
+                    offline: fileURLToPath(new URL('./offline.html', import.meta.url)),
+                },
                 output: {
                     codeSplitting: {
                         groups: [

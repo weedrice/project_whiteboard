@@ -28,4 +28,6 @@ test('PWA provides a cold offline app shell and an offline page for uncached dir
 
   await offlinePage.goto('/never-visited-offline')
   await expect(offlinePage).toHaveTitle(/Offline/)
+  await expect(offlinePage.getByRole('heading', { level: 1 })).toHaveCSS('font-size', '24px')
+  await expect(offlinePage.locator('main')).toHaveCSS('max-width', '420px')
 })
