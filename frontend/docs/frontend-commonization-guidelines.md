@@ -42,3 +42,12 @@
 - When a component spec accumulates repeated mount setup, stubs, or mutation fixtures, move those details into a local `*TestHarness.ts`.
 - Keep the spec file focused on user-visible behavior and assertions; keep setup mechanics in the harness.
 - Reuse shared fixtures only when they are truly cross-domain. Domain-specific fixtures should live near the feature or component tests that use them.
+
+## Typography
+
+- `src/styles/foundation.css` owns the application font-size scale and line heights. Use `text-xs` through `text-4xl` for the standard scale and `text-micro`, `text-compact`, `text-body-compact`, or `text-display` for the explicit 11px, 13px, 15px, and 32px steps.
+- Prefer size props on shared components such as `PageHeader` and `BaseButton`; shared inputs, tables, badges, and state components own their internal typography.
+- Do not add literal `font-size` values or numeric arbitrary classes such as `text-[13px]` to application UI. Use the nearest shared token and keep responsive changes on token classes, for example `text-sm sm:text-base`.
+- User-selected editor font sizes are content data rather than application UI tokens. Relative sizing inside rich or editable content and non-text layout techniques may remain only with a nearby `typography-guard-allow: reason` comment.
+- The standalone offline page and SEO prerender markup consume the same Tailwind scale as the application. Generated OG images use the separately named pixel scale in `scripts/static-typography-tokens.mjs`, because their 1200x630 canvas is independent of browser `rem` sizing.
+- Run `npm.cmd run check:typography` after typography work. The same guard is included in `npm.cmd run check:ui`.
