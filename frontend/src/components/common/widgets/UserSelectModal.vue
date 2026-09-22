@@ -63,7 +63,7 @@
 
           <template #cell-selection="{ item }">
             <span
-              class="inline-flex h-4 w-4 items-center justify-center rounded border text-[10px]"
+              class="inline-flex h-4 w-4 items-center justify-center rounded border text-micro"
               :class="isSelected(item.userId)
                 ? 'user-select-check-selected'
                 : 'nv-border-strong text-transparent'"

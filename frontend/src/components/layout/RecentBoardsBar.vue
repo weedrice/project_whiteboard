@@ -95,7 +95,7 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
     align-items: center;
     gap: 0.5rem;
     color: var(--nv-ink-soft);
-    font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .recent-boards-retry {

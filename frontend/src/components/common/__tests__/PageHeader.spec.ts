@@ -37,4 +37,17 @@ describe('PageHeader', () => {
     expect(wrapper.get('button').text()).toBe('Refresh')
     expect(wrapper.find('p').exists()).toBe(false)
   })
+
+  it.each([
+    ['default', ['text-2xl', 'font-semibold']],
+    ['compact', ['text-lg', 'leading-6']],
+    ['admin', ['text-xl', 'leading-7']],
+    ['hero', ['text-2xl', 'sm:text-3xl']],
+  ] as const)('maps the %s size to the shared typography scale', (size, expectedClasses) => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Shared title', size },
+    })
+
+    expect(wrapper.get('h1').classes()).toEqual(expect.arrayContaining([...expectedClasses]))
+  })
 })

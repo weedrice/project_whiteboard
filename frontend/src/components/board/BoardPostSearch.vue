@@ -145,7 +145,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
 }
 
 :deep(.nv-board-search-select) {
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   outline: none;
   padding: 0 0.55rem;
@@ -197,7 +197,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   border-radius: 0.55rem;
   color: var(--nv-on-accent);
   display: inline-flex;
-  font-size: 0.82rem;
+  font-size: var(--text-compact);
   font-weight: 600;
   height: 2.2rem;
   justify-content: center;

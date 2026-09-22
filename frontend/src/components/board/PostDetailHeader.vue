@@ -195,7 +195,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
   border-radius: 9999px;
   color: var(--nv-ink-soft);
   display: inline-flex;
-  font-size: 0.85rem;
+  font-size: var(--text-compact);
   font-weight: 600;
   gap: 0.35rem;
   min-height: 2.5rem;

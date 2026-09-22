@@ -154,7 +154,7 @@ const emit = defineEmits<{
   width: 100%;
   height: 100%;
   padding: 16px;
-  font-size: 13px;
+  font-size: var(--text-compact);
   line-height: 1.6;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--nv-ink);

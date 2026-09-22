@@ -229,7 +229,7 @@
   }
 
   .nv-home-card-personal .nv-home-card-title {
-    font-size: 1.125rem;
+    font-size: var(--text-lg);
     letter-spacing: -0.03em;
     line-height: 1.4;
   }
@@ -257,13 +257,13 @@
   }
 
   .nv-home-chip {
-    @apply inline-flex rounded-[999px] px-3 py-1 text-[11px] font-semibold;
+    @apply inline-flex rounded-[999px] px-3 py-1 text-micro font-semibold;
     background: var(--nv-accent-bg);
     color: var(--nv-accent);
   }
 
   .nv-home-card-title {
-    @apply text-lg font-semibold tracking-[-0.04em] sm:text-[1.4rem];
+    @apply text-lg font-semibold tracking-[-0.04em] sm:text-xl;
     color: var(--nv-ink);
   }
 
@@ -326,7 +326,7 @@
     --tw-prose-quotes: var(--nv-ink-soft);
     --tw-prose-quote-borders: var(--nv-accent);
     max-width: none;
-    font-size: 0.95rem;
+    font-size: var(--text-body-compact);
     line-height: 1.65;
   }
 
@@ -344,7 +344,7 @@
   }
 
   .nv-home-curation-body :where(h1, h2, h3, h4) {
-    font-size: 1.05rem;
+    font-size: var(--text-base);
     line-height: 1.45;
     margin-top: 0.65rem;
     margin-bottom: 0.35rem;
@@ -383,11 +383,11 @@
   }
 
   .nv-home-card-body .prose-feed :where(h1, h2) {
-    font-size: 1.02rem;
+    font-size: var(--text-base);
   }
 
   .nv-home-card-body .prose-feed :where(h3, h4) {
-    font-size: 0.95rem;
+    font-size: var(--text-body-compact);
   }
 
   .nv-home-card-body .prose-feed :where(ul, ol) {

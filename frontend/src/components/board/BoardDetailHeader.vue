@@ -81,7 +81,7 @@ const { t } = useI18n()
             </span>
           </div>
 
-          <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-[15px]">
+          <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-body-compact">
             {{ board.description || t('board.list.noDesc') }}
           </p>
         </div>
@@ -150,7 +150,7 @@ const { t } = useI18n()
   background: var(--nv-accent-bg);
   color: var(--nv-accent);
   display: inline-flex;
-  font-size: 2rem;
+  font-size: var(--text-display);
   font-weight: 700;
   justify-content: center;
 }
@@ -161,7 +161,7 @@ const { t } = useI18n()
   align-items: center;
   border-radius: 0.55rem;
   display: inline-flex;
-  font-size: 0.82rem;
+  font-size: var(--text-compact);
   font-weight: 600;
   justify-content: center;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;

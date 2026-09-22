@@ -185,8 +185,8 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
               stroke-linecap="round"
               stroke-linejoin="round"
             />
-            <text x="0" y="145" class="fill-current text-[10px] nv-text-subtle">{{ daily[0]?.date ?? '' }}</text>
-            <text x="320" y="145" text-anchor="end" class="fill-current text-[10px] nv-text-subtle">{{ daily[daily.length - 1]?.date ?? '' }}</text>
+            <text x="0" y="145" class="fill-current text-micro nv-text-subtle">{{ daily[0]?.date ?? '' }}</text>
+            <text x="320" y="145" text-anchor="end" class="fill-current text-micro nv-text-subtle">{{ daily[daily.length - 1]?.date ?? '' }}</text>
           </svg>
           <div class="mt-3 flex flex-wrap gap-4 text-sm nv-text-subtle">
             <span>{{ t('admin.dashboard.postsLine') }}</span>

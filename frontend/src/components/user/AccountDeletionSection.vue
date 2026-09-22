@@ -36,7 +36,7 @@
             </svg>
           </div>
           <div class="ml-3 min-w-0 flex-1">
-            <p class="text-[13px] text-left">{{ $t('user.settings.deleteAccountWarning') }}</p>
+            <p class="text-compact text-left">{{ $t('user.settings.deleteAccountWarning') }}</p>
           </div>
         </div>
       </div>

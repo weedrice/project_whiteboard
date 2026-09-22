@@ -66,7 +66,7 @@
     @apply h-4 w-4 rounded-full font-bold flex items-center justify-center shrink-0;
     background: var(--nv-accent-bg);
     color: var(--nv-accent);
-    font-size: 10px;
+    font-size: var(--text-micro);
   }
 
   .recent-board-name {
@@ -111,7 +111,7 @@
   .recent-boards-clear {
     @apply whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150;
     color: var(--nv-muted);
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
 
   .recent-boards-clear:hover {

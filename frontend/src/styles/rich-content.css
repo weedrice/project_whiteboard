@@ -123,7 +123,7 @@
 
   .nv-rich-content :where(.nv-code-block-language) {
     color: var(--nv-muted);
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -132,7 +132,7 @@
     border: 1px solid var(--nv-line);
     border-radius: 0.4rem;
     color: var(--nv-ink-soft);
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
     font-weight: 700;
     line-height: 1;
     padding: 0.35rem 0.55rem;
@@ -149,6 +149,7 @@
     background: transparent;
     border: 0;
     color: inherit;
+    /* typography-guard-allow: code text intentionally scales relative to user-authored content */
     font-size: 0.9em;
     padding: 0;
     white-space: pre;

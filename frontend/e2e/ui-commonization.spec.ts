@@ -200,8 +200,14 @@ for (const viewport of viewports) {
     await login(page)
 
     await page.goto('/inquiries')
-    await expect(page.getByRole('heading', { level: 1, name: '내 문의' })).toBeVisible()
+    const inquiryHeading = page.getByRole('heading', { level: 1, name: '내 문의' })
+    await expect(inquiryHeading).toBeVisible()
+    await expect(inquiryHeading).toHaveCSS('font-size', '24px')
     await expect(page.locator('select')).toHaveCount(2)
+    await expect(page.locator('select').first()).toHaveCSS(
+      'font-size',
+      viewport.name === 'mobile' ? '12px' : '14px',
+    )
     await expect(page.getByRole('heading', { level: 2, name: '공통 UI 문의' })).toBeVisible()
     await expect(page.locator('[data-inquiry-status="IN_PROGRESS"]')).toBeVisible()
     await expectNoSeriousAccessibilityViolations(page)
@@ -242,7 +248,9 @@ for (const viewport of viewports) {
     await installAdminApi(page)
     await page.goto('/admin/dashboard')
 
-    await expect(page.getByRole('heading', { level: 1, name: '대시보드' })).toBeVisible()
+    const dashboardHeading = page.getByRole('heading', { level: 1, name: '대시보드' })
+    await expect(dashboardHeading).toBeVisible()
+    await expect(dashboardHeading).toHaveCSS('font-size', '20px')
     const periodControl = page.getByRole('group', { name: '심화 통계' })
     await expect(periodControl).toBeVisible()
     await periodControl.getByRole('button', { name: '90일' }).click()
@@ -256,6 +264,10 @@ for (const viewport of viewports) {
     await expect(auditTable).toHaveCSS('box-shadow', 'none')
     await expect(auditTable.locator(`span[title="${auditBoardUrl}"]`)).toHaveText(auditBoardUrl)
     await expect(auditTable.locator(`span[title="${auditReason}"]`)).toHaveCSS('white-space', 'normal')
+    await expect(auditTable.locator('td').first()).toHaveCSS(
+      'font-size',
+      viewport.name === 'mobile' ? '12px' : '14px',
+    )
     if (viewport.name === 'mobile') {
       await expect.poll(() => auditRegion.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
       await expect(auditRegion).toHaveAttribute('tabindex', '0')

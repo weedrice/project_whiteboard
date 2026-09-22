@@ -43,7 +43,7 @@ const emit = defineEmits<{
   border-radius: 9999px;
   box-shadow: var(--nv-shadow-popup);
   color: var(--nv-success-text);
-  font-size: 0.7rem;
+  font-size: var(--text-micro);
   font-weight: 600;
   padding: 0.35rem 0.65rem;
   position: absolute;
@@ -68,7 +68,7 @@ const emit = defineEmits<{
   color: var(--nv-muted);
   display: inline-flex;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
   gap: 0.35rem;
   letter-spacing: -0.02em;
   max-width: min(16rem, 42vw);

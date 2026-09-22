@@ -63,7 +63,7 @@ const emit = defineEmits<{
 .resolve-info p {
   margin: 4px 0;
   color: var(--nv-ink-soft);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 :deep(.filter-input) {
@@ -72,6 +72,6 @@ const emit = defineEmits<{
   border-radius: 6px;
   background: var(--nv-surface);
   color: var(--nv-ink);
-  font-size: 0.8125rem;
+  font-size: var(--text-compact);
 }
 </style>

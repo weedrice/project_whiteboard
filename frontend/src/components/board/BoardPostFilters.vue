@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 0.8rem;
+  font-size: var(--text-compact);
   font-weight: 600;
   justify-content: center;
   min-height: 2.1rem;
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .nv-board-filter-chip {
-    font-size: 0.75rem;
+  font-size: var(--text-xs);
     min-height: 2.75rem;
     padding: 0.4rem 0.7rem;
   }

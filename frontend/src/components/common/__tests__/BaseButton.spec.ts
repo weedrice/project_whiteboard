@@ -73,6 +73,15 @@ describe('BaseButton', () => {
         expect(wrapper.classes()).toContain('text-base')
     })
 
+    it('delegates the small typography and touch target to the shared button class', () => {
+        const wrapper = mount(BaseButton, {
+            props: { size: 'sm' },
+        })
+
+        expect(wrapper.classes()).toContain('btn-sm')
+        expect(wrapper.classes()).not.toContain('text-xs')
+    })
+
     it('renders a router link with the same button styles when to is provided', () => {
         const wrapper = mount(BaseButton, {
             props: {

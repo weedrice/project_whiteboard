@@ -67,7 +67,7 @@ watch(() => props.postId, () => {
 }
 
 .nv-related-posts :deep(.nv-home-card-title) {
-  font-size: 0.95rem;
+  font-size: var(--text-body-compact);
   letter-spacing: -0.02em;
 }
 </style>

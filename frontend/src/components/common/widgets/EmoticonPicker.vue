@@ -222,7 +222,7 @@ const { isTopDialog } = useEmoticonPickerDialogLifecycle({
 .header-title {
   flex: 1;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--nv-ink);
   min-width: 0;
   overflow: hidden;
@@ -232,7 +232,7 @@ const { isTopDialog } = useEmoticonPickerDialogLifecycle({
 
 @media (max-width: 639px) {
   .header-title {
-    font-size: 13px;
+    font-size: var(--text-compact);
   }
 }
 
@@ -280,7 +280,7 @@ const { isTopDialog } = useEmoticonPickerDialogLifecycle({
   border: 1px solid var(--nv-line);
   border-radius: 6px;
   color: var(--nv-ink);
-  font-size: 13px;
+  font-size: var(--text-compact);
   min-height: 44px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;

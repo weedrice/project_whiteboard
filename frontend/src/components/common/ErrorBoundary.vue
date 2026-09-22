@@ -147,7 +147,7 @@ provide('resetError', resetError)
     padding: 1rem;
     background-color: var(--nv-surface-muted);
     border-radius: 0.375rem;
-    font-size: 0.75rem;
+  font-size: var(--text-xs);
     overflow: auto;
     max-height: 16rem;
     font-family: monospace;

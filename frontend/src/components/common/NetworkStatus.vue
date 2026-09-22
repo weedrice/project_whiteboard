@@ -103,11 +103,11 @@ onUnmounted(() => {
 }
 
 .network-status-icon {
-    font-size: 1.25rem;
+  font-size: var(--text-xl);
 }
 
 .network-status-message {
-    font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .slide-down-enter-active,

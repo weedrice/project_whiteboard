@@ -104,7 +104,7 @@ async function handleCheckIn() {
   border-radius: var(--nv-radius-pill);
   color: var(--nv-accent);
   display: inline-flex;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   gap: 0.35rem;
   flex-basis: 100%;
@@ -135,7 +135,7 @@ async function handleCheckIn() {
   border-radius: var(--nv-radius-pill);
   color: var(--nv-on-accent);
   flex-shrink: 0;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   min-height: 2.75rem;
   padding: 0.5rem 0.9rem;

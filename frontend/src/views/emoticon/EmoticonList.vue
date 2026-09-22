@@ -260,7 +260,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
   color: var(--nv-ink);
   cursor: pointer;
   flex-shrink: 0;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   height: 2.75rem;
   line-height: 1.25rem;
   min-height: 2.75rem;

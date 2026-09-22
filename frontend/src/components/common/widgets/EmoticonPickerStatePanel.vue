@@ -57,7 +57,7 @@ const emit = defineEmits<{
   justify-content: center;
   padding: 40px 0;
   color: var(--nv-muted);
-  font-size: 13px;
+  font-size: var(--text-compact);
 }
 
 .error-state {
@@ -68,7 +68,7 @@ const emit = defineEmits<{
   gap: 10px;
   padding: 40px 0;
   color: var(--nv-danger-text);
-  font-size: 13px;
+  font-size: var(--text-compact);
   text-align: center;
 }
 
@@ -82,7 +82,7 @@ const emit = defineEmits<{
   background: var(--nv-accent);
   color: var(--nv-on-accent);
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 

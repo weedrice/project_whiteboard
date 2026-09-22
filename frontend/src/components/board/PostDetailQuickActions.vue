@@ -72,7 +72,7 @@ const { t } = useI18n()
   color: var(--nv-ink-soft);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   gap: 0.35rem;
   justify-content: center;

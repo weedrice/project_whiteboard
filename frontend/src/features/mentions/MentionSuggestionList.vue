@@ -83,7 +83,7 @@ const emit = defineEmits<{
   padding: 0.45rem 0.5rem;
   color: var(--nv-ink);
   text-align: left;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -94,7 +94,7 @@ const emit = defineEmits<{
   gap: 0.75rem;
   padding: 0.5rem;
   color: var(--nv-ink-soft);
-  font-size: 0.8125rem;
+  font-size: var(--text-compact);
 }
 
 .mention-suggestion-retry {
@@ -123,7 +123,7 @@ const emit = defineEmits<{
   justify-content: center;
   background: var(--nv-surface-hover, var(--nv-surface-2));
   color: var(--nv-ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 </style>

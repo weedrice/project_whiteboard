@@ -11,6 +11,8 @@ describe('BaseInput', () => {
             }
         })
         expect(wrapper.find('label').text()).toBe('Test Label')
+        expect(wrapper.get('label').classes()).toEqual(expect.arrayContaining(['text-xs', 'sm:text-sm']))
+        expect(wrapper.get('input').classes()).toContain('input-base')
     })
 
     it('keeps a screen-reader-only label when hideLabel is true', () => {
@@ -47,6 +49,7 @@ describe('BaseInput', () => {
         })
         expect(wrapper.get('[role="alert"]').text()).toBe('Invalid input')
         expect(wrapper.get('[role="alert"]').classes()).toContain('nv-form-error')
+        expect(wrapper.get('[role="alert"]').classes()).toEqual(expect.arrayContaining(['text-xs', 'sm:text-sm']))
         expect(wrapper.get('input').classes()).toContain('is-invalid')
     })
 

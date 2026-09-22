@@ -216,7 +216,7 @@ const bodyCellClasses = computed(() => [
                                 :class="getTableAlignButtonClass(col.align)"
                                 :aria-label="getSortButtonLabel(col)"
                                 @click="emit('sort', col.key)">
-                                <span aria-hidden="true" class="text-[9px] sm:text-[10px]">
+                                <span aria-hidden="true" class="text-micro">
                                     {{ getSortIndicator(col) }}
                                 </span>
                                 <span>{{ col.label }}</span>

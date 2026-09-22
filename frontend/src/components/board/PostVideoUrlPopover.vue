@@ -83,7 +83,7 @@ const emit = defineEmits<{
 .video-url-popover-label {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--nv-ink-soft);
 }
@@ -103,7 +103,7 @@ const emit = defineEmits<{
 .video-url-popover-help {
   margin: 0 0 10px;
   color: var(--nv-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .video-url-popover-actions {

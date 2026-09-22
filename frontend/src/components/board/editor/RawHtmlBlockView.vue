@@ -70,12 +70,12 @@ const descriptionId = `raw-html-block-description-${useId()}`
 .raw-html-block__header strong {
   display: block;
   color: var(--nv-ink);
-  font-size: 0.8125rem;
+  font-size: var(--text-compact);
 }
 
 .raw-html-block__header p {
   margin: 0.125rem 0 0;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 

@@ -72,7 +72,7 @@ defineEmits<{
   border-radius: 999px;
   color: var(--nv-bg);
   display: inline-flex;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   justify-content: center;
   min-height: 2.75rem;

@@ -51,12 +51,12 @@ const formatNumber = (value: number) => numberFormatter.value.format(value)
           class="group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
         >
           <div class="min-w-0">
-            <p class="line-clamp-2 text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
+            <p class="line-clamp-2 text-body-compact font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
               {{ board.boardName }}
             </p>
           </div>
           <div class="mt-0.5 flex items-center gap-2 text-left">
-            <p class="text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">{{ formatNumber(board.postCount ?? 0) }}</p>
+            <p class="text-xs font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">{{ formatNumber(board.postCount ?? 0) }}</p>
           </div>
         </RouterLink>
         <RouterLink
@@ -65,10 +65,10 @@ const formatNumber = (value: number) => numberFormatter.value.format(value)
           class="nv-home-board-view-all group flex min-h-[68px] flex-col justify-center bg-[var(--nv-bg)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
           :style="{ '--remaining-board-slots': remainingSlots }"
         >
-          <span class="text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
+          <span class="text-body-compact font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
             {{ t('common.viewAll') }}
           </span>
-          <span class="mt-0.5 text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">
+          <span class="mt-0.5 text-xs font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">
             {{ t('home.landing.topBoards') }}
           </span>
         </RouterLink>

@@ -365,7 +365,7 @@ const columns = computed(() => createPostListColumns({
   border-radius: var(--nv-radius-pill);
   background: var(--nv-surface);
   color: var(--nv-ink);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   padding: 0.625rem 1.25rem;
 }

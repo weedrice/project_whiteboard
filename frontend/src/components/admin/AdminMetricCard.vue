@@ -68,7 +68,7 @@ const toneClass = computed(() => {
 
 .admin-metric-card__label {
   color: var(--nv-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -77,7 +77,7 @@ const toneClass = computed(() => {
 .admin-metric-card__value {
   margin-top: 4px;
   color: var(--nv-ink);
-  font-size: 1.5rem;
+  font-size: var(--text-2xl);
   font-weight: 700;
 }
 

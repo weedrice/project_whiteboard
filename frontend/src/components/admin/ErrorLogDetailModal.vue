@@ -120,7 +120,7 @@ const emit = defineEmits<{
 <style scoped>
 .detail-label {
   color: var(--nv-muted);
-  font-size: 0.6875rem;
+  font-size: var(--text-micro);
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -128,7 +128,7 @@ const emit = defineEmits<{
 
 .detail-value {
   color: var(--nv-ink);
-  font-size: 0.8125rem;
+  font-size: var(--text-compact);
   word-break: break-all;
 }
 
@@ -140,7 +140,7 @@ const emit = defineEmits<{
   background: var(--nv-code-surface);
   color: var(--nv-code-ink);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-micro);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;

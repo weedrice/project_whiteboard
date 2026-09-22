@@ -105,7 +105,7 @@ const noticeListId = useId()
   color: var(--nv-danger-text);
   display: inline-flex;
   flex-shrink: 0;
-  font-size: 0.62rem;
+  font-size: var(--text-micro);
   font-weight: 700;
   justify-content: center;
   letter-spacing: 0.02em;

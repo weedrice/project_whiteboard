@@ -668,12 +668,13 @@ defineExpose({
 }
 
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2 {
+  /* typography-guard-allow: hides the source separator before replacing it with a slash */
   font-size: 0;
 }
 
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
   content: '/';
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 </style>

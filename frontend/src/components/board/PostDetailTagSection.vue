@@ -36,7 +36,7 @@ const emit = defineEmits<{
 .nv-post-section-label {
   color: var(--nv-muted);
   font-family: var(--font-mono);
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;

@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
   color: var(--nv-accent);
   display: flex;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   gap: 0.75rem;
   letter-spacing: 0.08em;

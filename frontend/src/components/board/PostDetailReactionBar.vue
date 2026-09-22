@@ -101,7 +101,7 @@ const { t } = useI18n()
   border-radius: 9999px;
   color: var(--nv-ink);
   display: inline-flex;
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
   font-weight: 700;
   justify-content: center;
   min-width: 1.45rem;

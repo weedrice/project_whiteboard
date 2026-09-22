@@ -286,7 +286,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
   border-radius: 6px;
   background: var(--nv-surface);
   color: var(--nv-ink);
-  font-size: 0.8125rem;
+  font-size: var(--text-compact);
 }
 
 .error-log-table-wrapper {

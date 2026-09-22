@@ -16,7 +16,7 @@
   border-radius: 1rem;
   color: var(--nv-accent);
   display: flex;
-  font-size: 0.95rem;
+  font-size: var(--text-body-compact);
   font-weight: 700;
   inset: 0.75rem;
   justify-content: center;
@@ -76,6 +76,7 @@
   background: transparent;
   border: 0;
   color: inherit;
+  /* typography-guard-allow: code text intentionally scales relative to editable content */
   font-size: 0.9em;
   padding: 0;
   white-space: pre;
@@ -269,7 +270,7 @@
 }
 
 .post-editor-image-control--size {
-  font-size: 0.7rem;
+  font-size: var(--text-micro);
   font-weight: 700;
 }
 
