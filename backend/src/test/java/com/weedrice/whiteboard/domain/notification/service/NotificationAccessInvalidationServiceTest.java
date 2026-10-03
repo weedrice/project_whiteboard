@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationAccessInvalidationServiceTest {
@@ -35,6 +36,17 @@ class NotificationAccessInvalidationServiceTest {
         inOrder.verify(jobs).redactForReceiver(7L);
         inOrder.verify(subscriptions).deleteAllByUserId(7L);
         inOrder.verify(eventPublisher).publishEvent(NotificationStreamInvalidationEvent.disconnectUser(7L));
+    }
+
+    @Test
+    void disconnectUserPreservesPushSubscriptionsAndQueuedJobs() {
+        NotificationAccessInvalidationService service =
+                new NotificationAccessInvalidationService(subscriptions, jobs, eventPublisher);
+
+        service.disconnectUserAfterCommit(7L);
+
+        verify(eventPublisher).publishEvent(NotificationStreamInvalidationEvent.disconnectUser(7L));
+        verifyNoInteractions(subscriptions, jobs);
     }
 
     @Test

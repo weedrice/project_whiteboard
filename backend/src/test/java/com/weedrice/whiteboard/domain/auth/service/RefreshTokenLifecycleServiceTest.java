@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,9 @@ class RefreshTokenLifecycleServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private NotificationAccessInvalidationService notificationAccessInvalidationService;
+
     private RefreshTokenLifecycleService refreshTokenLifecycleService;
     private User user;
 
@@ -46,6 +50,7 @@ class RefreshTokenLifecycleServiceTest {
         refreshTokenLifecycleService = new RefreshTokenLifecycleService(
                 refreshTokenRepository,
                 userRepository,
+                notificationAccessInvalidationService,
                 FIXED_CLOCK);
         user = User.builder()
                 .loginId("user")
@@ -63,9 +68,10 @@ class RefreshTokenLifecycleServiceTest {
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
 
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        InOrder inOrder = inOrder(userRepository, refreshTokenRepository);
+        InOrder inOrder = inOrder(userRepository, refreshTokenRepository, notificationAccessInvalidationService);
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
+        inOrder.verify(notificationAccessInvalidationService).disconnectUserAfterCommit(1L);
         assertThat(nowCaptor.getValue()).isEqualTo(FIXED_NOW);
     }
 
@@ -87,6 +93,7 @@ class RefreshTokenLifecycleServiceTest {
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(userRepository, never()).findByIdForUpdate(1L);
         verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
+        verify(notificationAccessInvalidationService).disconnectUserAfterCommit(1L);
         assertThat(nowCaptor.getValue()).isEqualTo(FIXED_NOW);
     }
 }

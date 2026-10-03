@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -19,6 +20,7 @@ public class RefreshTokenLifecycleService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     @Transactional
@@ -44,5 +46,6 @@ public class RefreshTokenLifecycleService {
 
     private void revokeActiveTokens(Long userId) {
         refreshTokenRepository.revokeActiveTokensByUserId(userId, LocalDateTime.now(clock));
+        notificationAccessInvalidationService.disconnectUserAfterCommit(userId);
     }
 }

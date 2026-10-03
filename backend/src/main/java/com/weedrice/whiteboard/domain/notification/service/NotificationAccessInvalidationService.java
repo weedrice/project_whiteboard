@@ -22,7 +22,14 @@ public class NotificationAccessInvalidationService {
     public void revokeForLockedUser(Long userId) {
         pushDeliveryJobRepository.redactForReceiver(userId);
         pushSubscriptionRepository.deleteAllByUserId(userId);
-        eventPublisher.publishEvent(NotificationStreamInvalidationEvent.disconnectUser(userId));
+        disconnectUserAfterCommit(userId);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void disconnectUserAfterCommit(Long userId) {
+        if (userId != null) {
+            eventPublisher.publishEvent(NotificationStreamInvalidationEvent.disconnectUser(userId));
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
