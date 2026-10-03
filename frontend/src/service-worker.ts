@@ -11,6 +11,7 @@ import {
   type PushNotificationPayload,
 } from '@/utils/pushNotificationPayload'
 import { focusOrOpenPushNotificationTarget } from '@/utils/pushNotificationClient'
+import { STATIC_ASSET_CACHE_NAME, cacheableStaticAssetResponse, purgeInvalidStaticAssetCache } from '@/utils/staticAssetCache'
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string, revision: string | null }>
@@ -20,6 +21,11 @@ clientsClaim()
 
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+
+self.addEventListener('activate', (event) => {
+  // Keep healthy offline assets. The read guard also protects clients if cleanup fails.
+  event.waitUntil(purgeInvalidStaticAssetCache(caches).catch(() => undefined))
+})
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
@@ -35,8 +41,14 @@ registerRoute(
   ({ url }) => url.origin === self.location.origin
     && /^\/(?:js|assets|img|fonts)\/.*-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$/.test(url.pathname),
   new CacheFirst({
-    cacheName: 'noviis-static-v1',
-    plugins: [new ExpirationPlugin({ maxEntries: 150, maxAgeSeconds: 30 * 24 * 60 * 60 })],
+    cacheName: STATIC_ASSET_CACHE_NAME,
+    plugins: [
+      {
+        cacheWillUpdate: async ({ response }) => cacheableStaticAssetResponse(response),
+        cachedResponseWillBeUsed: async ({ cachedResponse }) => cacheableStaticAssetResponse(cachedResponse) ?? undefined,
+      },
+      new ExpirationPlugin({ maxEntries: 150, maxAgeSeconds: 30 * 24 * 60 * 60 }),
+    ],
   }),
 )
 
