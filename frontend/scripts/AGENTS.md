@@ -2,16 +2,16 @@
 
 ## Scope And Source Of Truth
 
-This directory contains build validation, generated API checks, SEO, sitemap, prerender, release-manifest, PWA, coverage, and local smoke scripts. Changes can affect production artifacts even when application source code is unchanged.
+This directory owns build validation, generated API checks, SEO, sitemap, prerender, release-manifest, PWA, coverage, and local smoke scripts. It inherits [frontend/AGENTS.md](../AGENTS.md); script changes can affect production artifacts without application source changes.
 
-- Read the SEO and artifact sections of `.github/workflows/README.md` before changing sitemap, prerender, release-manifest, or production verification behavior.
-- Before changing `check-generated-api.mjs` or the `api:*` generation contract, read and follow `docs/api/AGENTS.md`.
-- Treat `frontend/package.json` as the command entrypoint contract. Update package scripts, workflows, fixtures, and documentation together when invocation or environment requirements change.
-- Keep scripts deterministic, UTF-8, non-interactive, and fail-closed for production validation. Do not hide network, parsing, digest, count, or generated-output failures in strict mode.
+- Read the [workflow release/SEO contract](../../.github/workflows/README.md) and [static-content policy](../../docs/ops/seo-static-content-policy.md) before changing sitemap, prerender, release-manifest, or production verification behavior.
+- Before changing `check-generated-api.mjs` or the `api:*` contract, follow [API generation instructions](../../docs/api/AGENTS.md).
+- [package.json](../package.json) owns command entrypoints. Keep package scripts, workflows, fixtures, and documentation aligned when invocation or environment requirements change.
+- Keep scripts deterministic, non-interactive, and fail-closed for production validation. Do not hide network, parsing, digest, count, or generated-output failures in strict mode.
 
 ## SEO Release Contract
 
-- Keep sitemap generation, prerender input, `.noviis-seo-release.json`, and verification bound to the shared `SEO_POST_URL_CAPACITY` and the 50,000-URL protocol ceiling.
+- Keep sitemap generation, prerender input, `.noviis-seo-release.json`, and verification bound to `SEO_POST_URL_CAPACITY` and the protocol ceiling defined in [seo-capacity.mjs](seo-capacity.mjs); do not duplicate those limits.
 - Preserve `SEO_STRICT=true` behavior: API failure, zero post URLs, incomplete prerender output, count mismatch, invalid release SHA, or sitemap digest mismatch must fail the production release.
 - Keep the release manifest fields and their consumers synchronized. Deployment and monitoring verification must continue to bind the active release SHA to the sitemap and manifest.
 - Preserve safe URL and origin validation before fetching or rendering remote content. Do not broaden accepted schemes or origins without a coordinated security review.
@@ -25,11 +25,6 @@ node --check .\scripts\<changed-script>.mjs
 npm.cmd run test:run -- scripts/__tests__/<related-test>.spec.mjs
 ```
 
-For coordinated SEO changes, run the relevant script test directory and the normal frontend type check:
+For coordinated SEO changes, expand to `npm.cmd run test:run -- scripts/__tests__` and `npm.cmd run type-check`.
 
-```powershell
-npm.cmd run test:run -- scripts/__tests__
-npm.cmd run type-check
-```
-
-`npm run build:seo` requires valid build-time API and SEO environment. Do not claim the strict production build was verified unless those prerequisites were configured and the command actually ran.
+`npm.cmd run build:seo` requires the build-time API and SEO environment described in the workflow contract. Claim strict production verification only when `SEO_STRICT=true` and those prerequisites were configured and the command actually ran.

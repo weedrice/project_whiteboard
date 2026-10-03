@@ -4,7 +4,7 @@
 
 This directory is the production schema history for NoviIs. Changes are deployment-sensitive and remain subject to the repository rule requiring explicit user approval for new migrations.
 
-- Treat `docs/ops/database-migration-policy.md` as the canonical migration policy.
+- Read the canonical [migration policy](../../../../../../docs/ops/database-migration-policy.md) for phase classification, recovery, and deployment restrictions.
 - Use versioned SQL only. Repeatable (`R__`), undo (`U__`), and Java migrations are prohibited.
 - Treat every migration already merged to the base revision as immutable. Fix it with a new version; do not edit, delete, rename, or extend a historical exception.
 - Do not execute migrations against a shared, staging, or production database unless the user explicitly authorizes that exact target.
@@ -13,7 +13,7 @@ This directory is the production schema history for NoviIs. Changes are deployme
 
 - Name new files `V<positive integer>__<description>.sql` using a unique version greater than the base revision's highest version.
 - Include exactly one phase marker: `-- noviis:migration-phase expand`, `backfill`, or `contract`.
-- Keep automatic releases compatible with both the new JAR and the previous JAR throughout the rollback window.
+- Keep expand/backfill releases compatible with the new and previous JAR throughout the rollback window. Contract releases follow the canonical policy's deployment gates and startup-dependent rollback restrictions.
 - Separate expand, restartable backfill, application switch, and destructive contract work. Do not combine a destructive schema change with the application switch.
 - Contract migrations require a reviewed `-- noviis:design-doc docs/design-notes/...` reference and the operational checks defined by the canonical policy.
 - Bounded deletes, redundant-index removal, procedural SQL, privilege changes, and other risky statements must use the exact markers and classification rules from the canonical policy.
@@ -30,10 +30,10 @@ For an index on an existing table:
 
 ## Required Paired Changes
 
-- Update `backend/DATABASE.md` in the same focused change. Review its date, highest migration, table count and list, affected columns, constraints, indexes, migration history, and operational cautions.
+- Update [DATABASE.md](../../../../../DATABASE.md) in the same focused change. Review its date, highest migration, table count and list, affected columns, constraints, indexes, migration history, and operational cautions.
 - Add or update focused migration contract tests when SQL semantics can be verified without PostgreSQL.
 - Review affected entities, repositories, native queries, indexes, and previous-JAR compatibility.
-- Record a contract migration in `docs/ops/applied-contract-migrations.txt` only after production succeeds, in a separate change that introduces no migration.
+- Record a contract migration in the [applied-contract registry](../../../../../../docs/ops/applied-contract-migrations.txt) only after production succeeds, in a separate change that introduces no migration.
 
 ## Verification
 
@@ -46,13 +46,15 @@ python backend/scripts/verify-database-doc.py
 
 The document verifier checks migration range, table count, and table inventory only. Manually compare columns, constraints, index purpose, and operational impact.
 
-Run the compatibility checker through Git Bash or WSL with a real comparison commit:
+Run the compatibility checker through Git Bash or WSL from the repository root, with a real comparison commit and `HEAD` containing the migration changes:
 
 ```bash
 bash backend/scripts/check-migration-compatibility.sh <base-ref> HEAD
 ```
 
-When a disposable PostgreSQL instance with the required extensions is configured, also run:
+This checker compares committed revisions; it does not validate uncommitted SQL. Do not create a commit merely to run it without the user's authorization.
+
+When a disposable PostgreSQL instance with the required extensions is configured per [README.md](../../../../../README.md), also run:
 
 ```powershell
 .\backend\gradlew.bat -p backend postgresSmokeTest --rerun-tasks

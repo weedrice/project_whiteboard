@@ -1,39 +1,48 @@
 # Generated API Contract AGENTS.md
 
-## Scope
+## Scope And Sources
 
-`openapi-frontend.json` is the generated backend-to-frontend OpenAPI snapshot. It is not an independently authored API specification.
+[openapi-frontend.json](openapi-frontend.json) is generated from backend controllers/DTOs by [OpenApiSpecSnapshotTest](../../backend/src/test/java/com/weedrice/whiteboard/global/config/OpenApiSpecSnapshotTest.java); it then generates [frontend API types](../../frontend/src/types/generated/api.ts).
 
-- Do not hand-edit the snapshot or `frontend/src/types/generated/api.ts` to bypass a mismatch.
-- Generate the snapshot from `OpenApiSpecSnapshotTest`, review its semantic diff, then regenerate and verify the frontend type output.
-- Keep controller mappings, DTOs, `backend/API명세서.md`, `backend/기능명세서.md`, `docs/ops/api-contract-revision.txt`, generated types, and affected consumers synchronized when their contract changes.
-- Do not enable snapshot update mode for ordinary verification or leave it set in the shell after generation.
+- Never hand-edit either generated output to bypass a mismatch.
+- When represented contracts change, coordinate controller/DTO changes, [API명세서.md](../../backend/API명세서.md), [기능명세서.md](../../backend/기능명세서.md), [API revision](../ops/api-contract-revision.txt), generated types, and affected consumers.
+- Generation is intentional contract maintenance; ordinary verification must not enable `UPDATE_OPENAPI_SNAPSHOT`. A passing generator proves synchronization, not backward compatibility.
+- Use the JDK/Node setup in the module READMEs and follow both [backend](../../backend/AGENTS.md) and [frontend](../../frontend/AGENTS.md) instructions for affected behavior.
 
-## Windows Generation And Verification
+## Ordinary Verification
 
-From the repository root, run:
+Run from the repository root in Windows PowerShell. The explicit project paths keep all commands rooted correctly without changing the shell directory. Check the backend contract and frontend output independently:
 
 ```powershell
-$repositoryRoot = (Get-Location).Path
-try {
-    Set-Location backend
-    $env:UPDATE_OPENAPI_SNAPSHOT = 'true'
-    & .\gradlew.bat test --tests "*OpenApiSpecSnapshotTest" --rerun-tasks
-    if ($LASTEXITCODE -ne 0) { throw 'OpenAPI snapshot generation failed' }
+Remove-Item Env:UPDATE_OPENAPI_SNAPSHOT -ErrorAction SilentlyContinue
+& .\backend\gradlew.bat -p backend test --tests "*OpenApiSpecSnapshotTest" --rerun-tasks
+if ($LASTEXITCODE -ne 0) { throw 'Backend API snapshot verification failed' }
+& npm.cmd --prefix frontend run api:check
+if ($LASTEXITCODE -ne 0) { throw 'Frontend API type verification failed' }
+& npm.cmd --prefix frontend run type-check
+if ($LASTEXITCODE -ne 0) { throw 'Frontend type-check failed' }
+```
 
-    Remove-Item Env:UPDATE_OPENAPI_SNAPSHOT
-    Set-Location ..\frontend
-    & npm.cmd run api:generate
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend API type generation failed' }
-    & npm.cmd run api:check
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend API type verification failed' }
-    & npm.cmd run type-check
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend type-check failed' }
+## Intentional Regeneration
+
+1. Generate the snapshot, always clearing update mode even on failure:
+
+```powershell
+try {
+    $env:UPDATE_OPENAPI_SNAPSHOT = 'true'
+    & .\backend\gradlew.bat -p backend test --tests "*OpenApiSpecSnapshotTest" --rerun-tasks
+    if ($LASTEXITCODE -ne 0) { throw 'OpenAPI snapshot generation failed' }
 }
 finally {
     Remove-Item Env:UPDATE_OPENAPI_SNAPSHOT -ErrorAction SilentlyContinue
-    Set-Location $repositoryRoot
 }
 ```
 
-Review the generated diffs before accepting them. A passing generator proves synchronization, not that an API change is backward-compatible or authorized.
+2. Review the snapshot's semantic diff before generating frontend types:
+
+```powershell
+& npm.cmd --prefix frontend run api:generate
+if ($LASTEXITCODE -ne 0) { throw 'Frontend API type generation failed' }
+```
+
+3. Review the generated type diff, then run ordinary verification above and the affected consumer tests. Do not leave update mode enabled or regenerate merely to hide an unexplained mismatch.

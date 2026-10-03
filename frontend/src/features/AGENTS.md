@@ -1,22 +1,17 @@
 # Frontend Feature Slices AGENTS.md
 
-## Scope
+## Scope And Ownership
 
-This directory owns domain-specific frontend orchestration, feature-local composables, query keys, cache invalidation, form state, and page resources. Repository-wide and frontend module instructions remain in force.
+Follow [frontend/AGENTS.md](../../AGENTS.md) for ownership, shared helpers, imports, API, authentication, and UI rules. This file adds feature-specific boundaries.
 
-## Feature Boundaries
+- Use the closest existing slice: [board/posts](board/posts) owns post detail, draft, editor, form, and query helpers; [emoticon](emoticon) owns detail, form, list, and picker helpers.
 
-- Current top-level slices are `admin`, `board`, `comments`, `emoticon`, `feed`, `mentions`, `notifications`, `search`, `shop`, and `user`; `board/posts` is the nested post slice under `board`.
-- Feature adoption is incremental. The presence of a slice does not mean every legacy root composable for that domain has already moved, so do not perform unrelated mass migration.
-- `board/posts` owns post detail, draft, editor, form, and post query helpers.
-- `emoticon` owns detail, form, list, and picker helpers.
-- Keep feature-specific code in the closest existing slice. Put a helper in root `src/composables` only when it is genuinely reusable across features.
-- Use the shared API client and typed API modules; do not create a feature-local Axios client or bypass centralized authentication, error normalization, and global toast behavior.
-- Keep server state in Vue Query and shared application state in Pinia. Preserve query-key ownership and invalidate every affected cache after mutations.
-- Avoid direct imports between unrelated feature internals. Promote truly shared behavior to an existing shared API, type, component, utility, or composable boundary.
+## Public Contracts And Dependencies
 
-## Contracts And Testing
+- Keep one authoritative query-key factory and invalidation contract for each domain. Other features and router/SSE integrations may import those public contracts directly.
+- Do not depend on another feature's private component, mutable form state, or implementation-only helper to implement a cross-feature workflow. Use an explicit domain contract or an existing shared API/type boundary.
+- When changing a public contract, inspect consumers outside this slice as well as local code: views, components, router guards, and notification handlers can share its cache keys.
 
-- When a backend DTO, validation rule, error response, or endpoint changes, update the affected API types, feature orchestration, and UI consumers together.
-- Add or update tests next to the affected slice in its existing `__tests__` location.
-- Run the narrowest related Vitest target first, then `npm run type-check`; run broader frontend checks in proportion to the change.
+## Verification
+
+Use the parent's [verification matrix](../../AGENTS.md#verification), including its session/cache integration requirements, for the local feature and affected external consumers.

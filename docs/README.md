@@ -4,6 +4,8 @@
 
 ## 설계 노트
 
+- [인증·세션 생명주기](design-notes/auth-session-lifecycle.md): 요청 시작 세션, 인증 상태 전환, 캐시·화면·실시간 연결의 공통 계약과 검증 경로를 설명한다.
+- [게시글·파일 생명주기](design-notes/post-file-lifecycle.md): 임시 업로드, 초안, 예약, 발행, 취소·삭제의 연결 규칙과 검증 경로를 설명한다.
 - [독립 문의 모듈 V91](design-notes/inquiry-module-v91.md): 문의 집합·메시지·이력 스키마와 기존 문의 게시판의 전환 게이트를 설명한다.
 - [프론트엔드 색상 토큰 사용 기준](design-notes/frontend-color-token-guidelines-2026-05-29.md): 공통 색상 토큰과 다크모드 대응 원칙을 정리한다.
 - [콘텐츠 접근 계약 hardening](design-notes/content-access-contract-hardening-2026-07-18.md): 제한 콘텐츠 접근 응답과 클라이언트 처리 계약을 정리한다.

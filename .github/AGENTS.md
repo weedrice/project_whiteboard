@@ -1,62 +1,47 @@
 # GitHub Automation AGENTS.md
 
-## Scope And Source Of Truth
+## Scope And Sources
 
-This directory controls CI, release construction, attestations, production deployment, and scheduled SEO monitoring. Treat workflow edits as production-sensitive.
+This directory owns CI, release construction, attestations, production deployment, dependency updates, and scheduled SEO monitoring.
 
-- Read `.github/workflows/README.md` before editing a workflow.
-- Treat the reusable deployment workflows as the current production implementation. Do not infer that the separate hardened activator profile under `deploy/` is installed or invoked unless a coordinated adoption change makes that explicit.
-- Keep that README synchronized with trigger, scope, permission, timeout, artifact, deployment, rollback, and secret-contract changes.
-- Editing workflow files does not authorize dispatching a workflow, rerunning production jobs, approving an environment, or deploying.
+- Read [workflows/README.md](workflows/README.md) before editing workflows; keep trigger, scope, permission, timeout, artifact, deployment, rollback, and secret contracts synchronized.
+- For deployment changes, follow [deploy/AGENTS.md](../deploy/AGENTS.md) for activation models, host restrictions, and rollback boundaries. The reusable workflows are current production; the hardened profile is separately tested.
+- File edits do not authorize workflow dispatch, production-job reruns, environment approval, deployment, or merging/enabling dependency updates.
 
-## Permissions And Supply Chain
+## Permissions And Shell Safety
 
-- Keep the workflow-level default at `contents: read` and grant additional permissions only to the job that requires them.
-- Do not grant privileged permissions to jobs that execute pull-request-controlled repository code.
-- Restrict `id-token: write`, attestations, artifact metadata, deployments, and actions history access to the existing narrowly scoped jobs that need them.
-- Pin every third-party Action to a reviewed full commit SHA and retain a human-readable release comment.
-- Do not use floating tags, branches, `secrets: inherit`, persisted production Git credentials, or unreviewed downloaded executables.
-- Pin downloaded tools and container images by the repository's established version and digest contracts, and verify checksums before execution where the workflow already requires them.
-- Never echo secrets or place secret values in command arguments, artifacts, caches, release metadata, fixtures, or debug output.
+- Keep workflow defaults at `contents: read`; grant privileged permissions only to the narrowly scoped jobs that need them, never to jobs executing pull-request-controlled code.
+- Preserve narrow access to OIDC, attestations, artifact metadata, deployments, and Actions history.
+- Pin third-party Actions to reviewed full commit SHAs with readable release comments. Do not use floating references, `secrets: inherit`, persisted production Git credentials, or unreviewed downloaded executables.
+- Pin downloaded tools/container images using established version/digest contracts, retaining checksum verification before execution where required.
+- Pass untrusted GitHub context through `env` and quote it in the shell; never interpolate PR titles, branches, issue text, or user-controlled inputs directly into `run`.
+- Preserve explicit reusable-workflow secret mappings. Never expose secret values in arguments, artifacts, caches, metadata, fixtures, or debug output.
 
-## Expression And Shell Safety
+## CI And Release Contracts
 
-- Pass untrusted GitHub context values through an `env` entry and quote them in the shell. Do not interpolate pull-request titles, branch names, issue text, or user-controlled inputs directly into `run` scripts.
-- Keep production deployment restricted to `main` and the protected `production` environment.
-- Preserve explicit secret mapping for reusable workflows.
-- Keep timeouts and concurrency explicit. Production deployment must serialize without cancelling the active run.
+- Validation scope and deployment scope differ: documentation/test-only changes must not accidentally create release candidates.
+- Compute cumulative deployment scope from the component's last successful production deployment, so later successful commits retain earlier undeployed runtime changes.
+- When consumed paths change, update path filters, job needs, gate expectations, and [release freshness paths](../deploy/release-freshness-paths.txt) as applicable.
+- Selected validation jobs must succeed; silently skipped required jobs must fail the gate. Keep migration validation, PostgreSQL upgrade compatibility, and deployment outputs connected.
+- Candidate jobs build without release privileges; release jobs alone add OIDC-backed attestations and metadata. Pass the producer's immutable artifact ID instead of recomputing its name.
+- Preserve payload, metadata, SBOM, manifest, envelope, and producer run identity across consumers.
+- Current inline workflows verify attestations on the GitHub runner; EC2 verifies checksum/metadata and independent readback. Host trusted-root attestation verification belongs to the hardened profile.
+- Keep deployment restricted to `main` and the protected `production` environment, with explicit timeouts and serialization that never cancels an active production run.
+- Deploy backend before frontend when both are selected, verifying the activated backend SHA before finalizing frontend.
+- Contract migrations may deploy after integrated CI and production environment protection. Follow the activation rollback boundary in the deployment instructions; do not add an unsupported separate deployment gate.
 
-## CI Scope And Gates
+## Verification
 
-- Validation scope and deployment scope are different. Do not make a documentation- or test-only change create a release candidate accidentally.
-- Preserve cumulative deployment scope from the component's last successful production deployment, so a failed runtime change is not forgotten by a later successful commit.
-- When changing paths consumed by backend, frontend, migrations, ops, or deployment, update path filters, job needs, gate expectations, and `deploy/release-freshness-paths.txt` together as applicable.
-- Selected validation jobs must succeed; a required job that is silently skipped must fail the gate.
-- Keep backend migration validation, PostgreSQL upgrade compatibility, and deployment contract outputs connected.
-
-## Artifact And Deployment Contracts
-
-- Candidate jobs build without release privileges. Only the release jobs may add OIDC-backed attestations and release metadata.
-- Pass the immutable artifact ID returned by the producer rather than recomputing an artifact name.
-- Preserve payload, metadata, SBOM, manifest, envelope, and run identity across consumer boundaries. In the current inline production workflows, attestations are verified on the GitHub runner before upload; EC2 rechecks checksum and metadata integrity plus an independent readback, but does not perform host-side attestation verification.
-- Host-side trusted-root attestation verification belongs to the separate hardened profile. Do not describe it as current production behavior until the workflows and hosts adopt that profile together.
-- Deploy backend before frontend when both are selected, and verify the activated backend SHA before finalizing the frontend deployment.
-- Contract migrations may deploy after integrated CI and production environment protection. If startup fails after a contract migration, do not automatically roll back to the previous JAR.
-
-## Validation
-
-Run the repository workflow-security fixture for workflow, permissions, concurrency, artifact, freshness, or deployment-logic changes:
+Run from the repository root through Bash/WSL or CI containers as appropriate:
 
 ```bash
 bash deploy/scripts/tests/verify-workflow-security-test.sh
 ```
 
-When Docker is available, run the pinned actionlint command from the `ops-config-test` job in `.github/workflows/ci.yml`. The two documented parser ignores are temporary compatibility exceptions; do not broaden them, and remove them when the pinned actionlint version supports those fields.
-
-Review the relevant change-detection outputs, `needs` graph, job `if` expressions, permission blocks, timeout values, and gate result handling manually. YAML parsing alone does not prove deployment safety.
+- Run that fixture for workflow, permission, concurrency, artifact, freshness, or deployment-logic changes.
+- With Docker, run pinned actionlint from `ops-config-test` in [ci.yml](workflows/ci.yml). Preserve only the two documented parser ignores; remove them when the pinned version supports those fields.
+- Manually review change-detection outputs, `needs`, job `if` expressions, permissions, timeouts, and gate result handling. YAML parsing alone does not prove deployment safety.
 
 ## Dependency Automation
 
-- Preserve the reviewed ecosystem directories, schedules, grouping, runtime baselines, and documented ignore exceptions in `dependabot.yml` unless the same change provides evidence for altering them.
-- When changing a Gradle, npm, Docker, or Actions update policy, verify the affected module lockfile or pinned reference and run the narrowest relevant module or workflow check.
-- Editing Dependabot configuration does not authorize merging or enabling a generated dependency update.
+Preserve [dependabot.yml](dependabot.yml) ecosystem directories, schedules, grouping, runtime baselines, and documented ignore exceptions unless evidence supports their change. Verify affected lockfiles/pinned references and run the relevant module or workflow check when changing Gradle, npm, Docker, or Actions update policy.

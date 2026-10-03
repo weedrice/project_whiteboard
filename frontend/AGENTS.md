@@ -1,199 +1,86 @@
 # Frontend AGENTS.md
 
-## Module Overview
+## Scope
 
-This directory contains the NoviIs frontend built with Vue 3, TypeScript, Vite, Vue Router, Pinia, and TanStack Vue Query. From an AI agent perspective, this module owns:
+This module owns the Vue 3, TypeScript, Vite, Pinia, Vue Router, and TanStack Vue Query application: public pages, admin UI, authentication, editors, notifications, and PWA behavior. Root repository rules remain in force.
 
-- Public community UI
-- Auth UI including OAuth callback handling
-- User settings, notifications, messages, and profile pages
-- Admin pages
-- Client-side API integration, token refresh behavior, routing, i18n, and SEO build scripts
+- Before editing `src/features/`, read [src/features/AGENTS.md](src/features/AGENTS.md).
+- Before editing `scripts/`, read [scripts/AGENTS.md](scripts/AGENTS.md).
+- Apply the contracts below across features, views, components, API modules, stores, utilities, and router guards; directory placement does not exempt a caller.
 
-This is not a static frontend. It is tightly coupled to backend response envelopes, auth flows, and cache invalidation behavior.
+## Sources Of Truth
 
-## Directory Guide
+| Concern | Read before changing it |
+| --- | --- |
+| Setup, directory map, environment, browser-test variants | [README.md](README.md); [package.json](package.json) owns supported Node versions and commands |
+| API client and response handling | [src/api/index.ts](src/api/index.ts), [src/api/response.ts](src/api/response.ts), backend controllers/DTOs |
+| Authentication, async actions, private caches | [Authentication session lifecycle](../docs/design-notes/auth-session-lifecycle.md) and its implementation references |
+| Generated API types | [docs/api/AGENTS.md](../docs/api/AGENTS.md); do not hand-edit generated types |
+| Production assets, SEO, PWA | [scripts/AGENTS.md](scripts/AGENTS.md) and its release references; [static-cache guide](../docs/ops/frontend-static-cache.md) |
 
-```text
-frontend/
-|-- src/
-|   |-- api/          Axios clients and request/response handling
-|   |-- assets/       CSS and static frontend assets
-|   |-- components/   Reusable UI components
-|   |-- composables/  Shared cross-feature and low-level composables
-|   |-- extensions/   TipTap and editor extensions
-|   |-- features/     Domain feature logic, feature-local composables, and query helpers
-|   |-- locales/      Translation resources
-|   |-- router/       Route definitions and route guards
-|   |-- stores/       Pinia stores
-|   |-- test/         Shared test setup
-|   |-- types/        Shared TypeScript types
-|   |-- utils/        Constants, env helpers, logger, sanitizers, storage, date helpers
-|   `-- views/        Route-level pages
-|-- public/           Static assets
-|-- scripts/          SEO and prerender scripts
-|-- vite.config.ts    Vite config and dev proxy
-|-- vitest.config.ts  Test and coverage config
-`-- package.json      npm scripts and dependencies
-```
+## Invariants
 
-### Nested instructions
+### Ownership And API Contracts
 
-- Before editing under `src/features/`, read and follow `src/features/AGENTS.md`.
-- Before editing under `scripts/`, read and follow `scripts/AGENTS.md`.
+- Use Vue Composition API with `<script setup lang="ts">`; put route pages in `src/views` and reusable UI in `src/components`.
+- Keep domain query keys, cache invalidation, forms, page resources, and mutation orchestration in `src/features/{domain}`; keep genuinely shared helpers in `src/composables` or `src/utils`.
+- Import domain logic from its feature directly. Do not add compatibility re-export shims under `src/composables` or undertake unrelated mass migrations.
+- Server state belongs in Vue Query; shared client state belongs in Pinia. Use typed modules through the shared `src/api` client, not ad hoc fetches or isolated feature clients.
+- Reuse `src/api/response.ts` or shared query helpers for `ApiResponse` and page envelopes. Keep `src/types`, API methods, feature consumers, and backend DTOs aligned.
+- Preserve cache invalidation and error ownership. QueryClient/API handlers surface errors globally unless a flow explicitly owns them; avoid duplicate toasts.
 
-## Local Setup
+### Authentication And Async Work
 
-### Prerequisites
+- Token storage and refresh belong to `src/stores/auth.ts`, `src/api/apiInterceptors.ts`, `src/api/apiRefreshRetry.ts`, and `src/api/authRefreshCoordinator.ts`.
+- Use `useAuthScopedMutation` for authenticated Vue Query writes. For manual multi-step actions, reuse `createAuthSessionScope` / `runAuthScopedAction` or preserve an existing equivalent scope; capture before confirmation, queuing, or any await.
+- Forward the initiating `expectedSession` and cancellation signal through every affected API method. Retries must preserve that original identity; request-time token capture alone cannot protect a paused action.
+- A wrapper cannot guard side effects after an await inside caller code. Recheck with the supplied assertion or synchronous `runIfCurrent` before subsequent writes, cache updates, navigation, or UI changes.
+- Same-session access-token rotation is allowed. Logout, account switch, and a new login invalidate the prior action; `sessionGeneration` and user identity both matter. Login, logout, bootstrap, and deliberate old-session cleanup retain their dedicated lifecycle handling.
+- Treat data as session-scoped whenever its response or access depends on the viewer, even on a public route. Use `AUTH_SCOPED_QUERY_META` with shared API query helpers, or explicit session keys with raw queries and prefetches.
+- Keep normal queries, router prefetches, optimistic updates, mutation invalidation, and SSE invalidation on the same scoped key contract. Consume query cancellation signals.
+- Query removal alone does not clear local copies. Reset sensitive forms, previews, selections, and pending confirmation intent on the relevant session boundary; keep route/selection revisions when they protect a different race.
+- Preserve valid same-session mutation completion after component unmount when the shared mutation wrapper owns it. Dispose operation listeners on settlement and keep resource cleanup separate from stale UI callbacks.
+- Preserve route metadata such as `requiresAuth`, `guestOnly`, `roles`, and `layout`; protected routes must retain deliberate authorization guards.
 
-- Node.js `>=24.11.0 <25`
-- npm
+### UI And Security
 
-### Run
+- Reuse base UI, toast, modal, and form components. Keep responsive behavior, dark mode, and keyboard accessibility intact.
+- Put changed user-visible copy in the existing locale system, unless the user explicitly requests a one-off local-only label.
+- Prefer `BaseButton`. Custom buttons and action links need a pointer cursor while enabled, visible hover, active/pressed, and focus-visible states. Colored buttons lower brightness on hover; disabled controls use `cursor: not-allowed` with no hover/active motion.
+- Never place secrets in client code or browser-exposed `VITE_*` values. Use untracked local Vite env files and do not hardcode environment-specific URLs in components.
+- Access tokens remain memory-only through `src/utils/authTokenStorage.ts`; legacy localStorage token keys are removed. Refresh tokens remain backend-issued HttpOnly cookies sent with credentials. Do not introduce another token store.
 
-From `frontend/`:
+## Impact Review
 
-```bash
-npm ci
-npm run dev
-```
+Before editing a shared contract, locate its consumers and verification targets:
 
-Default local server:
+- API shape, validation, or normalization: backend controller/DTO, typed API module, generated contract, feature and UI consumers.
+- Authentication or cache identity: action entry, each await/request, refresh/replay, router prefetch, cache writers, SSE, local form state, and cleanup.
+- OAuth callback paths, auth redirects, API base URLs, or cookie behavior: frontend router/client, backend security configuration, and Nginx/deployment configuration.
+- Build, PWA, SEO, or script invocation: package scripts, workflows, fixtures, deployment verification, and their maintained documentation.
 
-```text
-http://localhost:5173
-```
+## Verification
 
-### Environment variables
+Follow repository verification rules. Commands below run from `frontend/` in Windows PowerShell unless noted.
 
-Use untracked Vite env files such as:
+| Change | Verification |
+| --- | --- |
+| Component, feature, API, or composable behavior | Nearby Vitest regression (`npm.cmd run test:run -- <test-file>`), `npm.cmd run type-check`, and `npm.cmd run lint:ci`; test meaningful behavior |
+| Session, async mutation, or cache boundary | Relevant real Vue Query/Axios tests for account change, delayed responses, ordinary refresh, and cleanup; isolated mocks alone do not prove scheduling or transport behavior |
+| Backend API or normalization mirrored by UI | Affected frontend tests and type check; `npm.cmd run api:check` for contract changes; include a UI/composable regression proving server normalization is reflected |
+| Build or production asset behavior | Relevant script fixtures, `npm.cmd run build`, and [script verification](scripts/AGENTS.md#validation) |
+| Browser interaction, navigation, or integration risk | Relevant Playwright suite from README; choose the suite whose prerequisites are available |
 
-- `frontend/.env.local`
-- `frontend/.env.development.local`
+- Put behavior regressions near the changed module in `__tests__`; shared setup is `src/test/setup.ts`.
+- Vitest uses jsdom and Vue Test Utils; Playwright suites live in `e2e/` and are excluded from Vitest. `test:e2e` builds before the default browser suite; variant commands are documented in README.
+- Run `npm.cmd run coverage` only when requested or justified by risk; output is generated under `coverage/`.
+- `api:check` compares generated types with `docs/api/openapi-frontend.json`; use `api:generate` only after an intentional snapshot update following the API instructions.
+- `npm.cmd run build` runs Vite and `pwa:verify`; it does not run type checking or tests.
 
-Variables used by browser code or Vite development/build configuration:
+For changes that must appear in the local Docker runtime, rebuild from the repository root:
 
-- `VITE_API_BASE_URL`
-- `VITE_API_URL`
-- `VITE_INQUIRY_BOARD_URL`
-- `VITE_COMMIT_HASH`
-- `VITE_WEB_VITALS_ENDPOINT`
-- `VITE_ANALYZE`
-
-Important behavior:
-
-- `vite.config.ts` proxies `/api` and `/oauth2` to `VITE_API_BASE_URL`
-- `API.BASE_URL` defaults to `import.meta.env.VITE_API_URL || '/api/v1'`
-- `VITE_WEB_VITALS_ENDPOINT` selects the production Web Vitals delivery endpoint; no metrics are sent when it is empty
-- `VITE_ANALYZE=true` enables the production bundle analysis report
-- Do not hardcode environment-specific URLs in components
-
-## Frontend Conventions
-
-### Component and page rules
-
-- Use Vue 3 Composition API with `<script setup lang="ts">`
-- Put route pages in `views` and reusable UI in `components`
-- Reuse existing base components under `components/common/ui` and widgets under `components/common/widgets`
-- Keep route-level orchestration in views and extract domain-specific logic into `src/features/{domain}` when it belongs to a feature slice
-- Use `src/composables` for shared cross-feature helpers and low-level reusable behavior
-
-### Data fetching and mutations
-
-- Server state belongs in Vue Query composables, usually under the closest `src/features/{domain}` package for domain-specific flows
-- Shared app state belongs in Pinia stores
-- Do not create ad hoc `fetch` or isolated Axios clients in feature code; use the shared API layer in `src/api`
-- Preserve existing cache invalidation behavior after mutations
-- Query errors and mutation errors are globally surfaced through the configured `QueryClient`; do not duplicate the same toast behavior everywhere
-
-### Feature boundary rules
-
-- Keep feature-specific query keys, cache invalidation helpers, form state, page resources, and mutation orchestration in `src/features/{domain}`.
-- Import domain logic directly from `src/features/...`; do not recreate compatibility re-export shims under `src/composables`.
-
-### API contract rules
-
-- Backend responses commonly arrive as `ApiResponse`. Reuse the unwrap/page helpers in `src/api/response.ts` or shared query composables; the equivalent raw Axios data access is `response.data.data`
-- Keep `src/types` aligned with backend DTOs
-- If an endpoint shape changes, update `src/api`, `src/types`, relevant feature composables, and UI consumers together
-
-### Routing and auth rules
-
-- Route meta fields such as `requiresAuth`, `guestOnly`, `roles`, and `layout` are meaningful
-- Do not add protected pages without updating route meta intentionally
-- `src/api/index.ts` creates the shared client; `src/api/apiInterceptors.ts`, `src/api/apiRefreshRetry.ts`, and `src/api/authRefreshCoordinator.ts` own interceptors and refresh coordination alongside `src/stores/auth.ts`
-- Avoid duplicating token handling in components
-
-### UI, i18n, and accessibility
-
-- Add user-facing text through locale files when the surrounding feature already uses i18n
-- When a request changes visible copy, update the relevant locale value instead of hardcoding display text in components, unless the user explicitly asks for a one-off/local-only label.
-- Prefer consistent toast, modal, and form handling through existing common components and stores
-- Keep dark-mode compatibility and responsive behavior intact when editing shared components
-- Keep button interactions consistent across the module. Prefer `BaseButton` for actions; when a custom `<button>` or link styled as a button is necessary, include a pointer cursor for enabled states, a visible hover state matching nearby buttons such as management buttons, an active/pressed state, and a focus-visible state. For colored buttons, hover should lower brightness rather than increase it. Disabled buttons must keep `cursor: not-allowed` and avoid hover/active motion.
-
-## Testing
-
-Run from `frontend/`:
-
-```bash
-npm run lint
-npm run type-check
-npm run test:run
-```
-
-Run coverage only when the task calls for coverage data or the risk level justifies it:
-
-```bash
-npm run coverage
-```
-
-Useful targeted commands:
-
-```bash
-npm run test:run -- PostWrite.spec.ts
-npm run test:run -- useUser.spec.ts
-npm run test:run -- authApi.spec.ts
-```
-
-Test notes:
-
-- Unit/component tests use Vitest with `jsdom` and `@vue/test-utils`; browser tests use Playwright under `e2e/` and are excluded from Vitest
-- `npm run test:e2e` builds and runs the default Playwright suite; `test:e2e:download`, `test:e2e:sandbox`, and `test:e2e:full` select separate browser-test configurations
-- `npm run api:check` verifies generated API types against `docs/api/openapi-frontend.json`; use `api:generate` after an intentional snapshot update
-- Shared test setup lives in `src/test/setup.ts`
-- Coverage output is written to `coverage/`
-- For component, API, feature, and composable changes, add or update tests close to the affected module in `__tests__`
-- When backend API behavior, DTO fields, validation, or error responses change with frontend impact, run `npm run type-check` and the narrowest related Vitest target before broader checks
-- If a frontend change is made only to mirror backend normalization, add or update a component/composable test that proves the UI state follows the server rule
-
-## Build And Docker Image
-
-For frontend changes that should be reflected in the local Docker runtime, rebuild the frontend Docker image after verification.
-
-For a standalone production build check, run from `frontend/`:
-
-```bash
-npm run build
-```
-
-For a refreshed local Docker image, run from the repository root:
-
-```bash
+```powershell
 docker compose build frontend
 ```
 
-Notes:
-
-- `npm run build` runs Vite and `pwa:verify`; it does not run `type-check` or the test suites.
-- The compose service builds `noviis-frontend:local` from `frontend/Dockerfile`.
-- The Docker build runs `npm run build` inside the image build stage, so `docker compose build frontend` is enough when the user specifically asks to refresh the frontend image.
-- If only running local Vite dev server work, Docker rebuild is not required unless the user asks for the frontend image to be refreshed.
-
-## Security Notes
-
-- Never store new secrets in client code or Vite env files that will be committed
-- Only `VITE_*` variables are exposed to the browser; do not place sensitive secrets there
-- Access tokens are memory-only via `src/utils/authTokenStorage.ts`; legacy localStorage token keys are removed. Refresh tokens are backend-issued HttpOnly cookies sent by the shared API client with credentials. Keep this separation intact
-- Do not invent new token storage locations or duplicate refresh logic in feature code
-- Be careful when changing OAuth callback paths, auth redirects, or API base URLs because they must stay aligned with backend and Nginx behavior
+The Compose image is `noviis-frontend:local`, built from `frontend/Dockerfile`; its image build already runs the production frontend build. A Vite-only development session or standalone build check does not require an image refresh unless requested.

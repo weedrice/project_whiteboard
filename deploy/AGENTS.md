@@ -1,75 +1,47 @@
 # Deployment AGENTS.md
 
-## Module Overview
+## Scope And Sources
 
-This directory contains production-sensitive Nginx, systemd, sudoers, release activation, provenance, freshness, and monitoring configuration. A small edit can affect availability, rollback, host permissions, or secret exposure.
+This directory owns Nginx, host services and permissions, release activation, provenance, freshness, and monitoring. For CI or release-pipeline changes, follow [.github/AGENTS.md](../.github/AGENTS.md), which owns candidate/release separation, immutable artifact identity, deployment ordering, and concurrency.
 
-## Deployment Sources Of Truth
+| Deployment model | Implementation and operating guide |
+| --- | --- |
+| Current production | Inline activation in [backend](../.github/workflows/deploy-backend.yml) and [frontend](../.github/workflows/deploy-frontend.yml) workflows; [workflow guide](../.github/workflows/README.md) |
+| Separately tested hardened profile | `scripts/activate-*-release.sh`, `systemd/`, and `sudoers/`; [hardening guide](../docs/ops/application-service-hardening.md) |
 
-- The current production deployment path is `.github/workflows/deploy-backend.yml` and `.github/workflows/deploy-frontend.yml`, documented by `.github/workflows/README.md`. These workflows perform inline single-host activation and do not invoke the tracked `activate-*-release.sh` helpers.
-- `deploy/scripts/activate-*-release.sh`, `deploy/systemd/`, and `deploy/sudoers/` define a separately tested hardened host profile documented by `docs/ops/application-service-hardening.md`. Do not claim that profile is installed or active merely because its files pass CI.
-- When changing current production behavior, treat the reusable workflows and their README as primary evidence. When changing the hardened profile, treat the scripts, systemd/sudoers fixtures, and hardening document as primary evidence.
-- Adopting the hardened profile for production is a coordinated deployment migration. It must update workflows, host provisioning and rollout steps, verification fixtures, rollback procedures, and documentation together; do not switch models as a local refactor.
-- If the two models disagree and the task does not explicitly choose one, preserve the current workflow behavior and report the difference.
+- Current workflows do not invoke the hardened activators. Passing CI does not prove that profile is installed or active.
+- Adoption requires coordinated workflows, host provisioning, rollout, fixtures, rollback, and documentation. If a task does not select a model, preserve current workflow behavior and report differences.
+- For monitoring behavior, follow [monitoring/AGENTS.md](monitoring/AGENTS.md); for instrumentation, also follow the backend instructions.
 
 ## Execution Boundary
 
-- Editing and running local validation do not authorize a real deployment or host mutation.
-- Do not run `sudo`, `systemctl`, `install`, production SSH/SCP, password rotation, deployment, rollback, production cleanup, or commands targeting `/etc`, `/opt`, `/var`, or a live host unless the user explicitly requests that operation.
-- Use fixtures, temporary directories, containers, or disposable local services for verification.
-- Never print, copy, synthesize, or commit deployment credentials, SSH keys, Grafana passwords, environment-file contents, recovery files, or unredacted diagnostics.
+- Editing and local validation do not authorize deployment or host mutation. Use fixtures, temporary directories, containers, or disposable local services.
+- Do not run `sudo`, `systemctl`, `install`, production SSH/SCP, password rotation, deployment, rollback, production cleanup, or commands targeting `/etc`, `/opt`, `/var`, or a live host without the user's explicit request.
+- Never print, copy, synthesize, or commit deployment credentials, SSH keys, Grafana passwords, environment/recovery-file contents, or unredacted diagnostics.
 
-## Release And Rollback Contracts
+## Host And Activation Contracts
 
-- Preserve artifact identity, commit and run metadata, SHA-256 verification, attestations, provenance, freshness checks, and fail-closed behavior.
-- Keep candidate creation separate from the privileged release job. Consumers must use the immutable artifact identity produced by the creating job.
-- Preserve backend-first activation when backend and frontend are deployed together.
-- Preserve deployment locking and concurrency behavior; do not cancel an active production deployment to start a newer one.
-- General backend failures may restore the verified previous JAR. Contract-migration startup failures must not automatically roll back to a schema-incompatible JAR.
-- For the current workflow model, preserve bounded staging paths, verified JAR/directory replacement, independent readback, and cleanup of run-specific temporary paths.
-- For the hardened profile, preserve the shared activation lock, root-owned active state, generation high-water marks, target-bound rollback authorization, and contract recovery state.
-- Keep `deploy/release-freshness-paths.txt` synchronized with files actually consumed by the current production artifact and inline deployment workflows. Keep hardened-profile activation, provenance, sudoers, and systemd changes under ops validation, but do not make them stale an inline release until production adopts that profile.
-
-## Host Security
-
-- For the hardened profile, keep the backend process on the dedicated non-login account and preserve the least-privilege sudoers command matrix.
-- Preserve root ownership and restrictive modes wherever the selected deployment model uses environment, state, authorization, recovery, and diagnostic files.
+- Preserve SHA-256 verification, provenance, freshness, independent readback, and fail-closed behavior across the runner/host boundary.
+- General backend failures may restore the verified previous JAR. For contract releases, failure before attempting the new start may still restore it; after the start attempt, do not automatically restore a potentially schema-incompatible JAR.
+- Inline activation preserves bounded staging, verified JAR/directory replacement, and cleanup of run-specific temporary paths.
+- Hardened activation preserves the shared activation lock, root-owned active state, generation high-water marks, target-bound rollback authorization, and contract recovery state.
+- Keep [release-freshness-paths.txt](release-freshness-paths.txt) aligned with files consumed by current artifacts and inline workflows. Hardened-only changes require ops validation but do not stale inline releases until adoption.
+- Keep the hardened backend on its dedicated non-login account with the least-privilege sudoers matrix. Preserve root ownership and restrictive modes for each model's environment, state, authorization, recovery, and diagnostic files.
 - Do not broaden systemd writable paths, capabilities, address families, or sandbox exceptions without reviewed operational evidence and a rollback plan.
-- Do not expose the backend management port, Prometheus, node exporter, Grafana, or `/actuator` through Nginx, the host firewall, or a public security group.
-- Preserve forwarded-header clearing, security headers, upload limits, SSE/MCP buffering rules, and release endpoint cache behavior when editing Nginx.
-- Keep shell scripts and service/configuration files UTF-8. Preserve LF line endings for executable shell scripts.
+- Keep management endpoints, Prometheus, node exporter, and Grafana loopback-only; do not expose them or `/actuator` through Nginx, firewalls, or public security groups.
+- Nginx changes preserve forwarded-header clearing, security headers, upload limits, SSE/MCP buffering, and release-endpoint caching.
+- Preserve LF line endings for executable shell scripts.
 
-## Monitoring Contracts
+## Verification And Documentation
 
-- Before editing under `monitoring/`, read and follow `monitoring/AGENTS.md` and its linked operational README.
-- Keep application instrumentation changes coordinated with the backend module instructions and focused backend tests.
+Commands below run from the repository root. These files target Linux: use WSL, compatible Git Bash, or CI containers for Linux checks; do not invent PowerShell equivalents.
 
-## Verification
+| Changed area | Narrow verification |
+| --- | --- |
+| Shell script | `bash -n <changed-script.sh>`, `shellcheck <changed-script.sh>`, then its matching Bash fixture |
+| Hardened service profile | `python deploy/systemd/verify-hardening.py` with Python 3, plus affected systemd/sudoers fixtures |
+| Nginx | `bash deploy/scripts/test-nginx-config.sh` with Docker and Bash |
+| Workflows/release contracts | Validation required by [.github/AGENTS.md](../.github/AGENTS.md) |
+| Monitoring | Validation required by [monitoring/AGENTS.md](monitoring/AGENTS.md) |
 
-These files target Linux. On Windows, run Bash, ShellCheck, systemd, sudoers, and Nginx checks through WSL, Git Bash where compatible, or the same containers used by CI. Do not rewrite Linux commands as unverified PowerShell equivalents.
-
-For a changed shell script, run the narrowest syntax, ShellCheck, and matching fixture first:
-
-```bash
-bash -n <changed-script.sh>
-shellcheck <changed-script.sh>
-bash <matching-test-script.sh>
-```
-
-With an installed Python 3 interpreter, useful focused checks include:
-
-```powershell
-python deploy/systemd/verify-hardening.py
-```
-
-When Docker and Bash are available, validate Nginx with:
-
-```bash
-bash deploy/scripts/test-nginx-config.sh
-```
-
-Use the `ops-config-test` job in `.github/workflows/ci.yml` as the authoritative complete validation list. Run the affected fixture group rather than claiming the full ops suite from a partial check.
-
-## Documentation
-
-Update the relevant `docs/ops/` guide and `.github/workflows/README.md` whenever a change alters host prerequisites, permissions, deployment ordering, rollback behavior, CI validation, monitoring semantics, secrets, or operator actions.
+The `ops-config-test` job in [ci.yml](../.github/workflows/ci.yml) owns the complete validation list. Report the fixture group actually run. Update the relevant `docs/ops/` guide and workflow README when prerequisites, permissions, ordering, rollback, CI validation, monitoring semantics, secret contracts, or operator actions change.

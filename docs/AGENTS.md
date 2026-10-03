@@ -11,8 +11,7 @@ This directory contains design decisions, operational runbooks, API snapshots, Q
 - Put repeatable manual QA procedures in `qa/`.
 - Treat `sql/` as reviewed reference or operator SQL, not Flyway history.
 - Put generated API contract snapshots in `api/` and machine-readable shared contracts in `contracts/`.
-- Update `docs/README.md` when adding, removing, renaming, or materially reclassifying a document that should be discoverable.
-- Follow the surrounding document's language and style. Use UTF-8 and relative repository links where practical.
+- Update [README.md](README.md) when adding, removing, renaming, or materially reclassifying a discoverable document. Follow its surrounding language and style, using relative repository links.
 
 ## Evidence And Source Of Truth
 
@@ -24,29 +23,15 @@ This directory contains design decisions, operational runbooks, API snapshots, Q
 
 ## API Contract Chain
 
-The contract chain is:
-
-```text
-backend controllers and DTOs
-  -> docs/api/openapi-frontend.json
-  -> frontend/src/types/generated/api.ts
-```
-
-- Do not hand-edit `docs/api/openapi-frontend.json` or the generated TypeScript file to bypass a mismatch.
-- Regenerate the OpenAPI snapshot from `OpenApiSpecSnapshotTest`, review its diff, then regenerate frontend types.
-- Keep `backend/API명세서.md`, `backend/기능명세서.md`, `docs/ops/api-contract-revision.txt`, frontend types, and affected consumers synchronized when the requested change alters their documented contract.
-- Before editing under `docs/api/`, read and follow `docs/api/AGENTS.md` for the generation and verification procedure.
+Backend controllers/DTOs produce the OpenAPI snapshot, which produces frontend types. Before changing this chain or files under `api/`, follow [api/AGENTS.md](api/AGENTS.md) for generation, ordinary verification, and coordinated specification updates. Do not hand-edit generated outputs to bypass a mismatch.
 
 ## Database And Operations Documentation
 
-- Treat `backend/src/main/resources/db/migration/` as schema history and `backend/DATABASE.md` as its maintained summary.
+- Treat [Flyway migrations](../backend/src/main/resources/db/migration/AGENTS.md) as schema history and [DATABASE.md](../backend/DATABASE.md) as its maintained summary.
 - Do not copy a file from `docs/sql/` into Flyway or execute it against a database without reviewing current schema, idempotency, locking, target, backup, and rollback implications and obtaining the required authorization.
-- Follow `docs/ops/database-migration-policy.md` for expand/backfill/contract decisions and `docs/ops/postgres-backup-restore.md` for recovery claims.
+- Follow the [migration policy](ops/database-migration-policy.md) for expand/backfill/contract decisions and the [recovery guide](ops/postgres-backup-restore.md) for recovery claims.
 - Update operational documents when permissions, host paths, service units, monitoring thresholds, release ordering, rollback, or operator actions change.
 
-## Review Checklist
+## Verification
 
-- Confirm paths, commands, environment variable names, versions, ports, and endpoint shapes against the repository.
-- Check that links and referenced files exist.
-- Distinguish automated verification from manual checks and from checks that were not run.
-- Avoid duplicating long canonical policies; link to the source and summarize only the rules needed in the local context.
+Follow the root documentation checks. Also confirm environment variable names, versions, ports, and endpoint shapes against implementation; link to canonical policies instead of copying their full contents.

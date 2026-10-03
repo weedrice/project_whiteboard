@@ -7,7 +7,7 @@ NoviIs (`noviis.kr`) is a community platform maintained as a monorepo. Preserve 
 Main areas:
 
 - `frontend/`: Vue 3, TypeScript, Vite, Pinia, Vue Router, and TanStack Vue Query
-- `backend/`: Spring Boot 4.1, Java 25, Gradle 9.7.1, JPA, Flyway, and PostgreSQL
+- `backend/`: Spring Boot, Java, Gradle, JPA, Flyway, and PostgreSQL; use module build files for exact runtime and dependency versions
 - `docs/`: architecture, operations, reports, audits, and project documentation
 - `deploy/`: deployment and monitoring configuration
 - `logs/`: generated runtime logs; do not commit
@@ -15,13 +15,11 @@ Main areas:
 
 ## Instruction Scope
 
-- This file contains repository-wide rules.
-- Before editing under `frontend/`, read and follow `frontend/AGENTS.md`.
-- Before editing under `backend/`, read and follow `backend/AGENTS.md`.
-- Before editing under `deploy/`, `docs/`, or `.github/`, read and follow the `AGENTS.md` in that directory.
-- All applicable `AGENTS.md` files remain in force. When directory-specific details conflict, the closest file controls only those local details while repository-wide safety rules still apply.
-- Keep module-specific commands and conventions in the closest module `AGENTS.md` instead of duplicating them here.
-- When a change crosses modules, follow both module files and verify the shared API contract.
+- Before editing, read the instructions for each affected module: [frontend](frontend/AGENTS.md), [backend](backend/AGENTS.md), [deployment](deploy/AGENTS.md), [documentation](docs/AGENTS.md), or [GitHub automation](.github/AGENTS.md).
+- Follow only the matching entries in each module's reading map, including domain tests and callers outside the source subtree. Do not assume every nested file was loaded or recursively read every linked reference; consult implementation references when relevant to the change.
+- All applicable instructions remain in force. The closest file controls conflicting local details; repository-wide safety rules still apply. Cross-module changes follow each affected module and verify their shared contract.
+- For production deployment behavior, read both deployment and GitHub automation instructions, even if only one directory changes.
+- Keep each durable rule in its owning instruction file and reference it from callers. Setup belongs in README files; shared lifecycle explanations belong in design notes. Add a scoped `AGENTS.md` only for distinct, durable rules, preserving existing safety requirements.
 
 ## Platform And Encoding
 
@@ -34,11 +32,16 @@ Main areas:
 
 - Inspect `git status --short` before editing and treat pre-existing dirty or untracked files as user-owned.
 - Edit only files needed for the current task and preserve unrelated changes.
-- Preserve API URLs, response envelopes, DTO shapes, and user-visible behavior unless the task requires a coordinated change.
-- Check frontend consumers when backend URLs, payloads, validation, authentication, or error behavior change.
-- Check backend contracts when frontend API types or integration assumptions change.
+- Preserve API URLs, response envelopes, DTO shapes, and user-visible behavior unless the task requires a coordinated change. Check frontend consumers for backend contract changes, and backend contracts for frontend API or integration changes.
 - Add a dependency only when it is necessary for the requested change; keep its scope minimal and report the reason and verification. Framework baseline changes and new database migrations require explicit user approval.
 - Do not stage or commit unless the user asks. When requested, stage only task-related files and keep commits focused.
+
+## Agent Collaboration
+
+- Use subagents for independent implementation areas or a separate review perspective when this improves speed or confidence.
+- Assign explicit file ownership before parallel edits. Shared helpers, generated files, and shared build output must have one coordinating owner; avoid overlapping edits or concurrent builds that overwrite the same results.
+- Give reviewers read-only scope unless a specific fix is delegated. The primary agent integrates findings, checks cross-module behavior, and owns the final verification report.
+- Release completed subagents using the available lifecycle tools before moving to the next phase. If delegation is unavailable, continue the work locally without weakening verification.
 
 ## Local Containers And Persistent State
 
@@ -58,10 +61,10 @@ Main areas:
 ## Verification
 
 - Run the narrowest relevant tests or checks first, then broader verification in proportion to risk.
-- Use fresh targeted test execution when build caching could otherwise report stale results.
-- Do not treat a successful build banner alone as proof: inspect test counts and failures where the test runner provides them.
+- Use fresh targeted execution when caching could report stale results. Inspect test counts, failures, errors, and skips; a successful build banner alone is insufficient.
 - For cross-module API changes, verify both backend behavior and the affected frontend types or consumers.
-- Do not claim checks were run when they were not.
+- For instruction/documentation-only changes, check source accuracy, links, referenced commands, UTF-8, line endings, and whitespace. Application tests are unnecessary unless the edit changes executable behavior or uncovers a concern requiring them.
+- Report only checks actually run and distinguish automated tests, manual review, and unverified behavior.
 
 ## Report-Driven Work
 
