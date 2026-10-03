@@ -1,3 +1,5 @@
+import { failAuthScopedMutation } from '@/test/authScopedMutationOptions'
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -117,7 +119,7 @@ describe('InquiryDetail', () => {
       uploader: typeof state.uploaderInstances[number]
     }).uploader
 
-    await state.mutationOptions[0]?.onError?.(new Error('failed'), {
+    await failAuthScopedMutation(state.mutationOptions[0], new Error('failed'), {
       inquiryId: 41,
       draftEpoch: 0,
       generation: 0,
@@ -182,7 +184,7 @@ describe('InquiryDetail', () => {
     state.route.params.inquiryId = '42'
     await nextTick()
     ;(wrapper.vm as unknown as { fileIds: number[] }).fileIds = [203]
-    await state.mutationOptions[0]?.onError?.(new Error('late failure'), variables)
+    await failAuthScopedMutation(state.mutationOptions[0], new Error('late failure'), variables)
 
     expect(previousUploader.failSubmission).toHaveBeenCalledOnce()
     expect((wrapper.vm as unknown as { fileIds: number[] }).fileIds).toEqual([203])
@@ -245,3 +247,11 @@ describe('InquiryDetail', () => {
     expect(wrapper.text()).toContain('inquiry.category.OTHER')
   })
 })
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
+})
+
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ sessionGeneration: 0 }) }))

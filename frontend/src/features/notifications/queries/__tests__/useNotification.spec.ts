@@ -1,3 +1,4 @@
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { computed, ref, type Ref } from 'vue'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
@@ -63,7 +64,7 @@ describe('useNotification queries and mutations', () => {
 
     await mutation.mutateAsync(10)
 
-    expect(mocks.notificationApi.markAsRead).toHaveBeenCalledWith(10)
+    expect(mocks.notificationApi.markAsRead).toHaveBeenCalledWith(10, authMutationConfig())
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledTimes(1)
   })

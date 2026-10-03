@@ -25,6 +25,27 @@ beforeEach(() => {
     apiMock.patch.mockReset().mockResolvedValue(emptyResponse)
 })
 
+describe('adminApi request config', () => {
+    it('keeps an omitted config description separate from session-bound request options', () => {
+        const controller = new AbortController()
+        const config = {
+            expectedSession: { sessionGeneration: 7, userId: 11 },
+            signal: controller.signal,
+            skipGlobalErrorHandler: true,
+            headers: { 'X-Request-ID': 'admin-mutation' },
+        }
+
+        adminApi.updateConfig('site.name', 'Updated', undefined, config)
+        adminApi.deleteConfig('site.name', config)
+
+        expect(apiMock.put).toHaveBeenCalledWith('/admin/configs/site.name', {
+            value: 'Updated',
+            description: undefined,
+        }, config)
+        expect(apiMock.delete).toHaveBeenCalledWith('/admin/configs/site.name', config)
+    })
+})
+
 describe('adminApi - Error Log Management', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -71,13 +92,13 @@ describe('adminApi - Error Log Management', () => {
 
         adminApi.resolveErrorLog(1, data)
 
-        expect(apiMock.put).toHaveBeenCalledWith('/admin/error-logs/1/resolve', data)
+        expect(apiMock.put).toHaveBeenCalledWith('/admin/error-logs/1/resolve', data, undefined)
     })
 
     it('calls resolveErrorLog without memo data', () => {
         adminApi.resolveErrorLog(2, undefined)
 
-        expect(apiMock.put).toHaveBeenCalledWith('/admin/error-logs/2/resolve', undefined)
+        expect(apiMock.put).toHaveBeenCalledWith('/admin/error-logs/2/resolve', undefined, undefined)
     })
 
     it('calls getErrorLogStats with correct path', () => {
@@ -102,12 +123,12 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.updateBoardManager(3, { loginId: 'next' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/admins', { params: { page: 0, size: 20 } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/admins', { loginId: 'testadmin', boardId: 1, role: 'BOARD_ADMIN' })
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/admin/admins', { loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/admins/1/activate')
-        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/admins/1/deactivate')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/admins', { loginId: 'testadmin', boardId: 1, role: 'BOARD_ADMIN' }, undefined)
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/admin/admins', { loginId: 'modadmin', boardId: 1, role: 'MODERATOR' }, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/admins/1/activate', undefined, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/admins/1/deactivate', undefined, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/boards/3/manager')
-        expect(apiMock.put).toHaveBeenNthCalledWith(3, '/admin/boards/3/manager', { loginId: 'next' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(3, '/admin/boards/3/manager', { loginId: 'next' }, undefined)
     })
 
     it('calls super admin endpoints correctly', () => {
@@ -116,8 +137,8 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.deactivateSuperAdmin({ loginId: 'super', reason: 'revoke' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/super')
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/super/active', { loginId: 'super', reason: 'grant' })
-        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/super/deactive', { loginId: 'super', reason: 'revoke' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/super/active', { loginId: 'super', reason: 'grant' }, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/super/deactive', { loginId: 'super', reason: 'revoke' }, undefined)
     })
 
     it('calls user management endpoints correctly', () => {
@@ -130,8 +151,8 @@ describe('adminApi - Other Endpoints', () => {
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/users', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/sanctions', { params: { page: 0, size: 10, userId: 1 } })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/users/1/status', { status: 'ACTIVE', reason: 'reviewed' })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/sanctions', { targetUserId: 1, type: 'BAN', remark: 'spam' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/users/1/status', { status: 'ACTIVE', reason: 'reviewed' }, undefined)
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/sanctions', { targetUserId: 1, type: 'BAN', remark: 'spam' }, undefined)
     })
 
     it('calls report endpoints correctly', () => {
@@ -141,7 +162,7 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.resolveReport(5, { status: 'RESOLVED' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/reports', { params })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/reports/5', { status: 'RESOLVED' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/reports/5', { status: 'RESOLVED' }, undefined)
     })
 
     it('calls IP block endpoints correctly', () => {
@@ -150,8 +171,8 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.unblockIp('192.168.1.1')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/ip-blocks', { params: { page: 0, size: 20 } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/ip-blocks', { ipAddress: '192.168.1.1', reason: 'Spam' })
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/admin/ip-blocks/192.168.1.1')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/ip-blocks', { ipAddress: '192.168.1.1', reason: 'Spam' }, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/admin/ip-blocks/192.168.1.1', undefined)
     })
 
     it('calls config endpoints correctly', () => {
@@ -161,9 +182,9 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.deleteConfig('site.name')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/configs')
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/configs', { key: 'site.name', value: 'Test', description: 'desc' })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/configs/site.name', { value: 'Updated', description: 'new desc' })
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/admin/configs/site.name')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/configs', { key: 'site.name', value: 'Test', description: 'desc' }, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/configs/site.name', { value: 'Updated', description: 'new desc' }, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/admin/configs/site.name', undefined)
     })
 
     it('calls dashboard stats endpoint correctly', () => {
@@ -183,9 +204,9 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.deleteBoard('test')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/boards/all')
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards', createData)
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/boards/test', updateData)
-        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/boards/order', { boardIds: [2, 1] })
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/boards/test')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards', createData, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/boards/test', updateData, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/boards/order', { boardIds: [2, 1] }, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/boards/test', undefined)
     })
 })

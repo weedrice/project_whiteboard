@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
+import type { AxiosRequestConfig } from 'axios'
 import { fileApi } from '@/api/file'
 import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -157,17 +158,19 @@ async function discardUploads() {
   await discardPendingUploads()
 }
 
-async function failSubmission() {
+async function failSubmission(config?: AxiosRequestConfig) {
   submissionPending.value = false
   const failedIds = [...submittedIds]
   submittedIds.clear()
+  const failed = new Set(failedIds)
+  fileIds.value = fileIds.value.filter((fileId) => !failed.has(fileId))
   for (const fileId of failedIds) {
     temporaryIds.delete(fileId)
     names.value.delete(fileId)
   }
   if (failedIds.length === 0) return
   try {
-    await fileApi.discardUploads(failedIds, { skipGlobalErrorHandler: true })
+    await fileApi.discardUploads(failedIds, { ...config, skipGlobalErrorHandler: true })
   } catch {
     // The server also expires unassociated uploads.
   }

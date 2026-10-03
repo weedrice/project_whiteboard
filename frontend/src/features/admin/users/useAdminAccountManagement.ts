@@ -1,4 +1,5 @@
-import { useMutation, type QueryClient } from '@tanstack/vue-query'
+import { type QueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
@@ -55,8 +56,8 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useCreateAdmin = () => {
-        return useMutation({
-            mutationFn: (data: AdminCreateData) => adminApi.createAdmin(data),
+        return useAuthScopedMutation({
+            mutationFn: (data: AdminCreateData, mutationContext) => adminApi.createAdmin(data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -66,10 +67,10 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useUpdateAdminStatus = () => {
-        return useMutation({
-            mutationFn: ({ adminId, action }: { adminId: string | number, action: 'activate' | 'deactivate' }) => {
-                if (action === 'activate') return adminApi.activateAdmin(adminId)
-                return adminApi.deactivateAdmin(adminId)
+        return useAuthScopedMutation({
+            mutationFn: ({ adminId, action }: { adminId: string | number, action: 'activate' | 'deactivate' }, mutationContext) => {
+                if (action === 'activate') return adminApi.activateAdmin(adminId, mutationContext.requestConfig)
+                return adminApi.deactivateAdmin(adminId, mutationContext.requestConfig)
             },
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
@@ -87,10 +88,10 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useUpdateSuperAdminStatus = () => {
-        return useMutation({
-            mutationFn: ({ loginId, action, reason }: { loginId: string, action: 'activate' | 'deactivate', reason: string }) => {
-                if (action === 'activate') return adminApi.activeSuperAdmin({ loginId, reason })
-                return adminApi.deactivateSuperAdmin({ loginId, reason })
+        return useAuthScopedMutation({
+            mutationFn: ({ loginId, action, reason }: { loginId: string, action: 'activate' | 'deactivate', reason: string }, mutationContext) => {
+                if (action === 'activate') return adminApi.activeSuperAdmin({ loginId, reason }, mutationContext.requestConfig)
+                return adminApi.deactivateSuperAdmin({ loginId, reason }, mutationContext.requestConfig)
             },
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
@@ -115,8 +116,8 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useUpdateUserStatus = () => {
-        return useMutation({
-            mutationFn: ({ userId, status, reason }: { userId: string | number, status: string, reason: string }) => adminApi.updateUserStatus(userId, status, reason),
+        return useAuthScopedMutation({
+            mutationFn: ({ userId, status, reason }: { userId: string | number, status: string, reason: string }, mutationContext) => adminApi.updateUserStatus(userId, status, reason, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -205,8 +206,8 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useSanctionUser = () => {
-        return useMutation({
-            mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
+        return useAuthScopedMutation({
+            mutationFn: (data: SanctionData, mutationContext) => adminApi.sanctionUser(data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

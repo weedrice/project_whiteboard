@@ -140,10 +140,10 @@ export const notificationApi = {
     },
 
     // Mark as read
-    markAsRead: (notificationId: string | number) => api.put<ApiResponse<void>>(`/notifications/${encodePathSegment(notificationId)}/read`),
+    markAsRead: (notificationId: string | number, config?: AxiosRequestConfig) => api.put<ApiResponse<void>>(`/notifications/${encodePathSegment(notificationId)}/read`, undefined, config),
 
     // Mark all as read
-    markAllAsRead: () => api.put<ApiResponse<void>>('/notifications/read-all'),
+    markAllAsRead: (config?: AxiosRequestConfig) => api.put<ApiResponse<void>>('/notifications/read-all', undefined, config),
 
     // Get unread count
     getUnreadCount: (config?: AxiosRequestConfig) => config

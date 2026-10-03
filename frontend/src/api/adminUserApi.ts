@@ -34,11 +34,11 @@ export const adminUserApi = {
     getUserSubscriptions(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<AdminUserSubscriptionItem>>>(`/admin/users/${encodePathSegment(userId)}/subscriptions`, { ...config, params })
     },
-    updateUserStatus(userId: string | number, status: string, reason: string) {
-        return api.put<ApiResponse<void>>(`/admin/users/${encodePathSegment(userId)}/status`, { status, reason })
+    updateUserStatus(userId: string | number, status: string, reason: string, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<void>>(`/admin/users/${encodePathSegment(userId)}/status`, { status, reason }, config)
     },
-    sanctionUser(data: SanctionData) {
-        return api.post<ApiResponse<number>>('/admin/sanctions', data)
+    sanctionUser(data: SanctionData, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<number>>('/admin/sanctions', data, config)
     },
     getUserSanctions(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<SanctionHistoryItem>>>('/admin/sanctions', {

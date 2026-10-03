@@ -32,17 +32,17 @@ export const commentApi = {
         api.get<ApiResponse<Comment[]>>(`/posts/${encodePathSegment(postId)}/comments/best`, config),
 
     // Create a new comment
-    createComment: (postId: string | number, data: CommentPayload) => api.post<ApiResponse<CommentCreateResponse>>(`/posts/${encodePathSegment(postId)}/comments`, data),
+    createComment: (postId: string | number, data: CommentPayload, config?: AxiosRequestConfig) => api.post<ApiResponse<CommentCreateResponse>>(`/posts/${encodePathSegment(postId)}/comments`, data, config),
 
     // Delete a comment
-    deleteComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}`),
+    deleteComment: (commentId: string | number, config?: AxiosRequestConfig) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}`, config),
 
     // Update a comment
-    updateComment: (commentId: string | number, data: CommentPayload) => api.put<ApiResponse<number>>(`/comments/${encodePathSegment(commentId)}`, data),
+    updateComment: (commentId: string | number, data: CommentPayload, config?: AxiosRequestConfig) => api.put<ApiResponse<number>>(`/comments/${encodePathSegment(commentId)}`, data, config),
 
-    likeComment: (commentId: string | number) => api.post<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`),
+    likeComment: (commentId: string | number, config?: AxiosRequestConfig) => api.post<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`, undefined, config),
 
-    unlikeComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`),
+    unlikeComment: (commentId: string | number, config?: AxiosRequestConfig) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`, config),
 
     getComment: (commentId: string | number, config?: AxiosRequestConfig) => config
         ? api.get<ApiResponse<CommentWithNavigation>>(`/comments/${encodePathSegment(commentId)}`, config)

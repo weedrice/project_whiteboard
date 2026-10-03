@@ -51,7 +51,7 @@ describe('adminShopApi', () => {
 
     expect(apiMock.put).toHaveBeenCalledWith(
       '/admin/shop/items/17/sale-status',
-      { saleEnabled: false, reason: 'temporary review' },
+      { saleEnabled: false, reason: 'temporary review' }, undefined,
     )
   })
 })

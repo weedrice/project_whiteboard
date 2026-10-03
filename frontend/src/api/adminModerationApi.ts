@@ -14,17 +14,17 @@ export const adminModerationApi = {
     getIpBlocks(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<IpBlock>>>('/admin/ip-blocks', { ...config, params })
     },
-    blockIp(data: IpBlockData) {
-        return api.post<ApiResponse<IpBlock>>('/admin/ip-blocks', data)
+    blockIp(data: IpBlockData, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<IpBlock>>('/admin/ip-blocks', data, config)
     },
-    unblockIp(ipAddress: string) {
-        return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${encodePathSegment(ipAddress)}`)
+    unblockIp(ipAddress: string, config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${encodePathSegment(ipAddress)}`, config)
     },
     getReports(params: ReportSearchParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<Report>>>('/admin/reports', { ...config, params })
     },
-    resolveReport(reportId: string | number, data: ReportResolveData) {
-        return api.put<ApiResponse<Report>>(`/admin/reports/${encodePathSegment(reportId)}`, data)
+    resolveReport(reportId: string | number, data: ReportResolveData, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<Report>>(`/admin/reports/${encodePathSegment(reportId)}`, data, config)
     },
     getModerationAudits(params: ModerationAuditSearchParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<ModerationAuditLog>>>('/admin/moderation-audits', { ...config, params })

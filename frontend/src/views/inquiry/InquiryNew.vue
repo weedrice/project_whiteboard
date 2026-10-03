@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { isNavigationFailure, useRouter } from 'vue-router'
 import { inquiryApi } from '@/api/inquiry'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -44,13 +45,13 @@ interface CreateInquiryVariables {
   uploader: InstanceType<typeof InquiryImageUploader> | null
 }
 
-const createMutation = useMutation({
-  mutationFn: (variables: CreateInquiryVariables) => inquiryApi.create({
+const createMutation = useAuthScopedMutation({
+  mutationFn: (variables: CreateInquiryVariables, mutationContext) => inquiryApi.create({
     category: variables.category,
     title: variables.title,
     content: variables.content,
     fileIds: variables.fileIds,
-  }),
+  }, mutationContext.requestConfig),
   onSuccess: async (response, variables) => {
     const inquiry = unwrapAxiosApiData(response)
     variables.uploader?.commitUploads()
@@ -64,20 +65,25 @@ const createMutation = useMutation({
     } catch {
       // The detail route remains authoritative even if a background refresh fails.
     }
+    if (getCurrentSessionGeneration() !== variables.generation) return
     try {
       const failure = await router.replace(`/inquiries/${inquiry.inquiryId}`)
-      if (isNavigationFailure(failure)) {
+      if (getCurrentSessionGeneration() === variables.generation && isNavigationFailure(failure)) {
         errorMessage.value = t('inquiry.form.createdNavigationFailed')
       }
     } catch {
-      errorMessage.value = t('inquiry.form.createdNavigationFailed')
+      if (getCurrentSessionGeneration() === variables.generation) {
+        errorMessage.value = t('inquiry.form.createdNavigationFailed')
+      }
     }
   },
-  onError: async (error, variables) => {
-    await variables.uploader?.failSubmission()
+  onError: (error, variables) => {
     if (getCurrentSessionGeneration() !== variables.generation) return
     fileIds.value = []
     errorMessage.value = extractErrorMessage(error) || t('inquiry.form.failed')
+  },
+  onCleanup: async (_data, error, variables, _result, context) => {
+    if (error) await variables.uploader?.failSubmission(context.requestConfig)
   },
 })
 

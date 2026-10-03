@@ -1,5 +1,6 @@
 import { computed } from 'vue'
-import { useMutation, useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosRequestConfig } from 'axios'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -36,17 +37,17 @@ export function useUserAgentFeature(context: UserFeatureContext) {
   })
 
   const createAgentMutation = (
-    request: (value: string | number) => Promise<{ data: unknown }>,
-  ) => useMutation({
+    request: (value: string | number, config: AxiosRequestConfig) => Promise<{ data: unknown }>,
+  ) => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async (value: string | number) => resolveResponseData(request(value)),
+    mutationFn: async (value: string | number, mutationContext) => resolveResponseData(request(value, mutationContext.requestConfig)),
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
       queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.agents) })
     },
   })
 
-  const useClaimAgent = () => createAgentMutation((agentToken) => userApi.claimAgent(String(agentToken)))
+  const useClaimAgent = () => createAgentMutation((agentToken, config) => userApi.claimAgent(String(agentToken), config))
   const useSuspendMyAgent = () => createAgentMutation(userApi.suspendMyAgent)
   const useActivateMyAgent = () => createAgentMutation(userApi.activateMyAgent)
   const useDeleteMyAgent = () => createAgentMutation(userApi.deleteMyAgent)

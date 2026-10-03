@@ -1,4 +1,5 @@
-import { useInfiniteQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQueryClient, type QueryKey } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 import { unwrapAxiosApiPageData } from '@/api/response'
@@ -211,10 +212,10 @@ export function useComment() {
     })
 
     const useCreateComment = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }) => {
-                return await commentApi.createComment(postId, data)
+            mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }, mutationContext) => {
+                return await commentApi.createComment(postId, data, mutationContext.requestConfig)
             },
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -227,10 +228,10 @@ export function useComment() {
     }
 
     const useUpdateComment = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ commentId, data }: UpdateCommentVariables) => {
-                return await commentApi.updateComment(commentId, data)
+            mutationFn: async ({ commentId, data }: UpdateCommentVariables, mutationContext) => {
+                return await commentApi.updateComment(commentId, data, mutationContext.requestConfig)
             },
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -241,11 +242,11 @@ export function useComment() {
     }
 
     const useDeleteComment = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async (variables: DeleteCommentVariables) => {
+            mutationFn: async (variables: DeleteCommentVariables, mutationContext) => {
                 const commentId = typeof variables === 'object' ? variables.commentId : variables
-                return await commentApi.deleteComment(commentId)
+                return await commentApi.deleteComment(commentId, mutationContext.requestConfig)
             },
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -258,19 +259,20 @@ export function useComment() {
     }
 
     const useToggleCommentLike = () => {
-        return useMutation({
-            mutationFn: async ({ commentId, liked }: CommentLikeVariables) => {
+        return useAuthScopedMutation({
+            mutationFn: async ({ commentId, liked }: CommentLikeVariables, mutationContext) => {
                 return liked
-                    ? await commentApi.likeComment(commentId)
-                    : await commentApi.unlikeComment(commentId)
+                    ? await commentApi.likeComment(commentId, mutationContext.requestConfig)
+                    : await commentApi.unlikeComment(commentId, mutationContext.requestConfig)
             },
-            onMutate: async (variables): Promise<{
+            onMutate: async (variables, context): Promise<{
                 snapshots: CommentCacheSnapshot[]
                 sessionGeneration: number
             }> => {
                 const sessionGeneration = authStore.sessionGeneration
                 const commentsKey = authKey(commentQueryKeys.all)
                 await queryClient.cancelQueries({ queryKey: commentsKey })
+                context.assertCurrent()
                 const snapshots = queryClient.getQueriesData({ queryKey: commentsKey }) as CommentCacheSnapshot[]
 
                 queryClient.setQueriesData(

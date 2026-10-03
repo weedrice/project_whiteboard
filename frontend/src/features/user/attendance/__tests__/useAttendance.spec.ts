@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttendance } from '@/features/user/attendance/useAttendance'
@@ -58,10 +60,10 @@ describe('useAttendance', () => {
     await expect(mutation.mutationFn()).resolves.toEqual({ consecutiveDays: 3 })
     mutation.onSuccess(undefined, undefined, mutation.onMutate())
 
-    expect(mocks.checkIn).toHaveBeenCalledWith({
+    expect(mocks.checkIn).toHaveBeenCalledWith(authMutationConfig({
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
-    })
+    }))
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['session', 0, 'attendance', 'me'],
@@ -102,4 +104,10 @@ describe('useAttendance', () => {
 
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { useMutation } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { userApi } from '@/api/user'
 import type { LoginHistory } from '@/types'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
@@ -43,17 +43,17 @@ export function useUserSecurityFeature(context: UserFeatureContext) {
     meta: AUTH_SCOPED_QUERY_META,
   })
 
-  const useUpdatePassword = () => useMutation({
-    mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData) => {
-      return resolveResponseData(userApi.updatePassword(currentPassword, newPassword))
+  const useUpdatePassword = () => useAuthScopedMutation({
+    mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData, mutationContext) => {
+      return resolveResponseData(userApi.updatePassword(currentPassword, newPassword, mutationContext.requestConfig))
     },
   })
 
-  const useRevokeMySession = () => useMutation({
+  const useRevokeMySession = () => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async (sessionId: string | number) => resolveResponseData(userApi.revokeMySession(
+    mutationFn: async (sessionId: string | number, mutationContext) => resolveResponseData(userApi.revokeMySession(
       sessionId,
-      { skipGlobalErrorHandler: true },
+      mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
     )),
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
@@ -61,23 +61,23 @@ export function useUserSecurityFeature(context: UserFeatureContext) {
     },
   })
 
-  const useRevokeOtherSessions = () => useMutation({
+  const useRevokeOtherSessions = () => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async () => resolveResponseData(userApi.revokeOtherSessions({
+    mutationFn: async (_variables: void, mutationContext) => resolveResponseData(userApi.revokeOtherSessions(mutationContext.withRequestConfig({
       skipGlobalErrorHandler: true,
-    })),
+    }))),
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
       queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.sessions) })
     },
   })
 
-  const useDeleteAccount = () => useMutation({
+  const useDeleteAccount = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (password: string) => resolveResponseData(userApi.deleteAccount(
+    mutationFn: async (password: string, mutationContext) => resolveResponseData(userApi.deleteAccount(
       password,
-      { skipGlobalErrorHandler: true },
+      mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
     )),
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return

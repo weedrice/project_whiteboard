@@ -17,10 +17,11 @@ export const adminShopApi = {
         })
     },
 
-    updateShopItemSaleStatus(itemId: number, data: AdminShopItemSaleStatusData) {
+    updateShopItemSaleStatus(itemId: number, data: AdminShopItemSaleStatusData, config?: AxiosRequestConfig) {
         return api.put<ApiResponse<AdminShopItem>>(
             `/admin/shop/items/${encodePathSegment(itemId)}/sale-status`,
             data,
+            config,
         )
     },
 }

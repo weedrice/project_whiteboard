@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import {
   userApi,
   type KeywordSubscriptionPayload,
@@ -60,11 +60,11 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     ),
   })
 
-  const useUpdateUserSettings = () => useMutation({
+  const useUpdateUserSettings = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (data: UserSettingsUpdatePayload) => {
-      return resolveResponseData(userApi.updateUserSettings(data, { skipGlobalErrorHandler: true }))
+    mutationFn: async (data: UserSettingsUpdatePayload, mutationContext) => {
+      return resolveResponseData(userApi.updateUserSettings(data, mutationContext.withRequestConfig({ skipGlobalErrorHandler: true })))
     },
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
@@ -72,13 +72,13 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     },
   })
 
-  const useUpdateNotificationSettings = () => useMutation({
+  const useUpdateNotificationSettings = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (data: NotificationSettingsBulkPayload) => {
+    mutationFn: async (data: NotificationSettingsBulkPayload, mutationContext) => {
       return resolveResponseData(userApi.updateNotificationSettingsBulk(
         data,
-        { skipGlobalErrorHandler: true },
+        mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
       ))
     },
     onSuccess: (_data, _variables, mutationContext) => {
@@ -87,13 +87,13 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     },
   })
 
-  const useCompleteOnboarding = () => useMutation({
+  const useCompleteOnboarding = () => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async (signal?: AbortSignal) => {
-      return resolveResponseData(userApi.completeOnboarding(signal ? {
+    mutationFn: async (signal: AbortSignal | undefined, mutationContext) => {
+      return resolveResponseData(userApi.completeOnboarding(mutationContext.withRequestConfig(signal ? {
         signal,
         skipGlobalErrorHandler: true,
-      } : undefined))
+      } : undefined)))
     },
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
@@ -101,13 +101,13 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     },
   })
 
-  const useCreateKeywordSubscription = () => useMutation({
+  const useCreateKeywordSubscription = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (data: KeywordSubscriptionPayload) => {
+    mutationFn: async (data: KeywordSubscriptionPayload, mutationContext) => {
       return resolveResponseData(userApi.createKeywordSubscription(
         data,
-        { skipGlobalErrorHandler: true },
+        mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
       ))
     },
     onSuccess: (_data, _variables, mutationContext) => {
@@ -116,13 +116,13 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     },
   })
 
-  const useDeleteKeywordSubscription = () => useMutation({
+  const useDeleteKeywordSubscription = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (data: KeywordSubscriptionPayload) => {
+    mutationFn: async (data: KeywordSubscriptionPayload, mutationContext) => {
       return resolveResponseData(userApi.deleteKeywordSubscription(
         data,
-        { skipGlobalErrorHandler: true },
+        mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
       ))
     },
     onSuccess: (_data, _variables, mutationContext) => {

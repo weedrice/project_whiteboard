@@ -80,7 +80,7 @@ describe('notification cache invalidation', () => {
       })
     }
     const refreshed = await expectQueriesRefetchedOnce(
-      (client) => markRead(client, kind),
+      (client) => expect(markRead(client, kind)).rejects.toMatchObject({ name: 'AbortError', suppressGlobalErrorToast: true }),
       [],
       [
         ...notificationKeys.map((key) => sessionQueryKey(3, key)),

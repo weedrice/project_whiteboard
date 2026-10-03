@@ -23,14 +23,38 @@ describe('inquiryApi', () => {
     inquiryApi.withdraw(12)
     inquiryApi.close(12)
 
-    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/inquiries', create)
+    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/inquiries', create, undefined)
     expect(apiMock.get).toHaveBeenNthCalledWith(1, '/inquiries', {
       params: { status: 'NEW', page: 0, size: 20 },
     })
     expect(apiMock.get).toHaveBeenNthCalledWith(2, '/inquiries/12', undefined)
-    expect(apiMock.post).toHaveBeenNthCalledWith(2, '/inquiries/12/messages', message)
-    expect(apiMock.post).toHaveBeenNthCalledWith(3, '/inquiries/12/withdraw')
-    expect(apiMock.post).toHaveBeenNthCalledWith(4, '/inquiries/12/close')
+    expect(apiMock.post).toHaveBeenNthCalledWith(2, '/inquiries/12/messages', message, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(3, '/inquiries/12/withdraw', undefined, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(4, '/inquiries/12/close', undefined, undefined)
+  })
+
+  it('forwards session guards for inquiry and support mutations with and without bodies', () => {
+    const controller = new AbortController()
+    const config = {
+      expectedSession: { sessionGeneration: 7, userId: 11 },
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+      headers: { 'X-Request-ID': 'inquiry-mutation' },
+    }
+    const create = { category: 'ACCOUNT' as const, title: 'Help', content: 'Locked out', fileIds: [3] }
+    const message = { content: 'Resolved', fileIds: [4] }
+
+    inquiryApi.create(create, config)
+    inquiryApi.withdraw(12, config)
+    inquiryApi.reply(21, message, config)
+    inquiryApi.adminClose(21, 'completed', config)
+    inquiryApi.reopen(21, config)
+
+    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/inquiries', create, config)
+    expect(apiMock.post).toHaveBeenNthCalledWith(2, '/inquiries/12/withdraw', undefined, config)
+    expect(apiMock.post).toHaveBeenNthCalledWith(3, '/admin/support/inquiries/21/reply', message, config)
+    expect(apiMock.post).toHaveBeenNthCalledWith(4, '/admin/support/inquiries/21/close', { reason: 'completed' }, config)
+    expect(apiMock.post).toHaveBeenNthCalledWith(5, '/admin/support/inquiries/21/reopen', undefined, config)
   })
 
   it('uses the non-conflicting support admin namespace', () => {
@@ -47,10 +71,10 @@ describe('inquiryApi', () => {
 
     expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/support/inquiries', { params: filters })
     expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/support/inquiries/21', undefined)
-    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/support/inquiries/21/start')
-    expect(apiMock.post).toHaveBeenNthCalledWith(2, '/admin/support/inquiries/21/reply', message)
-    expect(apiMock.post).toHaveBeenNthCalledWith(3, '/admin/support/inquiries/21/notes', message)
-    expect(apiMock.post).toHaveBeenNthCalledWith(4, '/admin/support/inquiries/21/close', { reason: 'completed' })
-    expect(apiMock.post).toHaveBeenNthCalledWith(5, '/admin/support/inquiries/21/reopen')
+    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/support/inquiries/21/start', undefined, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(2, '/admin/support/inquiries/21/reply', message, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(3, '/admin/support/inquiries/21/notes', message, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(4, '/admin/support/inquiries/21/close', { reason: 'completed' }, undefined)
+    expect(apiMock.post).toHaveBeenNthCalledWith(5, '/admin/support/inquiries/21/reopen', undefined, undefined)
   })
 })

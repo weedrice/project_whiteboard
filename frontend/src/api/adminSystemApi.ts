@@ -8,14 +8,14 @@ export const adminSystemApi = {
     getConfigs(config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<GlobalConfig[]>>('/admin/configs', config)
     },
-    updateConfig(key: string, value: string, description?: string) {
-        return api.put<ApiResponse<GlobalConfig>>(`/admin/configs/${encodePathSegment(key)}`, { value, description })
+    updateConfig(key: string, value: string, description?: string, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<GlobalConfig>>(`/admin/configs/${encodePathSegment(key)}`, { value, description }, config)
     },
-    createConfig(data: ConfigCreateData) {
-        return api.post<ApiResponse<GlobalConfig>>('/admin/configs', data)
+    createConfig(data: ConfigCreateData, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<GlobalConfig>>('/admin/configs', data, config)
     },
-    deleteConfig(key: string) {
-        return api.delete<ApiResponse<void>>(`/admin/configs/${encodePathSegment(key)}`)
+    deleteConfig(key: string, config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<void>>(`/admin/configs/${encodePathSegment(key)}`, config)
     },
     getDashboardStats(config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<DashboardStats>>('/admin/stats', config)

@@ -20,6 +20,8 @@ import { isStampedAuthContextCurrent } from '@/api/apiAuthHeader'
 import { getCurrentSessionGeneration } from '@/queryAuthScope'
 import { getStoredAccessToken } from '@/utils/authTokenStorage'
 import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
+import { assertExpectedSession } from '@/api/apiExpectedSession'
+import { isCanceledRequestError } from '@/api/errorHandling'
 
 type RefreshTokenResponse = {
   accessToken: string
@@ -67,6 +69,7 @@ function isRefreshSessionCurrent(
 
 export async function retryAfterRefresh(api: AxiosInstance, originalRequest: InternalAxiosRequestConfig) {
   const authStore = await resolveAuthStore()
+  assertExpectedSession(originalRequest, authStore)
   const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
   const previousToken = authStore?.accessToken ?? getStoredAccessToken()
   const expectedUserId = authStore?.user?.userId ?? authStore?.user?.id ?? null
@@ -86,6 +89,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       enqueueFailedRequest({ generation, resolve, reject })
     })
       .then((token) => {
+        assertExpectedSession(originalRequest, authStore)
         if (!token || !isRefreshSessionCurrent(authStore, generation, token)) {
           throw createSuppressedSessionChangedError()
         }
@@ -102,6 +106,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
 
   try {
     const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
+      assertExpectedSession(originalRequest, authStore)
       if (authStore && (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken)) {
         throw new AuthSessionChangedError()
       }
@@ -114,9 +119,11 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
           signal,
         },
       )
+      assertExpectedSession(originalRequest, authStore)
       if (!data.success) throw new Error('Refresh failed')
       return unwrapApiData(data).accessToken
     }, { previousToken })
+    assertExpectedSession(originalRequest, authStore)
     lastRefreshFailure = null
     resetSessionExpiredToastDebounce()
 
@@ -132,6 +139,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
 
     if (authStore) {
       const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true }, expectedUserId)
+      assertExpectedSession(originalRequest, authStore)
       if (!didFetchUser) {
         const hydrationError = new Error('User hydration failed after token refresh') as SuppressibleApiError
         hydrationError.isUserHydrationFailure = true
@@ -148,10 +156,12 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     if (originalRequest.headers) {
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
     }
+    assertExpectedSession(originalRequest, authStore)
     return api(originalRequest)
   } catch (refreshError) {
     const sessionChanged = refreshError instanceof AuthSessionChangedError
       || (authStore !== null && authStore.sessionGeneration !== generation)
+      || (originalRequest.expectedSession !== undefined && isCanceledRequestError(refreshError as AxiosError))
     if (!sessionChanged) markRefreshFailure(generation, previousToken)
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true

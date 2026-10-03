@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import type { AxiosRequestConfig } from 'axios'
 import type { Post } from '@/types'
@@ -101,10 +102,10 @@ export function usePost() {
     }
 
     const useCreatePost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
-                return await postApi.createPost(boardUrl, data)
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }, mutationContext) => {
+                return await postApi.createPost(boardUrl, data, mutationContext.requestConfig)
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -118,10 +119,10 @@ export function usePost() {
     }
 
     const useCreateScheduledPost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: ScheduledPostData }) => {
-                return await postApi.createScheduledPost(boardUrl, data)
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: ScheduledPostData }, mutationContext) => {
+                return await postApi.createScheduledPost(boardUrl, data, mutationContext.requestConfig)
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -131,10 +132,10 @@ export function usePost() {
     }
 
     const useUpdateScheduledPost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ scheduledPostId, data }: { scheduledPostId: string | number, data: ScheduledPostData }) => {
-                return await postApi.updateScheduledPost(scheduledPostId, data)
+            mutationFn: async ({ scheduledPostId, data }: { scheduledPostId: string | number, data: ScheduledPostData }, mutationContext) => {
+                return await postApi.updateScheduledPost(scheduledPostId, data, mutationContext.requestConfig)
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -144,10 +145,10 @@ export function usePost() {
     }
 
     const useUpdatePost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ postId, data }: { postId: string | number, data: PostUpdateData }) => {
-                return await postApi.updatePost(postId, data)
+            mutationFn: async ({ postId, data }: { postId: string | number, data: PostUpdateData }, mutationContext) => {
+                return await postApi.updatePost(postId, data, mutationContext.requestConfig)
             },
             onSuccess: (_, { postId }, context) => {
                 if (!isCurrentMutation(context)) return
@@ -157,10 +158,10 @@ export function usePost() {
     }
 
     const useDeletePost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async (postId: string | number) => {
-                return await postApi.deletePost(postId)
+            mutationFn: async (postId: string | number, mutationContext) => {
+                return await postApi.deletePost(postId, mutationContext.requestConfig)
             },
             onSuccess: (_, postId, context) => {
                 if (!isCurrentMutation(context)) return
@@ -170,16 +171,18 @@ export function usePost() {
     }
 
     function createOptimisticPostMutation(
-        mutationFn: (postId: string | number) => Promise<unknown>,
+        mutationFn: (postId: string | number, config: AxiosRequestConfig) => Promise<unknown>,
         updater: (post: Partial<Post>) => Partial<Post>,
         invalidateOnSettled?: (sessionGeneration: number) => void,
     ) {
-        return useMutation({
-            mutationFn,
-            onMutate: async (postId) => {
+        return useAuthScopedMutation({
+            mutationFn: (postId: string | number, context) => mutationFn(postId, context.requestConfig),
+            onMutate: async (postId, context) => {
                 const sessionGeneration = authStore.sessionGeneration
-                await queryClient.cancelQueries({ queryKey: currentSessionQueryKey(authStore, postQueryKeys.detailPrefix(postId)) })
-                await queryClient.cancelQueries({ queryKey: currentSessionQueryKey(authStore, postQueryKeys.lists) })
+                await queryClient.cancelQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)) })
+                context.assertCurrent()
+                await queryClient.cancelQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists) })
+                context.assertCurrent()
                 const snapshots = savePostCacheSnapshots(queryClient, sessionGeneration, postId)
 
                 updatePostInAllCaches(queryClient, sessionGeneration, postId, updater)
@@ -201,7 +204,7 @@ export function usePost() {
 
     const useLikePost = () => {
         return createOptimisticPostMutation(
-            (postId) => postApi.likePost(postId),
+            (postId, config) => postApi.likePost(postId, config),
             (old) => ({
                 ...old,
                 liked: true,
@@ -212,7 +215,7 @@ export function usePost() {
 
     const useUnlikePost = () => {
         return createOptimisticPostMutation(
-            (postId) => postApi.unlikePost(postId),
+            (postId, config) => postApi.unlikePost(postId, config),
             (old) => ({
                 ...old,
                 liked: false,
@@ -223,7 +226,7 @@ export function usePost() {
 
     const useScrapPost = () => {
         return createOptimisticPostMutation(
-            (postId) => postApi.scrapPost(postId),
+            (postId, config) => postApi.scrapPost(postId, config),
             (old) => ({
                 ...old,
                 scrapped: true,
@@ -236,7 +239,7 @@ export function usePost() {
 
     const useUnscrapPost = () => {
         return createOptimisticPostMutation(
-            (postId) => postApi.unscrapPost(postId),
+            (postId, config) => postApi.unscrapPost(postId, config),
             (old) => ({
                 ...old,
                 scrapped: false,
@@ -248,10 +251,10 @@ export function usePost() {
     }
 
     const useReportPost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async (data: ReportData) => {
-                return await postApi.reportPost(data)
+            mutationFn: async (data: ReportData, mutationContext) => {
+                return await postApi.reportPost(data, mutationContext.requestConfig)
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -261,27 +264,27 @@ export function usePost() {
     }
 
     const createManagerPostMutation = (
-        mutationFn: (postId: string | number) => Promise<unknown>
-    ) => useMutation({
+        mutationFn: (postId: string | number, config: AxiosRequestConfig) => Promise<unknown>
+    ) => useAuthScopedMutation({
         onMutate: captureMutationSession,
-        mutationFn,
+        mutationFn: (postId: string | number, context) => mutationFn(postId, context.requestConfig),
         onSuccess: (_, postId, context) => {
             if (!isCurrentMutation(context)) return
             invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
         },
     })
 
-    const useBlindPostByManager = () => useMutation({
+    const useBlindPostByManager = () => useAuthScopedMutation({
         onMutate: captureMutationSession,
-        mutationFn: async ({ postId, reason }: { postId: string | number, reason?: string }) => {
-            return await postApi.blindPostByManager(postId, reason)
+        mutationFn: async ({ postId, reason }: { postId: string | number, reason?: string }, mutationContext) => {
+            return await postApi.blindPostByManager(postId, reason, mutationContext.requestConfig)
         },
         onSuccess: (_, { postId }, context) => {
             if (!isCurrentMutation(context)) return
             invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
         },
     })
-    const useUnblindPostByManager = () => createManagerPostMutation((postId) => postApi.unblindPostByManager(postId))
+    const useUnblindPostByManager = () => createManagerPostMutation((postId, config) => postApi.unblindPostByManager(postId, config))
 
     const updatePollInDetailCache = (postId: string | number, poll: Post['poll']) => {
         queryClient.setQueriesData<Post>({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) }, (old) => (
@@ -290,10 +293,10 @@ export function usePost() {
     }
 
     const useVotePoll = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async ({ postId, data }: { postId: string | number, data: PollVotePayload }) => {
-                return unwrapAxiosApiData(await postApi.votePoll(postId, data))
+            mutationFn: async ({ postId, data }: { postId: string | number, data: PollVotePayload }, mutationContext) => {
+                return unwrapAxiosApiData(await postApi.votePoll(postId, data, mutationContext.requestConfig))
             },
             onSuccess: (poll, { postId }, context) => {
                 if (!isCurrentMutation(context)) return
@@ -303,10 +306,10 @@ export function usePost() {
     }
 
     const useDeletePollVote = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async (postId: string | number) => {
-                return unwrapAxiosApiData(await postApi.deletePollVote(postId))
+            mutationFn: async (postId: string | number, mutationContext) => {
+                return unwrapAxiosApiData(await postApi.deletePollVote(postId, mutationContext.requestConfig))
             },
             onSuccess: (poll, postId, context) => {
                 if (!isCurrentMutation(context)) return
@@ -316,10 +319,10 @@ export function usePost() {
     }
 
     const useSaveDraft = (resolveRequestConfig?: () => AxiosRequestConfig | undefined) => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: async (data: PostDraftData) => {
-                return await postApi.saveDraft(data, resolveRequestConfig?.())
+            mutationFn: async (data: PostDraftData, mutationContext) => {
+                return await postApi.saveDraft(data, mutationContext.withRequestConfig(resolveRequestConfig?.()))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -329,19 +332,19 @@ export function usePost() {
     }
 
     const useDeleteDraft = (resolveRequestConfig?: () => AxiosRequestConfig | undefined) => {
-        return useMutation({
+        return useAuthScopedMutation({
             meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
-            mutationFn: async ({ draftId, version }: { draftId: string | number, version?: number }) => {
+            mutationFn: async ({ draftId, version }: { draftId: string | number, version?: number }, mutationContext) => {
                 const requestConfig = resolveRequestConfig?.()
-                return await postApi.deleteDraft(draftId, {
+                return await postApi.deleteDraft(draftId, mutationContext.withRequestConfig({
                     ...requestConfig,
                     params: {
                         ...requestConfig?.params,
                         ...(version !== undefined ? { version } : {}),
                     },
                     skipGlobalErrorHandler: true,
-                })
+                }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -351,13 +354,13 @@ export function usePost() {
     }
 
     const useCancelScheduledPost = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
-            mutationFn: async (scheduledPostId: string | number) => {
-                return await postApi.cancelScheduledPost(scheduledPostId, {
+            mutationFn: async (scheduledPostId: string | number, mutationContext) => {
+                return await postApi.cancelScheduledPost(scheduledPostId, mutationContext.withRequestConfig({
                     skipGlobalErrorHandler: true,
-                })
+                }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

@@ -1,5 +1,6 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { userSettingsQueryKey } from '@/features/user/useUser'
@@ -103,9 +104,9 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
   }
   void refreshBrowserSubscription()
 
-  const enableMutation = useMutation({
+  const enableMutation = useAuthScopedMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-    mutationFn: async () => {
+    mutationFn: async (_variables: void, mutationContext) => {
       const revision = ++subscriptionRevision
       isBrowserSubscriptionLoading.value = false
       const intent = captureAuthSessionIntent(authStore)
@@ -128,7 +129,7 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
           subscription,
           publicKeyQuery.data.value.publicKey,
         )) {
-          await deleteBrowserPushSubscription(subscription, { signal: controller.signal })
+          await deleteBrowserPushSubscription(subscription, mutationContext.withRequestConfig({ signal: controller.signal }))
           throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
           const unsubscribed = await subscription.unsubscribe()
           throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
@@ -140,7 +141,7 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
           createdSubscription = true
         }
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
-        await saveBrowserPushSubscription(subscription, { signal: controller.signal })
+        await saveBrowserPushSubscription(subscription, mutationContext.withRequestConfig({ signal: controller.signal }))
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
         if (subscriptionRevision === revision) browserSubscription.value = subscription
       } catch (error) {
@@ -165,9 +166,9 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
     },
   })
 
-  const disableMutation = useMutation({
+  const disableMutation = useAuthScopedMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-    mutationFn: async () => {
+    mutationFn: async (_variables: void, mutationContext) => {
       const revision = ++subscriptionRevision
       isBrowserSubscriptionLoading.value = false
       const intent = captureAuthSessionIntent(authStore)
@@ -175,7 +176,7 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
       try {
         const subscription = await getBrowserPushSubscription()
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
-        await userApi.deleteAllPushSubscriptions({ signal: controller.signal })
+        await userApi.deleteAllPushSubscriptions(mutationContext.withRequestConfig({ signal: controller.signal }))
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
         if (subscription) await subscription.unsubscribe()
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)

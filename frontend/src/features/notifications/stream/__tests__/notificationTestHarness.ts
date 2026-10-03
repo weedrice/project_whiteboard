@@ -1,3 +1,4 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
@@ -199,3 +200,9 @@ export function getNotificationMocks() {
 export function createTestNotificationStreamController() {
   return createNotificationStreamController(notificationMocks.queryClient as unknown as QueryClient)
 }
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
+})

@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
-import { useMutation, useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosRequestConfig } from 'axios'
 import { userApi, type UserUpdatePayload } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -50,11 +51,11 @@ export function useUserProfileFeature(context: UserFeatureContext) {
     enabled: computed(() => !!userId.value),
   })
 
-  const useUpdateMyProfile = () => useMutation({
+  const useUpdateMyProfile = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (data: UserUpdatePayload) => {
-      return resolveResponseData(userApi.updateMyProfile(data, { skipGlobalErrorHandler: true }))
+    mutationFn: async (data: UserUpdatePayload, mutationContext) => {
+      return resolveResponseData(userApi.updateMyProfile(data, mutationContext.withRequestConfig({ skipGlobalErrorHandler: true })))
     },
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
@@ -81,9 +82,9 @@ export function useUserProfileFeature(context: UserFeatureContext) {
     ),
   })
 
-  const useBlockUser = () => useMutation({
+  const useBlockUser = () => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async (userId: string | number) => resolveResponseData(userApi.blockUser(userId)),
+    mutationFn: async (userId: string | number, mutationContext) => resolveResponseData(userApi.blockUser(userId, mutationContext.requestConfig)),
     onSuccess: (_data, userId, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
       void invalidateBlockVisibilityCaches(
@@ -94,9 +95,9 @@ export function useUserProfileFeature(context: UserFeatureContext) {
     },
   })
 
-  const useUnblockUser = () => useMutation({
+  const useUnblockUser = () => useAuthScopedMutation({
     onMutate: captureMutationSession,
-    mutationFn: async (userId: string | number) => resolveResponseData(userApi.unblockUser(userId)),
+    mutationFn: async (userId: string | number, mutationContext) => resolveResponseData(userApi.unblockUser(userId, mutationContext.requestConfig)),
     onSuccess: (_data, userId, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
       void invalidateBlockVisibilityCaches(

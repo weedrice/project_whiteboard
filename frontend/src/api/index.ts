@@ -7,9 +7,11 @@ import {
 } from '@/api/apiInterceptors'
 import { configureApiStoreResolvers } from '@/api/apiStoreResolvers'
 import { configureApiLocaleResolver } from '@/api/apiLocaleHeader'
+import type { AuthSessionIntent } from '@/utils/authSessionIntent'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
+    expectedSession?: AuthSessionIntent
     skipGlobalErrorHandler?: boolean
     skipAuthRefresh?: boolean
     preserveAuthHeader?: boolean

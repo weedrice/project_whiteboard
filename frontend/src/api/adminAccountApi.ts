@@ -50,34 +50,34 @@ export const adminAccountApi = {
         return mapApiDataResponse(response, (page): PageResponse<BoardAdminInfo> =>
             normalizePageResponseItems(page, normalizeBoardAdmin))
     },
-    async createAdmin(data: AdminCreateData) {
-        const response = await api.post<ApiResponse<BoardAdminInfoWire>>('/admin/admins', data)
+    async createAdmin(data: AdminCreateData, config?: AxiosRequestConfig) {
+        const response = await api.post<ApiResponse<BoardAdminInfoWire>>('/admin/admins', data, config)
         return mapApiDataResponse(response, normalizeBoardAdmin)
     },
-    deactivateAdmin(adminId: string | number) {
-        return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/deactivate`)
+    deactivateAdmin(adminId: string | number, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/deactivate`, undefined, config)
     },
-    activateAdmin(adminId: string | number) {
-        return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/activate`)
+    activateAdmin(adminId: string | number, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/activate`, undefined, config)
     },
     async getBoardManager(boardId: number, config?: AxiosRequestConfig) {
         const response = await getWithOptionalConfig<ApiResponse<BoardAdminInfoWire | null>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, config)
         return mapApiDataResponse(response, (admin) => admin ? normalizeBoardAdmin(admin) : null)
     },
-    async updateBoardManager(boardId: number, data: BoardManagerUpdateData) {
-        const response = await api.put<ApiResponse<BoardAdminInfoWire>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, data)
+    async updateBoardManager(boardId: number, data: BoardManagerUpdateData, config?: AxiosRequestConfig) {
+        const response = await api.put<ApiResponse<BoardAdminInfoWire>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, data, config)
         return mapApiDataResponse(response, normalizeBoardAdmin)
     },
     async getSuperAdmin(config?: AxiosRequestConfig) {
         const response = await getWithOptionalConfig<ApiResponse<SuperAdminInfoWire[]>>('/admin/super', config)
         return mapApiDataResponse(response, (admins) => admins.map(normalizeSuperAdmin))
     },
-    async activeSuperAdmin(data: SuperAdminData) {
-        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/active', data)
+    async activeSuperAdmin(data: SuperAdminData, config?: AxiosRequestConfig) {
+        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/active', data, config)
         return mapApiDataResponse(response, normalizeSuperAdminStatus)
     },
-    async deactivateSuperAdmin(data: SuperAdminData) {
-        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/deactive', data)
+    async deactivateSuperAdmin(data: SuperAdminData, config?: AxiosRequestConfig) {
+        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/deactive', data, config)
         return mapApiDataResponse(response, normalizeSuperAdminStatus)
     },
 }

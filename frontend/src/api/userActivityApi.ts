@@ -59,11 +59,11 @@ export interface PointHistoryParams extends PaginationParams {
 }
 
 export const userActivityApi = {
-    blockUser(userId: string | number) {
-        return api.post<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`)
+    blockUser(userId: string | number, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`, undefined, config)
     },
-    unblockUser(userId: string | number) {
-        return api.delete<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`)
+    unblockUser(userId: string | number, config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`, config)
     },
     getBlockList(params?: PaginationParams, config?: AxiosRequestConfig) {
         if (params) {

@@ -184,10 +184,10 @@ function mapHomeLandingResponse(
 
 export const postApi = {
     // Create a new post
-    createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<PostCreateResponse>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data),
+    createPost: (boardUrl: string, data: PostCreateData, config?: AxiosRequestConfig) => api.post<ApiResponse<PostCreateResponse>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data, config),
 
-    createScheduledPost: (boardUrl: string, data: ScheduledPostData) =>
-        api.post<ApiResponse<ScheduledPost>>(`/boards/${encodePathSegment(boardUrl)}/scheduled-posts`, data),
+    createScheduledPost: (boardUrl: string, data: ScheduledPostData, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<ScheduledPost>>(`/boards/${encodePathSegment(boardUrl)}/scheduled-posts`, data, config),
 
     getMyScheduledPosts: (params?: Record<string, unknown>, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<PageResponseRaw<ScheduledPost>>>('/users/me/scheduled-posts', {
@@ -198,8 +198,8 @@ export const postApi = {
     getScheduledPost: (scheduledPostId: string | number) =>
         api.get<ApiResponse<ScheduledPostDetail>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
 
-    updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData) =>
-        api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data),
+    updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData, config?: AxiosRequestConfig) =>
+        api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data, config),
 
     cancelScheduledPost: (scheduledPostId: string | number, config?: AxiosRequestConfig) =>
         config
@@ -217,14 +217,14 @@ export const postApi = {
             params: { ...config?.params, size },
         }).then((response) => mapApiDataResponse(response, normalizePostSummaryList)),
 
-    blindPostByManager: (postId: string | number, reason?: string) =>
-        api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`, reason ? { reason } : undefined),
+    blindPostByManager: (postId: string | number, reason?: string, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`, reason ? { reason } : undefined, config),
 
-    unblindPostByManager: (postId: string | number) =>
-        api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`),
+    unblindPostByManager: (postId: string | number, config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`, config),
 
     // Update post
-    updatePost: (postId: string | number, data: PostUpdateData) => api.put<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}`, data),
+    updatePost: (postId: string | number, data: PostUpdateData, config?: AxiosRequestConfig) => api.put<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}`, data, config),
 
     // Delete post
     deletePost: (postId: string | number, config?: AxiosRequestConfig) => {
@@ -247,22 +247,22 @@ export const postApi = {
         api.get<ApiResponse<PostVersion[]>>(`/posts/${encodePathSegment(postId)}/versions`, config),
 
     // Like post
-    likePost: (postId: string | number) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`),
+    likePost: (postId: string | number, config?: AxiosRequestConfig) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`, undefined, config),
 
     // Unlike post
-    unlikePost: (postId: string | number) => api.delete<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`),
+    unlikePost: (postId: string | number, config?: AxiosRequestConfig) => api.delete<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`, config),
 
-    votePoll: (postId: string | number, data: PollVotePayload) =>
-        api.post<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`, data),
+    votePoll: (postId: string | number, data: PollVotePayload, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`, data, config),
 
-    deletePollVote: (postId: string | number) =>
-        api.delete<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`),
+    deletePollVote: (postId: string | number, config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`, config),
 
     // Scrap post
-    scrapPost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
+    scrapPost: (postId: string | number, config?: AxiosRequestConfig) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`, undefined, config),
 
     // Unscrap post
-    unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
+    unscrapPost: (postId: string | number, config?: AxiosRequestConfig) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`, config),
 
     // Get home landing data
     getHomeLanding: (period: HomeLandingPeriod = '24h', config?: AxiosRequestConfig) => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
@@ -279,6 +279,6 @@ export const postApi = {
         api.delete<ApiResponse<void>>(`/drafts/${encodePathSegment(draftId)}`, config),
 
     // Report post
-    reportPost: (data: ReportData) => api.post<ApiResponse<number>>('/reports/posts', data),
+    reportPost: (data: ReportData, config?: AxiosRequestConfig) => api.post<ApiResponse<number>>('/reports/posts', data, config),
 }
 

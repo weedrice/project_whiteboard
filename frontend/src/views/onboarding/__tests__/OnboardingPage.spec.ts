@@ -1,3 +1,4 @@
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
@@ -116,7 +117,7 @@ describe('OnboardingPage', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushAll()
 
-    expect(subscribeBoard).toHaveBeenCalledWith('general')
+    expect(subscribeBoard).toHaveBeenCalledWith('general', authMutationConfig())
     expect(queryClient.getQueryData<BoardListItem[]>(sessionQueryKey(0, ['onboarding', 'board-recommendations']))?.[0]?.isSubscribed).toBe(true)
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['board', 'detail', 'general']) })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['boards']) })
@@ -146,7 +147,7 @@ describe('OnboardingPage', () => {
     await flushAll()
 
     await wrapper.findAll('button')[0].trigger('click')
-    await vi.waitFor(() => expect(subscribeBoard).toHaveBeenCalledWith('general'))
+    await vi.waitFor(() => expect(subscribeBoard).toHaveBeenCalledWith('general', authMutationConfig()))
     authStore.sessionGeneration += 1
     resolveSubscription(apiSuccessResponse<typeof boardApi.subscribeBoard>())
     await flushAll()

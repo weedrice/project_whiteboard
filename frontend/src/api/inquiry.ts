@@ -16,7 +16,7 @@ const adminInquiryPath = (inquiryId: string | number) =>
   `/admin/support/inquiries/${encodePathSegment(inquiryId)}`
 
 export const inquiryApi = {
-  create: (data: InquiryCreateData) => api.post<ApiResponse<InquiryDetail>>('/inquiries', data),
+  create: (data: InquiryCreateData, config?: AxiosRequestConfig) => api.post<ApiResponse<InquiryDetail>>('/inquiries', data, config),
   getMine: (params: InquiryListParams, config?: AxiosRequestConfig) =>
     api.get<ApiResponse<PageResponse<InquirySummary> | PageResponseRaw<InquirySummary>>>('/inquiries', {
       ...config,
@@ -24,12 +24,12 @@ export const inquiryApi = {
     }),
   getMineDetail: (inquiryId: string | number, config?: AxiosRequestConfig) =>
     api.get<ApiResponse<InquiryDetail>>(inquiryPath(inquiryId), config),
-  addMessage: (inquiryId: string | number, data: InquiryMessageCreateData) =>
-    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/messages`, data),
-  withdraw: (inquiryId: string | number) =>
-    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/withdraw`),
-  close: (inquiryId: string | number) =>
-    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/close`),
+  addMessage: (inquiryId: string | number, data: InquiryMessageCreateData, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/messages`, data, config),
+  withdraw: (inquiryId: string | number, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/withdraw`, undefined, config),
+  close: (inquiryId: string | number, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${inquiryPath(inquiryId)}/close`, undefined, config),
 
   getAdminPage: (params: InquiryListParams, config?: AxiosRequestConfig) =>
     api.get<ApiResponse<PageResponse<InquirySummary> | PageResponseRaw<InquirySummary>>>(
@@ -38,14 +38,14 @@ export const inquiryApi = {
     ),
   getAdminDetail: (inquiryId: string | number, config?: AxiosRequestConfig) =>
     api.get<ApiResponse<InquiryDetail>>(adminInquiryPath(inquiryId), config),
-  start: (inquiryId: string | number) =>
-    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/start`),
-  reply: (inquiryId: string | number, data: InquiryMessageCreateData) =>
-    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/reply`, data),
-  addNote: (inquiryId: string | number, data: InquiryMessageCreateData) =>
-    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/notes`, data),
-  adminClose: (inquiryId: string | number, reason: string) =>
-    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/close`, { reason }),
-  reopen: (inquiryId: string | number) =>
-    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/reopen`),
+  start: (inquiryId: string | number, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/start`, undefined, config),
+  reply: (inquiryId: string | number, data: InquiryMessageCreateData, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/reply`, data, config),
+  addNote: (inquiryId: string | number, data: InquiryMessageCreateData, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/notes`, data, config),
+  adminClose: (inquiryId: string | number, reason: string, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/close`, { reason }, config),
+  reopen: (inquiryId: string | number, config?: AxiosRequestConfig) =>
+    api.post<ApiResponse<InquiryDetail>>(`${adminInquiryPath(inquiryId)}/reopen`, undefined, config),
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useRoute, useRouter } from 'vue-router'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { useConfirm } from '@/composables/useConfirm'
@@ -84,10 +85,11 @@ watch(inquiryId, () => {
   void staleUploader?.discardUploads()
 })
 
-const messageMutation = useMutation({
-  mutationFn: (variables: MessageMutationVariables) => inquiryApi.addMessage(
+const messageMutation = useAuthScopedMutation({
+  mutationFn: (variables: MessageMutationVariables, mutationContext) => inquiryApi.addMessage(
     variables.inquiryId,
     { content: variables.content, fileIds: variables.fileIds },
+    mutationContext.requestConfig,
   ),
   onSuccess: async (response, variables) => {
     queryClient.setQueryData(
@@ -102,18 +104,20 @@ const messageMutation = useMutation({
     }
     await refresh(variables.inquiryId, variables.generation)
   },
-  onError: async (error, variables) => {
-    await variables.uploader?.failSubmission()
+  onError: (error, variables) => {
     if (!isCurrentDraft(variables) || uploader.value !== variables.uploader) return
     fileIds.value = []
     errorMessage.value = extractErrorMessage(error) || t('inquiry.detail.messageFailed')
   },
+  onCleanup: async (_data, error, variables, _result, context) => {
+    if (error) await variables.uploader?.failSubmission(context.requestConfig)
+  },
 })
 
-const actionMutation = useMutation({
-  mutationFn: (variables: ActionMutationVariables) => variables.action === 'withdraw'
-    ? inquiryApi.withdraw(variables.inquiryId)
-    : inquiryApi.close(variables.inquiryId),
+const actionMutation = useAuthScopedMutation({
+  mutationFn: (variables: ActionMutationVariables, mutationContext) => variables.action === 'withdraw'
+    ? inquiryApi.withdraw(variables.inquiryId, mutationContext.requestConfig)
+    : inquiryApi.close(variables.inquiryId, mutationContext.requestConfig),
   onSuccess: async (response, variables) => {
     queryClient.setQueryData(
       sessionQueryKey(variables.generation, ['inquiries', 'detail', variables.inquiryId]),

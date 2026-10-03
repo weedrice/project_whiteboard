@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { isRef, ref } from 'vue'
 import { useAdmin } from '../useAdmin'
@@ -191,7 +193,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
 
-            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
+            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'admins'] })
         })
 
@@ -203,7 +205,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
 
-            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
+            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' }, authMutationConfig())
         })
 
         it('ignores a completed mutation after the session generation changes', async () => {
@@ -240,7 +242,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ adminId: 1, action: 'activate' })
 
-            expect(adminApi.activateAdmin).toHaveBeenCalledWith(1)
+            expect(adminApi.activateAdmin).toHaveBeenCalledWith(1, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'admins'] })
         })
 
@@ -252,7 +254,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ adminId: 1, action: 'deactivate' })
 
-            expect(adminApi.deactivateAdmin).toHaveBeenCalledWith(1)
+            expect(adminApi.deactivateAdmin).toHaveBeenCalledWith(1, authMutationConfig())
         })
     })
 
@@ -284,7 +286,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'activate', reason: 'grant' })
 
-            expect(adminApi.activeSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'grant' })
+            expect(adminApi.activeSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'grant' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'super'] })
         })
 
@@ -296,7 +298,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'deactivate', reason: 'revoke' })
 
-            expect(adminApi.deactivateSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'revoke' })
+            expect(adminApi.deactivateSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'revoke' }, authMutationConfig())
         })
     })
 
@@ -344,7 +346,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ userId: 1, status: 'ACTIVE', reason: 'reviewed' })
 
-            expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE', 'reviewed')
+            expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE', 'reviewed', authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
         })
 
@@ -356,7 +358,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
 
-            expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
+            expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
         })
 
@@ -486,7 +488,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })
 
-            expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
+            expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' }, authMutationConfig())
             expect(mockSetQueriesData).toHaveBeenCalledTimes(2)
             expect(mockInvalidateQueries).toHaveBeenCalledTimes(1)
 
@@ -525,7 +527,7 @@ describe('useAdmin', () => {
 
             await expect(mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })).rejects.toThrow(error)
 
-            expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
+            expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' }, authMutationConfig())
             expect(mockSetQueriesData).not.toHaveBeenCalled()
             expect(mockInvalidateQueries).not.toHaveBeenCalled()
         })
@@ -581,7 +583,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ ipAddress: '192.168.1.1', reason: 'Spam' })
 
-            expect(adminApi.blockIp).toHaveBeenCalledWith({ ipAddress: '192.168.1.1', reason: 'Spam' })
+            expect(adminApi.blockIp).toHaveBeenCalledWith({ ipAddress: '192.168.1.1', reason: 'Spam' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'ip-blocks'] })
         })
 
@@ -593,7 +595,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync('192.168.1.1')
 
-            expect(adminApi.unblockIp).toHaveBeenCalledWith('192.168.1.1')
+            expect(adminApi.unblockIp).toHaveBeenCalledWith('192.168.1.1', authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'ip-blocks'] })
         })
     })
@@ -624,7 +626,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ key: 'test_key', value: 'test_value' })
 
-            expect(adminApi.createConfig).toHaveBeenCalledWith({ key: 'test_key', value: 'test_value' })
+            expect(adminApi.createConfig).toHaveBeenCalledWith({ key: 'test_key', value: 'test_value' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
 
@@ -636,7 +638,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ key: 'test_key', value: 'new_value', description: 'Updated' })
 
-            expect(adminApi.updateConfig).toHaveBeenCalledWith('test_key', 'new_value', 'Updated')
+            expect(adminApi.updateConfig).toHaveBeenCalledWith('test_key', 'new_value', 'Updated', authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
 
@@ -648,7 +650,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync('test_key')
 
-            expect(adminApi.deleteConfig).toHaveBeenCalledWith('test_key')
+            expect(adminApi.deleteConfig).toHaveBeenCalledWith('test_key', authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
     })
@@ -698,7 +700,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ boardName: 'New Board', boardUrl: 'new-board' })
 
-            expect(adminApi.createBoard).toHaveBeenCalledWith({ boardName: 'New Board', boardUrl: 'new-board' })
+            expect(adminApi.createBoard).toHaveBeenCalledWith({ boardName: 'New Board', boardUrl: 'new-board' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
         })
 
@@ -710,7 +712,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ boardUrl: 'test-board', data: { boardName: 'Updated Name' } })
 
-            expect(adminApi.updateBoard).toHaveBeenCalledWith('test-board', { boardName: 'Updated Name' })
+            expect(adminApi.updateBoard).toHaveBeenCalledWith('test-board', { boardName: 'Updated Name' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
         })
 
@@ -722,7 +724,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync('test-board')
 
-            expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
+            expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board', authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
             expect(mockRemoveQueries).toHaveBeenCalledWith({
                 queryKey: ['session', 0, 'board', 'detail', 'test-board'],
@@ -754,7 +756,7 @@ describe('useAdmin', () => {
 
             await mutation.mutate([2, 1])
 
-            expect(adminApi.reorderBoards).toHaveBeenCalledWith([2, 1])
+            expect(adminApi.reorderBoards).toHaveBeenCalledWith([2, 1], authMutationConfig())
         })
 
         it('useBoardManager queryFn returns manager payload', async () => {
@@ -781,7 +783,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ boardId: 5, data: { loginId: 'manager' } })
 
-            expect(adminApi.updateBoardManager).toHaveBeenCalledWith(5, { loginId: 'manager' })
+            expect(adminApi.updateBoardManager).toHaveBeenCalledWith(5, { loginId: 'manager' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'board-manager', 5] })
         })
     })
@@ -906,7 +908,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ errorLogId: 1, data: { memo: '확인 완료' } })
 
-            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' })
+            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' }, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
         })
@@ -919,7 +921,7 @@ describe('useAdmin', () => {
 
             await mutation.mutateAsync({ errorLogId: 2, data: undefined })
 
-            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined)
+            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined, authMutationConfig())
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
         })
@@ -942,4 +944,10 @@ describe('useAdmin', () => {
             await expect(query.queryFn()).resolves.toEqual(statsResponse)
         })
     })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

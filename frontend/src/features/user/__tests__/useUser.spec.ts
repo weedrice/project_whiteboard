@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { useUser } from '@/features/user/useUser'
@@ -367,7 +369,7 @@ describe('useUser', () => {
 
         expect(userApi.updateMyProfile).toHaveBeenCalledWith(
             { displayName: 'new-name' },
-            { skipGlobalErrorHandler: true },
+            authMutationConfig({ skipGlobalErrorHandler: true }),
         )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'me'] })
     })
@@ -378,7 +380,7 @@ describe('useUser', () => {
         const { useUpdatePassword } = useUser()
         await useUpdatePassword().mutateAsync({ currentPassword: 'old', newPassword: 'new' })
 
-        expect(userApi.updatePassword).toHaveBeenCalledWith('old', 'new')
+        expect(userApi.updatePassword).toHaveBeenCalledWith('old', 'new', authMutationConfig())
     })
 
     it('deletes account and clears query client cache', async () => {
@@ -387,7 +389,7 @@ describe('useUser', () => {
         const { useDeleteAccount } = useUser()
         await useDeleteAccount().mutateAsync('password')
 
-        expect(userApi.deleteAccount).toHaveBeenCalledWith('password', { skipGlobalErrorHandler: true })
+        expect(userApi.deleteAccount).toHaveBeenCalledWith('password', authMutationConfig({ skipGlobalErrorHandler: true }))
         expect(mocks.clear).toHaveBeenCalled()
     })
 
@@ -399,7 +401,7 @@ describe('useUser', () => {
 
         expect(userApi.updateUserSettings).toHaveBeenCalledWith(
             { theme: 'DARK' },
-            { skipGlobalErrorHandler: true },
+            authMutationConfig({ skipGlobalErrorHandler: true }),
         )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'settings'] })
     })
@@ -416,7 +418,7 @@ describe('useUser', () => {
 
         expect(userApi.updateNotificationSettingsBulk).toHaveBeenCalledWith({
             settings: [{ notificationType: 'COMMENT', isEnabled: true }],
-        }, { skipGlobalErrorHandler: true })
+        }, authMutationConfig({ skipGlobalErrorHandler: true }))
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'notification-settings'] })
     })
 
@@ -453,16 +455,16 @@ describe('useUser', () => {
         const { useClaimAgent, useSuspendMyAgent, useActivateMyAgent, useDeleteMyAgent } = useUser()
 
         await useClaimAgent().mutateAsync('noviis_agt_xxx')
-        expect(userApi.claimAgent).toHaveBeenCalledWith('noviis_agt_xxx')
+        expect(userApi.claimAgent).toHaveBeenCalledWith('noviis_agt_xxx', authMutationConfig())
 
         await useSuspendMyAgent().mutateAsync(7)
-        expect(userApi.suspendMyAgent).toHaveBeenCalledWith(7)
+        expect(userApi.suspendMyAgent).toHaveBeenCalledWith(7, authMutationConfig())
 
         await useActivateMyAgent().mutateAsync(7)
-        expect(userApi.activateMyAgent).toHaveBeenCalledWith(7)
+        expect(userApi.activateMyAgent).toHaveBeenCalledWith(7, authMutationConfig())
 
         await useDeleteMyAgent().mutateAsync(7)
-        expect(userApi.deleteMyAgent).toHaveBeenCalledWith(7)
+        expect(userApi.deleteMyAgent).toHaveBeenCalledWith(7, authMutationConfig())
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'agents'] })
     })
@@ -474,10 +476,10 @@ describe('useUser', () => {
         const { useBlockUser, useUnblockUser } = useUser()
 
         await useBlockUser().mutateAsync(123)
-        expect(userApi.blockUser).toHaveBeenCalledWith(123)
+        expect(userApi.blockUser).toHaveBeenCalledWith(123, authMutationConfig())
 
         await useUnblockUser().mutateAsync(123)
-        expect(userApi.unblockUser).toHaveBeenCalledWith(123)
+        expect(userApi.unblockUser).toHaveBeenCalledWith(123, authMutationConfig())
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123'] })
@@ -491,11 +493,17 @@ describe('useUser', () => {
         const { useUpdateRepresentativeBadge } = useUser()
         await useUpdateRepresentativeBadge().mutateAsync('HELPFUL')
 
-        expect(badgeApi.updateRepresentativeBadge).toHaveBeenCalledWith('HELPFUL')
+        expect(badgeApi.updateRepresentativeBadge).toHaveBeenCalledWith('HELPFUL', authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'badges', 'me'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'badges'] })
     })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

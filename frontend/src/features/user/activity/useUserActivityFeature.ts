@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { useMutation } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { badgeApi } from '@/api/badge'
 import { postApi, type ScheduledPost } from '@/api/post'
 import { userApi, type PointHistoryParams } from '@/api/user'
@@ -130,11 +130,11 @@ export function useUserActivityFeature(context: UserFeatureContext) {
     ),
   })
 
-  const useUpdateRepresentativeBadge = () => useMutation({
+  const useUpdateRepresentativeBadge = () => useAuthScopedMutation({
     meta: LOCAL_MUTATION_ERROR_META,
     onMutate: captureMutationSession,
-    mutationFn: async (badgeCode: string | null) => {
-      return unwrapAxiosApiData(await badgeApi.updateRepresentativeBadge(badgeCode))
+    mutationFn: async (badgeCode: string | null, mutationContext) => {
+      return unwrapAxiosApiData(await badgeApi.updateRepresentativeBadge(badgeCode, mutationContext.requestConfig))
     },
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return

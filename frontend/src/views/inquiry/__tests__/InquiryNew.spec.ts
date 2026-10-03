@@ -1,8 +1,11 @@
+import { failAuthScopedMutation } from '@/test/authScopedMutationOptions'
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import InquiryNew from '../InquiryNew.vue'
 import { configureAuthQueryScope } from '@/queryAuthScope'
+import { createDeferred } from '@/test/async'
 
 const { state } = vi.hoisted(() => {
   const refOf = <T>(value: T) => ({ __v_isRef: true, value })
@@ -127,10 +130,25 @@ describe('InquiryNew', () => {
   it('discards temporary uploads when creation fails', async () => {
     mountView()
 
-    await state.mutationOptions!.onError?.(new Error('failed'), { uploader: { failSubmission: state.failSubmission } })
+    await failAuthScopedMutation(state.mutationOptions!, new Error('failed'), { uploader: { failSubmission: state.failSubmission } })
     await flushPromises()
 
     expect(state.failSubmission).toHaveBeenCalledOnce()
+    expect(state.routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate to the old inquiry after switching accounts during cache refresh', async () => {
+    mountView()
+    const refresh = createDeferred<void>()
+    state.invalidateQueries.mockReturnValueOnce(refresh.promise)
+    const pending = state.mutationOptions!.onSuccess?.({
+      data: { success: true, data: { inquiryId: 42 } },
+    }, { generation: 0, uploader: { commitUploads: state.commitUploads } })
+    await flushPromises()
+    expect(state.invalidateQueries).toHaveBeenCalledOnce()
+    state.sessionGeneration = 1
+    refresh.resolve()
+    await pending
     expect(state.routerReplace).not.toHaveBeenCalled()
   })
 
@@ -177,3 +195,11 @@ describe('InquiryNew', () => {
     expect(state.mutation.mutate).not.toHaveBeenCalled()
   })
 })
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
+})
+
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ sessionGeneration: 0 }) }))

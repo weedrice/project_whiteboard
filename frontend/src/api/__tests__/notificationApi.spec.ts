@@ -44,8 +44,8 @@ describe('notificationApi', () => {
         notificationApi.getUnreadCount()
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/notifications', { params })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/notifications/10/read')
-        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/notifications/read-all')
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/notifications/10/read', undefined, undefined)
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/notifications/read-all', undefined, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/notifications/unread-count')
     })
 

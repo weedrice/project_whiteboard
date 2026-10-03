@@ -18,8 +18,8 @@ export const adminErrorLogApi = {
     getErrorLog(errorLogId: number, config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<ErrorLogDetail>>(`/admin/error-logs/${encodePathSegment(errorLogId)}`, config)
     },
-    resolveErrorLog(errorLogId: number, data?: { memo?: string }) {
-        return api.put<ApiResponse<void>>(`/admin/error-logs/${encodePathSegment(errorLogId)}/resolve`, data)
+    resolveErrorLog(errorLogId: number, data?: { memo?: string }, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<void>>(`/admin/error-logs/${encodePathSegment(errorLogId)}/resolve`, data, config)
     },
     getErrorLogStats(config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<ErrorLogStats>>('/admin/error-logs/stats', config)

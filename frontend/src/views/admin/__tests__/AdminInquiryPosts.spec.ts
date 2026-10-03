@@ -1,3 +1,4 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
@@ -294,4 +295,10 @@ describe('AdminInquiryPosts', () => {
       fileIds: [],
     }))
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

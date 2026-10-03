@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePushNotifications } from '../usePushNotifications'
 import { userApi } from '@/api/user'
@@ -162,7 +164,7 @@ describe('usePushNotifications', () => {
     expect(pushSubscriptions.subscribeBrowserPush).not.toHaveBeenCalled()
     expect(pushSubscriptions.saveBrowserPushSubscription).toHaveBeenCalledWith(
       subscription,
-      { signal: expect.any(AbortSignal) },
+      authMutationConfig(),
     )
   })
 
@@ -181,13 +183,13 @@ describe('usePushNotifications', () => {
 
     expect(pushSubscriptions.deleteBrowserPushSubscription).toHaveBeenCalledWith(
       oldSubscription,
-      { signal: expect.any(AbortSignal) },
+      authMutationConfig(),
     )
     expect(oldUnsubscribe).toHaveBeenCalledOnce()
     expect(pushSubscriptions.subscribeBrowserPush).toHaveBeenCalledWith('public-key')
     expect(pushSubscriptions.saveBrowserPushSubscription).toHaveBeenCalledWith(
       nextSubscription,
-      { signal: expect.any(AbortSignal) },
+      authMutationConfig(),
     )
   })
 
@@ -212,9 +214,9 @@ describe('usePushNotifications', () => {
 
     expect(resource.syncState.value).toBe('server-only')
     await resource.disablePush()
-    expect(userApi.deleteAllPushSubscriptions).toHaveBeenCalledWith({
+    expect(userApi.deleteAllPushSubscriptions).toHaveBeenCalledWith(authMutationConfig({
       signal: expect.any(AbortSignal),
-    })
+    }))
   })
 
   it('ignores a late initial subscription read after enable completes', async () => {
@@ -250,4 +252,10 @@ describe('usePushNotifications', () => {
     await resource.refetch()
     expect(mocks.refetch).toHaveBeenCalled()
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

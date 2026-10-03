@@ -69,7 +69,7 @@ describe('comment like cache invalidation', () => {
       return apiSuccessResponse<typeof commentApi.likeComment>()
     })
     const refreshed = await expectQueriesRefetchedOnce(
-      (client) => toggleLike(client, true),
+      (client) => expect(toggleLike(client, true)).rejects.toMatchObject({ name: 'AbortError', suppressGlobalErrorToast: true }),
       [],
       [
         ...commentKeys.map((key) => sessionQueryKey(3, key)),

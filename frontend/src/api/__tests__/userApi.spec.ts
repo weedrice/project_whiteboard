@@ -63,7 +63,7 @@ describe('userApi', () => {
         expect(apiMock.put).toHaveBeenNthCalledWith(
             2,
             '/users/me/password',
-            { currentPassword: 'old', newPassword: 'new' },
+            { currentPassword: 'old', newPassword: 'new' }, undefined,
         )
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/users/me', { data: { password: 'secret' } })
         expect(apiMock.post).toHaveBeenNthCalledWith(
@@ -75,11 +75,45 @@ describe('userApi', () => {
         expect(apiMock.put).toHaveBeenNthCalledWith(3, '/users/me/settings', settingsData, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/users/me/notification-settings')
         expect(apiMock.put).toHaveBeenNthCalledWith(4, '/users/me/notification-settings/bulk', notificationBulkData)
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/users/me/agents/claim', { agentToken: 'noviis_agt_xxx' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/users/me/agents/claim', { agentToken: 'noviis_agt_xxx' }, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/agents')
-        expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/users/me/agents/7/suspend')
-        expect(apiMock.patch).toHaveBeenNthCalledWith(2, '/users/me/agents/7/activate')
-        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/users/me/agents/7')
+        expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/users/me/agents/7/suspend', undefined, undefined)
+        expect(apiMock.patch).toHaveBeenNthCalledWith(2, '/users/me/agents/7/activate', undefined, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/users/me/agents/7', undefined)
+    })
+
+    it('preserves session guards and legacy request options when merging DELETE bodies', () => {
+        const controller = new AbortController()
+        const config = {
+            expectedSession: { sessionGeneration: 7, userId: 11 },
+            signal: controller.signal,
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+            headers: { 'X-Request-ID': 'account-mutation' },
+        }
+        const pushSubscription = {
+            endpoint: 'https://example.com/push',
+            keys: { p256dh: 'test-public-key', auth: 'test-auth' },
+        }
+        const keyword = { keyword: 'vue' }
+
+        userApi.deleteAccount('test-password', config)
+        userApi.deletePushSubscription(pushSubscription, config)
+        userApi.deleteKeywordSubscription(keyword, config)
+
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/users/me', {
+            ...config,
+            data: { password: 'test-password' },
+        })
+        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/users/me/push-subscriptions', {
+            ...config,
+            data: pushSubscription,
+        })
+        expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/users/me/keyword-subscriptions', {
+            ...config,
+            data: keyword,
+        })
+        expect(config).not.toHaveProperty('data')
     })
 
     it('calls block and activity endpoints with params', async () => {
@@ -157,8 +191,8 @@ describe('userApi', () => {
         userApi.getMyPoint()
         const pointResponse = await userApi.getMyPointHistories(params)
 
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/users/3/block')
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/users/3/block')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/users/3/block', undefined, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/users/3/block', undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/users/me/blocks')
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/users/me/blocks', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/users/me/posts', { params })

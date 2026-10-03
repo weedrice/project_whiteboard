@@ -10,6 +10,6 @@ export const badgeApi = {
     getMyBadges: (config?: AxiosRequestConfig) =>
         api.get<ApiResponse<Badge[]>>('/users/me/badges', config),
 
-    updateRepresentativeBadge: (badgeCode: string | null) =>
-        api.put<ApiResponse<BadgeCompact | null>>('/users/me/badges/representative', { badgeCode }),
+    updateRepresentativeBadge: (badgeCode: string | null, config?: AxiosRequestConfig) =>
+        api.put<ApiResponse<BadgeCompact | null>>('/users/me/badges/representative', { badgeCode }, config),
 }

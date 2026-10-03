@@ -170,19 +170,45 @@ describe('postApi', () => {
         postApi.getHomeLanding('7d')
         postApi.reportPost(reportData)
 
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards/general/posts', postData)
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards/general/posts', postData, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/posts/3', requestConfig)
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/posts/3', updateData)
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/posts/3', updateData, undefined)
         expect(apiMock.put).toHaveBeenNthCalledWith(2, '/posts/3/history', { lastReadCommentId: 9, durationMs: 30000 }, requestConfig)
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/posts/3')
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/posts/3/view')
-        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/posts/3/like')
-        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/posts/3/like')
-        expect(apiMock.post).toHaveBeenNthCalledWith(4, '/posts/3/scrap')
-        expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/posts/3/scrap')
+        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/posts/3/like', undefined, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/posts/3/like', undefined)
+        expect(apiMock.post).toHaveBeenNthCalledWith(4, '/posts/3/scrap', undefined, undefined)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/posts/3/scrap', undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/posts/3/versions', requestConfig)
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/home/landing', { params: { period: '7d' } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
+        expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData, undefined)
+    })
+
+    it('forwards session intent and request options for post mutations', () => {
+        const controller = new AbortController()
+        const config = {
+            expectedSession: { sessionGeneration: 7, userId: 11 },
+            signal: controller.signal,
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+            headers: { 'X-Request-ID': 'post-mutation' },
+        }
+        const postData = { title: 'title', contents: 'body' }
+        const vote = { optionIds: [2] }
+        const report = { targetPostId: 3, reason: 'spam' }
+
+        postApi.createPost('general', postData, config)
+        postApi.likePost(3, config)
+        postApi.votePoll(3, vote, config)
+        postApi.reportPost(report, config)
+        postApi.deletePost(3, config)
+
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards/general/posts', postData, config)
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/posts/3/like', undefined, config)
+        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/posts/3/poll/vote', vote, config)
+        expect(apiMock.post).toHaveBeenNthCalledWith(4, '/reports/posts', report, config)
+        expect(apiMock.delete).toHaveBeenCalledWith('/posts/3', config)
     })
 
     it('passes through source home landing response fields in the API layer', async () => {

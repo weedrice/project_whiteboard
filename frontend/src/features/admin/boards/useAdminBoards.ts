@@ -1,4 +1,5 @@
-import { useMutation, type QueryClient } from '@tanstack/vue-query'
+import { type QueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
@@ -52,8 +53,8 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useCreateBoard = () => {
-        return useMutation({
-            mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
+        return useAuthScopedMutation({
+            mutationFn: (data: BoardCreateData, mutationContext) => adminApi.createBoard(data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -64,8 +65,8 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useUpdateBoard = () => {
-        return useMutation({
-            mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
+        return useAuthScopedMutation({
+            mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }, mutationContext) => adminApi.updateBoard(boardUrl, data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_, { boardUrl, data }, context) => {
                 if (!isCurrentMutation(context)) return
@@ -82,8 +83,8 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useDeleteBoard = () => {
-        return useMutation({
-            mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
+        return useAuthScopedMutation({
+            mutationFn: (boardUrl: string, mutationContext) => adminApi.deleteBoard(boardUrl, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, boardUrl, context) => {
                 if (!isCurrentMutation(context)) return
@@ -95,9 +96,9 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useReorderBoards = () => {
-        return useMutation({
-            mutationFn: async (boardIds: number[]) => {
-                const response = await adminApi.reorderBoards(boardIds)
+        return useAuthScopedMutation({
+            mutationFn: async (boardIds: number[], mutationContext) => {
+                const response = await adminApi.reorderBoards(boardIds, mutationContext.requestConfig)
                 return unwrapApiData(response.data)
             },
             onMutate: captureMutationSession,
@@ -127,9 +128,9 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useUpdateBoardManager = () => {
-        return useMutation({
-            mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerUpdateData }) =>
-                adminApi.updateBoardManager(boardId, data),
+        return useAuthScopedMutation({
+            mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerUpdateData }, mutationContext) =>
+                adminApi.updateBoardManager(boardId, data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_, { boardId }, context) => {
                 if (!isCurrentMutation(context)) return

@@ -103,8 +103,8 @@ export const userAccountApi = {
             ? api.get<ApiResponse<PageResponseRaw<LoginHistory>>>('/users/me/login-history', { ...config, params })
             : api.get<ApiResponse<PageResponseRaw<LoginHistory>>>('/users/me/login-history', { params })
     },
-    updatePassword(currentPassword: string, newPassword: string) {
-        return api.put<ApiResponse<ActionMessageResponse>>('/users/me/password', { currentPassword, newPassword })
+    updatePassword(currentPassword: string, newPassword: string, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<ActionMessageResponse>>('/users/me/password', { currentPassword, newPassword }, config)
     },
     deleteAccount(password: string, config?: AxiosRequestConfig) {
         return api.delete<ApiResponse<ActionMessageResponse>>('/users/me', { ...config, data: { password } })

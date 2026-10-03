@@ -1,4 +1,5 @@
-import { useMutation, type QueryClient } from '@tanstack/vue-query'
+import { type QueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
@@ -70,8 +71,8 @@ export function useAdminModeration(queryClient: QueryClient) {
     }
 
     const useResolveReport = () => {
-        return useMutation({
-            mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
+        return useAuthScopedMutation({
+            mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }, mutationContext) => adminApi.resolveReport(reportId, data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (response, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -128,8 +129,8 @@ export function useAdminModeration(queryClient: QueryClient) {
     }
 
     const useBlockIp = () => {
-        return useMutation({
-            mutationFn: (data: IpBlockData) => adminApi.blockIp(data),
+        return useAuthScopedMutation({
+            mutationFn: (data: IpBlockData, mutationContext) => adminApi.blockIp(data, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -139,8 +140,8 @@ export function useAdminModeration(queryClient: QueryClient) {
     }
 
     const useUnblockIp = () => {
-        return useMutation({
-            mutationFn: (ipAddress: string) => adminApi.unblockIp(ipAddress),
+        return useAuthScopedMutation({
+            mutationFn: (ipAddress: string, mutationContext) => adminApi.unblockIp(ipAddress, mutationContext.requestConfig),
             onMutate: captureMutationSession,
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

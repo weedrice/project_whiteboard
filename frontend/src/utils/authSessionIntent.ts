@@ -26,9 +26,15 @@ export function isAuthSessionIntentCurrent(
 export function throwIfAuthSessionIntentChanged(
   source: AuthSessionIntentSource,
   intent: AuthSessionIntent,
-  signal?: AbortSignal,
+  signal?: Pick<AbortSignal, 'aborted'>,
 ): void {
   if (signal?.aborted || !isAuthSessionIntentCurrent(source, intent)) {
-    throw new DOMException('Authentication session changed', 'AbortError')
+    throw createAuthSessionChangedError()
   }
+}
+
+export function createAuthSessionChangedError() {
+  return Object.assign(new DOMException('Authentication session changed', 'AbortError'), {
+    suppressGlobalErrorToast: true,
+  })
 }

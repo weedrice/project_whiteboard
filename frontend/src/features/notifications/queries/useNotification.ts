@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import {
     notificationApi,
     type NotificationParams
@@ -52,10 +53,10 @@ export function useNotification() {
     }
 
     const useMarkAsRead = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-            mutationFn: async (notificationId: number) => {
-                const { data } = await notificationApi.markAsRead(notificationId)
+            mutationFn: async (notificationId: number, mutationContext) => {
+                const { data } = await notificationApi.markAsRead(notificationId, mutationContext.requestConfig)
                 return data
             },
             onSuccess: (_data, _variables, context) => {
@@ -66,10 +67,10 @@ export function useNotification() {
     }
 
     const useMarkAllAsRead = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-            mutationFn: async () => {
-                const { data } = await notificationApi.markAllAsRead()
+            mutationFn: async (_variables: void, mutationContext) => {
+                const { data } = await notificationApi.markAllAsRead(mutationContext.requestConfig)
                 return data
             },
             onSuccess: (_data, _variables, context) => {

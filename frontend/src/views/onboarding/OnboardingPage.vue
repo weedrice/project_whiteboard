@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Bell, Check, Compass } from 'lucide-vue-next'
@@ -51,9 +52,9 @@ const {
 })
 
 const { mutateAsync: completeOnboarding, isPending: isCompleting } = useCompleteOnboarding()
-const subscribeMutation = useMutation({
-  mutationFn: async (board: BoardListItem) => {
-    await boardApi.subscribeBoard(board.boardUrl)
+const subscribeMutation = useAuthScopedMutation({
+  mutationFn: async (board: BoardListItem, mutationContext) => {
+    await boardApi.subscribeBoard(board.boardUrl, mutationContext.requestConfig)
     return board
   },
   onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),

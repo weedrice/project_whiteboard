@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { postDetailQueryKey, usePost } from '@/features/board/posts/queries/usePost'
@@ -271,7 +273,7 @@ describe('usePost', () => {
         const mutation = useCreatePost()
         await mutation.mutate({ boardUrl: 'free', data: { title: 'new', contents: 'body' } })
 
-        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
+        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' }, authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['user', 'points']) })
@@ -293,7 +295,7 @@ describe('usePost', () => {
         }
         await mutation.mutate({ postId: 1, data })
 
-        expect(postApi.updatePost).toHaveBeenCalledWith(1, data)
+        expect(postApi.updatePost).toHaveBeenCalledWith(1, data, authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
@@ -310,7 +312,7 @@ describe('usePost', () => {
         const mutation = useDeletePost()
         await mutation.mutate(1)
 
-        expect(postApi.deletePost).toHaveBeenCalledWith(1)
+        expect(postApi.deletePost).toHaveBeenCalledWith(1, authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['tags']) })
@@ -349,7 +351,7 @@ describe('usePost', () => {
         expect(getInfinitePostItem(sessionKey(['board', 'posts', 'free']), 0)).toMatchObject({ liked: true, likeCount: 3 })
         expect(getInfinitePostItem(sessionKey(['board', 'posts', 'free']), 1)).toMatchObject({ postId: 99, likeCount: 10, liked: false })
         expect(getPostPageItem(sessionKey(['board', 'posts', 'hot']), 0)).toMatchObject({ liked: true, likeCount: 3 })
-        expect(postApi.likePost).toHaveBeenCalledWith(1)
+        expect(postApi.likePost).toHaveBeenCalledWith(1, authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -556,9 +558,15 @@ describe('usePost', () => {
         const { useReportPost } = usePost()
         await useReportPost().mutate(payload)
 
-        expect(postApi.reportPost).toHaveBeenCalledWith(payload)
+        expect(postApi.reportPost).toHaveBeenCalledWith(payload, authMutationConfig())
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: sessionKey(['reports', 'me']),
         })
     })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

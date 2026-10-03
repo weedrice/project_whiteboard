@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { commentApi } from '@/api/comment'
@@ -199,7 +201,7 @@ describe('useComment', () => {
             data: { content: 'New comment' },
         })
 
-        expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
+        expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' }, authMutationConfig())
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
@@ -225,7 +227,7 @@ describe('useComment', () => {
             data: { content: 'Updated' },
         })
 
-        expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' })
+        expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' }, authMutationConfig())
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
@@ -239,7 +241,7 @@ describe('useComment', () => {
 
         await mutation.mutateAsync({ commentId: 10, postId: 123 })
 
-        expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
+        expect(commentApi.deleteComment).toHaveBeenCalledWith(10, authMutationConfig())
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
@@ -284,8 +286,8 @@ describe('useComment', () => {
         await mutation.mutateAsync({ commentId: 7, postId: 123, liked: true })
         await mutation.mutateAsync({ commentId: 7, postId: 123, liked: false })
 
-        expect(commentApi.likeComment).toHaveBeenCalledWith(7)
-        expect(commentApi.unlikeComment).toHaveBeenCalledWith(7)
+        expect(commentApi.likeComment).toHaveBeenCalledWith(7, authMutationConfig())
+        expect(commentApi.unlikeComment).toHaveBeenCalledWith(7, authMutationConfig())
         expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(mockSetQueriesData).toHaveBeenCalled()
         expect(mockInvalidateQueries).toHaveBeenCalledTimes(2)
@@ -305,4 +307,10 @@ describe('useComment', () => {
         expect(mockSetQueryData).toHaveBeenCalledWith(['comments', 'post', 123], snapshot)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
     })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

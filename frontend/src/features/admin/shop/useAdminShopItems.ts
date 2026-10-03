@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { adminApi, type AdminShopItemSaleStatusData } from '@/api/admin'
 import type { AdminShopItem, AdminShopItemSearchParams } from '@/types'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
@@ -41,10 +42,10 @@ export function useUpdateAdminShopItemSaleStatus() {
     const queryClient = useQueryClient()
     const authStore = useAuthStore()
 
-    return useMutation({
+    return useAuthScopedMutation({
         meta: LOCAL_MUTATION_ERROR_META,
-        mutationFn: ({ itemId, ...data }: UpdateSaleStatusRequest) =>
-            adminApi.updateShopItemSaleStatus(itemId, data),
+        mutationFn: ({ itemId, ...data }: UpdateSaleStatusRequest, mutationContext) =>
+            adminApi.updateShopItemSaleStatus(itemId, data, mutationContext.requestConfig),
         onMutate: () => ({ sessionGeneration: captureSessionGeneration(authStore) }),
         onSuccess: async (_response, _variables, context) => {
             if (!isSessionGenerationCurrent(authStore, context.sessionGeneration)) return

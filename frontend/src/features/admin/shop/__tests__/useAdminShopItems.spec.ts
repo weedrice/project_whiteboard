@@ -1,3 +1,5 @@
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
@@ -66,7 +68,7 @@ describe('useUpdateAdminShopItemSaleStatus', () => {
     expect(adminApi.updateShopItemSaleStatus).toHaveBeenCalledWith(17, {
       saleEnabled: false,
       reason: 'review',
-    })
+    }, authMutationConfig())
 
     const context = (options?.onMutate as () => MutationContext)()
     await (options?.onSuccess as (
@@ -100,4 +102,10 @@ describe('useUpdateAdminShopItemSaleStatus', () => {
 
     expect(invalidateQueries).not.toHaveBeenCalled()
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

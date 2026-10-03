@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { useBoard } from '../useBoard'
@@ -433,10 +435,10 @@ describe('useBoard', () => {
         const mutation = useSubscribeBoard()
 
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: false })
-        expect(boardApi.subscribeBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.subscribeBoard).toHaveBeenCalledWith('free', authMutationConfig())
 
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: true })
-        expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free', authMutationConfig())
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
@@ -452,10 +454,10 @@ describe('useBoard', () => {
         })
 
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: false })
-        expect(boardApi.subscribeBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
+        expect(boardApi.subscribeBoard).toHaveBeenCalledWith('free', authMutationConfig({ skipGlobalErrorHandler: true }))
 
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: true })
-        expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
+        expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free', authMutationConfig({ skipGlobalErrorHandler: true }))
     })
 
     it('creates board and invalidates board lists', async () => {
@@ -469,7 +471,7 @@ describe('useBoard', () => {
 
         expect(boardApi.createBoard).toHaveBeenCalledWith(
             { boardName: 'New board', boardUrl: 'new' },
-            { signal: undefined, skipGlobalErrorHandler: true },
+            authMutationConfig({ signal: undefined, skipGlobalErrorHandler: true }),
         )
         expect(result).toEqual({ boardId: 3, boardUrl: 'new' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
@@ -515,7 +517,7 @@ describe('useBoard', () => {
         expect(boardApi.updateBoard).toHaveBeenCalledWith(
             'free',
             { boardName: 'updated' },
-            { signal: undefined, skipGlobalErrorHandler: true },
+            authMutationConfig({ signal: undefined, skipGlobalErrorHandler: true }),
         )
         expect(result).toEqual(updatedBoard)
         expect(mocks.setQueryData).toHaveBeenCalledWith(
@@ -562,7 +564,7 @@ describe('useBoard', () => {
         expect(boardApi.updateBoardManager).toHaveBeenCalledWith(
             'free',
             { loginId: 'manager' },
-            { skipGlobalErrorHandler: true },
+            authMutationConfig({ skipGlobalErrorHandler: true }),
         )
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
@@ -624,7 +626,7 @@ describe('useBoard', () => {
         const mutation = useDeleteBoard()
         const result = await mutation.mutateAsync('free')
 
-        expect(boardApi.deleteBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
+        expect(boardApi.deleteBoard).toHaveBeenCalledWith('free', authMutationConfig({ skipGlobalErrorHandler: true }))
         expect(result).toBeNull()
         expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'free'] })
@@ -634,4 +636,10 @@ describe('useBoard', () => {
         expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
     })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

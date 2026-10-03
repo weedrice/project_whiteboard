@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useRoute, useRouter } from 'vue-router'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
@@ -176,23 +177,23 @@ function isCurrentCompose(variables: AdminActionVariables) {
   return selectedId.value === variables.inquiryId && composeEpoch === variables.composeEpoch
 }
 
-const actionMutation = useMutation({
-  mutationFn: async (variables: AdminActionVariables) => {
-    if (variables.action === 'start') return inquiryApi.start(variables.inquiryId)
+const actionMutation = useAuthScopedMutation({
+  mutationFn: async (variables: AdminActionVariables, mutationContext) => {
+    if (variables.action === 'start') return inquiryApi.start(variables.inquiryId, mutationContext.requestConfig)
     if (variables.action === 'reply') {
       return inquiryApi.reply(variables.inquiryId, {
         content: variables.content,
         fileIds: variables.fileIds,
-      })
+      }, mutationContext.requestConfig)
     }
     if (variables.action === 'note') {
       return inquiryApi.addNote(variables.inquiryId, {
         content: variables.content,
         fileIds: variables.fileIds,
-      })
+      }, mutationContext.requestConfig)
     }
-    if (variables.action === 'reopen') return inquiryApi.reopen(variables.inquiryId)
-    return inquiryApi.adminClose(variables.inquiryId, variables.reason!)
+    if (variables.action === 'reopen') return inquiryApi.reopen(variables.inquiryId, mutationContext.requestConfig)
+    return inquiryApi.adminClose(variables.inquiryId, variables.reason!, mutationContext.requestConfig)
   },
   onSuccess: async (response, variables) => {
     queryClient.setQueryData(
@@ -217,17 +218,18 @@ const actionMutation = useMutation({
     if (isCurrentCompose(variables)) errorMessage.value = ''
     await refresh(variables.generation)
   },
-  onError: async (error, variables) => {
-    if ((variables.action === 'reply' || variables.action === 'note')
-      && variables.uploader) {
-      await variables.uploader.failSubmission()
-    }
+  onError: (error, variables) => {
     if (!isCurrentCompose(variables)) return
     if ((variables.action === 'reply' || variables.action === 'note')
       && uploader.value === variables.uploader) {
       fileIds.value = []
     }
     errorMessage.value = extractErrorMessage(error) || t('inquiry.admin.actionFailed')
+  },
+  onCleanup: async (_data, error, variables, _result, context) => {
+    if (error && (variables.action === 'reply' || variables.action === 'note')) {
+      await variables.uploader?.failSubmission(context.requestConfig)
+    }
   },
 })
 

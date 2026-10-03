@@ -82,7 +82,8 @@ describe('post cache invalidation', () => {
       return apiDataResponse<typeof postApi.createPost>({ postId: 1 })
     })
     const keys = [...collectionKeys, ['user', 'points', 'me']]
-    const refreshed = await expectQueriesRefetchedOnce(createPost, [], [
+    const refreshed = await expectQueriesRefetchedOnce(
+      (client) => expect(createPost(client)).rejects.toMatchObject({ name: 'AbortError', suppressGlobalErrorToast: true }), [], [
       ...keys.map((key) => sessionQueryKey(3, key)),
       ...keys.map((key) => sessionQueryKey(4, key)),
     ])

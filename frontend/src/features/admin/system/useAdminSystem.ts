@@ -1,4 +1,5 @@
-import { useMutation, type QueryClient } from '@tanstack/vue-query'
+import { type QueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -46,9 +47,9 @@ export function useAdminSystem(queryClient: QueryClient) {
     }
 
     const useUpdateConfig = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }) => adminApi.updateConfig(key, value, description),
+            mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }, mutationContext) => adminApi.updateConfig(key, value, description, mutationContext.requestConfig),
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
@@ -58,9 +59,9 @@ export function useAdminSystem(queryClient: QueryClient) {
     }
 
     const useCreateConfig = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: (data: ConfigCreateData) => adminApi.createConfig(data),
+            mutationFn: (data: ConfigCreateData, mutationContext) => adminApi.createConfig(data, mutationContext.requestConfig),
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
@@ -70,9 +71,9 @@ export function useAdminSystem(queryClient: QueryClient) {
     }
 
     const useDeleteConfig = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: (key: string) => adminApi.deleteConfig(key),
+            mutationFn: (key: string, mutationContext) => adminApi.deleteConfig(key, mutationContext.requestConfig),
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
@@ -165,9 +166,9 @@ export function useAdminSystem(queryClient: QueryClient) {
     }
 
     const useResolveErrorLog = () => {
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: captureMutationSession,
-            mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
+            mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }, mutationContext) => adminApi.resolveErrorLog(errorLogId, data, mutationContext.requestConfig),
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminErrorLogCaches(

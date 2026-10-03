@@ -1,5 +1,6 @@
 import { computed, getCurrentScope, onScopeDispose, type Ref } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { attendanceApi } from '@/api/attendance'
 import { unwrapAxiosApiData } from '@/api/response'
 import { attendanceQueryKeys } from '@/features/user/attendance/attendanceQueryKeys'
@@ -46,18 +47,18 @@ export function useAttendance() {
             })
         }
 
-        return useMutation({
+        return useAuthScopedMutation({
             onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-            mutationFn: async () => {
+            mutationFn: async (_variables: void, mutationContext) => {
                 cancelActiveCheckIn()
                 const controller = new AbortController()
                 const intent = captureAuthSessionIntent(authStore)
                 activeController = controller
                 try {
-                    const result = unwrapAxiosApiData(await attendanceApi.checkIn({
+                    const result = unwrapAxiosApiData(await attendanceApi.checkIn(mutationContext.withRequestConfig({
                         signal: controller.signal,
                         skipGlobalErrorHandler: true,
-                    }))
+                    })))
                     throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
                     return result
                 } finally {

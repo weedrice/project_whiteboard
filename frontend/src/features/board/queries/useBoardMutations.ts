@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosRequestConfig } from 'axios'
 import { unwrapAxiosApiData } from '@/api/response'
 import { boardApi } from '@/api/board'
@@ -25,20 +26,20 @@ export function useBoardMutations() {
 
   const useSubscribeBoard = (options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
     const { requestConfig, ...mutationOptions } = options
-    return useMutation({
-      mutationFn: async ({ boardUrl, isSubscribed }: { boardUrl: string, isSubscribed: boolean }) => {
+    return useAuthScopedMutation({
+      mutationFn: async ({ boardUrl, isSubscribed }: { boardUrl: string, isSubscribed: boolean }, mutationContext) => {
         if (isSubscribed) {
           if (requestConfig) {
-            await boardApi.unsubscribeBoard(boardUrl, requestConfig)
+            await boardApi.unsubscribeBoard(boardUrl, mutationContext.withRequestConfig(requestConfig))
             return
           }
-          await boardApi.unsubscribeBoard(boardUrl)
+          await boardApi.unsubscribeBoard(boardUrl, mutationContext.requestConfig)
         } else {
           if (requestConfig) {
-            await boardApi.subscribeBoard(boardUrl, requestConfig)
+            await boardApi.subscribeBoard(boardUrl, mutationContext.withRequestConfig(requestConfig))
             return
           }
-          await boardApi.subscribeBoard(boardUrl)
+          await boardApi.subscribeBoard(boardUrl, mutationContext.requestConfig)
         }
       },
       onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
@@ -51,15 +52,15 @@ export function useBoardMutations() {
   }
 
   const useCreateBoard = () => {
-    return useMutation({
+    return useAuthScopedMutation({
       meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
-      mutationFn: async (request: BoardCreateData & { signal?: AbortSignal }) => {
+      mutationFn: async (request: BoardCreateData & { signal?: AbortSignal }, mutationContext) => {
         const { signal, ...data } = request
-        return unwrapAxiosApiData(await boardApi.createBoard(data, {
+        return unwrapAxiosApiData(await boardApi.createBoard(data, mutationContext.withRequestConfig({
           signal,
           skipGlobalErrorHandler: true,
-        }))
+        })))
       },
       onSuccess: (_data, _variables, context) => {
         if (!isCurrentMutation(context)) return
@@ -69,18 +70,18 @@ export function useBoardMutations() {
   }
 
   const useUpdateBoard = () => {
-    return useMutation({
+    return useAuthScopedMutation({
       meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
       mutationFn: async ({ boardUrl, data, signal }: {
         boardUrl: string
         data: BoardUpdateData
         signal?: AbortSignal
-      }) => {
-        return unwrapAxiosApiData(await boardApi.updateBoard(boardUrl, data, {
+      }, mutationContext) => {
+        return unwrapAxiosApiData(await boardApi.updateBoard(boardUrl, data, mutationContext.withRequestConfig({
           signal,
           skipGlobalErrorHandler: true,
-        }))
+        })))
       },
       onSuccess: (updatedBoard, { boardUrl, data }, context) => {
         if (!isCurrentMutation(context)) return
@@ -103,14 +104,14 @@ export function useBoardMutations() {
   }
 
   const useTransferBoardManager = () => {
-    return useMutation({
+    return useAuthScopedMutation({
       meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
-      mutationFn: async ({ boardUrl, loginId }: { boardUrl: string, loginId: string }) => {
+      mutationFn: async ({ boardUrl, loginId }: { boardUrl: string, loginId: string }, mutationContext) => {
         return unwrapAxiosApiData(await boardApi.updateBoardManager(
           boardUrl,
           { loginId },
-          { skipGlobalErrorHandler: true },
+          mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }),
         ))
       },
       onSuccess: (_, { boardUrl }, context) => {
@@ -122,13 +123,13 @@ export function useBoardMutations() {
   }
 
   const useDeleteBoard = () => {
-    return useMutation({
+    return useAuthScopedMutation({
       meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
-      mutationFn: async (boardUrl: string) => {
-        return unwrapAxiosApiData(await boardApi.deleteBoard(boardUrl, {
+      mutationFn: async (boardUrl: string, mutationContext) => {
+        return unwrapAxiosApiData(await boardApi.deleteBoard(boardUrl, mutationContext.withRequestConfig({
           skipGlobalErrorHandler: true,
-        }))
+        })))
       },
       onSuccess: (_data, boardUrl, context) => {
         if (!isCurrentMutation(context)) return

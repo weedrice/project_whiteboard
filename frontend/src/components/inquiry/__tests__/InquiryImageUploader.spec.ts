@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AxiosRequestConfig } from 'axios'
 import InquiryImageUploader from '../InquiryImageUploader.vue'
 
 const { uploadFile, discardUploads, discardUploadsOnPageExit } = vi.hoisted(() => ({
@@ -124,7 +125,7 @@ describe('InquiryImageUploader', () => {
     await flushPromises()
     const uploader = wrapper.vm as unknown as {
       beginSubmission: () => boolean
-      failSubmission: () => Promise<void>
+      failSubmission: (config?: AxiosRequestConfig) => Promise<void>
     }
 
     expect(uploader.beginSubmission()).toBe(true)
@@ -132,9 +133,13 @@ describe('InquiryImageUploader', () => {
 
     expect(discardUploadsOnPageExit).not.toHaveBeenCalled()
 
-    await uploader.failSubmission()
+    const config = {
+      expectedSession: { sessionGeneration: 1, userId: 7 },
+      signal: new AbortController().signal,
+    }
+    await uploader.failSubmission(config)
 
-    expect(discardUploads).toHaveBeenCalledWith([202], { skipGlobalErrorHandler: true })
+    expect(discardUploads).toHaveBeenCalledWith([202], { ...config, skipGlobalErrorHandler: true })
   })
 
   it('locks its own controls immediately and does not mutate the parent model when submission completes', async () => {
