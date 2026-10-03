@@ -96,10 +96,11 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
 
     try {
         const emoticon = await queryClient.fetchQuery({
-            queryKey: emoticonQueryKeys.detail(emoticonIdParam),
-            queryFn: () => emoticonApi.getEmoticonData(emoticonIdParam),
+            queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(emoticonIdParam)),
+            queryFn: ({ signal }) => emoticonApi.getEmoticonData(emoticonIdParam, { signal }),
             retry: false,
             staleTime: QUERY_STALE_TIME.SHORT,
+            meta: AUTH_SCOPED_QUERY_META,
         })
         if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
 

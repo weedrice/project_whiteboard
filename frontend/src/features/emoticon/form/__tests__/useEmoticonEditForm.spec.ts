@@ -3,6 +3,8 @@ import { defineComponent, computed, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useEmoticonEditForm } from '../useEmoticonEditForm'
 import { toEmoticonEditFormState } from '../useEmoticonEditResource'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   toggleVisibility: vi.fn(),
@@ -107,6 +109,21 @@ describe('useEmoticonEditForm', () => {
 
     expect(confirm).toHaveBeenCalledWith('emoticon.visibility.hideConfirm')
     expect(mocks.toggleVisibility).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('cancels a pending visibility confirmation when the edit session is reset', async () => {
+    const confirmation = createDeferred<boolean>()
+    const confirm = createConfirmMock().mockReturnValue(confirmation.promise)
+    const { form, wrapper } = mountForm({ confirm })
+    const pending = form.handleToggleVisibility()
+
+    notifyAuthSessionBoundary(2)
+    confirmation.resolve(true)
+    await pending
+
+    expect(mocks.toggleVisibility).not.toHaveBeenCalled()
+    expect(form.emoticonName.value).toBe('')
     wrapper.unmount()
   })
 

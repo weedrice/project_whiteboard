@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref, type ComputedRef } from 'vue'
 import { useEmoticonDetailResource } from '../useEmoticonDetailResource'
@@ -93,6 +95,7 @@ describe('useEmoticonDetailResource', () => {
     expect((detailOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticon', 11])
     expect((purchaseOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticon', 11, 'purchased'])
     expect((detailOptions.enabled as ComputedRef<boolean>).value).toBe(true)
+    expect(detailOptions.meta).toEqual({ authScoped: true })
     expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
     expect(purchaseOptions).toMatchObject({
       refetchInterval: 30_000,
@@ -127,9 +130,9 @@ describe('useEmoticonDetailResource', () => {
     const resource = useEmoticonDetailResource(emoticonId)
     await resource.purchase()
 
-    expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12, { skipGlobalErrorHandler: true })
+    expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12, authMutationConfig({ skipGlobalErrorHandler: true }))
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.purchase.success', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12, 'purchased'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticons', 'accessible', 'picker'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
@@ -150,8 +153,14 @@ describe('useEmoticonDetailResource', () => {
     purchase.resolve(purchaseResponse)
     await pendingPurchase
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12, 'purchased'] })
-    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['emoticon', 13] })
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 13] })
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

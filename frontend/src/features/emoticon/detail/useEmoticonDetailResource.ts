@@ -1,5 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosResponse } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
@@ -36,6 +37,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
       (config) => emoticonApi.getEmoticon(emoticonId.value, config),
     ) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
     enabled: computed(() => !!emoticonId.value),
+    meta: AUTH_SCOPED_QUERY_META,
   })
 
   const {
@@ -59,16 +61,18 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
 
   const emoticonView = useEmoticonDetailViewModel(emoticon)
 
-  const { mutate: purchaseEmoticon, isPending: isPurchasing } = useMutation({
+  const { mutate: purchaseEmoticon, isPending: isPurchasing } = useAuthScopedMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-    mutationFn: async (targetEmoticonId: number) => {
-      await emoticonApi.purchaseEmoticon(targetEmoticonId, { skipGlobalErrorHandler: true })
+    mutationFn: async (targetEmoticonId: number, mutationContext) => {
+      await emoticonApi.purchaseEmoticon(targetEmoticonId, mutationContext.withRequestConfig({ skipGlobalErrorHandler: true }))
       return { targetEmoticonId }
     },
     onSuccess: ({ targetEmoticonId }, _variables, context) => {
       if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
-      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.detail(targetEmoticonId)),
+      })
       queryClient.invalidateQueries({
         queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
       })

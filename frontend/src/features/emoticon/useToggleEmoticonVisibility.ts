@@ -1,5 +1,6 @@
 import { getCurrentScope, onScopeDispose, type ComputedRef } from 'vue'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import { useToastStore } from '@/stores/toast'
@@ -44,13 +45,13 @@ export function useToggleEmoticonVisibility(
     targetEmoticonId: number
   }
 
-  const mutation = useMutation({
-    mutationFn: async (intent: VisibilityIntent) => {
+  const mutation = useAuthScopedMutation({
+    mutationFn: async (intent: VisibilityIntent, mutationContext) => {
       activeControllers.add(intent.controller)
-      const updatedEmoticon = await emoticonApi.toggleVisibilityData(intent.targetEmoticonId, {
+      const updatedEmoticon = await emoticonApi.toggleVisibilityData(intent.targetEmoticonId, mutationContext.withRequestConfig({
         signal: intent.controller.signal,
         skipGlobalErrorHandler: true,
-      })
+      }))
       return { ...intent, updatedEmoticon }
     },
     onSuccess: ({ controller, sessionGeneration, targetEmoticonId, updatedEmoticon }) => {
@@ -64,7 +65,9 @@ export function useToggleEmoticonVisibility(
         isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
         'success'
       )
-      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.detail(targetEmoticonId)),
+      })
       if (options.invalidatePurchaseStatus) {
         queryClient.invalidateQueries({
           queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
@@ -81,7 +84,7 @@ export function useToggleEmoticonVisibility(
       const message = extractErrorMessage(err) || t('emoticon.edit.failed')
       toastStore.addToast(message, 'error')
     },
-    onSettled: (_data, _error, intent) => {
+    onCleanup: (_data, _error, intent) => {
       activeControllers.delete(intent.controller)
     },
   })

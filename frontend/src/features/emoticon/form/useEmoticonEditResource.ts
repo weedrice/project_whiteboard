@@ -7,6 +7,7 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { ApiResponse } from '@/types'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 interface UseEmoticonEditResourceOptions {
   emoticonId: ComputedRef<number>
@@ -41,6 +42,7 @@ export function useEmoticonEditResource({
       (config) => emoticonApi.getEmoticon(emoticonId.value, config),
     ) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
     enabled: computed(() => !!emoticonId.value),
+    meta: AUTH_SCOPED_QUERY_META,
     staleTime: QUERY_STALE_TIME.SHORT,
   })
   const editFormState = computed(() => {

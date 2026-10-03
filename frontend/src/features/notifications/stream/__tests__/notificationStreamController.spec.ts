@@ -250,7 +250,7 @@ describe('notificationStreamController dependencies', () => {
             queryKey: ['session', 7, 'admin', 'shop-items'],
         })
         expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-            queryKey: ['emoticon', 9],
+            queryKey: ['session', 7, 'emoticon', 9],
         })
         expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['session', 7, 'emoticon', 9, 'purchased'],

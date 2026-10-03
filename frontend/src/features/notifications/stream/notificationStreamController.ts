@@ -178,7 +178,7 @@ export function createNotificationStreamController(
 
             if (event.itemType === 'EMOTICON' && event.targetId !== null) {
                 void queryClient.invalidateQueries({
-                    queryKey: emoticonQueryKeys.detail(event.targetId),
+                    queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(event.targetId)),
                 })
                 void queryClient.invalidateQueries({
                     queryKey: sessionQueryKey(

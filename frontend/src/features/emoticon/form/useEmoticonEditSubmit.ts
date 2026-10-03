@@ -7,6 +7,7 @@ import { useEmoticonImageUploader } from '@/features/emoticon/form/useEmoticonIm
 import { useEmoticonSubmitGuard } from '@/features/emoticon/form/useEmoticonSubmitGuard'
 import type { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
+import { getCurrentSessionGeneration, sessionQueryKey } from '@/queryAuthScope'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
 
@@ -55,6 +56,7 @@ export function useEmoticonEditSubmit({
   })
 
   const handleSubmit = () => runSubmit(async (currentRunId) => {
+    const sessionGeneration = getCurrentSessionGeneration()
     const submitSnapshot = {
       emoticonId: emoticonId.value,
       thumbnail: thumbnailFile.value,
@@ -101,7 +103,9 @@ export function useEmoticonEditSubmit({
       uploadSession.clearTrackedUploads(currentRunId)
 
       if (uploadSession.isSubmitActive(currentRunId)) {
-        queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(submitSnapshot.emoticonId) })
+        queryClient.invalidateQueries({
+          queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(submitSnapshot.emoticonId)),
+        })
         queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
 
         onSuccess(submitSnapshot.emoticonId)

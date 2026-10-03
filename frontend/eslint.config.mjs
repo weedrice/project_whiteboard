@@ -186,6 +186,19 @@ export default [
         },
     },
     {
+        files: ['src/**/*.{ts,vue}'],
+        ignores: ['src/composables/useAuthScopedMutation.ts', 'src/**/*.{spec,test}.ts', 'src/**/__tests__/**'],
+        rules: {
+            'no-restricted-syntax': ['error', {
+                selector: "ImportDeclaration[source.value='@tanstack/vue-query'] ImportSpecifier[imported.name='useMutation']",
+                message: 'Use @/composables/useAuthScopedMutation to preserve the initiating auth session.',
+            }, {
+                selector: "ImportDeclaration[source.value='@tanstack/vue-query'] ImportNamespaceSpecifier",
+                message: 'Use named Vue Query imports and the shared useAuthScopedMutation composable.',
+            }],
+        },
+    },
+    {
         files: ['src/**/*.{spec,test}.ts', 'src/**/__tests__/**/*.{ts,vue}'],
         plugins: {
             vitest,

@@ -1,3 +1,5 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
+import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { computed, defineComponent, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -93,12 +95,12 @@ describe('useToggleEmoticonVisibility', () => {
     expect(mutationResult).toEqual({ ...intent, updatedEmoticon: toggleResult })
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
-    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, {
+    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, authMutationConfig({
       signal: intent.controller.signal,
       skipGlobalErrorHandler: true,
-    })
+    }))
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 7] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['session', 0, 'emoticon', 7] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, {
       queryKey: ['session', 0, 'emoticon', 7, 'purchased'],
     })
@@ -120,7 +122,7 @@ describe('useToggleEmoticonVisibility', () => {
 
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.showSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 9] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['session', 0, 'emoticon', 9] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['emoticons'] })
   })
 
@@ -209,4 +211,10 @@ describe('useToggleEmoticonVisibility', () => {
     resolveRequest(createToggleResult({ emoticonId: 15 }))
     await request
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

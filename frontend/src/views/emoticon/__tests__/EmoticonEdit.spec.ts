@@ -1,3 +1,4 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, reactive, ref } from 'vue'
@@ -606,4 +607,10 @@ describe('EmoticonEdit', () => {
     expect(mocks.confirm).not.toHaveBeenCalled()
   })
 
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

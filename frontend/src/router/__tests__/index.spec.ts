@@ -513,10 +513,10 @@ describe('Router Navigation Guards', () => {
         await router.push('/emoticons/7/edit')
 
         expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-            queryKey: ['emoticon', 7],
+            queryKey: ['session', mockAuthStore.sessionGeneration, 'emoticon', 7],
             retry: false,
         }))
-        expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7)
+        expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7, { signal: expect.any(AbortSignal) })
         expect(router.currentRoute.value.name).toBe('emoticon-edit')
     })
 
@@ -688,7 +688,7 @@ describe('Router Navigation Guards', () => {
         vi.mocked(emoticonApi.getEmoticonData).mockImplementationOnce(() => emoticonRequest.promise)
 
         const navigation = router.push('/emoticons/8/edit')
-        await vi.waitFor(() => expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(8))
+        await vi.waitFor(() => expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(8, { signal: expect.any(AbortSignal) }))
         mockAuthStore.sessionGeneration += 1
         emoticonRequest.resolve(emoticonDetailResponse(2, { emoticonId: 8 }))
         await navigation

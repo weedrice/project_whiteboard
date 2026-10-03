@@ -1,3 +1,4 @@
+import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
@@ -174,7 +175,7 @@ describe('EmoticonDetail', () => {
       context: { sessionGeneration: number },
     ) => void)({ targetEmoticonId: 9 }, 9, { sessionGeneration: 0 })
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 9] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 9] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 9, 'purchased'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'points'] })
   })
@@ -281,4 +282,10 @@ describe('EmoticonDetail', () => {
     expect(wrapper.html()).not.toContain('width: 100px')
     expect(wrapper.html()).not.toContain('height: 100px')
   })
+})
+
+vi.mock('@/composables/useAuthScopedMutation', async () => {
+    const { useMutation } = await import('@tanstack/vue-query')
+    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })

@@ -1,4 +1,4 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
@@ -6,6 +6,7 @@ import type { EmoticonEditFormState } from '@/features/emoticon/form/useEmoticon
 import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
 import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 interface UseEmoticonEditFormOptions {
   emoticonId: ComputedRef<number>
@@ -37,6 +38,7 @@ export function useEmoticonEditForm({
   const imagesToDelete = ref<number[]>([])
   const hydratedEmoticonId = ref<number | null>(null)
   const isSubmitting = ref(false)
+  let formRevision = 0
   const uploadSession = useEmoticonUploadSession()
   const { uploadProgress } = uploadSession
   const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
@@ -72,7 +74,8 @@ export function useEmoticonEditForm({
 
   const changeThumbnail = openThumbnailInput
 
-  watch(emoticonId, () => {
+  const resetForm = () => {
+    formRevision += 1
     uploadSession.cancelSubmitRun()
     uploadSession.resetUploadProgress()
     hydratedEmoticonId.value = null
@@ -85,7 +88,10 @@ export function useEmoticonEditForm({
     tagInput.value = ''
     tags.value = []
     resetImageFormState()
-  }, { flush: 'sync' })
+  }
+  watch(emoticonId, resetForm, { flush: 'sync' })
+  const stopSessionBoundary = subscribeAuthSessionBoundary(resetForm)
+  onScopeDispose(stopSessionBoundary)
 
   watch(editFormState, (formState) => {
     if (!formState) return
@@ -107,9 +113,10 @@ export function useEmoticonEditForm({
   const handleToggleVisibility = async () => {
     if (!emoticon.value) return
     const targetEmoticonId = emoticonId.value
+    const revision = formRevision
     const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
     const isConfirmed = await confirm(verb)
-    if (!isConfirmed || emoticonId.value !== targetEmoticonId) return
+    if (!isConfirmed || emoticonId.value !== targetEmoticonId || revision !== formRevision) return
 
     toggleVisibility()
   }
