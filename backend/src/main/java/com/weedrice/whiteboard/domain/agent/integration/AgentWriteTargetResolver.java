@@ -10,7 +10,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -24,7 +24,7 @@ public class AgentWriteTargetResolver {
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
-    private final CommentRepository commentRepository;
+    private final CommentService commentService;
     private final PostService postService;
     private final AgentWritePolicy agentWritePolicy;
 
@@ -71,14 +71,21 @@ public class AgentWriteTargetResolver {
         }
     }
 
-    public Comment resolveParentCommentForReply(Long commentId, String action, AgentPolicySnapshot policy) {
-        Comment parentComment = commentRepository.findByIdWithRelationsForUpdate(commentId)
-                .orElseThrow(() -> agentWritePolicy.writeException(
+    public Comment resolveParentCommentForReply(Agent agent, Long commentId, String action, AgentPolicySnapshot policy) {
+        Comment parentComment;
+        try {
+            parentComment = commentService.lockCommentForWrite(agent.getUserId(), commentId);
+        } catch (BusinessException exception) {
+            if (exception.getErrorCode() == ErrorCode.COMMENT_NOT_FOUND) {
+                throw agentWritePolicy.writeException(
                         AgentWriteErrorCode.COMMENT_NOT_FOUND,
                         action,
                         policy,
                         null,
-                        null));
+                        null);
+            }
+            throw exception;
+        }
         if (parentComment.getIsDeleted()) {
             throw agentWritePolicy.writeException(
                     AgentWriteErrorCode.COMMENT_NOT_FOUND,
@@ -87,7 +94,7 @@ public class AgentWriteTargetResolver {
                     null,
                     null);
         }
-        Post parentPost = postService.getPostById(parentComment.getPostId(), null, false);
+        Post parentPost = postService.getPostById(parentComment.getPostId(), agent.getUserId(), false);
         if (Boolean.TRUE.equals(parentPost.getIsDeleted())) {
             throw agentWritePolicy.writeException(
                     AgentWriteErrorCode.POST_NOT_FOUND,

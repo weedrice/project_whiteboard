@@ -25,8 +25,8 @@ public class AgentCommentAccessService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
 
-    public void validateReadableActiveComment(Agent agent, Comment comment) {
-        if (comment == null) {
+    public void validateWritableActiveComment(Agent agent, Comment comment) {
+        if (comment == null || Boolean.TRUE.equals(comment.getIsBlinded())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
         Post post = postRepository.findByIdWithRelations(comment.getPostId())
@@ -38,6 +38,7 @@ public class AgentCommentAccessService {
         User viewer = agent == null ? null : userRepository.findById(agent.getUserId()).orElse(null);
         agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
         postAccessPolicy.validateReadable(post, viewer, isAuthorBlocked(viewer, post));
+        agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard(), post.getCategory());
     }
 
     private boolean isAuthorBlocked(User viewer, Post post) {

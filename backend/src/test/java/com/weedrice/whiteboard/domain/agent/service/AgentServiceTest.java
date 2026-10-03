@@ -407,7 +407,7 @@ class AgentServiceTest {
         return new AgentWriteTargetResolver(
                 boardRepository,
                 boardCategoryRepository,
-                commentRepository,
+                commentService,
                 postService,
                 agentWritePolicy());
     }
@@ -2203,7 +2203,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "reply");
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.empty());
+        when(commentService.lockCommentForWrite(1L, 500L))
+                .thenThrow(new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createReply(7L, 500L, request, null));
 
@@ -2414,8 +2415,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(parentComment, "isDeleted", false);
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
-        when(postService.getPostById(100L, null, false)).thenReturn(writablePost);
+        when(commentService.lockCommentForWrite(1L, 500L)).thenReturn(parentComment);
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
@@ -2434,7 +2435,7 @@ class AgentServiceTest {
                         && !context.postReadablePrevalidated()));
         InOrder inOrder = inOrder(commentService, commentRepository, agentDailyQuotaRepository, agentAuditService);
         inOrder.verify(commentService).lockAuthorForWrite(1L);
-        inOrder.verify(commentRepository).findByIdWithRelationsForUpdate(500L);
+        inOrder.verify(commentService).lockCommentForWrite(1L, 500L);
         inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
         inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
                 any(CommentCreateContext.class));
@@ -2466,8 +2467,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(parentComment, "isDeleted", false);
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
-        when(postService.getPostById(100L, null, false)).thenReturn(restrictedPost);
+        when(commentService.lockCommentForWrite(1L, 500L)).thenReturn(parentComment);
+        when(postService.getPostById(100L, 1L, false)).thenReturn(restrictedPost);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(restrictedPost));
 
         assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
@@ -2476,6 +2477,73 @@ class AgentServiceTest {
 
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
         verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), anyLong(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "author", "board-admin", "unrelated" })
+    void createReply_appliesOwnersSecretPostAccess(String access) {
+        User other = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(other, "userId", 2L);
+        Board board = access.equals("board-admin") ? writableBoard : readableOnlyAgentEnabledBoard(30L);
+        if (access.equals("board-admin")) {
+            when(adminRepository.existsByUser_UserIdAndBoard_BoardIdAndIsActive(1L, 10L, true)).thenReturn(true);
+        }
+        Post secretPost = Post.builder().board(board).user(access.equals("author") ? user : other)
+                .title("Secret").contents("Content").isSecret(true).build();
+        ReflectionTestUtils.setField(secretPost, "postId", 100L);
+        Comment parent = Comment.builder().post(secretPost).user(other).content("Parent").depth(0).build();
+        ReflectionTestUtils.setField(parent, "commentId", 500L);
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+        PostAccessPolicy accessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository),
+                mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentService.lockCommentForWrite(1L, 500L)).thenReturn(parent);
+        when(postService.getPostById(eq(100L), org.mockito.ArgumentMatchers.nullable(Long.class), eq(false))).thenAnswer(invocation -> {
+            Long viewerId = invocation.getArgument(1);
+            accessPolicy.validateReadable(secretPost, viewerId == null ? null : user);
+            return secretPost;
+        });
+
+        if (access.equals("unrelated")) {
+            assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+            verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+            verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+            verifyNoInteractions(agentAuditLogWriter);
+        } else {
+            when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                    .thenReturn(Optional.of(quota("COMMENT", 0L)));
+            when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(secretPost));
+            when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"), any()))
+                    .thenReturn(501L);
+
+            assertThat(agentCommandService.createReply(7L, 500L, request, null).getCommentId()).isEqualTo(501L);
+            verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
+                    argThat(context -> context.parentComment() == parent));
+        }
+        verify(postService).getPostById(100L, 1L, false);
+        verify(commentRepository, never()).findByIdWithRelationsForUpdate(anyLong());
+    }
+
+    @Test
+    void createReply_deletedParentKeepsStructuredWriteError() {
+        Comment parent = Comment.builder().post(writablePost).user(user).content("Parent").build();
+        ReflectionTestUtils.setField(parent, "commentId", 500L);
+        parent.deleteComment();
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentService.lockCommentForWrite(1L, 500L)).thenReturn(parent);
+
+        assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "comment_not_found")
+                .hasFieldOrPropertyWithValue("action", "create_reply");
+
+        verifyNoInteractions(postService, agentAuditLogWriter);
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
     }
 
     @Test
@@ -2607,7 +2675,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
@@ -2615,6 +2683,9 @@ class AgentServiceTest {
 
         var response = agentCommandService.likeComment(7L, 300L, null);
 
+        InOrder lockOrder = inOrder(commentService, commentRepository, commentLikeRepository);
+        lockOrder.verify(commentService).lockCommentForWrite(1L, 300L);
+        lockOrder.verify(commentLikeRepository).insertIgnore(1L, 300L);
         assertThat(response.getStatus()).isEqualTo("liked");
         assertThat(response.getCommentId()).isEqualTo(300L);
         assertThat(response.getLikeCount()).isEqualTo(1);
@@ -2640,18 +2711,104 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(0);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(4);
 
         var response = agentCommandService.likeComment(7L, 300L, null);
 
+        verify(commentService).lockCommentForWrite(1L, 300L);
         assertThat(response.isAlreadyLiked()).isTrue();
         assertThat(response.getLikeCount()).isEqualTo(4);
         verify(commentLikeRepository).insertIgnore(1L, 300L);
         verify(commentRepository, never()).incrementLikeCount(anyLong());
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void likeComment_rejectsRestrictedAppliedOrDefaultCategory(boolean explicitCategory) {
+        BoardCategory restricted = defaultCategory(writableBoard, Role.SUPER_ADMIN);
+        if (explicitCategory) {
+            ReflectionTestUtils.setField(writablePost, "category", restricted);
+        } else {
+            when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                    .thenReturn(List.of(restricted));
+        }
+        Comment comment = Comment.builder().post(writablePost).user(user).content("Comment").build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verifyNoInteractions(commentLikeRepository, agentAuditLogWriter);
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void likeComment_allowsBoardAdminForAppliedOrDefaultCategory(boolean explicitCategory) {
+        BoardCategory restricted = defaultCategory(writableBoard, Role.BOARD_ADMIN);
+        if (explicitCategory) {
+            ReflectionTestUtils.setField(writablePost, "category", restricted);
+        } else {
+            when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                    .thenReturn(List.of(restricted));
+        }
+        Comment comment = Comment.builder().post(writablePost).user(user).content("Comment").build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(1);
+        when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
+        when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
+
+        var response = agentCommandService.likeComment(7L, 300L, null);
+
+        assertThat(response.getLikeCount()).isEqualTo(1);
+        assertThat(response.isAlreadyLiked()).isFalse();
+        verify(commentLikeRepository).insertIgnore(1L, 300L);
+    }
+
+    @Test
+    void likeComment_rejectsMutedOwnerBeforeLockingCommentOrWritingAudit() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(commentService).lockCommentForWrite(1L, 300L);
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verifyNoInteractions(commentRepository, commentLikeRepository, agentAuditLogWriter);
+    }
+
+    @Test
+    void likeComment_rejectsBlindedCommentWithoutChangingLikesOrAudit() {
+        Comment comment = Comment.builder()
+                .post(writablePost)
+                .user(user)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+        comment.blind("AUTO_REPORT", LocalDateTime.of(2026, 7, 7, 12, 0));
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentService).lockCommentForWrite(1L, 300L);
+        verifyNoInteractions(commentLikeRepository, agentAuditLogWriter);
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
     }
 
     @Test
@@ -2677,7 +2834,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
         when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(secretPost));
 
         assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
@@ -2716,7 +2873,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
         when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
@@ -2750,7 +2907,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentService.lockCommentForWrite(1L, 300L)).thenReturn(comment);
         when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
 

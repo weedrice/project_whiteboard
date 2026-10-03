@@ -47,6 +47,7 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,6 +65,7 @@ class CommentCommandConcurrencyTest {
     private TransactionTemplate transactions;
 
     private CommentPostPort postPort;
+    private CommentUserWritePort userWritePort;
     private CommentVersionRepository versionRepository;
     private ContentRewardService rewardService;
     private CommentCommandService commandService;
@@ -91,12 +93,13 @@ class CommentCommandConcurrencyTest {
             commentId = comment.getCommentId();
         });
         postPort = mock(CommentPostPort.class);
+        userWritePort = mock(CommentUserWritePort.class);
         versionRepository = mock(CommentVersionRepository.class);
         rewardService = mock(ContentRewardService.class);
         commandService = new CommentCommandService(
                 commentRepository, mock(CommentLikeRepository.class), versionRepository,
                 mock(CommentClosureRepository.class), mock(CommentMentionRepository.class),
-                mock(ActorWritePort.class), mock(CommentUserWritePort.class), postPort, rewardService,
+                mock(ActorWritePort.class), userWritePort, postPort, rewardService,
                 mock(CommentNotificationPort.class), mock(CommentStreamEventDispatcher.class),
                 mock(SemanticSearchEventPublisher.class), mock(CommentLikeCommand.class),
                 mock(BadgeEvaluationService.class), mock(AnonymousReadCacheInvalidator.class));
@@ -154,6 +157,34 @@ class CommentCommandConcurrencyTest {
         assertThat(stored.getLikeCount()).isEqualTo(1);
     }
 
+    @Test
+    void agentTargetLockWaitsForAnotherUsersDeletionAndReturnsLatestComment() throws Exception {
+        Long agentOwnerId = transactions.execute(status -> {
+            User owner = User.builder().loginId("agent-lock-owner").email("agent-lock@example.com")
+                    .password("test-password").displayName("Agent owner").build();
+            entityManager.persist(owner);
+            return owner.getUserId();
+        });
+        doAnswer(invocation -> {
+            entityManager.find(User.class, invocation.getArgument(0), LockModeType.PESSIMISTIC_WRITE);
+            return null;
+        }).when(userWritePort).validateWritable(agentOwnerId);
+
+        try {
+            Throwable failure = runAfterConcurrentChange(Comment::deleteComment, () -> {
+                Comment locked = commandService.lockCommentForWrite(agentOwnerId, commentId);
+                assertThat(locked.getUserId()).isEqualTo(userId).isNotEqualTo(agentOwnerId);
+                assertThat(locked.getIsDeleted()).isTrue();
+            });
+
+            assertThat(failure).isNull();
+            verify(userWritePort).validateWritable(agentOwnerId);
+            verifyNoInteractions(versionRepository, rewardService);
+        } finally {
+            transactions.executeWithoutResult(status -> entityManager.remove(entityManager.find(User.class, agentOwnerId)));
+        }
+    }
+
     private Throwable runAfterConcurrentChange(Consumer<Comment> concurrentChange, Runnable command) throws Exception {
         CountDownLatch writerLocked = new CountDownLatch(1);
         CountDownLatch commandReachedParentLock = new CountDownLatch(1);
@@ -168,6 +199,7 @@ class CommentCommandConcurrencyTest {
 
         try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
             Future<?> writer = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                entityManager.find(User.class, userId, LockModeType.PESSIMISTIC_WRITE);
                 entityManager.find(Board.class, boardId, LockModeType.PESSIMISTIC_WRITE);
                 entityManager.find(Post.class, postId, LockModeType.PESSIMISTIC_WRITE);
                 Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId).orElseThrow();

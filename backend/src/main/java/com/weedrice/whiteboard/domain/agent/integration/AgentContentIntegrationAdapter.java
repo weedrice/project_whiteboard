@@ -146,7 +146,7 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
         commentService.lockAuthorForWrite(agent.getUserId());
         AgentPolicyService.AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
         agentWritePolicy.validateCanComment(agent, policy, ACTION_CREATE_REPLY);
-        Comment parent = agentWriteTargetResolver.resolveParentCommentForReply(commentId, ACTION_CREATE_REPLY, policy);
+        Comment parent = agentWriteTargetResolver.resolveParentCommentForReply(agent, commentId, ACTION_CREATE_REPLY, policy);
         Post post = postRepository.findByIdWithRelations(parent.getPostId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         agentWritePolicy.validateBoardWritable(agent, post.getBoard(), post.getCategory(), ACTION_CREATE_REPLY, policy);
@@ -167,9 +167,8 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
     @Override
     @Transactional
     public LikeResult likeComment(Agent agent, Long commentId) {
-        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        agentCommentAccessService.validateReadableActiveComment(agent, comment);
+        Comment comment = commentService.lockCommentForWrite(agent.getUserId(), commentId);
+        agentCommentAccessService.validateWritableActiveComment(agent, comment);
         CommentLikeCommand.CommentLikeResult result = commentLikeCommand.like(
                 agent.getUserId(), comment, CommentLikeCommand.DuplicatePolicy.RETURN_ALREADY_LIKED);
         return new LikeResult(result.likeCount(), result.alreadyLiked());

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,10 @@ public class CommentService {
 
     public void lockAuthorForWrite(Long userId) {
         commentCommandService.lockAuthorForWrite(userId);
+    }
+
+    public Comment lockCommentForWrite(Long userId, Long commentId) {
+        return commentCommandService.lockCommentForWrite(userId, commentId);
     }
 
     public Long createComment(Long userId, Long postId, Long parentId, String content) {

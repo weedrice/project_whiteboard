@@ -1897,6 +1897,24 @@ class CommentServiceTest {
     }
 
     @Test
+    void lockAuthorForWrite_rejectsMutedUserAfterLockingAccount() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> commentService.lockAuthorForWrite(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        var validationOrder = org.mockito.Mockito.inOrder(userRepository, sanctionService);
+        validationOrder.verify(userRepository).findByIdForUpdate(1L);
+        validationOrder.verify(sanctionService).validateNotBanned(user);
+        validationOrder.verify(sanctionService).validateNotMuted(user);
+        verify(commentRepository, never()).findByIdWithRelationsForUpdate(anyLong());
+    }
+
+    @Test
     @DisplayName("duplicate comment like maps to already liked without counter or notification")
     void likeComment_duplicate_doesNotIncrementOrNotify() {
         User user = User.builder().displayName("User").build();
@@ -2313,6 +2331,39 @@ class CommentServiceTest {
         order.verify(boardRepository).findByIdForUpdate(3L);
         order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
         order.verify(commentRepository).findByIdWithRelationsForUpdate(10L);
+        verify(commentRepository, never()).findByIdWithRelations(10L);
+    }
+
+    @Test
+    void lockCommentForWrite_locksActingUserBeforeBoardPostAndAnotherUsersComment() {
+        User actor = User.builder().displayName("Agent owner").build();
+        ReflectionTestUtils.setField(actor, "userId", 1L);
+        User author = User.builder().displayName("Comment author").build();
+        ReflectionTestUtils.setField(author, "userId", 9L);
+        Board board = Board.builder().boardUrl("free").creator(author).isPublic(true).build();
+        ReflectionTestUtils.setField(board, "boardId", 3L);
+        Post post = Post.builder().board(board).user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 2L);
+        Comment comment = Comment.builder().user(author).post(post).content("Parent").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actor));
+        doReturn(Optional.of(2L)).when(commentRepository).findPostIdByCommentId(10L);
+        when(postRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
+        doReturn(Optional.of(post)).when(postRepository).findByIdWithRelationsForUpdate(2L);
+        doReturn(Optional.of(comment)).when(commentRepository).findByIdWithRelationsForUpdate(10L);
+
+        assertThat(commentService.lockCommentForWrite(1L, 10L)).isSameAs(comment);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userRepository, boardRepository, postRepository, commentRepository);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(commentRepository).findPostIdByCommentId(10L);
+        order.verify(postRepository).findBoardIdByPostId(2L);
+        order.verify(boardRepository).findByIdForUpdate(3L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
+        order.verify(commentRepository).findByIdWithRelationsForUpdate(10L);
+        verify(userRepository, never()).findByIdForUpdate(9L);
         verify(commentRepository, never()).findByIdWithRelations(10L);
     }
 

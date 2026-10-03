@@ -70,6 +70,13 @@ public class CommentCommandService {
         commentUserWritePort.validateWritable(userId);
     }
 
+    // Lock only; callers apply operation-specific visibility and write policies to the locked state.
+    @Transactional
+    public Comment lockCommentForWrite(Long userId, Long commentId) {
+        commentUserWritePort.validateWritable(userId);
+        return loadCommentTargetForUpdate(commentId).comment();
+    }
+
     @Transactional
     public CommentCreateResponse createCommentWithResponse(CommentCreateCommand command) {
         Long userId = command.userId();
