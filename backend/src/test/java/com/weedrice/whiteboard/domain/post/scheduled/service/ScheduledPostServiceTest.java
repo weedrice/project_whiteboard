@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.scheduled.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.integration.PostUserWriteIntegrationAdapter;
@@ -16,6 +17,8 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -106,6 +109,24 @@ class ScheduledPostServiceTest {
         verify(draftPostRepository).findByDraftIdAndUserForUpdate(77L, user.getUserId());
         verify(scheduledPostRepository).existsByDraftId(77L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L, 11L));
+    }
+
+    @Test
+    void createRejectsEditingDraftBeforePersistingScheduleOrProtectingFiles() {
+        ReflectionTestUtils.setField(draft, "originalPost", Post.builder().user(user).board(board).build());
+        ScheduledPostRequest request = requestWithDraft(77L);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
+        when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user.getUserId())).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(scheduledPostRepository, never()).saveAndFlush(any(ScheduledPost.class));
+        verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
     @Test
@@ -204,11 +225,13 @@ class ScheduledPostServiceTest {
         verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
     }
 
-    @Test
-    void updateValidatesAndStoresOwnedDraftOnSameBoard() {
+    @ParameterizedTest
+    @ValueSource(strings = {ScheduledPost.STATUS_SCHEDULED, ScheduledPost.STATUS_FAILED})
+    void updateValidatesAndStoresOwnedDraftOnSameBoard(String originalStatus) {
         ScheduledPost scheduledPost = ScheduledPost.builder()
                 .user(user).board(board).title("old").contents("old")
                 .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
+        ReflectionTestUtils.setField(scheduledPost, "status", originalStatus);
         ScheduledPostRequest request = requestWithDraft(77L);
         ReflectionTestUtils.setField(request, "fileIds", List.of(10L));
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
@@ -220,12 +243,44 @@ class ScheduledPostServiceTest {
 
         assertThat(response.getDraftId()).isEqualTo(77L);
         assertThat(scheduledPost.getDraftId()).isEqualTo(77L);
+        assertThat(scheduledPost.getStatus()).isEqualTo(ScheduledPost.STATUS_SCHEDULED);
         var lockOrder = org.mockito.Mockito.inOrder(userWritableResolver, scheduledPostRepository);
         lockOrder.verify(userWritableResolver).resolveForUpdate(1L);
         lockOrder.verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
         verify(scheduledPostRepository).existsByDraftIdAndScheduledPostIdNot(77L, 9L);
         verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {ScheduledPost.STATUS_SCHEDULED, ScheduledPost.STATUS_FAILED})
+    void updateRejectsEditingDraftWithoutChangingExistingSchedule(String originalStatus) {
+        LocalDateTime originalScheduledAt = LocalDateTime.of(2026, 7, 13, 1, 0);
+        ScheduledPost scheduledPost = ScheduledPost.builder()
+                .user(user).board(board).title("old").contents("old").draftId(66L)
+                .scheduledAt(originalScheduledAt).build();
+        ReflectionTestUtils.setField(scheduledPost, "status", originalStatus);
+        ReflectionTestUtils.setField(scheduledPost, "failureReason", "existing failure");
+        ReflectionTestUtils.setField(draft, "originalPost", Post.builder().user(user).board(board).build());
+        ScheduledPostRequest request = requestWithDraft(77L);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
+        when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user.getUserId())).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.update(1L, 9L, request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThat(scheduledPost.getTitle()).isEqualTo("old");
+        assertThat(scheduledPost.getContents()).isEqualTo("old");
+        assertThat(scheduledPost.getDraftId()).isEqualTo(66L);
+        assertThat(scheduledPost.getStatus()).isEqualTo(originalStatus);
+        assertThat(scheduledPost.getScheduledAt()).isEqualTo(originalScheduledAt);
+        assertThat(scheduledPost.getFailureReason()).isEqualTo("existing failure");
+        verify(scheduledPostRepository, never()).flush();
+        verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
     @Test
