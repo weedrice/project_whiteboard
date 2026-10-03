@@ -31,6 +31,10 @@ Database: host.docker.internal:5432
 Redis is reachable only inside the Compose network at `redis:6379`; no host Redis port is published. The backend
 management health check uses container loopback port 8081, which is also not published to the host.
 
+Redis starts directly as its image user (`999:1000`) with all Linux capabilities dropped. Its `/data` tmpfs belongs
+to that same user and group with mode `0700`, so startup and snapshot writes do not require root or ownership changes.
+The local PostgreSQL override inherits this Redis configuration unchanged.
+
 The PostgreSQL database must already exist and must provide the extensions required by migrations, including `pg_trgm`
 and `vector`. Override `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` when
 your local database is not reachable through the defaults.

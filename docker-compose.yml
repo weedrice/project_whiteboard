@@ -56,6 +56,8 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: noviis-redis
+    # Match the redis user in redis:7.4-alpine; do not require setuid/chown capabilities.
+    user: "999:1000"
     restart: unless-stopped
     read_only: true
     cap_drop:
@@ -63,7 +65,7 @@ services:
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /data
+      - /data:uid=999,gid=1000,mode=0700
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
