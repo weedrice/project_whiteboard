@@ -48,6 +48,7 @@ const postId = computed(() => props.postId)
 const {
   data: commentsData,
   isLoading,
+  isFetching,
   isFetchingNextPage,
   hasNextPage,
   fetchNextPage,
@@ -63,7 +64,6 @@ const commentLoadFailedMessage = computed(() => t('comment.loadFailed'))
 const deepLinkCommentIds = ref<number[]>([])
 let deepLinkRevision = 0
 let deepLinkController: AbortController | null = null
-let isLoadingDeepLinkPage = false
 const sortOptions = computed(() => [
   { value: 'createdAt,asc', label: t('comment.sort.oldest') },
   { value: 'createdAt,desc', label: t('comment.sort.newest') },
@@ -132,28 +132,18 @@ async function resolveDeepLinkPath(targetCommentId: number, revision: number, co
   void loadDeepLinkRootPage(revision)
 }
 
-async function loadDeepLinkRootPage(revision = deepLinkRevision) {
-  if (isLoadingDeepLinkPage || isLoading.value || revision !== deepLinkRevision) return
+function loadDeepLinkRootPage(revision = deepLinkRevision) {
+  if (isFetching.value || commentsError.value || revision !== deepLinkRevision) return
   const rootCommentId = deepLinkCommentIds.value[0]
-  if (!rootCommentId) return
+  if (!rootCommentId || comments.value.some((comment) => comment.commentId === rootCommentId)) return
 
-  isLoadingDeepLinkPage = true
-  try {
-    while (
-      revision === deepLinkRevision
-      && !comments.value.some((comment) => comment.commentId === rootCommentId)
-      && hasNextPage.value
-    ) {
-      await fetchNextPage()
-      await nextTick()
-    }
-  } finally {
-    isLoadingDeepLinkPage = false
-  }
+  // Advance once per successful query update. A failed page keeps hasNextPage
+  // true, so an unconditional loop would request the same failing page forever.
+  if (hasNextPage.value) void fetchNextPage()
 }
 
 watch(
-  [() => props.targetCommentId, () => props.postId],
+  [() => props.targetCommentId, () => props.postId, () => authStore.sessionGeneration, sort],
   ([targetCommentId]) => {
     deepLinkRevision += 1
     deepLinkController?.abort()
@@ -166,10 +156,10 @@ watch(
     deepLinkController = controller
     void resolveDeepLinkPath(targetCommentId, revision, controller).catch(() => undefined)
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 )
 
-watch([comments, hasNextPage, isLoading, deepLinkCommentIds], () => {
+watch([comments, hasNextPage, isFetching, commentsError, deepLinkCommentIds], () => {
   void loadDeepLinkRootPage()
 })
 

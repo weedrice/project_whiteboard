@@ -68,6 +68,7 @@ vi.mock('@/features/comments/queries/useComment', () => ({
       return {
         data: ref({ pages: [commentsValue], pageParams: [0] }),
         isLoading: ref(false),
+        isFetching: ref(false),
         isFetchingNextPage: ref(false),
         hasNextPage: ref(commentsState.hasNextPage),
         fetchNextPage,
