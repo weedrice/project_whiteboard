@@ -351,7 +351,7 @@ describe('useBoard', () => {
         )
     })
 
-    it('fetches infinite board posts with pageParam while excluding page from the cache params', async () => {
+    it('fetches infinite board posts with pageParam while retaining the URL start page in the cache key', async () => {
         vi.mocked(boardApi.getPosts).mockResolvedValueOnce(
             apiDataResponse<typeof boardApi.getPosts>({
                 content: [{ postId: 3 }],
@@ -379,7 +379,7 @@ describe('useBoard', () => {
             'posts',
             'infinite',
             'free',
-            { size: 20, sort: 'createdAt,desc', categoryId: 2 },
+            { page: 7, size: 20, sort: 'createdAt,desc', categoryId: 2 },
             false,
         ])
         expect(boardApi.getPosts).toHaveBeenCalledWith(

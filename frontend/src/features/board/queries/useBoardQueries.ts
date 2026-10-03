@@ -24,8 +24,6 @@ export interface BoardPostParams {
   searchType?: string
 }
 
-type InfiniteBoardPostParams = Omit<BoardPostParams, 'page'>
-
 export interface BoardManagerCandidateParams {
   page?: number
   size?: number
@@ -179,22 +177,19 @@ export function useBoardQueries() {
     options: BoardQueryOptions = {}
   ) => {
     const { requestConfig, meta, ...queryOptions } = options
-    const infiniteParams = computed<InfiniteBoardPostParams>(() => {
-      const { page: _page, ...restParams } = params.value
-      return restParams
-    })
-
     return useInfiniteQuery({
       queryKey: computed(() => authKey(boardQueryKeys.infinitePosts(
           boardUrl.value,
-          infiniteParams.value,
+          params.value,
           isSearching?.value,
       ))),
-      initialPageParam: params.value.page ?? 0,
+      // The URL page selects the start of this list; fetchNextPage only advances
+      // pageParam, so loading more keeps the same cache while navigation does not.
+      initialPageParam: computed(() => params.value.page ?? 0),
       queryFn: ({ pageParam, signal }) => fetchBoardPosts(
         boardUrl.value,
         {
-          ...infiniteParams.value,
+          ...params.value,
           page: Number(pageParam),
         },
         Boolean(isSearching?.value),
