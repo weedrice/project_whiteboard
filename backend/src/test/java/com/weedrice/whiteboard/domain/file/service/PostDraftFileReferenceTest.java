@@ -22,6 +22,7 @@ import com.weedrice.whiteboard.domain.post.service.PostDraftCleanupService;
 import com.weedrice.whiteboard.domain.post.service.PostDraftService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -81,10 +83,23 @@ class PostDraftFileReferenceTest {
                     return files.stream().filter(file -> requestedIds.contains(file.getFileId())
                             && file.getStorageStatus() == FileStorageStatus.ACTIVE).toList();
                 });
+        when(fileRepository.findActiveForAssociationForUpdate(anyList(), nullable(Long.class), nullable(String.class)))
+                .thenAnswer(invocation -> {
+                    List<Long> requestedIds = invocation.getArgument(0);
+                    Long relatedId = invocation.getArgument(1);
+                    String relatedType = invocation.getArgument(2);
+                    return files.stream().filter(file -> file.getStorageStatus() == FileStorageStatus.ACTIVE
+                            && (requestedIds.contains(file.getFileId())
+                                || (relatedId != null && file.isAssociatedWith(relatedId, relatedType))))
+                            .toList();
+                });
         Clock clock = Clock.systemUTC();
+        FileAssociationService associationService =
+                new FileAssociationService(fileRepository, mock(UserRepository.class), boardRepository, clock);
+        ReflectionTestUtils.setField(associationService, "entityManager", mock(EntityManager.class));
         FileService fileService = new FileService(
                 mock(FileUploadService.class),
-                new FileAssociationService(fileRepository, mock(UserRepository.class), boardRepository, clock),
+                associationService,
                 fileRepository, mock(FileTemporaryCleanupWorker.class), clock);
         draftService = new PostDraftService(
                 mock(PostUserReadPort.class), boardRepository, mock(BoardCategoryRepository.class), postRepository,

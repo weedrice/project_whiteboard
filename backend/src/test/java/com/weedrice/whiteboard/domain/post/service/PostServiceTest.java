@@ -490,7 +490,7 @@ class PostServiceTest {
         ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
         verify(tagAssignmentService).assignTags(postCaptor.capture(), eq(request.getTags()));
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
-        verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null);
+        verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
         verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
         InOrder lockOrder = inOrder(userRepository, boardRepository);
@@ -517,10 +517,10 @@ class PostServiceTest {
 
         postService.createPost(1L, "free", request);
 
-        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L, null);
         InOrder inOrder = inOrder(draftPostRepository, fileService);
         inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user.getUserId());
-        inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L, null);
         inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
         inOrder.verify(draftPostRepository).delete(existingDraft);
     }
@@ -547,7 +547,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any(), any());
         verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
@@ -574,7 +574,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_PROTECTED);
 
-        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any(), any());
         verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
@@ -602,7 +602,7 @@ class PostServiceTest {
         PostCreateResponse response = postCommandService.createScheduledPostWithResponse(1L, "free", request, 77L);
 
         assertThat(response.getPostId()).isEqualTo(100L);
-        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L, 77L);
         verify(draftPostRepository).delete(existingDraft);
     }
 
@@ -625,7 +625,7 @@ class PostServiceTest {
 
         postService.createPost(1L, "free", request);
 
-        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any(), any());
         verify(fileService).markDraftFilesDeletionPending(55L);
         verify(draftPostRepository).delete(existingDraft);
     }
@@ -671,7 +671,7 @@ class PostServiceTest {
 
         verify(postRepository, never()).save(any(Post.class));
         verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
-        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any(), any());
         verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         verify(eventPublisher, never()).publishEvent(any());
     }
@@ -694,7 +694,7 @@ class PostServiceTest {
 
         verify(postRepository, never()).save(any(Post.class));
         verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
-        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any(), any());
         verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         verify(eventPublisher, never()).publishEvent(any());
     }

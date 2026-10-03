@@ -45,8 +45,12 @@ class FileAssociationService {
 
     @Transactional
     public void associateFileWithEntity(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
-        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        File file = loadLockedActiveFilesById(Set.of(fileId), null, null).get(fileId);
+        if (file == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        validateOwnedFile(file, ownerUserId);
+        validateScheduledReservations(Set.of(fileId), null);
         associateLoadedFileIfAllowed(file, ownerUserId, relatedId, relatedType);
     }
 
@@ -65,7 +69,9 @@ class FileAssociationService {
             return List.of();
         }
 
-        Map<Long, File> filesById = loadActiveFilesById(orderedFileIds);
+        Map<Long, File> filesById = loadLockedActiveFilesById(orderedFileIds, null, null);
+        validateRequestedFiles(filesById, orderedFileIds, ownerUserId);
+        validateScheduledReservations(orderedFileIds, null);
         for (Long fileId : orderedFileIds) {
             File file = filesById.get(fileId);
             if (file == null) {
@@ -83,17 +89,16 @@ class FileAssociationService {
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
         LocalDateTime deleteRequestedAt = now();
-        List<File> existingDraftFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
-                draftId,
-                RELATED_TYPE_DRAFT_POST);
+        Map<Long, File> lockedFiles = loadLockedActiveFilesById(requestedFileIds, draftId, RELATED_TYPE_DRAFT_POST);
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST, draftId,
+                null, lockedFiles);
 
-        for (File existingDraftFile : existingDraftFiles) {
-            if (!requestedFileIds.contains(existingDraftFile.getFileId())) {
+        for (File existingDraftFile : lockedFiles.values()) {
+            if (existingDraftFile.isAssociatedWith(draftId, RELATED_TYPE_DRAFT_POST)
+                    && !requestedFileIds.contains(existingDraftFile.getFileId())) {
                 existingDraftFile.markDeletionPending(deleteRequestedAt);
             }
         }
-
-        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST, draftId);
     }
 
     public List<Long> retainValidDraftFileIds(List<Long> fileIds, Long ownerUserId, Long draftId) {
@@ -102,12 +107,15 @@ class FileAssociationService {
             return List.of();
         }
         Map<Long, File> filesById = loadActiveFilesById(requestedFileIds);
+        Set<Long> reservedFileIds = Set.copyOf(fileRepository.findFileIdsReservedForOtherScheduledPost(
+                requestedFileIds.stream().toList(), null));
         return requestedFileIds.stream()
                 .filter(fileId -> {
                     File file = filesById.get(fileId);
                     return file != null
                             && file.getUploader() != null
                             && ownerUserId.equals(file.getUploader().getUserId())
+                            && !reservedFileIds.contains(fileId)
                             && canAssociateOrMove(file, draftId, RELATED_TYPE_DRAFT_POST, draftId);
                 })
                 .toList();
@@ -120,12 +128,21 @@ class FileAssociationService {
 
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
+        attachFilesToPost(fileIds, ownerUserId, postId, sourceDraftId, null);
+    }
+
+    @Transactional
+    public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId,
+            Long publishingScheduledPostId) {
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
         associateOrMoveOwnedFiles(
-                normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT),
+                requestedFileIds,
                 ownerUserId,
                 postId,
                 RELATED_TYPE_POST_CONTENT,
-                sourceDraftId);
+                sourceDraftId,
+                publishingScheduledPostId,
+                loadLockedActiveFilesById(requestedFileIds, null, null));
     }
 
     @Transactional
@@ -137,17 +154,16 @@ class FileAssociationService {
     public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
         LocalDateTime deleteRequestedAt = now();
-        List<File> existingPostFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
-                postId,
-                RELATED_TYPE_POST_CONTENT);
+        Map<Long, File> lockedFiles = loadLockedActiveFilesById(requestedFileIds, postId, RELATED_TYPE_POST_CONTENT);
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, postId, RELATED_TYPE_POST_CONTENT, sourceDraftId,
+                null, lockedFiles);
 
-        for (File existingPostFile : existingPostFiles) {
-            if (!requestedFileIds.contains(existingPostFile.getFileId())) {
+        for (File existingPostFile : lockedFiles.values()) {
+            if (existingPostFile.isAssociatedWith(postId, RELATED_TYPE_POST_CONTENT)
+                    && !requestedFileIds.contains(existingPostFile.getFileId())) {
                 existingPostFile.markDeletionPending(deleteRequestedAt);
             }
         }
-
-        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, postId, RELATED_TYPE_POST_CONTENT, sourceDraftId);
     }
 
     @Transactional
@@ -217,27 +233,21 @@ class FileAssociationService {
     }
 
     private void associateOrMoveOwnedFiles(Set<Long> fileIds, Long ownerUserId, Long relatedId, String relatedType,
-            Long sourceDraftId) {
+            Long sourceDraftId, Long publishingScheduledPostId, Map<Long, File> lockedFilesById) {
         if (fileIds.isEmpty()) {
             return;
         }
 
-        Map<Long, File> filesById = loadActiveFilesById(fileIds);
-        for (Long fileId : fileIds) {
-            if (!filesById.containsKey(fileId)) {
-                throw new BusinessException(ErrorCode.NOT_FOUND);
-            }
-        }
-        for (File file : filesById.values()) {
-            validateOwnedFile(file, ownerUserId);
-        }
-        for (File file : filesById.values()) {
+        validateRequestedFiles(lockedFilesById, fileIds, ownerUserId);
+        validateScheduledReservations(fileIds, publishingScheduledPostId);
+        List<File> files = fileIds.stream().map(lockedFilesById::get).toList();
+        for (File file : files) {
             if (canAssociateOrMove(file, relatedId, relatedType, sourceDraftId)) {
                 continue;
             }
             throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
         }
-        for (File file : filesById.values()) {
+        for (File file : files) {
             if (!file.isAssociatedWith(relatedId, relatedType)) {
                 int updated = fileRepository.associateIfUnassociatedOrSourceDraft(
                         file.getFileId(),
@@ -246,6 +256,7 @@ class FileAssociationService {
                         relatedType,
                         RELATED_TYPE_DRAFT_POST,
                         sourceDraftId,
+                        publishingScheduledPostId,
                         now());
                 if (updated != 1) {
                     handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
@@ -253,6 +264,26 @@ class FileAssociationService {
                 }
                 file.updateRelatedInfo(relatedId, relatedType);
             }
+        }
+    }
+
+    private void validateRequestedFiles(Map<Long, File> filesById, Set<Long> fileIds, Long ownerUserId) {
+        for (Long fileId : fileIds) {
+            if (!filesById.containsKey(fileId)) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+        }
+        for (Long fileId : fileIds) {
+            File file = filesById.get(fileId);
+            validateActiveFile(file);
+            validateOwnedFile(file, ownerUserId);
+        }
+    }
+
+    private void validateScheduledReservations(Set<Long> fileIds, Long publishingScheduledPostId) {
+        if (!fileRepository.findFileIdsReservedForOtherScheduledPost(
+                fileIds.stream().toList(), publishingScheduledPostId).isEmpty()) {
+            throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
         }
     }
 
@@ -356,6 +387,26 @@ class FileAssociationService {
             if (file != null) {
                 filesById.put(fileId, file);
             }
+        }
+        return filesById;
+    }
+
+    private Map<Long, File> loadLockedActiveFilesById(Set<Long> fileIds, Long relatedId, String relatedType) {
+        if (fileIds.isEmpty() && relatedId == null) {
+            return Map.of();
+        }
+        // Reserve and associate under the same file locks. Read reservations in
+        // a separate statement after lock acquisition so a committed reservation
+        // is visible even when this transaction waited for its file lock.
+        List<File> files = fileRepository.findActiveForAssociationForUpdate(
+                fileIds.stream().toList(), relatedId, relatedType);
+        Map<Long, File> filesById = new LinkedHashMap<>();
+        for (File file : files) {
+            // A draft validation may have loaded this entity before taking the
+            // lock; a locking query alone does not refresh the persistence context.
+            entityManager.refresh(file);
+            validateActiveFile(file);
+            filesById.put(file.getFileId(), file);
         }
         return filesById;
     }

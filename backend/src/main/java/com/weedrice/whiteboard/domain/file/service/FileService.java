@@ -108,6 +108,13 @@ public class FileService {
     }
 
     @Transactional
+    public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId,
+            Long publishingScheduledPostId) {
+        fileAssociationService.attachFilesToPost(
+                fileIds, ownerUserId, postId, sourceDraftId, publishingScheduledPostId);
+    }
+
+    @Transactional
     public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId) {
         fileAssociationService.syncPostFiles(fileIds, ownerUserId, postId);
     }

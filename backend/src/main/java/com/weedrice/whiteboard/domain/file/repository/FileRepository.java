@@ -184,6 +184,29 @@ public interface FileRepository extends JpaRepository<File, Long> {
     List<File> findByFileIdInAndStorageStatus(@Param("fileIds") List<Long> fileIds,
             @Param("storageStatus") FileStorageStatus storageStatus);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT f
+            FROM File f
+            WHERE (f.fileId IN :fileIds
+                   OR (f.relatedId = :relatedId AND f.relatedType = :relatedType))
+              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                   OR f.storageStatus IS NULL)
+            ORDER BY f.fileId ASC
+            """)
+    List<File> findActiveForAssociationForUpdate(@Param("fileIds") List<Long> fileIds,
+            @Param("relatedId") Long relatedId,
+            @Param("relatedType") String relatedType);
+
+    @Query("""
+            SELECT spf.id.fileId
+            FROM ScheduledPostFile spf
+            WHERE spf.id.fileId IN :fileIds
+              AND (:publishingScheduledPostId IS NULL OR spf.id.scheduledPostId <> :publishingScheduledPostId)
+            """)
+    List<Long> findFileIdsReservedForOtherScheduledPost(@Param("fileIds") List<Long> fileIds,
+            @Param("publishingScheduledPostId") Long publishingScheduledPostId);
+
     @Query("""
             SELECT f
             FROM File f
@@ -329,6 +352,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
               AND f.uploader.userId = :ownerUserId
               AND f.relatedId IS NULL
               AND f.relatedType IS NULL
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
             """)
@@ -345,6 +369,11 @@ public interface FileRepository extends JpaRepository<File, Long> {
                 f.modifiedAt = :modifiedAt
             WHERE f.fileId = :fileId
               AND f.uploader.userId = :ownerUserId
+              AND NOT EXISTS (
+                  SELECT spf FROM ScheduledPostFile spf
+                  WHERE spf.id.fileId = f.fileId
+                    AND (:publishingScheduledPostId IS NULL OR spf.id.scheduledPostId <> :publishingScheduledPostId)
+              )
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
               AND (
@@ -360,6 +389,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             @Param("relatedType") String relatedType,
             @Param("draftRelatedType") String draftRelatedType,
             @Param("sourceDraftId") Long sourceDraftId,
+            @Param("publishingScheduledPostId") Long publishingScheduledPostId,
             @Param("modifiedAt") LocalDateTime modifiedAt);
 
     @Modifying(flushAutomatically = true)

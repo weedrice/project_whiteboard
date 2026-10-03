@@ -414,7 +414,7 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(file, "fileId", 10L);
 
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null)).thenReturn(List.of(file));
         when(fileRepository.associateIfUnassociated(10L, 1L, 100L, "POST_CONTENT")).thenReturn(1);
 
         assertThatThrownBy(() -> fileService.associateFileWithEntity(10L, 2L, 100L, "POST_CONTENT"))
@@ -441,8 +441,9 @@ class FileServiceTest {
                 .relatedId(11L)
                 .relatedType("POST_CONTENT")
                 .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
 
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null)).thenReturn(List.of(file));
 
         assertThatThrownBy(() -> fileService.associateFileWithEntity(10L, 1L, 100L, "USER_PROFILE"))
                 .isInstanceOf(BusinessException.class)
@@ -464,8 +465,9 @@ class FileServiceTest {
                 .relatedId(100L)
                 .relatedType("POST_CONTENT")
                 .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
 
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null)).thenReturn(List.of(file));
 
         fileService.associateFileWithEntity(10L, 1L, 100L, "POST_CONTENT");
 
@@ -480,7 +482,7 @@ class FileServiceTest {
         File firstFile = uploadedFile(10L, uploader);
         File secondFile = uploadedFile(11L, uploader);
 
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L, 11L), null, null))
                 .thenReturn(List.of(secondFile, firstFile));
         when(fileRepository.associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
         when(fileRepository.associateIfUnassociated(11L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
@@ -505,7 +507,7 @@ class FileServiceTest {
         ReflectionTestUtils.setField(uploader, "userId", 1L);
         File file = spy(uploadedFile(10L, uploader));
 
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null))
                 .thenReturn(List.of(file));
         when(fileRepository.associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
 
@@ -527,7 +529,7 @@ class FileServiceTest {
         ReflectionTestUtils.setField(uploader, "userId", 2L);
         File file = uploadedFile(10L, uploader);
 
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null))
                 .thenReturn(List.of(file));
 
         assertThatThrownBy(() -> fileService.associateFilesWithEntity(
@@ -582,7 +584,7 @@ class FileServiceTest {
         ReflectionTestUtils.setField(previousProfileFile, "fileId", 77L);
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(uploader));
-        when(fileRepository.findByFileIdAndStorageStatus(100L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(newProfileFile));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(100L), null, null)).thenReturn(List.of(newProfileFile));
         when(fileRepository.associateIfUnassociated(100L, 1L, 1L, FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(1);
         when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 1L,
@@ -622,7 +624,7 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(previousProfileFile, "fileId", 77L);
 
-        when(fileRepository.findByFileIdAndStorageStatus(100L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(newProfileFile));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(100L), null, null)).thenReturn(List.of(newProfileFile));
         when(fileRepository.associateIfUnassociated(100L, 1L, 1L, FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(1);
         when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 1L,
@@ -664,8 +666,8 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(previousBoardIcon, "fileId", 150L);
 
-        when(fileRepository.findByFileIdAndStorageStatus(200L, FileStorageStatus.ACTIVE))
-                .thenReturn(Optional.of(newBoardIcon));
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(200L), null, null))
+                .thenReturn(List.of(newBoardIcon));
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(fileRepository.associateIfUnassociated(200L, 1L, 10L, FileService.RELATED_TYPE_BOARD_ICON))
                 .thenReturn(1);
@@ -703,7 +705,7 @@ class FileServiceTest {
                 .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
                 .build();
         ReflectionTestUtils.setField(draftFile, "fileId", 11L);
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L, 11L), null, null))
                 .thenReturn(List.of(draftFile, imageFile));
         when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(10L),
@@ -712,6 +714,7 @@ class FileServiceTest {
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
                 eq(99L),
+                isNull(),
                 any(LocalDateTime.class)))
                 .thenReturn(1);
         when(fileRepository.associateIfUnassociatedOrSourceDraft(
@@ -721,6 +724,7 @@ class FileServiceTest {
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
                 eq(99L),
+                isNull(),
                 any(LocalDateTime.class)))
                 .thenReturn(1);
 
@@ -728,7 +732,7 @@ class FileServiceTest {
 
         assertThat(imageFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         assertThat(draftFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
-        verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE);
+        verify(fileRepository).findActiveForAssociationForUpdate(List.of(10L, 11L), null, null);
         verify(fileRepository, never()).findByFileIdAndStorageStatus(any(), any());
     }
 
@@ -741,7 +745,7 @@ class FileServiceTest {
 
         verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -759,7 +763,7 @@ class FileServiceTest {
                 .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
                 .build();
         ReflectionTestUtils.setField(draftFile, "fileId", 11L);
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(11L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(11L), null, null))
                 .thenReturn(List.of(draftFile));
 
         assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(11L), 1L, 100L, 77L))
@@ -767,7 +771,7 @@ class FileServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
 
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -783,7 +787,7 @@ class FileServiceTest {
                 .uploader(uploader)
                 .build();
         ReflectionTestUtils.setField(file, "fileId", 10L);
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null))
                 .thenReturn(List.of(file));
         when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(10L),
@@ -791,6 +795,7 @@ class FileServiceTest {
                 eq(100L),
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
+                isNull(),
                 isNull(),
                 any(LocalDateTime.class)))
                 .thenAnswer(invocation -> {
@@ -802,7 +807,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
 
-        verify(entityManager).refresh(file);
+        verify(entityManager, times(2)).refresh(file);
     }
 
     @Test
@@ -818,7 +823,7 @@ class FileServiceTest {
                 .uploader(otherUploader)
                 .build();
         ReflectionTestUtils.setField(otherFile, "fileId", 11L);
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L, 11L), null, null))
                 .thenReturn(List.of(otherFile));
 
         assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(10L, 11L), 1L, 100L))
@@ -843,7 +848,7 @@ class FileServiceTest {
                 FileAssociationConstraints.MAX_POST_FILE_COUNT + 1,
                 10L);
 
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(List.of(10L), null, null))
                 .thenReturn(List.of(file));
         when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(10L),
@@ -852,17 +857,19 @@ class FileServiceTest {
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
                 isNull(),
+                isNull(),
                 any(LocalDateTime.class))).thenReturn(1);
 
         fileService.attachFilesToPost(duplicatedFileIds, 1L, 100L);
 
-        verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE);
+        verify(fileRepository).findActiveForAssociationForUpdate(List.of(10L), null, null);
         verify(fileRepository).associateIfUnassociatedOrSourceDraft(
                 eq(10L),
                 eq(1L),
                 eq(100L),
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
+                isNull(),
                 isNull(),
                 any(LocalDateTime.class));
     }
@@ -882,10 +889,8 @@ class FileServiceTest {
                 .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
                 .build();
         ReflectionTestUtils.setField(otherDraftFile, "fileId", 11L);
-        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
-                77L,
-                FileService.RELATED_TYPE_DRAFT_POST)).thenReturn(List.of());
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(11L), FileStorageStatus.ACTIVE))
+        when(fileRepository.findActiveForAssociationForUpdate(
+                List.of(11L), 77L, FileService.RELATED_TYPE_DRAFT_POST))
                 .thenReturn(List.of(otherDraftFile));
 
         assertThatThrownBy(() -> fileService.syncDraftFiles(List.of(11L), 1L, 77L))
@@ -893,7 +898,7 @@ class FileServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
 
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -906,7 +911,7 @@ class FileServiceTest {
         verify(fileRepository, never()).findActiveByRelatedIdAndRelatedTypeForUpdate(any(), any());
         verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -957,11 +962,9 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(omittedFile, "fileId", 11L);
 
-        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
-                100L,
-                FileService.RELATED_TYPE_POST_CONTENT)).thenReturn(List.of(keptFile, omittedFile));
-        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
-                .thenReturn(List.of(keptFile));
+        when(fileRepository.findActiveForAssociationForUpdate(
+                List.of(10L), 100L, FileService.RELATED_TYPE_POST_CONTENT))
+                .thenReturn(List.of(keptFile, omittedFile));
 
         fileService.syncPostFiles(List.of(10L), 1L, 100L);
 
@@ -993,9 +996,9 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(secondFile, "fileId", 11L);
 
-        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
-                100L,
-                FileService.RELATED_TYPE_POST_CONTENT)).thenReturn(List.of(firstFile, secondFile));
+        when(fileRepository.findActiveForAssociationForUpdate(
+                List.of(), 100L, FileService.RELATED_TYPE_POST_CONTENT))
+                .thenReturn(List.of(firstFile, secondFile));
 
         fileService.syncPostFiles(List.of(), 1L, 100L);
 
@@ -1014,7 +1017,7 @@ class FileServiceTest {
         verify(fileRepository, never()).findActiveByRelatedIdAndRelatedTypeForUpdate(any(), any());
         verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

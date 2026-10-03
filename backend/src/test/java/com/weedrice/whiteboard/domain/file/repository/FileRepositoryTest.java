@@ -144,18 +144,22 @@ class FileRepositoryTest {
         int temporaryUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 temporaryFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
                 99L,
+                null,
                 LocalDateTime.now());
         int draftUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 draftFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
                 99L,
+                null,
                 LocalDateTime.now());
         int otherDraftUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 otherDraftFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
                 99L,
+                null,
                 LocalDateTime.now());
         int alreadyAssociatedUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 file.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
                 99L,
+                null,
                 LocalDateTime.now());
 
         assertThat(temporaryUpdated).isEqualTo(1);
