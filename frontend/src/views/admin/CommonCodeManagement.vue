@@ -15,7 +15,7 @@ import { useAdminDataQuery } from '@/features/admin/queries/adminApiQuery'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { runAuthScopedAction } from '@/utils/authSessionScope'
 import { commonCodeDetailQueryKey } from '@/composables/useCommonCodeDetails'
 
 const { t } = useI18n()
@@ -145,22 +145,24 @@ async function saveCode() {
     if (!isSaving.value) toastStore.addToast(t('admin.commonCodes.messages.invalid'), 'warning')
     return
   }
-  const intent = captureAuthSessionIntent(authStore)
   const payload = codePayload(form)
-  isSaving.value = true
-  try {
-    if (creating) await commonCodeApi.create(payload)
-    else await commonCodeApi.update(payload.typeCode, payload)
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    if (!creating) isMasterDirty.value = false
-    await codesQuery.refetch()
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    selectedTypeCode.value = payload.typeCode
-    toastStore.addToast(t('admin.commonCodes.messages.saved'), 'success')
-    if (creating) forceCloseCodeModal()
-  } finally {
-    if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
-  }
+  await runAuthScopedAction(authStore, async (scope) => {
+    isSaving.value = true
+    try {
+      if (creating) await commonCodeApi.create(payload, scope.requestConfig)
+      else await commonCodeApi.update(payload.typeCode, payload, scope.requestConfig)
+      scope.assertCurrent()
+      if (!creating) isMasterDirty.value = false
+      await codesQuery.refetch()
+      scope.runIfCurrent(() => {
+        selectedTypeCode.value = payload.typeCode
+        toastStore.addToast(t('admin.commonCodes.messages.saved'), 'success')
+        if (creating) forceCloseCodeModal()
+      })
+    } finally {
+      scope.runIfCurrent(() => { isSaving.value = false })
+    }
+  })
 }
 
 async function saveDetail() {
@@ -168,45 +170,49 @@ async function saveDetail() {
     if (!isSaving.value) toastStore.addToast(t('admin.commonCodes.messages.invalid'), 'warning')
     return
   }
-  const intent = captureAuthSessionIntent(authStore)
   const typeCode = selectedTypeCode.value
   const payload = detailPayload()
   const detailId = editingDetailId.value
-  isSaving.value = true
-  try {
-    if (detailId == null) await commonCodeApi.createDetail(typeCode, payload)
-    else await commonCodeApi.updateDetail(detailId, payload)
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    await detailsQuery.refetch()
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    toastStore.addToast(t('admin.commonCodes.messages.detailSaved'), 'success')
-    forceCloseDetailModal()
-  } finally {
-    if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
-  }
+  await runAuthScopedAction(authStore, async (scope) => {
+    isSaving.value = true
+    try {
+      if (detailId == null) await commonCodeApi.createDetail(typeCode, payload, scope.requestConfig)
+      else await commonCodeApi.updateDetail(detailId, payload, scope.requestConfig)
+      scope.assertCurrent()
+      await detailsQuery.refetch()
+      scope.assertCurrent()
+      await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
+      scope.runIfCurrent(() => {
+        toastStore.addToast(t('admin.commonCodes.messages.detailSaved'), 'success')
+        forceCloseDetailModal()
+      })
+    } finally {
+      scope.runIfCurrent(() => { isSaving.value = false })
+    }
+  })
 }
 
 async function deleteDetail(detailId: number) {
   if (isSaving.value || !selectedTypeCode.value) return
-  const intent = captureAuthSessionIntent(authStore)
   const typeCode = selectedTypeCode.value
-  if (!(await confirm(t('admin.commonCodes.messages.confirmDelete')))) return
-  if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  if (selectedTypeCode.value !== typeCode) return
-  isSaving.value = true
-  try {
-    await commonCodeApi.deleteDetail(detailId)
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    await detailsQuery.refetch()
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
-    if (!isAuthSessionIntentCurrent(authStore, intent)) return
-    toastStore.addToast(t('admin.commonCodes.messages.deleted'), 'success')
-  } finally {
-    if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
-  }
+  await runAuthScopedAction(authStore, async (scope) => {
+    if (!(await confirm(t('admin.commonCodes.messages.confirmDelete')))) return
+    scope.assertCurrent()
+    if (isSaving.value || selectedTypeCode.value !== typeCode) return
+    isSaving.value = true
+    try {
+      await commonCodeApi.deleteDetail(detailId, scope.requestConfig)
+      scope.assertCurrent()
+      await detailsQuery.refetch()
+      scope.assertCurrent()
+      await queryClient.invalidateQueries({ queryKey: commonCodeDetailQueryKey(typeCode) })
+      scope.runIfCurrent(() => {
+        toastStore.addToast(t('admin.commonCodes.messages.deleted'), 'success')
+      })
+    } finally {
+      scope.runIfCurrent(() => { isSaving.value = false })
+    }
+  })
 }
 </script>
 
