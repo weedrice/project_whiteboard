@@ -192,6 +192,24 @@ export function useComment() {
         })
     }
 
+    const useInfiniteReplies = (
+        postId: Ref<string | number>,
+        parentId: Ref<string | number>,
+        params: Ref<Omit<CommentParams, 'page'>>,
+        enabled: Ref<boolean>,
+    ) => useInfiniteQuery({
+        queryKey: computed(() => authKey(commentQueryKeys.infiniteReplies(postId.value, parentId.value, params.value))),
+        initialPageParam: 0,
+        queryFn: async ({ pageParam, signal }) => unwrapAxiosApiPageData(await commentApi.getReplies(
+            parentId.value,
+            { ...params.value, page: pageParam },
+            { signal },
+        )),
+        getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
+        enabled: computed(() => Boolean(parentId.value) && enabled.value),
+        meta: AUTH_SCOPED_QUERY_META,
+    })
+
     const useCreateComment = () => {
         return useMutation({
             onMutate: captureMutationSession,
@@ -280,6 +298,7 @@ export function useComment() {
         useInfiniteComments,
         useBestComments,
         useReplies,
+        useInfiniteReplies,
         useCreateComment,
         useUpdateComment,
         useDeleteComment,

@@ -124,11 +124,19 @@ export function usePostCommentRealtimeSync({
         commentQueryKeys.postRoot(commentQueryPostId.value),
       ),
     })
+    void queryClient?.invalidateQueries({
+      queryKey: sessionQueryKey(
+        expectedSessionGeneration,
+        commentQueryKeys.repliesByPost(commentQueryPostId.value),
+      ),
+    })
   }
 
   function scheduleCommentRefresh(expectedSessionGeneration: number) {
     clearCommentRefreshTimer()
+    const expectedPostId = postId.value
     commentRefreshTimer = setTimeout(() => {
+      if (postId.value !== expectedPostId) return
       refreshComments(expectedSessionGeneration)
     }, 2000)
   }
@@ -150,7 +158,7 @@ export function usePostCommentRealtimeSync({
     void syncCommentTopic(connection)
   })
 
-  watch([postId, isAuthenticated], ([_nextPostId, authenticated]) => {
+  watch([postId, isAuthenticated, sessionGeneration], ([_nextPostId, authenticated]) => {
     pendingCommentCount.value = 0
     clearCommentRefreshTimer()
     if (!authenticated) {

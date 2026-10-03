@@ -11,7 +11,7 @@ const routerPushMock = vi.fn()
 
 vi.mock('@/features/comments/queries/useComment', () => ({
     useComment: () => ({
-        useReplies: useRepliesMock,
+        useInfiniteReplies: useRepliesMock,
         useToggleCommentLike: () => ({
             mutate: toggleCommentLikeMock,
             isPending: ref(false),
@@ -100,11 +100,11 @@ describe('CommentItem', () => {
             isAuthenticated: false,
             user: null,
         })
-        useRepliesMock.mockImplementation((_commentId, _replyParams, enabled) => {
+        useRepliesMock.mockImplementation((_postId, _commentId, _replyParams, enabled) => {
             void enabled.value
 
             return {
-                data: ref({
+                data: ref({ pages: [{
                     content: [
                         {
                             commentId: 2,
@@ -128,7 +128,10 @@ describe('CommentItem', () => {
                     size: 50,
                     totalElements: 1,
                     totalPages: 1,
-                }),
+                }], pageParams: [0] }),
+                hasNextPage: ref(false),
+                fetchNextPage: vi.fn(),
+                isFetching: ref(false),
                 isLoading: ref(false),
                 error: ref(null),
                 refetch: vi.fn(),
@@ -188,7 +191,7 @@ describe('CommentItem', () => {
         expect(wrapper.text()).not.toContain('child reply')
         expect(useRepliesMock).toHaveBeenCalled()
 
-        const enabled = useRepliesMock.mock.calls[0][2]
+        const enabled = useRepliesMock.mock.calls[0][3]
         expect((enabled as ReturnType<typeof computed>).value).toBe(false)
 
         const repliesToggle = wrapper.findAll('button').find((button) => (
@@ -257,12 +260,12 @@ describe('CommentItem', () => {
         expect(wrapper.findAll('button').map(button => button.text())).toEqual([replyLabel])
         expect(wrapper.text()).toContain('comment.deleted')
         expect(wrapper.text()).not.toContain('deleted parent')
-        expect(useRepliesMock.mock.calls[0][2].value).toBe(false)
+        expect(useRepliesMock.mock.calls[0][3].value).toBe(false)
 
         await wrapper.get('button').trigger('click')
         await flushPromises()
 
-        expect(useRepliesMock.mock.calls[0][2].value).toBe(true)
+        expect(useRepliesMock.mock.calls[0][3].value).toBe(true)
         expect(wrapper.text()).toContain('child reply')
         expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })

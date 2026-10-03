@@ -1,158 +1,246 @@
-import { computed, nextTick, ref, type Ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, defineComponent, nextTick, reactive, ref } from 'vue'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { commentApi } from '@/api/comment'
+import { apiDataResponse, apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import { useCommentReplies } from '@/features/comments/useCommentReplies'
-import type { Comment, CommentListResponse } from '@/types'
+import { useComment } from '@/features/comments/queries/useComment'
+import type { Comment } from '@/types'
+import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
+import { sessionQueryKey } from '@/queryAuthScope'
 
-const repliesData = ref<CommentListResponse>()
-let capturedReplyParams: Ref<{ page: number; size: number }> | undefined
-let capturedRepliesEnabled: Ref<boolean> | undefined
-
-vi.mock('@/features/comments/queries/useComment', () => ({
-  useComment: () => ({
-    useReplies: (_commentId: Ref<number>, params: Ref<{ page: number; size: number }>, enabled: Ref<boolean>) => {
-      capturedReplyParams = params
-      capturedRepliesEnabled = enabled
-      return {
-      data: repliesData,
-      isLoading: ref(false),
-      error: ref(null),
-      refetch: vi.fn(),
-      }
-    },
-  }),
+const authStore = reactive({ sessionGeneration: 0, user: { userId: 9 } })
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
+vi.mock('@/api/comment', () => ({
+  commentApi: {
+    getReplies: vi.fn(), createComment: vi.fn(), updateComment: vi.fn(),
+    deleteComment: vi.fn(), likeComment: vi.fn(), unlikeComment: vi.fn(),
+  },
 }))
 
 function comment(commentId: number): Comment {
   return {
-    commentId,
-    content: 'comment',
-    author: null,
-    likeCount: 0,
-    isDeleted: false,
-    children: [],
-    replyCount: 2,
-    hasReplies: true,
-    createdAt: '2026-07-17T00:00:00Z',
+    commentId, content: `comment ${commentId}`, author: null, liked: false,
+    likeCount: 0, isDeleted: false, children: [], replyCount: 52,
+    hasReplies: true, createdAt: '2026-07-17T00:00:00Z',
   }
 }
 
-function page(pageNumber: number, ids: number[], hasNext: boolean): CommentListResponse {
-  return {
-    content: ids.map(comment),
-    page: pageNumber,
-    size: 1,
-    totalElements: 2,
-    totalPages: 2,
-    hasNext,
-    hasPrevious: pageNumber > 0,
+let serverReplies: Comment[]
+let queryClient: QueryClient
+let wrapper: VueWrapper | undefined
+function setup(parentValue = comment(1), path: readonly number[] = []) {
+  const parent = ref(parentValue)
+  const deepLinkPath = ref(path)
+  let replies!: ReturnType<typeof useCommentReplies>
+  let mutations!: {
+    update: ReturnType<ReturnType<typeof useComment>['useUpdateComment']>
+    remove: ReturnType<ReturnType<typeof useComment>['useDeleteComment']>
+    create: ReturnType<ReturnType<typeof useComment>['useCreateComment']>
+    like: ReturnType<ReturnType<typeof useComment>['useToggleCommentLike']>
   }
+  wrapper = mount(defineComponent({
+    setup() {
+      replies = useCommentReplies(computed(() => parent.value), ref(100), computed(() => deepLinkPath.value))
+      const queries = useComment()
+      mutations = {
+        update: queries.useUpdateComment(), remove: queries.useDeleteComment(),
+        create: queries.useCreateComment(), like: queries.useToggleCommentLike(),
+      }
+      return () => null
+    },
+  }), { global: { plugins: [[VueQueryPlugin, { queryClient }]] } })
+  return { replies, parent, deepLinkPath, mutations }
 }
 
-describe('useCommentReplies', () => {
+async function loadTwoPages(replies: ReturnType<typeof useCommentReplies>) {
+  replies.toggleReplies()
+  await vi.waitFor(() => expect(replies.replies.value).toHaveLength(50))
+  replies.loadMoreReplies()
+  await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
+}
+
+const ids = (items: Comment[]) => items.map((item) => item.commentId)
+
+describe('useCommentReplies with the query cache', () => {
   beforeEach(() => {
-    repliesData.value = undefined
-    capturedReplyParams = undefined
-    capturedRepliesEnabled = undefined
+    vi.resetAllMocks()
+    authStore.sessionGeneration = 0
+    serverReplies = Array.from({ length: 52 }, (_, index) => comment(index + 10))
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+    vi.mocked(commentApi.getReplies).mockImplementation(async (_id, params) => {
+      const page = params?.page ?? 0
+      const size = params?.size ?? 50
+      return apiDataResponse<typeof commentApi.getReplies>({
+        content: serverReplies.slice(page * size, (page + 1) * size).map((item) => ({ ...item })),
+        page, size, totalElements: serverReplies.length,
+        totalPages: Math.ceil(serverReplies.length / size),
+        hasNext: (page + 1) * size < serverReplies.length, hasPrevious: page > 0,
+      })
+    })
   })
 
-  it('keeps replies closed until the user or a deep link opens the branch', async () => {
-    const parent = ref(comment(1))
-    const deepLinkPath = ref<readonly number[]>([])
-    const replies = useCommentReplies(computed(() => parent.value), computed(() => deepLinkPath.value))
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    queryClient.clear()
+  })
 
-    expect(replies.isRepliesOpen.value).toBe(false)
-    expect(capturedRepliesEnabled?.value).toBe(false)
-
-    deepLinkPath.value = [1, 11]
+  it('waits until the branch opens and follows a deep link through later pages', async () => {
+    const { replies, deepLinkPath } = setup()
     await nextTick()
-
+    expect(commentApi.getReplies).not.toHaveBeenCalled()
+    deepLinkPath.value = [1, 61]
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
+    expect(vi.mocked(commentApi.getReplies).mock.calls.map(([, params]) => params?.page)).toEqual([0, 1])
     expect(replies.isRepliesOpen.value).toBe(true)
-    expect(capturedRepliesEnabled?.value).toBe(true)
-
-    deepLinkPath.value = [2, 20]
+    deepLinkPath.value = [2, 99]
     await nextTick()
     expect(replies.isRepliesOpen.value).toBe(false)
   })
 
-  it('loads only the deep-link branch until its direct child is found', async () => {
-    const parent = ref(comment(1))
-    const deepLinkPath = ref<readonly number[]>([1, 11])
-    const replies = useCommentReplies(computed(() => parent.value), computed(() => deepLinkPath.value))
-
-    repliesData.value = page(0, [10], true)
-    await nextTick()
-    expect(capturedReplyParams?.value.page).toBe(1)
-
-    repliesData.value = page(1, [11], false)
-    await nextTick()
-    expect(replies.replies.value.map((item) => item.commentId)).toEqual([10, 11])
+  it('continues a deep link from fresh cached pages without refetching the first page', async () => {
+    const key = sessionQueryKey(0, commentQueryKeys.infiniteReplies(100, 1, { size: 50 }))
+    queryClient.setQueryDefaults(key, { staleTime: Infinity })
+    queryClient.setQueryData(key, {
+      pages: [pageResponseFixture(serverReplies.slice(0, 50), {
+        number: 0, size: 50, totalElements: 52, totalPages: 2, last: false,
+      })],
+      pageParams: [0],
+    })
+    const { replies } = setup(comment(1), [1, 61])
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
+    expect(vi.mocked(commentApi.getReplies).mock.calls.map(([, params]) => params?.page)).toEqual([1])
   })
 
-  it('ignores a late response from a previous page', async () => {
-    const parent = ref(comment(1))
-    const replies = useCommentReplies(computed(() => parent.value))
-    repliesData.value = page(0, [10], true)
-    await nextTick()
-
-    replies.loadMoreReplies()
-    repliesData.value = page(1, [11], false)
-    await nextTick()
-    expect(replies.replies.value.map((item) => item.commentId)).toEqual([10, 11])
-
-    repliesData.value = page(0, [99], true)
-    await nextTick()
-    expect(replies.replies.value.map((item) => item.commentId)).toEqual([10, 11])
+  it('refreshes edits on both earlier and later loaded pages', async () => {
+    const { replies, mutations } = setup()
+    await loadTwoPages(replies)
+    vi.mocked(commentApi.updateComment).mockImplementation(async (id, data) => {
+      serverReplies = serverReplies.map((item) => item.commentId === id ? { ...item, content: data.content } : item)
+      return apiDataResponse<typeof commentApi.updateComment>(Number(id))
+    })
+    for (const id of [10, 61]) {
+      await mutations.update.mutateAsync({ postId: 100, commentId: id, data: { content: `edited ${id}` } })
+      await vi.waitFor(() => expect(replies.replies.value.find((item) => item.commentId === id)?.content).toBe(`edited ${id}`))
+    }
+    expect(replies.replies.value).toHaveLength(52)
   })
 
-  it('keeps loaded replies open when their parent is deleted', async () => {
-    const parent = ref(comment(1))
-    const replies = useCommentReplies(computed(() => parent.value))
+  it('shows optimistic likes and rollbacks on every loaded page', async () => {
+    const { replies, mutations } = setup()
+    await loadTwoPages(replies)
+    for (const id of [10, 61]) {
+      let rejectLike!: (error: Error) => void
+      vi.mocked(commentApi.likeComment).mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        rejectLike = reject
+      }))
+      const operation = mutations.like.mutateAsync({ postId: 100, commentId: id, liked: true })
+      const failure = operation.catch((error: unknown) => error)
+      await vi.waitFor(() => expect(replies.replies.value.find((item) => item.commentId === id)).toMatchObject({ liked: true, likeCount: 1 }))
+      rejectLike(new Error('like failed'))
+      expect(await failure).toMatchObject({ message: 'like failed' })
+      await vi.waitFor(() => expect(replies.replies.value.find((item) => item.commentId === id)).toMatchObject({ liked: false, likeCount: 0 }))
+    }
+  })
+
+  it('replaces page boundaries after deletion and includes newly created replies', async () => {
+    const { replies, mutations } = setup()
+    await loadTwoPages(replies)
+    vi.mocked(commentApi.deleteComment).mockImplementation(async (id) => {
+      serverReplies = serverReplies.filter((item) => item.commentId !== id)
+      return apiSuccessResponse<typeof commentApi.deleteComment>()
+    })
+    await mutations.remove.mutateAsync({ commentId: 10, postId: 100 })
+    await vi.waitFor(() => expect(ids(replies.replies.value)).toEqual(ids(serverReplies)))
+    vi.mocked(commentApi.createComment).mockImplementation(async () => {
+      serverReplies.push(comment(62))
+      return apiDataResponse<typeof commentApi.createComment>({ commentId: 62 })
+    })
+    await mutations.create.mutateAsync({ postId: 100, data: { content: 'new reply', parentId: 1 } })
+    replies.markReplyCreated()
+    await vi.waitFor(() => expect(ids(replies.replies.value)).toEqual(ids(serverReplies)))
+  })
+
+  it('stops automatic deep-link paging after a failure until the user retries', async () => {
+    const { replies, deepLinkPath } = setup()
     replies.toggleReplies()
-    repliesData.value = page(0, [10], true)
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(50))
+    vi.mocked(commentApi.getReplies).mockRejectedValueOnce(new Error('page unavailable'))
+    deepLinkPath.value = [1, 61]
+    await vi.waitFor(() => expect(replies.repliesError.value?.message).toBe('page unavailable'))
     await nextTick()
+    expect(commentApi.getReplies).toHaveBeenCalledTimes(2)
+    await replies.refetchReplies()
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
+  })
 
+  it('ignores a late next-page response after changing the parent', async () => {
+    const { replies, parent } = setup()
+    replies.toggleReplies()
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(50))
+    let resolveOldPage!: (value: Awaited<ReturnType<typeof commentApi.getReplies>>) => void
+    vi.mocked(commentApi.getReplies).mockImplementationOnce(() => new Promise((resolve) => { resolveOldPage = resolve }))
+    replies.loadMoreReplies()
+    await vi.waitFor(() => expect(resolveOldPage).toBeDefined())
+    parent.value = comment(2)
+    serverReplies = [comment(99)]
+    await nextTick()
+    replies.toggleReplies()
+    await vi.waitFor(() => expect(ids(replies.replies.value)).toEqual([99]))
+    resolveOldPage(apiDataResponse<typeof commentApi.getReplies>({
+      content: [comment(61)], page: 1, size: 50,
+      totalElements: 51, totalPages: 2, hasNext: false, hasPrevious: true,
+    }))
+    await nextTick()
+    expect(ids(replies.replies.value)).toEqual([99])
+  })
+
+  it('keeps surviving replies open when their parent is deleted', async () => {
+    const { replies, parent } = setup()
+    await loadTwoPages(replies)
     parent.value = { ...parent.value, isDeleted: true }
     await nextTick()
-
-    expect(replies.canLoadReplies.value).toBe(true)
     expect(replies.isRepliesOpen.value).toBe(true)
-    expect(capturedRepliesEnabled?.value).toBe(true)
-    expect(replies.replies.value.map(item => item.commentId)).toEqual([10])
-    expect(replies.replyHasNext.value).toBe(true)
-    replies.loadMoreReplies()
-    expect(capturedReplyParams?.value.page).toBe(1)
+    expect(replies.replies.value).toHaveLength(52)
   })
 
-  it('opens a deep-link reply through a deleted parent', async () => {
-    const parent = ref({ ...comment(1), isDeleted: true })
-    const replies = useCommentReplies(computed(() => parent.value), computed(() => [1, 11]))
-
+  it('opens a deep link through a deleted parent with surviving replies', async () => {
+    const { replies } = setup({ ...comment(1), isDeleted: true }, [1, 61])
+    await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
     expect(replies.isRepliesOpen.value).toBe(true)
-    expect(capturedRepliesEnabled?.value).toBe(true)
-    repliesData.value = page(0, [11], false)
+  })
+
+  it('does not fetch a deleted branch with no surviving replies', async () => {
+    const { replies } = setup({ ...comment(1), isDeleted: true, hasReplies: false, replyCount: 0 })
+    replies.toggleReplies()
     await nextTick()
-    expect(replies.replies.value.map(item => item.commentId)).toEqual([11])
-  })
-
-  it('does not allow reply loading when a deleted parent has no surviving replies', () => {
-    const parent = ref({ ...comment(1), isDeleted: true, hasReplies: false, replyCount: 0 })
-    const replies = useCommentReplies(computed(() => parent.value))
-
     expect(replies.canLoadReplies.value).toBe(false)
-    expect(replies.isRepliesOpen.value).toBe(false)
-    expect(capturedRepliesEnabled?.value).toBe(false)
+    expect(commentApi.getReplies).not.toHaveBeenCalled()
   })
 
-  it('resets accumulated replies when the parent comment changes', async () => {
-    const parent = ref(comment(1))
-    const replies = useCommentReplies(computed(() => parent.value))
-    repliesData.value = page(0, [10], false)
-    await nextTick()
-
+  it('clears previous parent data and starts the new branch at its first page', async () => {
+    const { replies, parent } = setup()
+    await loadTwoPages(replies)
     parent.value = comment(2)
     await nextTick()
-
     expect(replies.replies.value).toEqual([])
-    expect(replies.replyHasNext.value).toBe(false)
+    expect(replies.isRepliesOpen.value).toBe(false)
+    serverReplies = [comment(99)]
+    replies.toggleReplies()
+    await vi.waitFor(() => expect(ids(replies.replies.value)).toEqual([99]))
+    expect(commentApi.getReplies).toHaveBeenLastCalledWith(2, { size: 50, page: 0 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it('discards the old session pages when authentication changes', async () => {
+    const { replies } = setup()
+    await loadTwoPages(replies)
+    serverReplies = [comment(99)]
+    authStore.sessionGeneration += 1
+    await nextTick()
+    expect(replies.replies.value).toEqual([])
+    await vi.waitFor(() => expect(ids(replies.replies.value)).toEqual([99]))
+    expect(commentApi.getReplies).toHaveBeenLastCalledWith(1, { size: 50, page: 0 }, expect.anything())
   })
 })

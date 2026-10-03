@@ -6,6 +6,10 @@ export const commentQueryKeys = {
     list: (postId: string | number, params: Readonly<CommentParams>) =>
         [...commentQueryKeys.postRoot(postId), { ...params }] as const,
     repliesRoot: ['comments', 'replies'] as const,
+    repliesByPost: (postId: string | number) =>
+        [...commentQueryKeys.repliesRoot, 'post', String(postId)] as const,
+    infiniteReplies: (postId: string | number, parentId: string | number, params: Readonly<Omit<CommentParams, 'page'>>) =>
+        [...commentQueryKeys.repliesByPost(postId), parentId, 'infinite', { ...params }] as const,
     replies: (parentId: string | number, params: Readonly<CommentParams>) =>
         [...commentQueryKeys.repliesRoot, parentId, { ...params }] as const,
 }

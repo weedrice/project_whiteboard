@@ -81,7 +81,7 @@ const {
   toggleReplies,
   loadMoreReplies,
   refetchReplies,
-} = useCommentReplies(commentRef, computed(() => props.deepLinkCommentIds))
+} = useCommentReplies(commentRef, computed(() => props.postId), computed(() => props.deepLinkCommentIds))
 const {
   isBlockedAuthor,
   canUseCommentActions,
