@@ -6,6 +6,11 @@ import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile
 import { POST_EDITOR_IMAGE_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 import { isCancellationError } from '@/utils/cancellationError'
 import logger from '@/utils/logger'
+import type { AxiosRequestConfig } from 'axios'
+import { useAuthStore } from '@/stores/auth'
+import { createAuthSessionScope } from '@/utils/authSessionScope'
+import { throwIfAuthSessionIntentChanged } from '@/utils/authSessionIntent'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 function isAbortUploadError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -18,6 +23,7 @@ export function useEditorImageUpload(
     maxImageSizeBytes = POST_EDITOR_IMAGE_UPLOAD_POLICY.maxSizeBytes,
     ownerIdentity?: Readonly<Ref<string | undefined>>,
 ) {
+    const authStore = useAuthStore()
     const isUploadingImage = ref(false)
     let uploadAbortController: AbortController | null = null
 
@@ -29,24 +35,32 @@ export function useEditorImageUpload(
         })
     }
 
-    const uploadImage = async (file: File): Promise<{ url: string; fileId?: number } | null> => {
+    const uploadImage = async (file: File, config?: AxiosRequestConfig): Promise<{ url: string; fileId?: number } | null> => {
         if (isUploadingImage.value) return null
 
         isUploadingImage.value = true
         const controller = new AbortController()
+        const scope = createAuthSessionScope(authStore)
         const startingIdentity = ownerIdentity?.value
         uploadAbortController = controller
 
         try {
-            const { data } = await fileApi.uploadFile(file, { signal: controller.signal }, FILE_UPLOAD_TARGETS.POST_CONTENT)
+            const requestConfig = scope.withRequestConfig(config)
+            const expectedSession = config?.expectedSession ?? scope.intent
+            throwIfAuthSessionIntentChanged(authStore, expectedSession, requestConfig.signal)
+            const { data } = await fileApi.uploadFile(file, {
+                ...requestConfig,
+                expectedSession,
+                signal: AbortSignal.any([controller.signal, requestConfig.signal]),
+            }, FILE_UPLOAD_TARGETS.POST_CONTENT)
             if (!data.success) return null
             const uploadedFile = unwrapApiData(data)
             const imageUrl = resolveFileUploadUrl(uploadedFile)
-            const isStale = controller.signal.aborted || ownerIdentity?.value !== startingIdentity
+            const isStale = !scope.isCurrent() || controller.signal.aborted || ownerIdentity?.value !== startingIdentity
             if (isStale || !imageUrl) {
-                if (typeof uploadedFile.fileId === 'number') {
+                if (scope.isCurrent() && typeof uploadedFile.fileId === 'number') {
                     try {
-                        await fileApi.discardUploads([uploadedFile.fileId], { skipGlobalErrorHandler: true })
+                        await fileApi.discardUploads([uploadedFile.fileId], { expectedSession: scope.intent, skipGlobalErrorHandler: true })
                     } catch (error) {
                         logger.warn('Failed to discard stale post editor upload:', error)
                     }
@@ -59,8 +73,11 @@ export function useEditorImageUpload(
                 fileId: uploadedFile.fileId
             }
         } finally {
-            if (uploadAbortController === controller) uploadAbortController = null
-            isUploadingImage.value = false
+            scope.dispose()
+            if (uploadAbortController === controller) {
+                uploadAbortController = null
+                isUploadingImage.value = false
+            }
         }
     }
 
@@ -69,7 +86,10 @@ export function useEditorImageUpload(
             uploadAbortController.abort()
             uploadAbortController = null
         }
+        isUploadingImage.value = false
     }
+
+    useAuthSessionReset(abortImageUpload)
 
     const stopOwnerIdentityWatch = ownerIdentity
         ? watch(ownerIdentity, abortImageUpload, { flush: 'sync' })

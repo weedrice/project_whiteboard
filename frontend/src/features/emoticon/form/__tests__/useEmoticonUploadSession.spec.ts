@@ -1,3 +1,7 @@
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
+import { useEmoticonImageUploader } from '../useEmoticonImageUploader'
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
@@ -5,11 +9,13 @@ import { useEmoticonUploadSession } from '../useEmoticonUploadSession'
 
 const mocks = vi.hoisted(() => ({
   discardUploads: vi.fn(),
+  uploadFile: vi.fn(),
 }))
 
 vi.mock('@/api/file', () => ({
   fileApi: {
     discardUploads: mocks.discardUploads,
+    uploadFile: mocks.uploadFile,
   },
 }))
 
@@ -30,8 +36,32 @@ function mountSession() {
 
 describe('useEmoticonUploadSession', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.discardUploads.mockResolvedValue({ data: { data: { discardedCount: 2 } } })
+  })
+
+  it('does not abort a new run when an old session upload fails late', async () => {
+    const { session } = mountSession()
+    const uploader = useEmoticonImageUploader(session)
+    const previous = createDeferred<unknown>()
+    const next = createDeferred<unknown>()
+    mocks.uploadFile.mockReturnValueOnce(previous.promise).mockReturnValueOnce(next.promise)
+    const file = new File(['image'], 'image.png', { type: 'image/png' })
+    const previousRun = session.startSubmitRun()
+    const previousUpload = uploader.uploadFile(file, previousRun)
+    useAuthStore().sessionGeneration += 1
+    const nextRun = session.startSubmitRun()
+    const nextUpload = uploader.uploadFile(file, nextRun)
+    const nextConfig = mocks.uploadFile.mock.calls[1]?.[1]
+    previous.reject(new Error('old upload failed'))
+    await expect(previousUpload).rejects.toThrow('old upload failed')
+    expect(nextConfig.signal.aborted).toBe(false)
+    next.resolve({ data: { success: true, data: { fileId: 12 } } })
+    await expect(nextUpload).resolves.toBe(12)
+    expect(session.isSubmitActive(nextRun)).toBe(true)
+    session.finishSubmitRun(previousRun)
+    session.finishSubmitRun(nextRun)
   })
 
   it('tracks progress and cancels active upload controllers on unmount', () => {
@@ -82,6 +112,8 @@ describe('useEmoticonUploadSession', () => {
 
     expect(mocks.discardUploads).toHaveBeenCalledWith([11, 12], {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: null },
+      signal: expect.any(AbortSignal),
     })
     expect(session.trackedUploadedFileIds.value).toEqual([])
   })
@@ -115,6 +147,8 @@ describe('useEmoticonUploadSession', () => {
 
     expect(mocks.discardUploads).toHaveBeenCalledWith([11], {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: null },
+      signal: expect.any(AbortSignal),
     })
     expect(session.trackedUploadedFileIds.value).toEqual([12])
   })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onScopeDispose } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft } from 'lucide-vue-next'
@@ -20,7 +20,7 @@ import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
-import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -82,8 +82,7 @@ const resetRegistrationState = () => {
   resetTags()
 }
 
-const unsubscribeSessionBoundary = subscribeAuthSessionBoundary(resetRegistrationState)
-onScopeDispose(unsubscribeSessionBoundary)
+useAuthSessionReset(resetRegistrationState)
 
 const { handleSubmit } = useEmoticonRegisterSubmit({
   isFormValid,

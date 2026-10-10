@@ -111,6 +111,7 @@ const {
   cancelImageUpload,
 } = usePostEditorImageUploadState<UploadedEditorImage>({
   validate: validateImageFile,
+  ownerIdentity: uploadOwnerIdentity,
   upload: uploadImage,
   isAbort: isAbortUploadError,
   onUploaded: (uploaded, file) => {

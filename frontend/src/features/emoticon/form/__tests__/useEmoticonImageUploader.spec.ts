@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonImageUploader } from '../useEmoticonImageUploader'
 import { fileApi } from '@/api/file'
@@ -30,6 +31,7 @@ function createSession() {
   return {
     controller,
     session: {
+      requestConfig: (_runId: number, config?: AxiosRequestConfig) => config ?? {},
       assertSubmitActive: vi.fn(),
       createUploadController: vi.fn(() => controller),
       releaseUploadController: vi.fn(),

@@ -1,3 +1,4 @@
+import axios from 'axios'
 import type { ComputedRef, Ref } from 'vue'
 import { emoticonApi } from '@/api/emoticon'
 import { useEmoticonImageUploader } from '@/features/emoticon/form/useEmoticonImageUploader'
@@ -81,11 +82,18 @@ export function useEmoticonRegisterSubmit({
         thumbnailFileId,
         tags: submitSnapshot.tags,
         imageFileIds
-      }, {
+      }, uploadSession.requestConfig(currentRunId, {
         skipGlobalErrorHandler: true
-      })
+      }))
       uploadSession.clearTrackedUploads(currentRunId)
       if (uploadSession.isSubmitActive(currentRunId)) onSuccess()
+    } catch (error) {
+      // A canceled/lost response cannot prove the final association failed.
+      // Leave uncertain uploads to server expiry instead of deleting them.
+      if (!axios.isAxiosError(error) || !error.response || error.response.status >= 500) {
+        uploadSession.clearTrackedUploads(currentRunId)
+      }
+      throw error
     } finally {
       uploadSession.finishFinalRequest(currentRunId)
     }

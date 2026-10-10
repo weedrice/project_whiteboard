@@ -1,3 +1,4 @@
+import axios from 'axios'
 import type { ComputedRef, Ref } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
@@ -97,9 +98,9 @@ export function useEmoticonEditSubmit({
         tags: submitSnapshot.tags,
         addImageFileIds: imageFileIds,
         deleteImageIds: submitSnapshot.imagesToDelete,
-      }, {
+      }, uploadSession.requestConfig(currentRunId, {
         skipGlobalErrorHandler: true
-      })
+      }))
       uploadSession.clearTrackedUploads(currentRunId)
 
       if (uploadSession.isSubmitActive(currentRunId)) {
@@ -110,6 +111,13 @@ export function useEmoticonEditSubmit({
 
         onSuccess(submitSnapshot.emoticonId)
       }
+    } catch (error) {
+      // A canceled/lost response cannot prove the final association failed.
+      // Leave uncertain uploads to server expiry instead of deleting them.
+      if (!axios.isAxiosError(error) || !error.response || error.response.status >= 500) {
+        uploadSession.clearTrackedUploads(currentRunId)
+      }
+      throw error
     } finally {
       uploadSession.finishFinalRequest(currentRunId)
     }

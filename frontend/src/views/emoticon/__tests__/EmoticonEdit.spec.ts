@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -105,6 +106,7 @@ vi.mock('@/api/file', () => ({
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: true,
+    sessionGeneration: 0,
     user: { userId: 1 },
   }),
 }))
@@ -166,6 +168,7 @@ const baseButtonStub = {
 
 describe('EmoticonEdit', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.routeLeaveGuard = null
     mocks.routeUpdateGuard = null
@@ -317,6 +320,8 @@ describe('EmoticonEdit', () => {
       deleteImageIds: [10],
     }, {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
+      signal: expect.any(AbortSignal),
     })
   })
 

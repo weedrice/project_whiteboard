@@ -13,11 +13,14 @@ import {
 import logger from '@/utils/logger'
 import {
   captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  type AuthSessionIntent,
   throwIfAuthSessionIntentChanged,
   type AuthSessionIntentSource,
 } from '@/utils/authSessionIntent'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 interface UseProfileUpdateSubmitOptions {
   selectedFile: Ref<File | null>
@@ -50,6 +53,14 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
     })
   }
 
+  useAuthSessionReset(() => {
+    activeController?.abort()
+    operationRevision += 1
+    loading.value = false
+    errors.displayName = ''
+    errors.profileImage = ''
+  }, options.authSession)
+
   const updateProfile = async () => {
     activeController?.abort()
     const controller = new AbortController()
@@ -67,6 +78,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
 
     let profileImageId: number | null = null
     let profileUpdated = false
+    let finalRequestStarted = false
     try {
       assertCurrent()
 
@@ -78,7 +90,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
 
         const uploadRes = await fileApi.uploadFile(
           options.selectedFile.value,
-          { signal: controller.signal },
+          { signal: controller.signal, expectedSession: intent },
           FILE_UPLOAD_TARGETS.PROFILE_IMAGE,
         )
         const uploadedFile = unwrapAxiosApiData(uploadRes)
@@ -102,6 +114,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
         payload.removeProfileImage = true
       }
 
+      finalRequestStarted = true
       const response = await options.updateProfile(payload)
       profileUpdated = true
       assertCurrent()
@@ -116,10 +129,12 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       options.onRefreshed()
       options.onClose()
     } catch (error) {
-      if (profileImageId && !profileUpdated) {
-        await discardUploadedProfileImage(profileImageId)
+      const responseStatus = (error as AxiosError)?.response?.status
+      const finalRequestRejected = responseStatus !== undefined && responseStatus >= 400 && responseStatus < 500
+      if (profileImageId && !profileUpdated && (!finalRequestStarted || finalRequestRejected)) {
+        await discardUploadedProfileImage(profileImageId, intent)
       }
-      if (controller.signal.aborted || isCancellationError(error)) return
+      if (!isAuthSessionIntentCurrent(options.authSession, intent) || controller.signal.aborted || isCancellationError(error)) return
       if (isConcurrentModificationError(error)) {
         try {
           await options.refreshUser()
@@ -161,9 +176,11 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
     }
   }
 
-  const discardUploadedProfileImage = async (fileId: number) => {
+  const discardUploadedProfileImage = async (fileId: number, intent: AuthSessionIntent) => {
+    if (!isAuthSessionIntentCurrent(options.authSession, intent)) return
     try {
       await fileApi.discardUploads([fileId], {
+        expectedSession: intent,
         skipAuthRefresh: true,
         skipGlobalErrorHandler: true,
       })

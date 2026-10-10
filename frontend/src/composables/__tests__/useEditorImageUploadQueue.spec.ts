@@ -28,6 +28,52 @@ describe('useEditorImageUploadQueue', () => {
         isAbort.mockReturnValue(false)
     })
 
+    it('cancels scoped transport without a custom abort and rejects post-disposal enqueue', async () => {
+        const authSource = { sessionGeneration: 1, user: { userId: 7 } }
+        const pending = createDeferred<{ url: string }>()
+        upload.mockReturnValueOnce(pending.promise)
+        const queue = useEditorImageUploadQueue({ validate, upload, isAbort, onUploaded, authSource })
+        queue.enqueueFiles([createFile('first.png'), createFile('queued.png')])
+        const config = upload.mock.calls[0]?.[1]
+        queue.cancel()
+        expect(config.signal.aborted).toBe(true)
+        pending.resolve({ url: '/canceled' })
+        await flushPromises()
+        expect(upload).toHaveBeenCalledOnce()
+        expect(onUploaded).not.toHaveBeenCalled()
+        queue.dispose()
+        const [rejected] = queue.enqueueFiles([createFile('disposed.png')])
+        expect(rejected!.status).toBe('canceled')
+        expect(upload).toHaveBeenCalledOnce()
+    })
+
+    it('captures queued identity and rejects old retry and completion after switching sessions', async () => {
+        const authSource = { sessionGeneration: 1, user: { userId: 7 } }
+        const first = createDeferred<{ url: string }>()
+        const next = createDeferred<{ url: string }>()
+        upload.mockReturnValueOnce(first.promise).mockReturnValueOnce(next.promise)
+        const queue = useEditorImageUploadQueue({ validate, upload, isAbort, onUploaded, abort, authSource })
+        const [, queued] = queue.enqueueFiles([createFile('old-first.png'), createFile('old-next.png')])
+        expect(upload.mock.calls[0]?.[1].expectedSession).toEqual({ sessionGeneration: 1, userId: 7 })
+        authSource.sessionGeneration = 2
+        authSource.user.userId = 8
+        const previousConfig = upload.mock.calls[0]?.[1]
+        queue.clear()
+        expect(previousConfig.signal.aborted).toBe(true)
+        queue.enqueueFiles([createFile('new.png')])
+        expect(upload).toHaveBeenCalledTimes(2)
+        expect(queue.retryItem(queued!)).toBe(false)
+        first.resolve({ url: '/old' })
+        await flushPromises()
+        expect(onUploaded).not.toHaveBeenCalled()
+        expect(queue.isProcessing.value).toBe(true)
+        next.resolve({ url: '/new' })
+        await flushPromises()
+        expect(onUploaded).toHaveBeenCalledOnce()
+        expect(queue.isProcessing.value).toBe(false)
+        queue.dispose()
+    })
+
     it('uploads queued files sequentially', async () => {
         const firstUpload = createDeferred<{ url: string }>()
         const secondUpload = createDeferred<{ url: string }>()

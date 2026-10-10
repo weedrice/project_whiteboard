@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { defineComponent, computed, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
@@ -68,6 +69,7 @@ const mountForm = (options: {
 
 describe('useEmoticonEditForm', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
   })
 

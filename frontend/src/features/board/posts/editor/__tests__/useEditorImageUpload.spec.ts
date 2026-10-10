@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,6 +41,7 @@ const createHarness = (maxImageSizeBytes = 1024, ownerIdentity?: Ref<string | un
 
 describe('useEditorImageUpload', () => {
     beforeEach(() => {
+    setActivePinia(createPinia())
         vi.clearAllMocks()
         discardUploadsMock.mockResolvedValue({ data: { data: { discardedCount: 1 } } })
     })
@@ -202,7 +204,7 @@ describe('useEditorImageUpload', () => {
         })
 
         await expect(uploadPromise).resolves.toBeNull()
-        expect(discardUploadsMock).toHaveBeenCalledWith([88], { skipGlobalErrorHandler: true })
+        expect(discardUploadsMock).toHaveBeenCalledWith([88], { skipGlobalErrorHandler: true, expectedSession: { sessionGeneration: 0, userId: null } })
     })
 
     it('recognizes abort/cancel errors', () => {

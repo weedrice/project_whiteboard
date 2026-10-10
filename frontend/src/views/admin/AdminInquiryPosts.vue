@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { useRoute, useRouter } from 'vue-router'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
@@ -40,6 +42,7 @@ const { t } = useI18n()
 const { confirmWithReason } = useConfirm()
 const router = useRouter()
 const queryClient = useQueryClient()
+const operations = useAuthScopedOperation()
 const tab = ref<'new' | 'legacy'>('new')
 const page = ref(0)
 const status = ref<InquiryStatus | ''>('')
@@ -117,13 +120,13 @@ watch([status, category, priority, fromDate, toDate], () => { page.value = 0 })
 
 const listQuery = useApiPageQuery({
   queryKey: computed(() => ['admin', 'support-inquiries', params.value]),
-  request: ({ signal }) => inquiryApi.getAdminPage(params.value, { signal }),
+  request: ({ requestConfig }) => inquiryApi.getAdminPage(params.value, requestConfig),
   meta: AUTH_SCOPED_QUERY_META,
 })
 
 const detailQuery = useApiQuery({
   queryKey: computed(() => ['admin', 'support-inquiries', 'detail', selectedId.value]),
-  request: ({ signal }) => inquiryApi.getAdminDetail(selectedId.value!, { signal }),
+  request: ({ requestConfig }) => inquiryApi.getAdminDetail(selectedId.value!, requestConfig),
   enabled: computed(() => selectedId.value !== null),
   meta: AUTH_SCOPED_QUERY_META,
 })
@@ -242,33 +245,36 @@ async function closeDetail() {
 }
 
 async function runAction(action: AdminAction) {
-  if (selectedId.value === null || actionMutation.isPending.value) return
-  const targetInquiryId = selectedId.value
-  const targetComposeEpoch = composeEpoch
-  let reason: string | undefined
-  if (action === 'close') {
-    reason = await confirmWithReason(t('inquiry.admin.closePrompt')) ?? undefined
-    if (!reason) {
-      errorMessage.value = t('inquiry.admin.closeReasonRequired')
+  if (selectedId.value === null || operations.isPending('action')) return
+  await operations.run('action', async (scope) => {
+    const targetInquiryId = selectedId.value!
+    const targetComposeEpoch = composeEpoch
+    let reason: string | undefined
+    if (action === 'close') {
+      reason = await confirmWithReason(t('inquiry.admin.closePrompt')) ?? undefined
+      scope.assertCurrent()
+      if (!reason) {
+        errorMessage.value = t('inquiry.admin.closeReasonRequired')
+        return
+      }
+      if (selectedId.value !== targetInquiryId || composeEpoch !== targetComposeEpoch) return
+    }
+    const submissionUploader = action === 'reply' || action === 'note' ? uploader.value : null
+    if (submissionUploader && !submissionUploader.beginSubmission()) {
+      errorMessage.value = t('inquiry.upload.uploading')
       return
     }
-    if (selectedId.value !== targetInquiryId || composeEpoch !== targetComposeEpoch) return
-  }
-  const submissionUploader = action === 'reply' || action === 'note' ? uploader.value : null
-  if (submissionUploader && !submissionUploader.beginSubmission()) {
-    errorMessage.value = t('inquiry.upload.uploading')
-    return
-  }
-  actionMutation.mutate({
-    action,
-    inquiryId: targetInquiryId,
-    content: content.value.trim(),
-    fileIds: [...fileIds.value],
-    reason,
-    generation: getCurrentSessionGeneration(),
-    composeEpoch: targetComposeEpoch,
-    uploader: submissionUploader,
-  })
+    await actionMutation.mutateAsync({
+      action,
+      inquiryId: targetInquiryId,
+      content: content.value.trim(),
+      fileIds: [...fileIds.value],
+      reason,
+      generation: getCurrentSessionGeneration(),
+      composeEpoch: targetComposeEpoch,
+      uploader: submissionUploader,
+    })
+  }).catch(() => undefined)
 }
 
 function submitMessage() {
@@ -282,6 +288,13 @@ function submitMessage() {
   }
   runAction(composeMode.value)
 }
+useAuthSessionReset(() => {
+  resetComposeDraft()
+  selectedId.value = null
+  keyword.value = ''
+  appliedKeyword.value = ''
+  page.value = 0
+})
 </script>
 
 <template>
@@ -385,16 +398,16 @@ function submitMessage() {
         <div class="flex flex-wrap items-center gap-2 text-sm nv-text-muted"><span>{{ detailQuery.data.value.authorName }}</span><InquiryStatusBadge :status="detailQuery.data.value.status" /><InquiryPriorityBadge v-if="detailQuery.data.value.effectivePriority" :priority="detailQuery.data.value.effectivePriority" /></div>
         <InquiryTimeline :messages="detailQuery.data.value.messages" admin />
         <div class="flex flex-wrap gap-2">
-          <BaseButton v-if="detailQuery.data.value.status === 'NEW'" size="sm" :disabled="actionMutation.isPending.value" @click="runAction('start')">{{ t('inquiry.admin.start') }}</BaseButton>
-          <BaseButton v-if="detailQuery.data.value.status === 'CLOSED'" size="sm" :disabled="actionMutation.isPending.value" @click="runAction('reopen')">{{ t('inquiry.admin.reopen') }}</BaseButton>
-          <BaseButton v-if="detailQuery.data.value.status !== 'CLOSED'" size="sm" variant="danger" :disabled="actionMutation.isPending.value" @click="runAction('close')">{{ t('inquiry.admin.close') }}</BaseButton>
+          <BaseButton v-if="detailQuery.data.value.status === 'NEW'" size="sm" :disabled="operations.isPending('action')" @click="runAction('start')">{{ t('inquiry.admin.start') }}</BaseButton>
+          <BaseButton v-if="detailQuery.data.value.status === 'CLOSED'" size="sm" :disabled="operations.isPending('action')" @click="runAction('reopen')">{{ t('inquiry.admin.reopen') }}</BaseButton>
+          <BaseButton v-if="detailQuery.data.value.status !== 'CLOSED'" size="sm" variant="danger" :disabled="operations.isPending('action')" @click="runAction('close')">{{ t('inquiry.admin.close') }}</BaseButton>
         </div>
         <form class="space-y-3 rounded-xl border nv-border p-4" @submit.prevent="submitMessage">
-          <BaseSegmentedControl v-model="composeMode" :options="composeOptions" :label="t('inquiry.admin.detail')" selection-mode="radio" :disabled="actionMutation.isPending.value" />
-          <BaseTextarea v-model="content" :label="composeMode === 'note' ? t('inquiry.admin.note') : t('inquiry.admin.publicReply')" maxlength="10000" rows="6" :placeholder="composeMode === 'note' ? t('inquiry.admin.notePlaceholder') : t('inquiry.admin.replyPlaceholder')" :disabled="actionMutation.isPending.value || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')" />
-          <InquiryImageUploader :key="selectedId ?? 'closed'" ref="uploader" v-model="fileIds" :disabled="actionMutation.isPending.value" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
+          <BaseSegmentedControl v-model="composeMode" :options="composeOptions" :label="t('inquiry.admin.detail')" selection-mode="radio" :disabled="operations.isPending('action')" />
+          <BaseTextarea v-model="content" :label="composeMode === 'note' ? t('inquiry.admin.note') : t('inquiry.admin.publicReply')" maxlength="10000" rows="6" :placeholder="composeMode === 'note' ? t('inquiry.admin.notePlaceholder') : t('inquiry.admin.replyPlaceholder')" :disabled="operations.isPending('action') || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')" />
+          <InquiryImageUploader :key="selectedId ?? 'closed'" ref="uploader" v-model="fileIds" :disabled="operations.isPending('action')" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
           <p v-if="errorMessage" class="nv-form-error text-sm">{{ errorMessage }}</p>
-          <div class="flex justify-end"><BaseButton type="submit" :loading="actionMutation.isPending.value" :disabled="uploadsPending || actionMutation.isPending.value || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')">{{ composeMode === 'note' ? t('inquiry.admin.addNote') : t('inquiry.admin.addReply') }}</BaseButton></div>
+          <div class="flex justify-end"><BaseButton type="submit" :loading="operations.isPending('action')" :disabled="uploadsPending || operations.isPending('action') || (composeMode === 'reply' && detailQuery.data.value.status === 'CLOSED')">{{ composeMode === 'note' ? t('inquiry.admin.addNote') : t('inquiry.admin.addReply') }}</BaseButton></div>
         </form>
         <div v-if="detailQuery.data.value.closureDetail" class="rounded-lg nv-status-warning p-3 text-sm">{{ t('inquiry.admin.closureReason', { reason: detailQuery.data.value.closureDetail }) }}</div>
       </template>

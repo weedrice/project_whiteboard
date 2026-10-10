@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { useRoute, useRouter } from 'vue-router'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { useConfirm } from '@/composables/useConfirm'
@@ -30,6 +32,7 @@ const { t } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
 const queryClient = useQueryClient()
+const operations = useAuthScopedOperation()
 const inquiryId = computed(() => Number(route.params.inquiryId))
 const queryKey = computed(() => ['inquiries', 'detail', inquiryId.value])
 const content = ref('')
@@ -43,7 +46,7 @@ const closureReasonLabel = (value: InquiryClosureReason) => t(`inquiry.closureRe
 
 const detailQuery = useApiQuery({
   queryKey,
-  request: ({ signal }) => inquiryApi.getMineDetail(inquiryId.value, { signal }),
+  request: ({ requestConfig }) => inquiryApi.getMineDetail(inquiryId.value, requestConfig),
   enabled: computed(() => Number.isSafeInteger(inquiryId.value) && inquiryId.value > 0),
   meta: AUTH_SCOPED_QUERY_META,
 })
@@ -75,7 +78,7 @@ function isCurrentDraft(variables: { inquiryId: number, draftEpoch: number }) {
   return inquiryId.value === variables.inquiryId && draftEpoch === variables.draftEpoch
 }
 
-watch(inquiryId, () => {
+function resetDraft() {
   const staleUploader = uploader.value
   draftEpoch += 1
   content.value = ''
@@ -83,7 +86,9 @@ watch(inquiryId, () => {
   errorMessage.value = ''
   uploadsPending.value = false
   void staleUploader?.discardUploads()
-})
+}
+watch(inquiryId, resetDraft)
+useAuthSessionReset(resetDraft)
 
 const messageMutation = useAuthScopedMutation({
   mutationFn: (variables: MessageMutationVariables, mutationContext) => inquiryApi.addMessage(
@@ -134,7 +139,7 @@ const actionMutation = useAuthScopedMutation({
 })
 
 const interactionPending = computed(() => (
-  messageMutation.isPending.value || actionMutation.isPending.value
+  operations.isPending('message') || operations.isPending('action')
 ))
 
 function addMessage() {
@@ -147,29 +152,32 @@ function addMessage() {
     errorMessage.value = t('inquiry.upload.uploading')
     return
   }
-  messageMutation.mutate({
+  void operations.run('message', async () => messageMutation.mutateAsync({
     inquiryId: inquiryId.value,
     content: content.value.trim(),
     fileIds: [...fileIds.value],
     generation: getCurrentSessionGeneration(),
     draftEpoch,
     uploader: submissionUploader,
-  })
+  })).catch(() => undefined)
 }
 
 async function runAction(action: 'withdraw' | 'close') {
   if (interactionPending.value) return
-  const targetInquiryId = inquiryId.value
-  const targetDraftEpoch = draftEpoch
-  const message = action === 'withdraw' ? t('inquiry.detail.withdrawConfirm') : t('inquiry.detail.closeConfirm')
-  if (!(await confirm(message))) return
-  if (inquiryId.value !== targetInquiryId || draftEpoch !== targetDraftEpoch) return
-  actionMutation.mutate({
-    action,
-    inquiryId: targetInquiryId,
-    generation: getCurrentSessionGeneration(),
-    draftEpoch: targetDraftEpoch,
-  })
+  await operations.run('action', async (scope) => {
+    const targetInquiryId = inquiryId.value
+    const targetDraftEpoch = draftEpoch
+    const message = action === 'withdraw' ? t('inquiry.detail.withdrawConfirm') : t('inquiry.detail.closeConfirm')
+    if (!(await confirm(message))) return
+    scope.assertCurrent()
+    if (inquiryId.value !== targetInquiryId || draftEpoch !== targetDraftEpoch) return
+    await actionMutation.mutateAsync({
+      action,
+      inquiryId: targetInquiryId,
+      generation: getCurrentSessionGeneration(),
+      draftEpoch: targetDraftEpoch,
+    })
+  }).catch(() => undefined)
 }
 </script>
 
@@ -193,14 +201,14 @@ async function runAction(action: 'withdraw' | 'close') {
           <div class="space-y-3">
             <BaseTextarea v-model="content" :label="t('inquiry.detail.addMessage')" maxlength="10000" rows="6" :disabled="interactionPending" />
             <InquiryImageUploader :key="inquiryId" ref="uploader" v-model="fileIds" :disabled="interactionPending" @error="errorMessage = $event" @uploading="uploadsPending = $event" />
-            <div class="flex justify-end"><BaseButton type="submit" :loading="messageMutation.isPending.value" :disabled="uploadsPending || interactionPending">{{ t('inquiry.detail.submitMessage') }}</BaseButton></div>
+            <div class="flex justify-end"><BaseButton type="submit" :loading="operations.isPending('message')" :disabled="uploadsPending || interactionPending">{{ t('inquiry.detail.submitMessage') }}</BaseButton></div>
           </div>
         </BaseCard>
       </form>
       <p v-if="errorMessage" class="nv-form-error text-sm" role="alert">{{ errorMessage }}</p>
       <div class="flex justify-end gap-2">
-        <BaseButton v-if="detailQuery.data.value.allowedActions.canWithdraw" variant="danger" :loading="actionMutation.isPending.value" :disabled="interactionPending" @click="runAction('withdraw')">{{ t('inquiry.detail.withdraw') }}</BaseButton>
-        <BaseButton v-if="detailQuery.data.value.allowedActions.canClose" variant="secondary" :loading="actionMutation.isPending.value" :disabled="interactionPending" @click="runAction('close')">{{ t('inquiry.detail.close') }}</BaseButton>
+        <BaseButton v-if="detailQuery.data.value.allowedActions.canWithdraw" variant="danger" :loading="operations.isPending('action')" :disabled="interactionPending" @click="runAction('withdraw')">{{ t('inquiry.detail.withdraw') }}</BaseButton>
+        <BaseButton v-if="detailQuery.data.value.allowedActions.canClose" variant="secondary" :loading="operations.isPending('action')" :disabled="interactionPending" @click="runAction('close')">{{ t('inquiry.detail.close') }}</BaseButton>
       </div>
     </template>
   </section>

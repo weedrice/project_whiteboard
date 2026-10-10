@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import {
@@ -30,6 +31,7 @@ describe('PostEditorTipTap', () => {
     })
 
     beforeEach(() => {
+    setActivePinia(createPinia())
         resetPostEditorTipTapTestState()
     })
 
@@ -412,9 +414,9 @@ describe('PostEditorTipTap', () => {
         vm.setVideo('https://cdn.test/video')
         expect(mocks.chain.setVideo).toHaveBeenCalledWith({ src: 'https://cdn.test/video' })
 
-        vm.setEmoticon({ imageUrl: 'https://cdn.test/e.png' })
+        vm.setEmoticon({ imageUrl: '/api/v1/files/20' })
         expect(mocks.chain.setImage).toHaveBeenCalledWith({
-            src: 'https://cdn.test/e.png',
+            src: '/api/v1/files/20',
             alt: ':emoticon:',
             title: ':emoticon:',
         })

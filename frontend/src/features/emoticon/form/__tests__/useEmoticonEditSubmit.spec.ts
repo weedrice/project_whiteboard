@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueryClient } from '@tanstack/vue-query'
@@ -56,6 +57,12 @@ const createUploadSession = () => {
       activeRunId += 1
       return activeRunId
     }),
+    requestConfig: (_runId: number, config?: AxiosRequestConfig) => ({
+      ...config,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
+      signal: config?.signal instanceof AbortSignal ? config.signal : new AbortController().signal,
+    }),
+    finishSubmitRun: vi.fn(),
     beginFinalRequest: vi.fn(),
     finishFinalRequest: vi.fn(),
     assertSubmitActive: vi.fn(),
@@ -133,6 +140,7 @@ describe('useEmoticonEditSubmit', () => {
     expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
     }, FILE_UPLOAD_TARGETS.EMOTICON)
     expect(mocks.addImage).not.toHaveBeenCalled()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
@@ -143,6 +151,8 @@ describe('useEmoticonEditSubmit', () => {
       deleteImageIds: [10],
     }, {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
+      signal: expect.any(AbortSignal),
     })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 7] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })

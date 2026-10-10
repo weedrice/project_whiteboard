@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMessageSubmit } from '../useMessageSubmit'
 import { BLOCKED_BY_USER_CODE, messageApi } from '@/api/message'
@@ -37,6 +38,7 @@ vi.mock('@/utils/logger', () => ({
 
 describe('useMessageSubmit', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
   })
 
@@ -59,6 +61,7 @@ describe('useMessageSubmit', () => {
 
     expect(messageApi.sendMessage).toHaveBeenCalledWith(7, 'hello', {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: null },
       signal: expect.any(AbortSignal),
     })
     expect(mocks.addToast).toHaveBeenCalledWith('user.message.sendSuccess', 'success')

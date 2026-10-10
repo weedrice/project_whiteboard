@@ -1,3 +1,5 @@
+import { createDeferred } from '@/test/async'
+import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -85,7 +87,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 
 vi.mock('@tanstack/vue-query', async (importOriginal) => ({
   ...await importOriginal<typeof import('@tanstack/vue-query')>(),
-  useMutation: () => state.mutation,
+  useMutation: () => ({ ...state.mutation, mutateAsync: async (...args: unknown[]) => state.mutation.mutate(...args) }),
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
@@ -153,6 +155,7 @@ function mountView(options: { realTable?: boolean } = {}) {
 
 describe('AdminInquiryPosts', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     state.routerPush.mockReset()
     state.legacy.openDetail.mockReset()
     state.route.params = {}
@@ -243,6 +246,22 @@ describe('AdminInquiryPosts', () => {
     await nextTick()
 
     expect((state.pageQueryOptions!.queryKey.value[2] as { keyword?: string }).keyword).toBe('account')
+  })
+
+  it('rejects a close reason entered for the previous session', async () => {
+    state.route.params = { inquiryId: '41' }
+    const pending = createDeferred<string | null>()
+    state.confirmWithReason.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    const vm = wrapper.vm as unknown as { runAction: (action: 'close') => Promise<void>; content: string; selectedId: number | null }
+    vm.content = 'private administrator note'
+    const action = vm.runAction('close')
+    getMutationTestAuthStore().sessionGeneration += 1
+    pending.resolve('previous approval')
+    await action
+    expect(state.mutation.mutate).not.toHaveBeenCalled()
+    expect(vm.content).toBe('')
+    expect(vm.selectedId).toBeNull()
   })
 
   it('uses the shared prompt modal before closing an inquiry', async () => {

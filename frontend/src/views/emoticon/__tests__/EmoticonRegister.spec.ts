@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmoticonRegister from '../EmoticonRegister.vue'
@@ -24,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   createEmoticon: vi.fn(),
   uploadFile: vi.fn(),
+  discardUploads: vi.fn().mockResolvedValue(undefined),
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
   addToast: vi.fn(),
@@ -39,7 +43,8 @@ vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
   }),
 }))
 
-vi.mock('vue-router', () => ({
+vi.mock('vue-router', async (importOriginal) => ({
+  ...await importOriginal<typeof import('vue-router')>(),
   onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => { mocks.routeLeaveGuard = guard },
   useRouter: () => ({
     push: mocks.push,
@@ -57,6 +62,7 @@ vi.mock('@/api/emoticon', () => ({
 vi.mock('@/api/file', () => ({
   fileApi: {
     uploadFile: mocks.uploadFile,
+    discardUploads: mocks.discardUploads,
   },
 }))
 
@@ -133,6 +139,7 @@ const setValidForm = (wrapper: ReturnType<typeof mountRegister>) => {
 
 describe('EmoticonRegister', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.routeLeaveGuard = null
     mocks.confirm.mockResolvedValue(false)
@@ -229,9 +236,43 @@ describe('EmoticonRegister', () => {
       imageFileIds: [20],
     }, {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: null },
+      signal: expect.any(AbortSignal),
     })
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.register.created', 'success')
     expect(mocks.push).toHaveBeenCalledWith({ name: 'emoticon-list' })
+  })
+
+  it('leaves final-request files to server expiry when a server error cannot prove rollback', async () => {
+    mocks.createEmoticon.mockRejectedValueOnce({ isAxiosError: true, response: { status: 500 } })
+    const wrapper = mountRegister()
+    setValidForm(wrapper)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(mocks.createEmoticon).toHaveBeenCalledOnce()
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(getExposedVm<EmoticonRegisterExposed>(wrapper).isSubmitting).toBe(false)
+  })
+
+  it('keeps uncertain final-request files and clears the form after a session change', async () => {
+    const pending = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
+    mocks.createEmoticon.mockReturnValueOnce(pending.promise)
+    const wrapper = mountRegister()
+    setValidForm(wrapper)
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(mocks.createEmoticon).toHaveBeenCalledOnce())
+    const finalConfig = mocks.createEmoticon.mock.calls[0]?.[1]
+    expect(finalConfig.expectedSession).toEqual({ sessionGeneration: 0, userId: null })
+    useAuthStore().sessionGeneration += 1
+    expect(finalConfig.signal.aborted).toBe(true)
+    pending.reject(new DOMException('response canceled', 'AbortError'))
+    await flushPromises()
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(getExposedVm<EmoticonRegisterExposed>(wrapper).emoticonName).toBe('')
+    expect(getExposedVm<EmoticonRegisterExposed>(wrapper).isSubmitting).toBe(false)
   })
 
   it('passes abort signals to thumbnail and image uploads', async () => {

@@ -89,19 +89,19 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
 
   async function uploadFile(file: File, runId: number, options: UploadOptions = {}) {
     uploadSession.assertSubmitActive(runId)
-    const controller = uploadSession.createUploadController()
+    const controller = uploadSession.createUploadController(runId)
 
     try {
-      const response = await fileApi.uploadFile(file, {
+      const response = await fileApi.uploadFile(file, uploadSession.requestConfig(runId, {
         signal: controller.signal,
         skipGlobalErrorHandler: options.skipGlobalErrorHandler
-      }, FILE_UPLOAD_TARGETS.EMOTICON)
+      }), FILE_UPLOAD_TARGETS.EMOTICON)
       const fileId = unwrapAxiosApiData(response).fileId
       uploadSession.recordUploadedFile(fileId, runId)
       uploadSession.assertSubmitActive(runId)
       return fileId
     } catch (error) {
-      uploadSession.abortPendingUploads()
+      uploadSession.abortPendingUploads(runId)
       throw error
     } finally {
       uploadSession.releaseUploadController(controller)
@@ -148,7 +148,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
         return fileId
       } catch (error) {
         uploadFailed = true
-        uploadSession.abortPendingUploads()
+        uploadSession.abortPendingUploads(runId)
         throw error
       }
     })

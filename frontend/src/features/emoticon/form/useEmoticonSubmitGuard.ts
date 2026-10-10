@@ -33,7 +33,7 @@ export function useEmoticonSubmitGuard({
     } catch (error: unknown) {
       await uploadSession.discardTrackedUploads(currentRunId)
       const isCurrentSubmit = uploadSession.isSubmitActive(currentRunId)
-      if (!uploadSession.isDisposed.value && isCurrentSubmit) {
+      if (!uploadSession.isDisposed.value && isCurrentSubmit && !uploadSession.isUploadCancelledError(error)) {
         if (extractErrorCode(error) === API_ERROR_CODES.EMOTICON_IMAGE_LIMIT_EXCEEDED) {
           onLimitExceeded?.()
         }
@@ -45,6 +45,7 @@ export function useEmoticonSubmitGuard({
         uploadSession.cancelSubmitRun()
         uploadSession.resetUploadProgress()
       }
+      uploadSession.finishSubmitRun(currentRunId)
     }
   }
 

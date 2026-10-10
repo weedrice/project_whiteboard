@@ -41,7 +41,7 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => ({
   ...await importOriginal<typeof import('@tanstack/vue-query')>(),
   useMutation: (options: typeof state.mutationOptions) => {
     state.mutationOptions = options
-    return state.mutation
+    return { ...state.mutation, mutateAsync: async (...args: unknown[]) => state.mutation.mutate(...args) }
   },
   useQueryClient: () => ({ invalidateQueries: state.invalidateQueries }),
 }))
@@ -78,6 +78,7 @@ function mountView() {
 
 describe('InquiryNew', () => {
   beforeEach(() => {
+    getMutationTestAuthStore().sessionGeneration = 0
     state.commitUploads.mockReset()
     state.discardUploads.mockClear()
     state.beginSubmission.mockClear()
@@ -163,9 +164,26 @@ describe('InquiryNew', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('inquiry.upload.uploading')
   })
 
-  it('locks the entire form while creation is pending', async () => {
-    state.mutation.isPending.value = true
+  it('clears private fields when the same component survives a new session', async () => {
     const wrapper = mountView()
+    const vm = wrapper.vm as unknown as { title: string; content: string; fileIds: number[]; createdInquiryId: number | null }
+    vm.title = 'private title'
+    vm.content = 'private body'
+    vm.fileIds = [22]
+    vm.createdInquiryId = 77
+    getMutationTestAuthStore().sessionGeneration += 1
+    await wrapper.vm.$nextTick()
+    expect(vm.title).toBe('')
+    expect(vm.content).toBe('')
+    expect(vm.fileIds).toEqual([])
+    expect(vm.createdInquiryId).toBeNull()
+    expect(wrapper.get('input').attributes('disabled')).toBeUndefined()
+  })
+
+  it('locks the entire form while creation is pending', async () => {
+    const wrapper = mountView()
+    void (wrapper.vm as unknown as { operations: { run: (key: string, action: () => Promise<void>) => Promise<unknown> } }).operations.run('create', () => new Promise(() => {}))
+    await wrapper.vm.$nextTick()
 
     expect(wrapper.get('select').attributes('disabled')).toBeDefined()
     expect(wrapper.get('input').attributes('disabled')).toBeDefined()
@@ -197,9 +215,25 @@ describe('InquiryNew', () => {
 })
 
 vi.mock('@/composables/useAuthScopedMutation', async () => {
-    const { useMutation } = await import('@tanstack/vue-query')
-    const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
-    return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
+  const { useMutation } = await import('@tanstack/vue-query')
+  const { authScopedMutationOptions } = await import('@/test/authScopedMutationOptions')
+  const { captureAuthSessionIntent, isAuthSessionIntentCurrent } = await import('@/utils/authSessionIntent')
+  const context = () => {
+    const store = getMutationTestAuthStore()
+    const intent = captureAuthSessionIntent(store)
+    return { isCurrent: () => isAuthSessionIntentCurrent(store, intent) }
+  }
+  return {
+    useAuthScopedMutation: (options: Record<string, any>) => useMutation({
+      ...authScopedMutationOptions(options, getMutationTestAuthStore),
+      onSuccess: (response: unknown, variables: Record<string, unknown>) => options.onSuccess?.(response, variables, undefined, context()),
+      onError: (error: unknown, variables: Record<string, unknown>) => options.onError?.(error, variables, undefined, context()),
+    }),
+  }
 })
 
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ sessionGeneration: 0 }) }))
+vi.mock('@/stores/auth', async () => {
+  const { reactive } = await import('vue')
+  const auth = reactive({ sessionGeneration: 0 })
+  return { useAuthStore: () => auth }
+})

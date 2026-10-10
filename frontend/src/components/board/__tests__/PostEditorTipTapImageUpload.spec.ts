@@ -1,3 +1,6 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
@@ -17,6 +20,7 @@ describe('PostEditorTipTap image workflows', () => {
     })
 
     beforeEach(() => {
+        setActivePinia(createPinia())
         resetPostEditorTipTapTestState()
     })
     it('handles image upload validation success and failure flows', async () => {
@@ -75,8 +79,14 @@ describe('PostEditorTipTap image workflows', () => {
             .mockResolvedValueOnce({ url: 'https://cdn.test/second.webp', fileId: 91 })
         await fileInput.trigger('change')
         await flushPromises()
-        expect(mocks.uploadImage).toHaveBeenCalledWith(firstFile)
-        expect(mocks.uploadImage).toHaveBeenCalledWith(secondFile)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(firstFile, expect.objectContaining({
+            expectedSession: { sessionGeneration: 0, userId: null },
+            signal: expect.any(AbortSignal),
+        }))
+        expect(mocks.uploadImage).toHaveBeenCalledWith(secondFile, expect.objectContaining({
+            expectedSession: { sessionGeneration: 0, userId: null },
+            signal: expect.any(AbortSignal),
+        }))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/first.png"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/second.webp"'))
 
@@ -128,7 +138,10 @@ describe('PostEditorTipTap image workflows', () => {
         contentArea.element.dispatchEvent(pasteEvent)
         await flushPromises()
         expect(pasteEvent.defaultPrevented).toBe(true)
-        expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile, expect.objectContaining({
+            expectedSession: { sessionGeneration: 0, userId: null },
+            signal: expect.any(AbortSignal),
+        }))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/pasted.png"'))
 
         const dragEnterEvent = new Event('dragenter', { bubbles: true, cancelable: true }) as DragEvent
@@ -147,8 +160,33 @@ describe('PostEditorTipTap image workflows', () => {
         await flushPromises()
         expect(dropEvent.defaultPrevented).toBe(true)
         expect(wrapper.find('.image-drop-overlay').exists()).toBe(false)
-        expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile, expect.objectContaining({
+            expectedSession: { sessionGeneration: 0, userId: null },
+            signal: expect.any(AbortSignal),
+        }))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/dropped.webp"'))
+    })
+
+    it.each(['owner', 'session'] as const)('clears queued images when the %s changes while the editor remains mounted', async (boundary) => {
+        const pending = createDeferred<{ url: string; fileId: number }>()
+        mocks.uploadImage.mockReturnValueOnce(pending.promise)
+        const wrapper = mountEditor()
+        await wrapper.setProps({ uploadOwnerIdentity: 'first-draft' })
+        const input = wrapper.get('input[type="file"]')
+        const file = new File(['image'], 'old.png', { type: 'image/png' })
+        Object.defineProperty(input.element, 'files', { value: [file, file], configurable: true })
+        await input.trigger('change')
+        await flushPromises()
+        const config = mocks.uploadImage.mock.calls[0]?.[1]
+        if (boundary === 'owner') await wrapper.setProps({ uploadOwnerIdentity: 'second-draft' })
+        else useAuthStore().sessionGeneration += 1
+        expect(config.signal.aborted).toBe(true)
+        pending.resolve({ url: '/old-session.png', fileId: 12 })
+        await flushPromises()
+        expect(mocks.uploadImage).toHaveBeenCalledOnce()
+        expect(mocks.chain.insertContent).not.toHaveBeenCalled()
+        expect(wrapper.emitted('file-uploaded')).toBeUndefined()
+        expect(wrapper.emitted('upload-pending')?.at(-1)).toEqual([false])
     })
 
     it('shows cancellable image upload progress while uploading', async () => {

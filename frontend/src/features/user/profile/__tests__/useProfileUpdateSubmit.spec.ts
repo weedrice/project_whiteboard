@@ -101,7 +101,7 @@ describe('useProfileUpdateSubmit', () => {
 
     expect(mocks.uploadFile).toHaveBeenCalledWith(
         file,
-        { signal: expect.any(AbortSignal) },
+        { signal: expect.any(AbortSignal), expectedSession: { sessionGeneration: 1, userId: 7 } },
         FILE_UPLOAD_TARGETS.PROFILE_IMAGE,
     )
     expect(updateProfile).toHaveBeenCalledWith({
@@ -153,7 +153,7 @@ describe('useProfileUpdateSubmit', () => {
     expect(t).toHaveBeenCalledWith('user.profile.profileImageCostSpent', { points: 1000 })
   })
 
-  it('discards an uploaded image when the session changes before profile update', async () => {
+  it('never deletes a previous session upload with the new identity', async () => {
     const file = new File(['profile'], 'profile.png', { type: 'image/png' })
     const uploadResponse = axiosApiSuccess({ fileId: 456 })
     const upload = createDeferred<typeof uploadResponse>()
@@ -167,10 +167,7 @@ describe('useProfileUpdateSubmit', () => {
     await submission
 
     expect(updateProfile).not.toHaveBeenCalled()
-    expect(mocks.discardUploads).toHaveBeenCalledWith([456], {
-      skipAuthRefresh: true,
-      skipGlobalErrorHandler: true,
-    })
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
   })
 
   it('reloads the profile and asks for retry on a concurrent modification conflict', async () => {

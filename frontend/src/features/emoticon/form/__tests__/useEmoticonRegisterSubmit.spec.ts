@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonRegisterSubmit } from '../useEmoticonRegisterSubmit'
@@ -53,6 +54,12 @@ const createUploadSession = () => {
       activeRunId += 1
       return activeRunId
     }),
+    requestConfig: (_runId: number, config?: AxiosRequestConfig) => ({
+      ...config,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
+      signal: config?.signal instanceof AbortSignal ? config.signal : new AbortController().signal,
+    }),
+    finishSubmitRun: vi.fn(),
     beginFinalRequest: vi.fn(),
     finishFinalRequest: vi.fn(),
     assertSubmitActive: vi.fn(),
@@ -120,6 +127,7 @@ describe('useEmoticonRegisterSubmit', () => {
     expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
     }, FILE_UPLOAD_TARGETS.EMOTICON)
     expect(mocks.createEmoticon).toHaveBeenCalledWith({
       name: 'New pack',
@@ -128,6 +136,8 @@ describe('useEmoticonRegisterSubmit', () => {
       imageFileIds: [20],
     }, {
       skipGlobalErrorHandler: true,
+      expectedSession: { sessionGeneration: 0, userId: 1 },
+      signal: expect.any(AbortSignal),
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()

@@ -45,7 +45,7 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => ({
   ...await importOriginal<typeof import('@tanstack/vue-query')>(),
   useMutation: (options: typeof state.mutationOptions) => {
     state.mutationOptions = options
-    return state.mutation
+    return { ...state.mutation, mutateAsync: async (...args: unknown[]) => state.mutation.mutate(...args) }
   },
   useQueryClient: () => ({ invalidateQueries: state.invalidateQueries, setQueryData: state.setQueryData }),
 }))
@@ -341,7 +341,6 @@ describe('AdminInquiryPosts upload cleanup', () => {
   })
 
   it('blocks duplicate administrator commands at the function boundary', async () => {
-    state.mutation.isPending.value = true
     const wrapper = mount(AdminInquiryPosts, {
       global: {
         stubs: {
@@ -356,6 +355,8 @@ describe('AdminInquiryPosts upload cleanup', () => {
         },
       },
     })
+    void (wrapper.vm as unknown as { operations: { run: (key: string, action: () => Promise<void>) => Promise<unknown> } }).operations.run('action', () => new Promise(() => {}))
+    await wrapper.vm.$nextTick()
     const startButton = wrapper.findAll('button').find((button) => button.text() === 'inquiry.admin.start')
 
     await startButton!.trigger('click')

@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
@@ -6,7 +6,7 @@ import type { EmoticonEditFormState } from '@/features/emoticon/form/useEmoticon
 import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
 import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
-import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 interface UseEmoticonEditFormOptions {
   emoticonId: ComputedRef<number>
@@ -90,8 +90,7 @@ export function useEmoticonEditForm({
     resetImageFormState()
   }
   watch(emoticonId, resetForm, { flush: 'sync' })
-  const stopSessionBoundary = subscribeAuthSessionBoundary(resetForm)
-  onScopeDispose(stopSessionBoundary)
+  useAuthSessionReset(resetForm)
 
   watch(editFormState, (formState) => {
     if (!formState) return

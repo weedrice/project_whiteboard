@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AxiosRequestConfig } from 'axios'
@@ -23,9 +26,39 @@ vi.mock('@/api/file', () => ({
 
 describe('InquiryImageUploader', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     uploadFile.mockReset()
     discardUploads.mockClear()
     discardUploadsOnPageExit.mockClear()
+  })
+
+  it('clears an old batch and prevents old cleanup from touching a new session upload', async () => {
+    const oldUpload = createDeferred<unknown>()
+    uploadFile.mockReturnValueOnce(oldUpload.promise).mockResolvedValueOnce({ data: { success: true, data: { fileId: 303 } } })
+    const wrapper = mount(InquiryImageUploader)
+    const input = wrapper.get('input[type="file"]')
+    const file = new File(['image'], 'old.png', { type: 'image/png' })
+    Object.defineProperty(input.element, 'files', { configurable: true, value: [file, file] })
+    void input.trigger('change')
+    await flushPromises()
+    const oldConfig = uploadFile.mock.calls[0]?.[1]
+    const auth = useAuthStore()
+    auth.sessionGeneration += 1
+    await wrapper.vm.$nextTick()
+    expect(oldConfig.signal.aborted).toBe(true)
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual([])
+    Object.defineProperty(input.element, 'files', { configurable: true, value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+    const uploader = wrapper.vm as unknown as { beginSubmission: () => boolean; failSubmission: (config: AxiosRequestConfig) => Promise<void> }
+    expect(uploader.beginSubmission()).toBe(true)
+    await uploader.failSubmission(oldConfig)
+    oldUpload.resolve({ data: { success: true, data: { fileId: 101 } } })
+    await flushPromises()
+    expect(uploadFile).toHaveBeenCalledTimes(2)
+    expect(discardUploads).not.toHaveBeenCalled()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual([303])
+    expect(input.attributes('disabled')).toBeDefined()
   })
 
   it('disables file selection and removal while its parent mutation is pending', async () => {
@@ -55,7 +88,7 @@ describe('InquiryImageUploader', () => {
     await input.trigger('change')
     await flushPromises()
 
-    expect(discardUploads).toHaveBeenCalledWith([101], { skipGlobalErrorHandler: true })
+    expect(discardUploads).toHaveBeenCalledWith([101], { skipGlobalErrorHandler: true, expectedSession: { sessionGeneration: 0, userId: null } })
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual([])
     expect(wrapper.emitted('error')).toHaveLength(1)
   })
@@ -108,7 +141,7 @@ describe('InquiryImageUploader', () => {
     await discardPromise
     await flushPromises()
 
-    expect(discardUploads).toHaveBeenCalledWith([404], { skipGlobalErrorHandler: true })
+    expect(discardUploads).toHaveBeenCalledWith([404], { skipGlobalErrorHandler: true, expectedSession: { sessionGeneration: 0, userId: null } })
     expect(updateModel).not.toHaveBeenCalled()
     expect(wrapper.emitted('uploading')).toEqual([[true], [false]])
     expect(wrapper.get('input[type="file"]').attributes('disabled')).toBeUndefined()
@@ -134,7 +167,7 @@ describe('InquiryImageUploader', () => {
     expect(discardUploadsOnPageExit).not.toHaveBeenCalled()
 
     const config = {
-      expectedSession: { sessionGeneration: 1, userId: 7 },
+      expectedSession: { sessionGeneration: 0, userId: null },
       signal: new AbortController().signal,
     }
     await uploader.failSubmission(config)

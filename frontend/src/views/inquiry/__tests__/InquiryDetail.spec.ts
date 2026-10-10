@@ -66,7 +66,8 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => ({
   ...await importOriginal<typeof import('@tanstack/vue-query')>(),
   useMutation: (options: typeof state.mutationOptions[number]) => {
     state.mutationOptions.push(options)
-    return state.mutations[state.mutationOptions.length - 1]!
+    const mutation = state.mutations[state.mutationOptions.length - 1]!
+    return { ...mutation, mutateAsync: async (...args: unknown[]) => mutation.mutate(...args) }
   },
   useQueryClient: () => ({ invalidateQueries: state.invalidateQueries, setQueryData: state.setQueryData }),
 }))
@@ -101,6 +102,7 @@ function mountView() {
 
 describe('InquiryDetail', () => {
   beforeEach(() => {
+    getMutationTestAuthStore().sessionGeneration = 0
     state.route.params.inquiryId = '41'
     state.uploaderInstances.length = 0
     state.mutationOptions.length = 0
@@ -191,8 +193,9 @@ describe('InquiryDetail', () => {
   })
 
   it('blocks message composition and submission while a close or withdraw action is pending', async () => {
-    state.mutations[1]!.isPending.value = true
     const wrapper = mountView()
+    void (wrapper.vm as unknown as { operations: { run: (key: string, action: () => Promise<void>) => Promise<unknown> } }).operations.run('action', () => new Promise(() => {}))
+    await wrapper.vm.$nextTick()
 
     expect(wrapper.get('textarea').attributes('disabled')).toBeDefined()
     expect(wrapper.getComponent(UploaderStub).props('disabled')).toBe(true)
@@ -200,6 +203,22 @@ describe('InquiryDetail', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(state.mutations[0]!.mutate).not.toHaveBeenCalled()
+  })
+
+  it('cancels a pending confirmation and clears private draft values at a session boundary', async () => {
+    const pending = createDeferred<boolean>()
+    state.confirm.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    const vm = wrapper.vm as unknown as { runAction: (action: 'withdraw') => Promise<void>; content: string; fileIds: number[] }
+    vm.content = 'private draft'
+    vm.fileIds = [20]
+    const action = vm.runAction('withdraw')
+    getMutationTestAuthStore().sessionGeneration += 1
+    pending.resolve(true)
+    await action
+    expect(state.mutations[1]!.mutate).not.toHaveBeenCalled()
+    expect(vm.content).toBe('')
+    expect(vm.fileIds).toEqual([])
   })
 
   it('uses the shared confirm modal before withdrawing an inquiry', async () => {
@@ -254,4 +273,8 @@ vi.mock('@/composables/useAuthScopedMutation', async () => {
     return { useAuthScopedMutation: (options: Record<string, any>) => useMutation(authScopedMutationOptions(options, getMutationTestAuthStore)) }
 })
 
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ sessionGeneration: 0 }) }))
+vi.mock('@/stores/auth', async () => {
+  const { reactive } = await import('vue')
+  const auth = reactive({ sessionGeneration: 0 })
+  return { useAuthStore: () => auth }
+})

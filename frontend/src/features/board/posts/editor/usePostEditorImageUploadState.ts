@@ -1,4 +1,7 @@
-import { computed } from 'vue'
+import { computed, watch, type Ref } from 'vue'
+import type { AxiosRequestConfig } from 'axios'
+import { useAuthStore } from '@/stores/auth'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import {
   useEditorImageUploadQueue,
   type EditorImageUploadItem,
@@ -6,7 +9,8 @@ import {
 
 interface UsePostEditorImageUploadStateOptions<TUploaded> {
   validate: (file: File) => 'type' | 'size' | null
-  upload: (file: File) => Promise<TUploaded | null>
+  upload: (file: File, config?: AxiosRequestConfig) => Promise<TUploaded | null>
+  ownerIdentity?: Readonly<Ref<string | undefined>>
   isAbort: (error: unknown) => boolean
   onUploaded: (uploaded: TUploaded, file: File) => void
   onValidationError?: (error: 'type' | 'size', file: File) => void
@@ -22,9 +26,11 @@ export function usePostEditorImageUploadState<TUploaded>({
   onValidationError,
   onFailed,
   abort,
+  ownerIdentity,
 }: UsePostEditorImageUploadStateOptions<TUploaded>) {
   const imageUploadQueue = useEditorImageUploadQueue<TUploaded>({
     validate,
+    authSource: useAuthStore(),
     upload,
     isAbort,
     onUploaded,
@@ -38,6 +44,9 @@ export function usePostEditorImageUploadState<TUploaded>({
     onFailed,
     abort,
   })
+
+  useAuthSessionReset(imageUploadQueue.clear)
+  if (ownerIdentity) watch(ownerIdentity, imageUploadQueue.clear, { flush: 'sync' })
 
   const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
   const failedImageCount = computed(() => imageUploadQueue.failedCount.value)

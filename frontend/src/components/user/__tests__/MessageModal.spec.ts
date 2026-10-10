@@ -1,3 +1,6 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
@@ -76,6 +79,7 @@ const mountModal = () => mount(MessageModal, {
 
 describe('MessageModal', () => {
     beforeEach(() => {
+        setActivePinia(createPinia())
         vi.clearAllMocks()
     })
 
@@ -121,12 +125,32 @@ describe('MessageModal', () => {
         expect(mocks.sendMessage).toHaveBeenCalledTimes(1)
         expect(mocks.sendMessage).toHaveBeenCalledWith(3, '안녕하세요', {
             skipGlobalErrorHandler: true,
+            expectedSession: { sessionGeneration: 0, userId: null },
             signal: expect.any(AbortSignal),
         })
 
         resolveSend({ data: { success: true } })
         await flushAll()
         expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('clears private content on a session change and ignores the old send completion', async () => {
+        const pending = createDeferred<unknown>()
+        mocks.sendMessage.mockReturnValueOnce(pending.promise)
+        const wrapper = mountModal()
+        await wrapper.get('textarea').setValue('old private message')
+        await getButtonByText(wrapper, 'common.send').trigger('click')
+        const config = mocks.sendMessage.mock.calls[0]?.[2]
+        useAuthStore().sessionGeneration += 1
+        await wrapper.vm.$nextTick()
+        expect(config.signal.aborted).toBe(true)
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('')
+        await wrapper.get('textarea').setValue('new private message')
+        pending.resolve({ data: { success: true } })
+        await flushAll()
+        expect(wrapper.emitted('close')).toBeUndefined()
+        expect(mocks.addToast).not.toHaveBeenCalled()
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('new private message')
     })
 
     it('shows the blocked-user message when the API returns the block error code', async () => {

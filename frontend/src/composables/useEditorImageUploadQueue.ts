@@ -1,5 +1,8 @@
 import { computed, ref } from 'vue'
 import type { Ref } from 'vue'
+import type { AxiosRequestConfig } from 'axios'
+import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
+import type { AuthSessionIntentSource } from '@/utils/authSessionIntent'
 
 export type EditorImageUploadStatus = 'queued' | 'uploading' | 'failed' | 'uploaded' | 'canceled'
 
@@ -13,7 +16,8 @@ export interface EditorImageUploadItem<TUploaded = unknown> {
 
 interface UseEditorImageUploadQueueOptions<TUploaded> {
     validate: (file: File) => unknown
-    upload: (file: File) => Promise<TUploaded | null>
+    upload: (file: File, config?: AxiosRequestConfig) => Promise<TUploaded | null>
+    authSource?: AuthSessionIntentSource
     isAbort: (error: unknown) => boolean
     onUploaded: (uploaded: TUploaded, file: File) => void
     onValidationError?: (error: unknown, file: File) => void
@@ -32,6 +36,14 @@ export function useEditorImageUploadQueue<TUploaded>(
     const isProcessing = ref(false)
     let nextItemId = 1
     let isDisposed = false
+    let processingRevision = 0
+    const scopes = new Map<number, AuthSessionScope>()
+    const releaseScope = (id: number, cancel = false) => {
+        const scope = scopes.get(id)
+        if (cancel) scope?.cancel()
+        scope?.dispose()
+        scopes.delete(id)
+    }
 
     const queuedItems = computed(() => queuedItemIds.value
         .map((id) => items.value.find((item) => item.id === id))
@@ -62,13 +74,15 @@ export function useEditorImageUploadQueue<TUploaded>(
         if (isProcessing.value) return
 
         isProcessing.value = true
+        const revision = processingRevision
         try {
-            while (!isDisposed && queuedItemIds.value.length > 0) {
+            while (!isDisposed && revision === processingRevision && queuedItemIds.value.length > 0) {
                 const itemId = queuedItemIds.value.shift()
                 const item = typeof itemId === 'number' ? findItem(itemId) : undefined
                 if (!item || item.status !== 'queued') continue
 
-                if (isDisposed) {
+                if (isDisposed || scopes.get(item.id)?.isCurrent() === false) {
+                    releaseScope(item.id)
                     item.status = 'canceled'
                     continue
                 }
@@ -78,8 +92,9 @@ export function useEditorImageUploadQueue<TUploaded>(
                 currentItem.value = item
 
                 try {
-                    const uploaded = await options.upload(item.file)
-                    if (isDisposed || (item.status as EditorImageUploadStatus) === 'canceled') continue
+                    const requestConfig = scopes.get(item.id)?.requestConfig
+                    const uploaded = await (requestConfig ? options.upload(item.file, requestConfig) : options.upload(item.file))
+                    if (isDisposed || revision !== processingRevision || scopes.get(item.id)?.isCurrent() === false || (item.status as EditorImageUploadStatus) === 'canceled') continue
                     if (uploaded) {
                         item.status = 'uploaded'
                         item.uploaded = uploaded
@@ -89,7 +104,7 @@ export function useEditorImageUploadQueue<TUploaded>(
                         options.onFailed?.(null, item.file)
                     }
                 } catch (error: unknown) {
-                    if ((item.status as EditorImageUploadStatus) === 'canceled' || options.isAbort(error)) {
+                    if (revision !== processingRevision || scopes.get(item.id)?.isCurrent() === false || (item.status as EditorImageUploadStatus) === 'canceled' || options.isAbort(error)) {
                         item.status = 'canceled'
                         continue
                     }
@@ -97,13 +112,14 @@ export function useEditorImageUploadQueue<TUploaded>(
                     item.error = error
                     options.onFailed?.(error, item.file)
                 } finally {
+                    if (item.status !== 'failed') releaseScope(item.id)
                     if (currentItem.value?.id === item.id) {
                         currentItem.value = null
                     }
                 }
             }
         } finally {
-            isProcessing.value = false
+            if (revision === processingRevision) isProcessing.value = false
         }
     }
 
@@ -117,6 +133,7 @@ export function useEditorImageUploadQueue<TUploaded>(
                 error: validationError || undefined,
             }
             nextItemId += 1
+            if (!isDisposed && options.authSource) scopes.set(item.id, createAuthSessionScope(options.authSource))
             items.value.push(item)
             if (item.status === 'queued') {
                 enqueueItem(item)
@@ -133,7 +150,7 @@ export function useEditorImageUploadQueue<TUploaded>(
     const retryItem = (target: ItemTarget<TUploaded>) => {
         if (isDisposed) return false
         const item = findItem(target)
-        if (!item || item.status === 'uploading') return false
+        if (!item || item.status !== 'failed' || scopes.get(item.id)?.isCurrent() === false) return false
 
         const validationError = options.validate(item.file)
         item.uploaded = undefined
@@ -156,28 +173,42 @@ export function useEditorImageUploadQueue<TUploaded>(
         const item = findItem(target)
         if (!item || item.status === 'uploading') return false
         removeFromQueue(item.id)
+        releaseScope(item.id)
         items.value = items.value.filter((candidate) => candidate.id !== item.id)
         return true
     }
 
     const dismissFailed = () => {
+        failedItems.value.forEach(item => releaseScope(item.id))
         items.value = items.value.filter((item) => item.status !== 'failed')
     }
 
     const cancel = () => {
         queuedItems.value.forEach((item) => {
             item.status = 'canceled'
+            releaseScope(item.id, true)
         })
         queuedItemIds.value = []
         if (currentItem.value) {
             currentItem.value.status = 'canceled'
+            releaseScope(currentItem.value.id, true)
         }
         options.abort?.()
     }
 
+    const clear = () => {
+        processingRevision += 1
+        cancel()
+        scopes.forEach(scope => { scope.cancel(); scope.dispose() })
+        scopes.clear()
+        items.value = []
+        currentItem.value = null
+        isProcessing.value = false
+    }
+
     const dispose = () => {
         isDisposed = true
-        cancel()
+        clear()
     }
 
     return {
@@ -194,6 +225,7 @@ export function useEditorImageUploadQueue<TUploaded>(
         dismissItem,
         dismissFailed,
         cancel,
+        clear,
         dispose,
     }
 }

@@ -11,10 +11,10 @@ import {
     MESSAGE_CONTENT_MAX_LENGTH,
 } from '@/utils/messageValidation'
 import logger from '@/utils/logger'
-import {
-    getCurrentSessionGeneration,
-    subscribeAuthSessionBoundary,
-} from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
+import { createAuthSessionScope } from '@/utils/authSessionScope'
+import { getCurrentSessionGeneration } from '@/queryAuthScope'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 type MessageReceiverId = string | number | null | undefined
 
@@ -31,6 +31,7 @@ export function useMessageSubmit({
 }: UseMessageSubmitOptions) {
     const { t } = useI18n()
     const toastStore = useToastStore()
+    const authStore = useAuthStore()
     let sendAbortController: AbortController | null = null
 
     const cancelPendingSend = () => {
@@ -57,19 +58,21 @@ export function useMessageSubmit({
             if (receiverId == null) return false
             const trimmedContent = messageContent.trim()
             const generation = getCurrentSessionGeneration()
+            const scope = createAuthSessionScope(authStore)
             const isReceiverCurrent = () => (
                 String(getReceiverId()) === String(receiverId)
                 && generation === getCurrentSessionGeneration()
+                && scope.isCurrent()
             )
             cancelPendingSend()
             const controller = new AbortController()
             sendAbortController = controller
 
             try {
-                const { data } = await messageApi.sendMessage(receiverId, trimmedContent, {
+                const { data } = await messageApi.sendMessage(receiverId, trimmedContent, scope.withRequestConfig({
                     skipGlobalErrorHandler: true,
                     signal: controller.signal,
-                })
+                }))
                 if (controller.signal.aborted || !isReceiverCurrent()) return false
                 if (!data.success) return false
 
@@ -85,6 +88,7 @@ export function useMessageSubmit({
                 toastStore.addToast(toastMessage, 'error')
                 return false
             } finally {
+                scope.dispose()
                 if (sendAbortController === controller) {
                     sendAbortController = null
                 }
@@ -95,10 +99,10 @@ export function useMessageSubmit({
         },
     })
 
-    const stopSessionBoundary = subscribeAuthSessionBoundary(() => {
+    const stopSessionBoundary = useAuthSessionReset(() => {
         cancelPendingSend()
         reset()
-    })
+    }, authStore)
     if (getCurrentScope()) {
         onScopeDispose(() => {
             stopSessionBoundary()

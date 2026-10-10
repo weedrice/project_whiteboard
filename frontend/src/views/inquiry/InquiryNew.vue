@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
-import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
+import { useAuthScopedMutation, type AuthScopedMutationFunctionContext } from '@/composables/useAuthScopedMutation'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { isNavigationFailure, useRouter } from 'vue-router'
 import { inquiryApi } from '@/api/inquiry'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -19,6 +21,7 @@ import { getCurrentSessionGeneration, sessionQueryKey } from '@/queryAuthScope'
 
 const router = useRouter()
 const queryClient = useQueryClient()
+const operations = useAuthScopedOperation()
 const { t } = useI18n()
 const category = ref<InquiryCategory>('SERVICE_USE')
 const title = ref('')
@@ -28,7 +31,13 @@ const errorMessage = ref('')
 const uploadsPending = ref(false)
 const uploader = ref<InstanceType<typeof InquiryImageUploader> | null>(null)
 const createdInquiryId = ref<number | null>(null)
-const formLocked = computed(() => createMutation.isPending.value || createdInquiryId.value !== null)
+const formLocked = computed(() => operations.isPending('create') || createdInquiryId.value !== null)
+let disposed = false
+onScopeDispose(() => { disposed = true })
+
+function canUpdateView(generation: number, context: AuthScopedMutationFunctionContext) {
+  return !disposed && getCurrentSessionGeneration() === generation && context.isCurrent()
+}
 
 const categories: InquiryCategory[] = ['ACCOUNT', 'SERVICE_USE', 'TECHNICAL', 'CONTENT_OPERATION', 'SUGGESTION', 'OTHER']
 const categoryOptions = computed(() => categories.map((value) => ({
@@ -52,12 +61,14 @@ const createMutation = useAuthScopedMutation({
     content: variables.content,
     fileIds: variables.fileIds,
   }, mutationContext.requestConfig),
-  onSuccess: async (response, variables) => {
+  onSuccess: async (response, variables, _result, context) => {
     const inquiry = unwrapAxiosApiData(response)
     variables.uploader?.commitUploads()
-    if (getCurrentSessionGeneration() !== variables.generation) return
-    fileIds.value = []
-    createdInquiryId.value = inquiry.inquiryId
+    if (getCurrentSessionGeneration() !== variables.generation || !context.isCurrent()) return
+    if (canUpdateView(variables.generation, context)) {
+      fileIds.value = []
+      createdInquiryId.value = inquiry.inquiryId
+    }
     try {
       await queryClient.invalidateQueries({
         queryKey: sessionQueryKey(variables.generation, ['inquiries', 'mine']),
@@ -65,20 +76,20 @@ const createMutation = useAuthScopedMutation({
     } catch {
       // The detail route remains authoritative even if a background refresh fails.
     }
-    if (getCurrentSessionGeneration() !== variables.generation) return
+    if (!canUpdateView(variables.generation, context)) return
     try {
       const failure = await router.replace(`/inquiries/${inquiry.inquiryId}`)
-      if (getCurrentSessionGeneration() === variables.generation && isNavigationFailure(failure)) {
+      if (canUpdateView(variables.generation, context) && isNavigationFailure(failure)) {
         errorMessage.value = t('inquiry.form.createdNavigationFailed')
       }
     } catch {
-      if (getCurrentSessionGeneration() === variables.generation) {
+      if (canUpdateView(variables.generation, context)) {
         errorMessage.value = t('inquiry.form.createdNavigationFailed')
       }
     }
   },
-  onError: (error, variables) => {
-    if (getCurrentSessionGeneration() !== variables.generation) return
+  onError: (error, variables, _result, context) => {
+    if (!canUpdateView(variables.generation, context)) return
     fileIds.value = []
     errorMessage.value = extractErrorMessage(error) || t('inquiry.form.failed')
   },
@@ -103,21 +114,33 @@ function submit() {
     errorMessage.value = t('inquiry.upload.uploading')
     return
   }
-  createMutation.mutate({
+  void operations.run('create', async () => createMutation.mutateAsync({
     category: category.value,
     title: title.value.trim(),
     content: content.value.trim(),
     fileIds: [...fileIds.value],
     generation: getCurrentSessionGeneration(),
     uploader: submissionUploader,
-  })
+  })).catch(() => undefined)
 }
 
 async function cancel() {
   if (formLocked.value) return
-  await uploader.value?.discardUploads()
-  await router.push('/inquiries')
+  await operations.run('cancel', async (scope) => {
+    await uploader.value?.discardUploads()
+    scope.assertCurrent()
+    await router.push('/inquiries')
+  })
 }
+useAuthSessionReset(() => {
+  category.value = 'SERVICE_USE'
+  title.value = ''
+  content.value = ''
+  fileIds.value = []
+  errorMessage.value = ''
+  uploadsPending.value = false
+  createdInquiryId.value = null
+})
 </script>
 
 <template>
@@ -139,7 +162,7 @@ async function cancel() {
           <div v-if="createdInquiryId !== null" class="flex justify-end">
             <BaseButton :to="`/inquiries/${createdInquiryId}`">{{ t('inquiry.form.openCreated') }}</BaseButton>
           </div>
-          <div v-else class="flex justify-end gap-2"><BaseButton variant="secondary" :disabled="formLocked" @click="cancel">{{ t('inquiry.form.cancel') }}</BaseButton><BaseButton type="submit" :loading="createMutation.isPending.value" :disabled="uploadsPending || formLocked">{{ t('inquiry.form.submit') }}</BaseButton></div>
+          <div v-else class="flex justify-end gap-2"><BaseButton variant="secondary" :disabled="formLocked" @click="cancel">{{ t('inquiry.form.cancel') }}</BaseButton><BaseButton type="submit" :loading="operations.isPending('create')" :disabled="uploadsPending || formLocked">{{ t('inquiry.form.submit') }}</BaseButton></div>
         </fieldset>
       </BaseCard>
     </form>
