@@ -16,6 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
@@ -92,6 +94,8 @@ class UserSessionServiceTest {
     void revokeCurrentSessionReturnsLogoutRequired() {
         RefreshToken current = token(12L, user, "hash", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(12L)).thenReturn(Optional.of(current));
+        when(tokens.existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                family("hash"), 1L, NOW)).thenReturn(true);
         assertTrue(service.revokeSession(1L, 12L, session(1L, "hash")).currentSessionRevoked());
         verify(tokens).revokeTokenFamily(family("hash"));
         verify(notificationAccessInvalidationService)
@@ -99,19 +103,58 @@ class UserSessionServiceTest {
     }
 
     @Test
-    void revokeRejectsMissingForeignAndExpiredSessions() {
+    void revokeRejectsMissingForeignAndInactiveFamilies() {
         when(tokens.findByTokenIdForUpdate(99L)).thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 99L, session(1L, "current")));
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeSession(1L, 99L, session(1L, "current"))).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_FOUND);
 
         User another = mock(User.class);
         when(another.getUserId()).thenReturn(2L);
         RefreshToken foreign = token(13L, another, "foreign", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(13L)).thenReturn(Optional.of(foreign));
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 13L, session(1L, "current")));
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeSession(1L, 13L, session(1L, "current"))).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_FOUND);
+        verify(tokens, never())
+                .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                        family("foreign"), 1L, NOW);
 
         RefreshToken expired = token(14L, user, "expired", NOW, NOW.minusSeconds(1), false);
         when(tokens.findByTokenIdForUpdate(14L)).thenReturn(Optional.of(expired));
-        assertThrows(BusinessException.class, () -> service.revokeSession(1L, 14L, session(1L, "current")));
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeSession(1L, 14L, session(1L, "current"))).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_FOUND);
+
+        RefreshToken revoked = token(16L, user, "revoked", NOW, NOW.plusDays(1), true);
+        when(tokens.findByTokenIdForUpdate(16L)).thenReturn(Optional.of(revoked));
+        assertThat(assertThrows(BusinessException.class,
+                () -> service.revokeSession(1L, 16L, session(1L, "current"))).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_FOUND);
+        verify(tokens, never()).revokeTokenFamily(any());
+        verifyNoInteractions(notificationAccessInvalidationService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void revokeRotatedRowChecksActiveFamilyUnderUserLock(boolean expiredPredecessor) {
+        RefreshToken predecessor = token(17L, user, "rotated", NOW.minusDays(2),
+                expiredPredecessor ? NOW.minusDays(1) : NOW.plusDays(1), true);
+        when(tokens.findByTokenIdForUpdate(17L)).thenReturn(Optional.of(predecessor));
+        when(tokens.existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                family("rotated"), 1L, NOW)).thenReturn(true);
+
+        assertTrue(service.revokeSession(1L, 17L, session(1L, "rotated")).currentSessionRevoked());
+
+        var order = inOrder(userRepository, tokens, notificationAccessInvalidationService);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(tokens).findByTokenIdForUpdate(17L);
+        order.verify(tokens)
+                .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                        family("rotated"), 1L, NOW);
+        order.verify(tokens).revokeTokenFamily(family("rotated"));
+        order.verify(notificationAccessInvalidationService)
+                .disconnectSessionFamilyAfterCommit(1L, family("rotated"));
     }
 
     @Test
@@ -128,6 +171,8 @@ class UserSessionServiceTest {
     void revokingAnotherSessionDoesNotLogOutCurrentSession() {
         RefreshToken other = token(15L, user, "other", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(15L)).thenReturn(Optional.of(other));
+        when(tokens.existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                family("other"), 1L, NOW)).thenReturn(true);
 
         assertFalse(service.revokeSession(1L, 15L, session(1L, "current")).currentSessionRevoked());
         verify(tokens).revokeTokenFamily(family("other"));

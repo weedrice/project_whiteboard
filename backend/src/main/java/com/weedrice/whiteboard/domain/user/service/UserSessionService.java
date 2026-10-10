@@ -78,7 +78,11 @@ public class UserSessionService {
         if (refreshToken.getUser() == null || !Objects.equals(refreshToken.getUser().getUserId(), userId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        if (!refreshToken.isValidAt(now())) {
+        // The listed row may have been rotated since it was read. The user lock
+        // serializes rotation; the family, rather than that historical row, must be active.
+        if (!refreshTokenRepository
+                .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                        refreshToken.getSessionFamilyId(), userId, now())) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
