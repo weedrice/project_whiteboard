@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { usePromptStore } from '../prompt'
+import { useAuthStore } from '../auth'
 
 describe('Prompt Store', () => {
   let store: ReturnType<typeof usePromptStore>
@@ -64,5 +65,22 @@ describe('Prompt Store', () => {
 
     await expect(result).resolves.toBeNull()
     expect(store.isOpen).toBe(false)
+  })
+
+  it('cancels and clears a required prompt on account change', async () => {
+    const auth = useAuthStore()
+    const pending = store.open('Old account reason', 'Reason', '', 'Apply', 'Cancel', { required: true })
+    store.inputValue = 'private reason'
+    auth.sessionGeneration++
+    store.confirm()
+    await expect(pending).resolves.toBeNull()
+    expect(store.inputValue).toBe('')
+    expect(store.isOpen).toBe(false)
+  })
+
+  it('settles a pending prompt when the store is disposed', async () => {
+    const pending = store.open('Pending')
+    store.$dispose()
+    await expect(pending).resolves.toBeNull()
   })
 })

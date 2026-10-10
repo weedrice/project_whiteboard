@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions, createReactiveAuthScopedQueryOptions, getAuthQuerySource } from '@/utils/authScopedQuery'
 import { computed, type Ref } from 'vue'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import type { AxiosRequestConfig } from 'axios'
@@ -72,11 +73,8 @@ export const createBoardDetailQueryOptions = (
   sessionGeneration: number,
   requestConfig?: AxiosRequestConfig,
 ) => ({
-  queryKey: ['session', sessionGeneration, ...boardDetailQueryKey(boardUrl)] as const,
-  queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
-    boardUrl,
-    optionalQuerySignal(requestConfig, context),
-  ),
+  ...createAuthScopedQueryOptions(getAuthQuerySource(), ['session', sessionGeneration, ...boardDetailQueryKey(boardUrl)],
+    (context) => fetchBoardDetail(boardUrl, optionalQuerySignal(requestConfig, context))),
   staleTime: QUERY_STALE_TIME.SHORT,
   meta: AUTH_SCOPED_QUERY_META,
 })
@@ -133,11 +131,10 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, meta, ...queryOptions } = options
     return useQuery({
-      queryKey: computed(() => authKey(boardDetailQueryKey(boardUrl.value))),
-      queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
+      ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(boardDetailQueryKey(boardUrl.value))), (context) => fetchBoardDetail(
         boardUrl.value,
         optionalQuerySignal(requestConfig, context),
-      ),
+      )),
       staleTime: QUERY_STALE_TIME.SHORT,
       enabled: computed(() => !!boardUrl.value),
       ...queryOptions,
@@ -154,15 +151,14 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, meta, ...queryOptions } = options
     return useQuery({
-      queryKey: computed(() => authKey(
+      ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(
         boardQueryKeys.posts(boardUrl.value, params.value, isSearching?.value),
-      )),
-      queryFn: (context?: { signal?: AbortSignal }) => fetchBoardPosts(
+      )), (context) => fetchBoardPosts(
         boardUrl.value,
         params.value,
         Boolean(isSearching?.value),
         optionalQuerySignal(requestConfig, context),
-      ),
+      )),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
       ...queryOptions,
       meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
@@ -178,23 +174,22 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, meta, ...queryOptions } = options
     return useInfiniteQuery({
-      queryKey: computed(() => authKey(boardQueryKeys.infinitePosts(
+      ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(boardQueryKeys.infinitePosts(
           boardUrl.value,
           params.value,
           isSearching?.value,
-      ))),
-      // The URL page selects the start of this list; fetchNextPage only advances
-      // pageParam, so loading more keeps the same cache while navigation does not.
-      initialPageParam: computed(() => params.value.page ?? 0),
-      queryFn: ({ pageParam, signal }) => fetchBoardPosts(
+      ))), ({ pageParam, withRequestConfig }) => fetchBoardPosts(
         boardUrl.value,
         {
           ...params.value,
           page: Number(pageParam),
         },
         Boolean(isSearching?.value),
-        optionalQuerySignal(requestConfig, { signal }),
-      ),
+        withRequestConfig(requestConfig),
+      )),
+      // The URL page selects the start of this list; fetchNextPage only advances
+      // pageParam, so loading more keeps the same cache while navigation does not.
+      initialPageParam: computed(() => params.value.page ?? 0),
       getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
       ...queryOptions,

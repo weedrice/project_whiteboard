@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { type QueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
@@ -148,19 +149,18 @@ export function useAdminSystem(queryClient: QueryClient) {
 
         return {
             mutateAsync: (selectedErrorLogId: number) => queryClient.fetchQuery({
-                queryKey: currentSessionQueryKey(
+                ...createAuthScopedQueryOptions(authStore, currentSessionQueryKey(
                     authStore,
                     adminQueryKeys.errorLogDetailById(selectedErrorLogId),
-                ),
-                meta: AUTH_SCOPED_QUERY_META,
-                queryFn: async ({ signal }) => {
+                ), async ({ requestConfig }) => {
                     const response = callAdminApiWithOptionalConfig(
-                        signal ? { signal } : undefined,
+                        requestConfig,
                         (requestConfig) => adminApi.getErrorLog(selectedErrorLogId, requestConfig),
                         () => adminApi.getErrorLog(selectedErrorLogId),
                     )
                     return unwrapAxiosApiData(await response) as ErrorLogDetail
-                },
+                }),
+                meta: AUTH_SCOPED_QUERY_META,
             }),
         }
     }

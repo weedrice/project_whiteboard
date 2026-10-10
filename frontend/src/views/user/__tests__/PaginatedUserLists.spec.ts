@@ -1,3 +1,4 @@
+import { authQueryConfig } from '@/test/authScopedQueryOptions'
 import { flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -326,7 +327,7 @@ describe('paginated user lists', () => {
 
         expect(userApi.getMyPointHistories).toHaveBeenLastCalledWith(
             { page: 0, size: 15, type: 'PENALTY' },
-            { signal: expect.any(AbortSignal) },
+            authQueryConfig(),
         )
     })
 

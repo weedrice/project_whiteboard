@@ -1,5 +1,6 @@
+import { createAuthScopedQueryOptions, createReactiveAuthScopedQueryOptions, getAuthQuerySource } from '@/utils/authScopedQuery'
 import { computed } from 'vue'
-import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosRequestConfig } from 'axios'
 import { userApi } from '@/api/user'
@@ -14,10 +15,8 @@ import {
 } from '@/features/user/userFeatureContext'
 
 export const createMyAgentsQueryOptions = (generation: number, config?: AxiosRequestConfig) => ({
-  queryKey: ['session', generation, ...userQueryKeys.agents] as const,
-  queryFn: async (context: QueryFunctionContext) => {
-    return unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))
-  },
+  ...createAuthScopedQueryOptions(getAuthQuerySource(), ['session', generation, ...userQueryKeys.agents],
+    async (context) => unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))),
   staleTime: QUERY_STALE_TIME.MEDIUM,
   meta: AUTH_SCOPED_QUERY_META,
 })
@@ -32,8 +31,9 @@ export function useUserAgentFeature(context: UserFeatureContext) {
   } = context
 
   const useMyAgents = () => useQuery({
-    ...createMyAgentsQueryOptions(authStore.sessionGeneration),
-    queryKey: computed(() => authKey(userQueryKeys.agents)),
+    ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(userQueryKeys.agents)),
+      async (context) => unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(undefined, context)))),
+    staleTime: QUERY_STALE_TIME.MEDIUM,
   })
 
   const createAgentMutation = (

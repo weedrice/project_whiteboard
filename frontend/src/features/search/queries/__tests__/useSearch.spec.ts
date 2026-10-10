@@ -4,6 +4,7 @@ import { useSearch } from '@/features/search/queries/useSearch'
 import { searchApi } from '@/api/search'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { apiDataResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
+import { authQueryConfig, queryTestContext } from '@/test/authScopedQueryOptions'
 import type { SearchParams } from '@/types'
 
 const mocks = vi.hoisted(() => {
@@ -20,7 +21,7 @@ vi.mock('@tanstack/vue-query', () => ({
             error: ref(null),
             refetch: async () => {
                 if (options.queryFn) {
-                    return await (options.queryFn as () => Promise<unknown>)()
+                    return await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
                 }
                 return null
             },
@@ -63,8 +64,8 @@ describe('useSearch', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         expect(options.placeholderData).toBeUndefined()
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
-        expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'vue', page: 0, size: 20 })
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+        expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'vue', page: 0, size: 20 }, authQueryConfig())
         expect(result).toEqual({
             content: [{ postId: 1 }],
             empty: false,
@@ -155,8 +156,8 @@ describe('useSearch', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         expect(options.placeholderData).toBeUndefined()
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
-        expect(searchApi.search).toHaveBeenCalledWith({ q: 'pinia', size: 5 })
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+        expect(searchApi.search).toHaveBeenCalledWith({ q: 'pinia', size: 5 }, authQueryConfig())
         expect(result).toEqual({
             keyword: 'pinia',
             postResults: [{ postId: 2 }],
@@ -221,8 +222,8 @@ describe('useSearch', () => {
             'session', 0, 'search', 'semantic', { q: 'private result', page: 0 },
         ])
         expect(options.placeholderData).toBeUndefined()
-        await (options.queryFn as () => Promise<unknown>)()
-        expect(searchApi.semanticSearch).toHaveBeenCalledWith({ q: 'private result', page: 0 })
+        await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+        expect(searchApi.semanticSearch).toHaveBeenCalledWith({ q: 'private result', page: 0 }, authQueryConfig())
     })
 
     it('disables semantic search when the caller marks current filters unsupported', () => {
@@ -252,9 +253,10 @@ describe('useSearch', () => {
         expect(options.queryKey).toEqual(['search', 'popular'])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
-        const result = await (options.queryFn as () => Promise<unknown>)() as Array<{ keyword: string; count: number }>
+        const context = queryTestContext(options)
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(context) as Array<{ keyword: string; count: number }>
 
-        expect(searchApi.getPopularKeywords).toHaveBeenCalledOnce()
+        expect(searchApi.getPopularKeywords).toHaveBeenCalledExactlyOnceWith({ signal: context.signal })
         expect(result).toHaveLength(2)
         expect(result[0]).toEqual({ keyword: 'Vue 3', count: 120 })
     })

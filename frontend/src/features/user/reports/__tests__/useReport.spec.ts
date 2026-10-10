@@ -3,6 +3,7 @@ import { isRef, ref } from 'vue'
 import { useReport } from '../useReport'
 import { reportApi } from '@/api/report'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
+import { authQueryConfig, queryTestContext } from '@/test/authScopedQueryOptions'
 
 const mocks = vi.hoisted(() => ({
   queryOptions: [] as Array<Record<string, unknown>>,
@@ -56,7 +57,7 @@ describe('useReport', () => {
     params.value = { page: 2, size: 15 }
 
     const signal = new AbortController().signal
-    const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({ signal })
+    const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options, { signal }))
 
     expect(result).toMatchObject({
       content: [{ reportId: 1 }],
@@ -66,6 +67,6 @@ describe('useReport', () => {
       last: true,
       empty: false,
     })
-    expect(reportApi.getMyReports).toHaveBeenCalledWith({ page: 2, size: 15 }, { signal })
+    expect(reportApi.getMyReports).toHaveBeenCalledWith({ page: 2, size: 15 }, authQueryConfig())
   })
 })

@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import type { PersonalFeedPage, PostSummary } from '@/types'
@@ -77,14 +78,14 @@ describe('usePersonalFeed', () => {
     const queryKey = options.queryKey as ReturnType<typeof computed>
     const enabled = options.enabled as ReturnType<typeof computed>
     const signal = new AbortController().signal
-    const result = await (options.queryFn as (context: { pageParam: number; signal: AbortSignal }) => Promise<PersonalFeedPage>)({
+    const result = await (options.queryFn as (context: { pageParam: number; signal: AbortSignal }) => Promise<PersonalFeedPage>)(queryTestContext(options, {
       pageParam: 2,
       signal,
-    })
+    }))
 
     expect(queryKey.value).toEqual(['session', 0, 'feed', 'personal', 42])
     expect(enabled.value).toBe(true)
-    expect(feedApiMock.getMyFeeds).toHaveBeenCalledWith(2, 20, { signal })
+    expect(feedApiMock.getMyFeeds).toHaveBeenCalledWith(2, 20, authQueryConfig({ signal }))
     expect(result.number).toBe(2)
     expect((options.getNextPageParam as (page: PersonalFeedPage) => number | undefined)(makePage([], 2, true))).toBe(3)
   })

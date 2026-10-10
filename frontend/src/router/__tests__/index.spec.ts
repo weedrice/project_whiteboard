@@ -1,3 +1,4 @@
+import { authQueryConfig } from '@/test/authScopedQueryOptions'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import type { RouteRecordRaw } from 'vue-router'
@@ -13,11 +14,11 @@ import i18n, { setAppLocale } from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import { sessionQueryKey } from '@/queryAuthScope'
+import { configureAuthQueryScope, sessionQueryKey } from '@/queryAuthScope'
 
 const queryClientMock = vi.hoisted(() => ({
-    fetchQuery: vi.fn(({ queryFn }: { queryFn: (context: { signal: AbortSignal }) => Promise<unknown> }) => (
-        queryFn({ signal: new AbortController().signal })
+    fetchQuery: vi.fn(({ queryFn, queryKey }: { queryKey: readonly unknown[], queryFn: (context: { queryKey: readonly unknown[], signal: AbortSignal }) => Promise<unknown> }) => (
+        queryFn({ queryKey, signal: new AbortController().signal })
     ))
 }))
 
@@ -255,6 +256,7 @@ describe('Router Navigation Guards', () => {
             }),
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore as unknown as ReturnType<typeof useAuthStore>)
+        configureAuthQueryScope(() => mockAuthStore.sessionGeneration, () => mockAuthStore.user?.userId ?? null)
         i18n.global.locale.value = 'ko'
         vi.mocked(boardApi.getBoard).mockResolvedValue(boardPermissionResponse({
             isAdmin: false,
@@ -366,7 +368,7 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/board/open/write')
 
-        expect(boardApi.getBoard).toHaveBeenCalledWith('open')
+        expect(boardApi.getBoard).toHaveBeenCalledWith('open', authQueryConfig())
         expect(router.currentRoute.value.name).toBe('post-write')
     })
 
@@ -434,7 +436,7 @@ describe('Router Navigation Guards', () => {
         expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
             queryKey: sessionQueryKey(0, postDetailQueryKey('10', false)),
         }))
-        expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } })
+        expect(postApi.getPost).toHaveBeenCalledWith('10', authQueryConfig({ params: { incrementView: false } }))
         expect(router.currentRoute.value.name).toBe('post-edit')
     })
 
@@ -488,7 +490,7 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/board/free/edit')
 
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free', authQueryConfig())
         expect(router.currentRoute.value.name).toBe('board-edit')
     })
 
@@ -516,7 +518,7 @@ describe('Router Navigation Guards', () => {
             queryKey: ['session', mockAuthStore.sessionGeneration, 'emoticon', 7],
             retry: false,
         }))
-        expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7, { signal: expect.any(AbortSignal) })
+        expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7, authQueryConfig())
         expect(router.currentRoute.value.name).toBe('emoticon-edit')
     })
 
@@ -672,7 +674,7 @@ describe('Router Navigation Guards', () => {
         vi.mocked(boardApi.getBoard).mockImplementationOnce(() => boardRequest.promise)
 
         const navigation = router.push('/board/restricted/edit')
-        await vi.waitFor(() => expect(boardApi.getBoard).toHaveBeenCalledWith('restricted'))
+        await vi.waitFor(() => expect(boardApi.getBoard).toHaveBeenCalledWith('restricted', authQueryConfig()))
         mockAuthStore.sessionGeneration += 1
         boardRequest.resolve(boardPermissionResponse({ isAdmin: false, categories: [] }))
         await navigation
@@ -688,7 +690,7 @@ describe('Router Navigation Guards', () => {
         vi.mocked(emoticonApi.getEmoticonData).mockImplementationOnce(() => emoticonRequest.promise)
 
         const navigation = router.push('/emoticons/8/edit')
-        await vi.waitFor(() => expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(8, { signal: expect.any(AbortSignal) }))
+        await vi.waitFor(() => expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(8, authQueryConfig()))
         mockAuthStore.sessionGeneration += 1
         emoticonRequest.resolve(emoticonDetailResponse(2, { emoticonId: 8 }))
         await navigation
@@ -704,7 +706,7 @@ describe('Router Navigation Guards', () => {
         vi.mocked(postApi.getPost).mockImplementationOnce(() => postRequest.promise)
 
         const navigation = router.push('/board/open/post/10/edit')
-        await vi.waitFor(() => expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } }))
+        await vi.waitFor(() => expect(postApi.getPost).toHaveBeenCalledWith('10', authQueryConfig({ params: { incrementView: false } })))
         mockAuthStore.sessionGeneration += 1
         postRequest.resolve(postDetailResponse(2))
         await navigation

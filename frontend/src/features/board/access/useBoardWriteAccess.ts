@@ -2,6 +2,9 @@ import type { QueryClient } from '@tanstack/vue-query'
 import { fetchBoardDetail } from '@/features/board/useBoard'
 import { canWriteBoardPost } from '@/utils/board'
 import type { BoardDetail } from '@/types'
+import { createAuthSessionScope } from '@/utils/authSessionScope'
+import { createAuthSessionChangedError } from '@/utils/authSessionIntent'
+import { getAuthQuerySource } from '@/utils/authScopedQuery'
 
 export const BOARD_WRITE_FORBIDDEN_MESSAGE_KEY = 'common.messages.boardWriteForbidden'
 export const BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY = 'common.messages.loadFailed'
@@ -26,14 +29,22 @@ export async function verifyBoardWriteAccess({
   return canUserWriteBoardPost(board, isAuthenticated, userRole)
 }
 
-export function fetchBoardForWriteAccess(
+export async function fetchBoardForWriteAccess(
   _queryClient: QueryClient,
   boardUrl: string,
-  _sessionGeneration: number,
+  sessionGeneration: number,
   signal?: AbortSignal,
 ): Promise<BoardDetail> {
-  if (signal?.aborted) return Promise.reject(new DOMException('Request aborted', 'AbortError'))
-  return fetchBoardDetail(boardUrl, signal ? { signal } : undefined)
+  const source = getAuthQuerySource()
+  if (source.sessionGeneration !== sessionGeneration || signal?.aborted) throw createAuthSessionChangedError()
+  const scope = createAuthSessionScope(source)
+  try {
+    const board = await fetchBoardDetail(boardUrl, scope.withRequestConfig({ signal }))
+    scope.assertCurrent()
+    return board
+  } finally {
+    scope.dispose()
+  }
 }
 
 export function canUserWriteBoardPost(

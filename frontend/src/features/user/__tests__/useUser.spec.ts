@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -44,7 +45,7 @@ vi.mock('@tanstack/vue-query', () => ({
             error: ref(null),
             refetch: async () => {
                 if (options.queryFn) {
-                    return await (options.queryFn as () => Promise<unknown>)()
+                    return await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
                 }
                 return null
             },
@@ -124,11 +125,11 @@ describe('useUser', () => {
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
         const controller = new AbortController()
-        const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: controller.signal,
-        })
+        }))
         expect(result).toEqual({ userId: 1, displayName: 'me' })
-        expect(userApi.getMyProfile).toHaveBeenCalledWith({ signal: controller.signal })
+        expect(userApi.getMyProfile).toHaveBeenCalledWith(authQueryConfig({ signal: controller.signal }))
     })
 
     it('fetches user profile and supports enabled guard', async () => {
@@ -144,9 +145,9 @@ describe('useUser', () => {
         expect(queryKey.value).toEqual(['session', 0, 'user', '9'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual({ userId: 9 })
-        expect(userApi.getUserProfile).toHaveBeenCalledWith(9)
+        expect(userApi.getUserProfile).toHaveBeenCalledWith(9, authQueryConfig())
 
         userId.value = 10
         expect(queryKey.value).toEqual(['session', 0, 'user', '10'])
@@ -175,10 +176,10 @@ describe('useUser', () => {
         ])
 
         const controller = new AbortController()
-        await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: controller.signal,
-        })
-        expect(badgeApi.getMyBadges).toHaveBeenCalledWith({ signal: controller.signal })
+        }))
+        expect(badgeApi.getMyBadges).toHaveBeenCalledWith(authQueryConfig({ signal: controller.signal }))
     })
 
     it('fetches settings, blocks and notification settings queries', async () => {
@@ -215,7 +216,7 @@ describe('useUser', () => {
             'session', 0, 'user', 'settings',
         ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
-        let result = await (options.queryFn as () => Promise<unknown>)()
+        let result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual({ theme: 'LIGHT' })
 
         useBlockList()
@@ -223,7 +224,7 @@ describe('useUser', () => {
         expect((options.queryKey as { value: unknown[] }).value).toEqual([
             'session', 0, 'user', 'blocks', {},
         ])
-        result = await (options.queryFn as () => Promise<unknown>)()
+        result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual({
             content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
             totalElements: 1,
@@ -240,7 +241,7 @@ describe('useUser', () => {
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'user', 'notification-settings',
         ])
-        result = await (options.queryFn as () => Promise<unknown>)()
+        result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual([{ notificationType: 'COMMENT', isEnabled: true }])
 
         useMyAgents()
@@ -250,11 +251,11 @@ describe('useUser', () => {
         ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         const controller = new AbortController()
-        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: controller.signal,
-        })
+        }))
         expect(result).toEqual({ agents: [{ agentId: 10 }] })
-        expect(userApi.getMyAgents).toHaveBeenCalledWith({ signal: controller.signal })
+        expect(userApi.getMyAgents).toHaveBeenCalledWith(authQueryConfig())
     })
 
     it('fetches recently viewed posts with optional params', async () => {
@@ -269,9 +270,9 @@ describe('useUser', () => {
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'user', 'history', 'views', undefined,
         ])
-        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: new AbortController().signal,
-        })
+        }))
         expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(1, {}, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(result).toEqual({ content: [{ postId: 1 }] })
 
@@ -282,9 +283,9 @@ describe('useUser', () => {
         expect(queryKey.value).toEqual([
             'session', 0, 'user', 'history', 'views', { page: 1, size: 20 },
         ])
-        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: new AbortController().signal,
-        })
+        }))
         expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(2, { page: 1, size: 20 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(result).toEqual({ content: [{ postId: 2 }] })
 
@@ -314,7 +315,7 @@ describe('useUser', () => {
         enabled.value = true
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual({ currentPoint: 12345 })
         expect(userApi.getMyPoint).toHaveBeenCalled()
     })
@@ -335,9 +336,9 @@ describe('useUser', () => {
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'user', 'scraps', { page: 1, size: 15 },
         ])
-        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: new AbortController().signal,
-        })
+        }))
         expect(result).toMatchObject({
             content: [{ postId: 1 }],
             totalPages: 1,
@@ -346,18 +347,18 @@ describe('useUser', () => {
             last: true,
             empty: false,
         })
-        expect(userApi.getMyScraps).toHaveBeenCalledWith({ page: 1, size: 15 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(userApi.getMyScraps).toHaveBeenCalledWith({ page: 1, size: 15 }, authQueryConfig())
 
         useMyPointHistories(params)
         options = mocks.queryOptions.at(-1)!
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'user', 'points', 'history', { page: 1, size: 15 },
         ])
-        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             signal: new AbortController().signal,
-        })
+        }))
         expect(result).toEqual({ content: [{ historyId: 2 }], totalPages: 1 })
-        expect(userApi.getMyPointHistories).toHaveBeenCalledWith({ page: 1, size: 15 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(userApi.getMyPointHistories).toHaveBeenCalledWith({ page: 1, size: 15 }, authQueryConfig())
     })
 
     it('updates profile and invalidates my profile cache', async () => {

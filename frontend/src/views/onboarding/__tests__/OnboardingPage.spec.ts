@@ -1,3 +1,4 @@
+import { authQueryConfig } from '@/test/authScopedQueryOptions'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -238,7 +239,7 @@ describe('OnboardingPage', () => {
 
     expect(getBoardRecommendations).toHaveBeenCalledWith(
       [],
-      { signal: expect.any(AbortSignal) },
+      authQueryConfig(),
     )
   })
 })

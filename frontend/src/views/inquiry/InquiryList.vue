@@ -32,7 +32,7 @@ const params = computed(() => ({
 
 const query = useApiPageQuery({
   queryKey: computed(() => ['inquiries', 'mine', params.value]),
-  request: ({ signal }) => inquiryApi.getMine(params.value, { signal }),
+  request: ({ requestConfig }) => inquiryApi.getMine(params.value, requestConfig),
   meta: AUTH_SCOPED_QUERY_META,
 })
 

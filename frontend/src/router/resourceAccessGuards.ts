@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
@@ -25,15 +26,15 @@ import {
 
 async function fetchPostForAuthorGuard(postId: string, sessionGeneration: number): Promise<Post> {
     return queryClient.fetchQuery({
-        queryKey: sessionQueryKey(sessionGeneration, postDetailQueryKey(postId, false)),
-        queryFn: async () => {
+        ...createAuthScopedQueryOptions(useAuthStore(), sessionQueryKey(sessionGeneration, postDetailQueryKey(postId, false)), async ({ requestConfig }) => {
             const post = unwrapAxiosApiData(await postApi.getPost(postId, {
+                ...requestConfig,
                 params: {
                     incrementView: false,
                 },
             }))
             return post
-        },
+        }),
         retry: false,
         meta: AUTH_SCOPED_QUERY_META,
     })
@@ -96,8 +97,7 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
 
     try {
         const emoticon = await queryClient.fetchQuery({
-            queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(emoticonIdParam)),
-            queryFn: ({ signal }) => emoticonApi.getEmoticonData(emoticonIdParam, { signal }),
+            ...createAuthScopedQueryOptions(authStore, sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(emoticonIdParam)), ({ requestConfig }) => emoticonApi.getEmoticonData(emoticonIdParam, requestConfig)),
             retry: false,
             staleTime: QUERY_STALE_TIME.SHORT,
             meta: AUTH_SCOPED_QUERY_META,

@@ -10,11 +10,12 @@ import {
   useNullableApiQuery,
 } from '@/composables/useApiQuery'
 import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import { optionalQuerySignal } from '@/utils/querySignal'
 
 type AdminQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 type AdminEnabled = Ref<boolean> | ComputedRef<boolean>
 type RefetchTriggerOption = boolean | 'always'
-export type AdminApiRequestConfig = Pick<AxiosRequestConfig, 'signal'>
+export type AdminApiRequestConfig = Pick<AxiosRequestConfig, 'signal' | 'expectedSession'>
 
 export type AdminPageFetcher<T> = (
   config?: AdminApiRequestConfig
@@ -36,12 +37,8 @@ interface AdminDataQueryOptions<T, TData = T> {
   selectData?: (data: T) => TData
 }
 
-function toAdminApiRequestConfig(signal?: AbortSignal): AdminApiRequestConfig | undefined {
-  return signal ? { signal } : undefined
-}
-
 const toConfigFromQueryContext = (context: QueryFunctionContext) =>
-  toAdminApiRequestConfig(context?.signal)
+  optionalQuerySignal(undefined, context)
 
 export const callAdminApiWithOptionalConfig = <T>(
   config: AdminApiRequestConfig | undefined,
@@ -88,7 +85,7 @@ export function useAdminNullablePageQuery<T>(
 ) {
   return useNullableApiPageQuery<T>({
     queryKey,
-    request: (context) => fetcher(toAdminApiRequestConfig(context?.signal)),
+    request: (context) => fetcher(toConfigFromQueryContext(context)),
     enabled,
     meta: AUTH_SCOPED_QUERY_META,
   })

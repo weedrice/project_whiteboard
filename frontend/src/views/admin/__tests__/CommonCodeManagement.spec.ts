@@ -79,7 +79,7 @@ describe('CommonCodeManagement', () => {
     await flushPromises()
 
     expect(commonCodeApiMock.getAll).toHaveBeenCalledOnce()
-    expect(commonCodeApiMock.getAllDetails).toHaveBeenCalledWith('REPORT_REASON', { signal: expect.any(AbortSignal) })
+    expect(commonCodeApiMock.getAllDetails).toHaveBeenCalledWith('REPORT_REASON', expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }))
     expect(wrapper.text()).toContain('Report reason')
     expect(wrapper.text()).toContain('Spam')
   })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
@@ -46,8 +47,8 @@ const {
   isError: isBoardsError,
   refetch: refetchBoards,
 } = useQuery({
-  queryKey: onboardingQueryKey,
-  queryFn: async ({ signal }) => unwrapAxiosApiData(await boardApi.getBoardRecommendations([], { signal })),
+  ...createReactiveAuthScopedQueryOptions(authStore, onboardingQueryKey,
+    async ({ requestConfig }) => unwrapAxiosApiData(await boardApi.getBoardRecommendations([], requestConfig))),
   meta: AUTH_SCOPED_QUERY_META,
 })
 

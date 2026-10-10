@@ -1,3 +1,4 @@
+import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
@@ -44,8 +45,7 @@ export function usePost() {
         const incrementView = requestConfig?.params?.incrementView !== false
 
         return useQuery({
-            queryKey: computed(() => authKey(postDetailQueryKey(postId.value, incrementView))),
-            queryFn: async (context?: { signal?: AbortSignal }) => {
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(postDetailQueryKey(postId.value, incrementView))), async (context) => {
                 const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
                     ...withQuerySignal(requestConfig, context),
                     params: {
@@ -54,7 +54,7 @@ export function usePost() {
                     },
                 }))
                 return post
-            },
+            }),
             enabled: computed(() => !!postId.value),
             meta: AUTH_SCOPED_QUERY_META,
             ...queryOptions,
@@ -67,10 +67,9 @@ export function usePost() {
     ) => {
         const { requestConfig, size = 5, enabled, ...queryOptions } = options
         return useQuery({
-            queryKey: computed(() => authKey(postQueryKeys.related(postId.value, size))),
-            queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(postQueryKeys.related(postId.value, size))), async (context) => unwrapAxiosApiData(
                 await postApi.getRelatedPosts(postId.value, size, withQuerySignal(requestConfig, context))
-            ),
+            )),
             enabled: computed(() => !!postId.value && (enabled?.value ?? true)),
             meta: AUTH_SCOPED_QUERY_META,
             ...queryOptions,
@@ -79,8 +78,7 @@ export function usePost() {
 
     const useScheduledPostDetail = (scheduledPostId: Ref<string | number>, enabled: Ref<boolean>) => {
         return useQuery({
-            queryKey: computed(() => authKey(userQueryKeys.scheduledPost(scheduledPostId.value))),
-            queryFn: async () => unwrapAxiosApiData(await postApi.getScheduledPost(scheduledPostId.value)),
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(userQueryKeys.scheduledPost(scheduledPostId.value))), async ({ requestConfig }) => unwrapAxiosApiData(await postApi.getScheduledPost(scheduledPostId.value, requestConfig))),
             enabled: computed(() => Boolean(scheduledPostId.value) && enabled.value),
             meta: AUTH_SCOPED_QUERY_META,
         })
@@ -88,13 +86,12 @@ export function usePost() {
 
     const usePostVersions = (postId: Ref<string | number>, enabled: Ref<boolean>) => {
         return useQuery({
-            queryKey: computed(() => authKey(postQueryKeys.versions(postId.value))),
-            queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(postQueryKeys.versions(postId.value))), async (context) => unwrapAxiosApiData(
                 await postApi.getPostVersions(postId.value, withQuerySignal(
                     { skipGlobalErrorHandler: true },
                     context,
                 )),
-            ),
+            )),
             enabled: computed(() => Boolean(postId.value) && enabled.value),
             retry: false,
             meta: AUTH_SCOPED_QUERY_META,

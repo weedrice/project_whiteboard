@@ -21,6 +21,8 @@ export interface AuthSessionScope {
   assertCurrent: () => void
   /** Only synchronous side effects are guarded; check again after every await. */
   runIfCurrent: <T>(operation: () => T) => T | undefined
+  /** Cancel a manual operation when its owner is reset or disposed. */
+  cancel: () => void
   /** Release listeners on settlement, without cancelling a completed request. */
   dispose: () => void
 }
@@ -71,6 +73,7 @@ export function createAuthSessionScope(source: AuthSessionIntentSource): AuthSes
     isCurrent,
     assertCurrent,
     runIfCurrent: (operation) => isCurrent() ? operation() : undefined,
+    cancel: () => controller.abort(),
     dispose: () => {
       if (disposed) return
       disposed = true

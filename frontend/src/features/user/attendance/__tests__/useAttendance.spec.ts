@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { ref } from 'vue'
@@ -44,8 +45,8 @@ describe('useAttendance', () => {
     const controller = new AbortController()
 
     expect(query.queryKey.value).toEqual(['session', 0, 'attendance', 'me', '2026-07'])
-    await expect(query.queryFn({ signal: controller.signal })).resolves.toEqual({ checkedIn: true })
-    expect(mocks.getMyAttendance).toHaveBeenCalledWith('2026-07', { signal: controller.signal })
+    await expect(query.queryFn(queryTestContext(query, { signal: controller.signal }))).resolves.toEqual({ checkedIn: true })
+    expect(mocks.getMyAttendance).toHaveBeenCalledWith('2026-07', authQueryConfig({ signal: controller.signal }))
   })
 
   it('checks in and invalidates attendance and point caches', async () => {

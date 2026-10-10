@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useConfirmStore } from '../confirm'
+import { useAuthStore } from '../auth'
 
 describe('Confirm Store', () => {
     let store: ReturnType<typeof useConfirmStore>
@@ -123,6 +124,23 @@ describe('Confirm Store', () => {
     })
 
     describe('multiple dialog flow', () => {
+        it('cancels an open confirmation on session change without approving a later dialog', async () => {
+            const auth = useAuthStore()
+            const old = store.open('Old account action')
+            auth.sessionGeneration++
+            await expect(old).resolves.toBe(false)
+            expect(store.isOpen).toBe(false)
+            const current = store.open('New account action')
+            store.confirm()
+            await expect(current).resolves.toBe(true)
+        })
+
+        it('settles a pending confirmation when the store is disposed', async () => {
+            const pending = store.open('Pending')
+            store.$dispose()
+            await expect(pending).resolves.toBe(false)
+        })
+
         it('resolves the previous pending dialog as cancelled when another dialog opens', async () => {
             const promise1 = store.open('First question?')
             const promise2 = store.open('Second question?')

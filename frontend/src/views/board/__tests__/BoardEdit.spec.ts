@@ -347,6 +347,7 @@ describe('BoardEdit', () => {
     expect(wrapper.text()).toContain('common.messages.loadFailed')
     expect(boardApiMock.getManagerAudits.mock.calls[0][2]).toEqual({
       signal: expect.any(AbortSignal),
+      expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }),
     })
 
     const retry = wrapper.findAll('button').find((button) => button.text().includes('common.error.retry'))

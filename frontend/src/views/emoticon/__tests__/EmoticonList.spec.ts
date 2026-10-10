@@ -1,3 +1,4 @@
+import { queryTestContext } from '@/test/authScopedQueryOptions'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, unref, type MaybeRefOrGetter } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,7 +7,7 @@ import { emoticonApiData } from '@/test/emoticonApiFixtures'
 const mocks = vi.hoisted(() => {
   type QueryOptionMock = {
     queryKey?: MaybeRefOrGetter<unknown>
-    queryFn?: () => Promise<unknown>
+    queryFn?: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
   }
   const queryOptions: QueryOptionMock[] = []
   const searchAll = vi.fn()
@@ -36,7 +37,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('@tanstack/vue-query', () => ({
-  useQuery: vi.fn((options: { queryKey?: MaybeRefOrGetter<unknown>; queryFn?: () => Promise<unknown> }) => {
+  useQuery: vi.fn((options: { queryKey?: MaybeRefOrGetter<unknown>; queryFn?: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }) => {
     mocks.queryOptions.push(options)
     if (mocks.queryOptions.length === 1) {
       return {
@@ -127,7 +128,7 @@ const getListQuery = () => {
   })
 
   expect(listQuery).toBeDefined()
-  return listQuery as { queryFn: () => Promise<unknown> }
+  return listQuery as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
 }
 
 describe('EmoticonList', () => {
@@ -202,17 +203,17 @@ describe('EmoticonList', () => {
     const wrapper = mountList()
     const listQuery = getListQuery()
 
-    await listQuery.queryFn()
-    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'latest' }))
+    await listQuery.queryFn(queryTestContext(listQuery))
+    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'latest' }), { signal: expect.any(AbortSignal) })
 
     const oldestButton = wrapper.findAll('button')
       .find((button) => button.text() === '오래된순')
     expect(oldestButton).toBeTruthy()
 
     await oldestButton!.trigger('click')
-    await listQuery.queryFn()
+    await listQuery.queryFn(queryTestContext(listQuery))
 
-    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'oldest' }))
+    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'oldest' }), { signal: expect.any(AbortSignal) })
   })
 
   it('renders a bounded pagination range for large page counts', () => {
@@ -236,12 +237,12 @@ describe('EmoticonList', () => {
 
     await input.setValue('wave')
     await input.trigger('keyup.enter', { isComposing: true })
-    await listQuery.queryFn()
+    await listQuery.queryFn(queryTestContext(listQuery))
     expect(mocks.searchAll.mock.calls.at(-1)?.[0]).not.toHaveProperty('keyword')
 
     await input.trigger('keyup.enter')
-    await listQuery.queryFn()
-    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'wave' }))
+    await listQuery.queryFn(queryTestContext(listQuery))
+    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'wave' }), { signal: expect.any(AbortSignal) })
   })
 
   it('renders retryable error states instead of empty states', async () => {

@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
@@ -73,9 +74,8 @@ export function createAppNavigationGuard() {
             const sessionGeneration = authStore.sessionGeneration
             try {
                 const settings = await queryClient.fetchQuery({
-                    queryKey: userSettingsSessionQueryKey(sessionGeneration),
+                    ...createAuthScopedQueryOptions(authStore, userSettingsSessionQueryKey(sessionGeneration), async ({ requestConfig }) => unwrapAxiosApiData(await userApi.getUserSettings(requestConfig))),
                     meta: { authScoped: true },
-                    queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getUserSettings({ signal })),
                     staleTime: QUERY_STALE_TIME.MEDIUM,
                 })
                 if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false

@@ -32,7 +32,7 @@ const params = computed(() => ({
 
 const { data, isLoading, isError, refetch } = useApiPageQuery({
   queryKey: computed(() => tagQueryKeys.posts(tagName.value, params.value)),
-  request: (context) => tagApi.getPostsByTagName(tagName.value, params.value, { signal: context.signal }),
+  request: (context) => tagApi.getPostsByTagName(tagName.value, params.value, context.requestConfig),
   enabled: computed(() => tagName.value.length > 0),
   meta: AUTH_SCOPED_QUERY_META,
 })

@@ -1,5 +1,6 @@
+import { createAuthScopedQueryOptions, createReactiveAuthScopedQueryOptions, getAuthQuerySource } from '@/utils/authScopedQuery'
 import { computed, type Ref } from 'vue'
-import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import type { AxiosRequestConfig } from 'axios'
 import { userApi, type UserUpdatePayload } from '@/api/user'
@@ -18,10 +19,8 @@ import {
 } from '@/features/user/userFeatureContext'
 
 export const createMyProfileQueryOptions = (generation: number, config?: AxiosRequestConfig) => ({
-  queryKey: ['session', generation, ...userQueryKeys.me] as const,
-  queryFn: async (context: QueryFunctionContext) => {
-    return unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))
-  },
+  ...createAuthScopedQueryOptions(getAuthQuerySource(), ['session', generation, ...userQueryKeys.me],
+    async (context) => unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))),
   staleTime: QUERY_STALE_TIME.MEDIUM,
   meta: AUTH_SCOPED_QUERY_META,
 })
@@ -36,8 +35,9 @@ export function useUserProfileFeature(context: UserFeatureContext) {
   } = context
 
   const useMyProfile = () => useQuery({
-    ...createMyProfileQueryOptions(authStore.sessionGeneration),
-    queryKey: computed(() => authKey(userQueryKeys.me)),
+    ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(userQueryKeys.me)),
+      async (context) => unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(undefined, context)))),
+    staleTime: QUERY_STALE_TIME.MEDIUM,
   })
 
   const useUserProfile = (userId: Ref<string | number>) => useApiQuery({

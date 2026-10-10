@@ -1,3 +1,5 @@
+import { authQueryConfig } from '@/test/authScopedQueryOptions'
+import { configureAuthQueryScope } from '@/queryAuthScope'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -94,6 +96,7 @@ describe('useWriteBoardSheet', () => {
         vi.clearAllMocks()
         authStore.isAuthenticated = true
         authStore.sessionGeneration = 7
+        configureAuthQueryScope(() => authStore.sessionGeneration)
         setActivePinia(createPinia())
         fetchQuery.mockImplementation(async ({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
         document.body.style.overflow = ''
@@ -118,9 +121,7 @@ describe('useWriteBoardSheet', () => {
         await sheet.goToBoardWrite('free')
 
         expect(routerPush).not.toHaveBeenCalledWith('/board/free/write')
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free', {
-            signal: expect.any(AbortSignal),
-        })
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free', authQueryConfig())
         expect(useToastStore().toasts.at(-1)?.message).toBe(i18n.global.t('common.messages.boardWriteForbidden'))
         sheet.closeWriteSheet()
         await nextTick()
@@ -139,9 +140,7 @@ describe('useWriteBoardSheet', () => {
         await sheet.goToBoardWrite('free')
 
         expect(routerPush).toHaveBeenCalledWith('/board/free/write')
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free', {
-            signal: expect.any(AbortSignal),
-        })
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free', authQueryConfig())
     })
 
     it('locks background scrolling only while the write sheet is open', async () => {

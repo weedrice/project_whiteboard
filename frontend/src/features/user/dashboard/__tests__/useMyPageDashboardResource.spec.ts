@@ -1,3 +1,4 @@
+import { queryTestContext } from '@/test/authScopedQueryOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
@@ -6,7 +7,7 @@ import { apiEnvelopeResponse, apiPageSuccessDataResponse, apiSuccessDataResponse
 import { createDeferred } from '@/test/async'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
-import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 const mocks = vi.hoisted(() => ({
   fetchQuery: vi.fn(),
@@ -69,10 +70,11 @@ describe('useMyPageDashboardResource', () => {
     mocks.authStore.user = null
     mocks.authStore.isAuthenticated = true
     mocks.authStore.sessionGeneration = 0
+    configureAuthQueryScope(() => mocks.authStore.sessionGeneration, () => mocks.authStore.user?.userId as number | null ?? null)
     mocks.setQueryData.mockReset()
     mocks.getQueryData.mockReturnValue(undefined)
     mocks.getQueryState.mockReturnValue(undefined)
-    mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
+    mocks.fetchQuery.mockImplementation(async (options: { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }) => options.queryFn(queryTestContext(options)))
     vi.mocked(userApi.getMyProfile).mockResolvedValue(
       apiSuccessDataResponse<typeof userApi.getMyProfile>({ userId: 1, email: 'me@example.com' })
     )
@@ -355,11 +357,11 @@ describe('useMyPageDashboardResource', () => {
 
   it('keeps successful dashboard sections visible when a resource request fails', async () => {
     const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-    mocks.fetchQuery.mockImplementation(async (options: { queryKey: unknown[]; queryFn: () => Promise<unknown> }) => {
+    mocks.fetchQuery.mockImplementation(async (options: { queryKey: unknown[]; queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }) => {
       if (options.queryKey[2] === 'user' && options.queryKey[4] === 'posts') {
         throw new Error('network')
       }
-      return options.queryFn()
+      return options.queryFn(queryTestContext(options))
     })
     const resource = useMyPageDashboardResource(t)
 

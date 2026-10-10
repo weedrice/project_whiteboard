@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import {
   computed,
   onMounted,
@@ -50,9 +51,8 @@ export function usePostSeriesOptions({
     isPostSeriesError.value = false
     try {
       const series = await queryClient.fetchQuery({
-        queryKey: sessionQueryKey(generation, userQueryKeys.postSeries),
+        ...createAuthScopedQueryOptions(authStore, sessionQueryKey(generation, userQueryKeys.postSeries), async ({ requestConfig }) => unwrapAxiosApiData(await userApi.getPostSeries(requestConfig))),
         meta: AUTH_SCOPED_QUERY_META,
-        queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getPostSeries({ signal })),
       })
       if (generation !== authStore.sessionGeneration) return
       serverOptions.value = series

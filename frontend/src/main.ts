@@ -93,7 +93,10 @@ configureAuthSessionEffects({
     },
 })
 
-configureAuthQueryScope(() => useAuthStore(pinia).sessionGeneration)
+configureAuthQueryScope(
+  () => useAuthStore(pinia).sessionGeneration,
+  () => useAuthStore(pinia).user?.userId ?? null,
+)
 
 app.use(VueQueryPlugin, { queryClient })
 app.use(router)

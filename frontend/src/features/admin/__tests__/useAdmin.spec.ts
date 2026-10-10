@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -64,7 +65,7 @@ const mockInvalidateQueries = vi.fn()
 const mockSetQueriesData = vi.fn()
 const mockRemoveQueries = vi.fn()
 const mockFetchQuery = vi.fn(async (options: { queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown> }) => (
-    options.queryFn({})
+    options.queryFn(queryTestContext(options, {}))
 ))
 const mockQueryOptions: Array<Record<string, unknown>> = []
 vi.mock('@tanstack/vue-query', () => ({
@@ -167,11 +168,11 @@ describe('useAdmin', () => {
 
             useAdmins(params)
             const query = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
 
-            await expect(query.queryFn()).resolves.toEqual({
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual({
                 content: [{ adminId: 1 }],
                 number: 1,
                 totalPages: 3,
@@ -181,7 +182,7 @@ describe('useAdmin', () => {
                 last: false,
                 empty: false
             })
-            expect(adminApi.getAdmins).toHaveBeenCalledWith(params.value)
+            expect(adminApi.getAdmins).toHaveBeenCalledWith(params.value, authQueryConfig())
             expect(query.placeholderData).toBeUndefined()
         })
 
@@ -274,8 +275,8 @@ describe('useAdmin', () => {
                 .mockResolvedValueOnce(apiDataResponse<typeof adminApi.getSuperAdmin>([{ loginId: 'super' }]))
 
             useSuperAdmins()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual([{ loginId: 'super' }])
+            const query = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual([{ loginId: 'super' }])
         })
 
         it('useUpdateSuperAdminStatus calls activate API', async () => {
@@ -329,12 +330,12 @@ describe('useAdmin', () => {
 
             useUsers(params)
             const query = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
 
-            await expect(query.queryFn()).resolves.toEqual(response)
-            expect(adminApi.getUsers).toHaveBeenCalledWith(params.value)
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual(response)
+            expect(adminApi.getUsers).toHaveBeenCalledWith(params.value, authQueryConfig())
             expect(query.placeholderData).toBeUndefined()
         })
 
@@ -374,64 +375,64 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getUserSanctions).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserSanctions>({ content: [{ sanctionId: 4, type: 'WARNING' }], page: 0, size: 10, totalElements: 1, totalPages: 1, hasNext: false, hasPrevious: false }))
 
             useAdminUserDetail(userId)
-            const detailQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(detailQuery.queryFn()).resolves.toEqual({ userId: 5 })
-            expect(adminApi.getUserDetail).toHaveBeenCalledWith(5)
+            const detailQuery = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(detailQuery.queryFn(queryTestContext(detailQuery))).resolves.toEqual({ userId: 5 })
+            expect(adminApi.getUserDetail).toHaveBeenCalledWith(5, authQueryConfig())
 
             useAdminUserPosts(userId, params)
             const postsQuery = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(postsQuery.queryFn()).resolves.toMatchObject({
+            await expect(postsQuery.queryFn(queryTestContext(postsQuery))).resolves.toMatchObject({
                 content: [{ postId: 1, deleted: true }],
                 number: 1,
                 first: false,
                 last: false
             })
-            expect(adminApi.getUserPosts).toHaveBeenCalledWith(5, params.value)
+            expect(adminApi.getUserPosts).toHaveBeenCalledWith(5, params.value, authQueryConfig())
             expect(postsQuery.placeholderData).toBeUndefined()
 
             useAdminUserComments(userId, params)
             const commentsQuery = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(commentsQuery.queryFn()).resolves.toMatchObject({
+            await expect(commentsQuery.queryFn(queryTestContext(commentsQuery))).resolves.toMatchObject({
                 content: [{ commentId: 2, deleted: true }],
                 number: 0,
                 first: true,
                 last: true
             })
-            expect(adminApi.getUserComments).toHaveBeenCalledWith(5, params.value)
+            expect(adminApi.getUserComments).toHaveBeenCalledWith(5, params.value, authQueryConfig())
             expect(commentsQuery.placeholderData).toBeUndefined()
 
             useAdminUserSubscriptions(userId, params)
             const subscriptionsQuery = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(subscriptionsQuery.queryFn()).resolves.toMatchObject({
+            await expect(subscriptionsQuery.queryFn(queryTestContext(subscriptionsQuery))).resolves.toMatchObject({
                 content: [{ boardId: 3, subscriptionAccessible: false }],
                 number: 2,
                 first: false,
                 last: true
             })
-            expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value)
+            expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value, authQueryConfig())
             expect(subscriptionsQuery.placeholderData).toBeUndefined()
 
             useAdminUserSanctions(userId, params)
             const sanctionsQuery = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(sanctionsQuery.queryFn()).resolves.toMatchObject({
+            await expect(sanctionsQuery.queryFn(queryTestContext(sanctionsQuery))).resolves.toMatchObject({
                 content: [{ sanctionId: 4, type: 'WARNING' }],
                 number: 0,
                 first: true,
                 last: true
             })
-            expect(adminApi.getUserSanctions).toHaveBeenCalledWith(5, params.value)
+            expect(adminApi.getUserSanctions).toHaveBeenCalledWith(5, params.value, authQueryConfig())
             expect(sanctionsQuery.placeholderData).toBeUndefined()
         })
     })
@@ -463,12 +464,12 @@ describe('useAdmin', () => {
 
             useReports(params)
             const query = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
 
-            await expect(query.queryFn()).resolves.toEqual(response)
-            expect(adminApi.getReports).toHaveBeenCalledWith(params.value)
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual(response)
+            expect(adminApi.getReports).toHaveBeenCalledWith(params.value, authQueryConfig())
             expect(query.placeholderData).toBeUndefined()
         })
 
@@ -558,10 +559,10 @@ describe('useAdmin', () => {
 
             useIpBlocks(params)
             const query = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(query.queryFn()).resolves.toEqual({
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual({
                 content: [{ ipAddress: '1.1.1.1' }],
                 number: 0,
                 totalPages: 1,
@@ -571,7 +572,7 @@ describe('useAdmin', () => {
                 last: true,
                 empty: false
             })
-            expect(adminApi.getIpBlocks).toHaveBeenCalledWith(params.value)
+            expect(adminApi.getIpBlocks).toHaveBeenCalledWith(params.value, authQueryConfig())
             expect(query.placeholderData).toBeUndefined()
         })
 
@@ -614,8 +615,8 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getConfigs).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getConfigs>([{ key: 'site.name' }]))
 
             useConfigs()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual([{ key: 'site.name' }])
+            const query = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual([{ key: 'site.name' }])
         })
 
         it('useCreateConfig calls adminApi.createConfig', async () => {
@@ -669,8 +670,8 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getDashboardStats).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getDashboardStats>({ users: 10 }))
 
             useDashboardStats()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual({ users: 10 })
+            const query = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual({ users: 10 })
         })
     })
 
@@ -688,8 +689,8 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getBoards).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getBoards>([{ boardUrl: 'free' }]))
 
             useAdminBoards()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual([{ boardUrl: 'free' }])
+            const query = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual([{ boardUrl: 'free' }])
         })
 
         it('useCreateBoard calls adminApi.createBoard', async () => {
@@ -767,12 +768,12 @@ describe('useAdmin', () => {
             useBoardManager(boardId)
             const query = mockQueryOptions.at(-1) as {
                 queryKey: { value: unknown[] } | unknown[]
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
             }
-            await expect(query.queryFn()).resolves.toEqual({ adminId: 99 })
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual({ adminId: 99 })
             const resolvedQueryKey = Array.isArray(query.queryKey) ? query.queryKey : query.queryKey.value
             expect(resolvedQueryKey).toEqual(['session', 0, 'admin', 'board-manager', 3])
-            expect(adminApi.getBoardManager).toHaveBeenCalledWith(3)
+            expect(adminApi.getBoardManager).toHaveBeenCalledWith(3, authQueryConfig())
         })
 
         it('useUpdateBoardManager calls adminApi.updateBoardManager', async () => {
@@ -815,12 +816,12 @@ describe('useAdmin', () => {
 
             useErrorLogs(params)
             const query = mockQueryOptions.at(-1) as {
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
 
-            await expect(query.queryFn()).resolves.toEqual(response)
-            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value)
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual(response)
+            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value, authQueryConfig())
             expect(query.placeholderData).toBeUndefined()
         })
 
@@ -845,8 +846,8 @@ describe('useAdmin', () => {
                 queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown>
             }
 
-            await expect(query.queryFn({ signal })).resolves.toEqual(response)
-            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value, { signal })
+            await expect(query.queryFn(queryTestContext(query, { signal }))).resolves.toEqual(response)
+            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value, authQueryConfig({ signal }))
         })
 
         it('useErrorLog uses detail query key and returns detail payload', async () => {
@@ -863,10 +864,10 @@ describe('useAdmin', () => {
                 queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown>
             }
 
-            await expect(query.queryFn({ signal })).resolves.toEqual(detailResponse)
+            await expect(query.queryFn(queryTestContext(query, { signal }))).resolves.toEqual(detailResponse)
             expect(query.queryKey.value).toEqual(['session', 0, 'admin', 'error-logs', 'detail', 1])
             expect(query.enabled.value).toBe(true)
-            expect(adminApi.getErrorLog).toHaveBeenCalledWith(1, { signal })
+            expect(adminApi.getErrorLog).toHaveBeenCalledWith(1, authQueryConfig({ signal }))
         })
 
         it('useErrorLog detail query stays disabled and skips API when id is null', async () => {
@@ -876,10 +877,10 @@ describe('useAdmin', () => {
             useErrorLog(errorLogId)
             const query = mockQueryOptions.at(-1) as {
                 enabled: { value: boolean }
-                queryFn: () => Promise<unknown>
+                queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
             }
 
-            await expect(query.queryFn()).resolves.toBeNull()
+            await expect(query.queryFn(queryTestContext(query))).resolves.toBeNull()
             expect(query.enabled.value).toBe(false)
             expect(adminApi.getErrorLog).not.toHaveBeenCalled()
         })
@@ -940,8 +941,8 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getErrorLogStats).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLogStats>(statsResponse))
 
             useErrorLogStats()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual(statsResponse)
+            const query = mockQueryOptions.at(-1) as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown> }
+            await expect(query.queryFn(queryTestContext(query))).resolves.toEqual(statsResponse)
         })
     })
 })

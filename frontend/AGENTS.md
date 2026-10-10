@@ -33,11 +33,13 @@ This module owns the Vue 3, TypeScript, Vite, Pinia, Vue Router, and TanStack Vu
 
 - Token storage and refresh belong to `src/stores/auth.ts`, `src/api/apiInterceptors.ts`, `src/api/apiRefreshRetry.ts`, and `src/api/authRefreshCoordinator.ts`.
 - Use `useAuthScopedMutation` for authenticated Vue Query writes. For manual multi-step actions, reuse `createAuthSessionScope` / `runAuthScopedAction` or preserve an existing equivalent scope; capture before confirmation, queuing, or any await.
+- Use `useAuthScopedOperation` when a manual action also owns local pending state; reset local copies with `useAuthSessionReset`. Keep target IDs, form revisions, and domain cleanup decisions in the feature.
 - Forward the initiating `expectedSession` and cancellation signal through every affected API method. Retries must preserve that original identity; request-time token capture alone cannot protect a paused action.
 - A wrapper cannot guard side effects after an await inside caller code. Recheck with the supplied assertion or synchronous `runIfCurrent` before subsequent writes, cache updates, navigation, or UI changes.
 - Same-session access-token rotation is allowed. Logout, account switch, and a new login invalidate the prior action; `sessionGeneration` and user identity both matter. Login, logout, bootstrap, and deliberate old-session cleanup retain their dedicated lifecycle handling.
 - Treat data as session-scoped whenever its response or access depends on the viewer, even on a public route. Use `AUTH_SCOPED_QUERY_META` with shared API query helpers, or explicit session keys with raw queries and prefetches.
 - Keep normal queries, router prefetches, optimistic updates, mutation invalidation, and SSE invalidation on the same scoped key contract. Consume query cancellation signals.
+- Use the shared `authScopedQuery` option factories for raw or imperative authenticated queries, and forward `requestConfig` from the query context through the API facade. Preserve the initiating identity during retries.
 - Query removal alone does not clear local copies. Reset sensitive forms, previews, selections, and pending confirmation intent on the relevant session boundary; keep route/selection revisions when they protect a different race.
 - Preserve valid same-session mutation completion after component unmount when the shared mutation wrapper owns it. Dispose operation listeners on settlement and keep resource cleanup separate from stale UI callbacks.
 - Preserve route metadata such as `requiresAuth`, `guestOnly`, `roles`, and `layout`; protected routes must retain deliberate authorization guards.

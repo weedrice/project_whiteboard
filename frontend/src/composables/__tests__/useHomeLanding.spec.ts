@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useQuery } from '@tanstack/vue-query'
@@ -45,6 +46,7 @@ vi.mock('@/api/post', () => ({
 
 vi.mock('@/stores/auth', () => ({
     useAuthStore: () => ({
+        sessionGeneration: 0,
         isAuthenticated: false,
         user: null,
     }),
@@ -141,14 +143,15 @@ describe('useHomeLanding', () => {
     it('forwards the selected period into the landing query function', async () => {
         const landing = useHomeLanding()
         const queryOptions = vi.mocked(useQuery).mock.calls[0]?.[0] as unknown as {
-            queryFn: (context: { queryKey: ['home', 'landing', '24h' | '7d' | '30d', string | number] }) => Promise<unknown>
+            queryKey: unknown
+            queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<unknown>
         }
 
-        await queryOptions.queryFn({ queryKey: ['home', 'landing', '24h', 'guest'] })
-        expect(postApi.getHomeLanding).toHaveBeenLastCalledWith('24h')
+        await queryOptions.queryFn(queryTestContext(queryOptions, { queryKey: ['home', 'landing', '24h', 'guest'] }))
+        expect(postApi.getHomeLanding).toHaveBeenLastCalledWith('24h', authQueryConfig())
 
         landing.setPeriod('7d')
-        await queryOptions.queryFn({ queryKey: ['home', 'landing', '7d', 'guest'] })
-        expect(postApi.getHomeLanding).toHaveBeenLastCalledWith('7d')
+        await queryOptions.queryFn(queryTestContext(queryOptions, { queryKey: ['home', 'landing', '7d', 'guest'] }))
+        expect(postApi.getHomeLanding).toHaveBeenLastCalledWith('7d', authQueryConfig())
     })
 })

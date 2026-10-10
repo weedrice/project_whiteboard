@@ -1,3 +1,4 @@
+import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { emptyHomeLanding, postApi } from '@/api/post'
@@ -7,7 +8,6 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
-import { optionalQuerySignal } from '@/utils/querySignal'
 import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
 
 export function useHomeLanding() {
@@ -16,18 +16,16 @@ export function useHomeLanding() {
     const isReadyToFetch = computed(() => !authStore.isAuthenticated || authStore.user != null)
 
     const landingQuery = useQuery({
-        queryKey: computed(() => currentSessionQueryKey(
+        ...createReactiveAuthScopedQueryOptions(authStore, computed(() => currentSessionQueryKey(
             authStore,
             homeQueryKeys.landing(selectedPeriod.value, 'viewer'),
-        )),
-        enabled: isReadyToFetch,
-        queryFn: async ({ signal }) => {
-            const requestConfig = optionalQuerySignal(undefined, { signal })
+        )), async ({ requestConfig }) => {
             const response = requestConfig
                 ? await postApi.getHomeLanding(selectedPeriod.value, requestConfig)
                 : await postApi.getHomeLanding(selectedPeriod.value)
             return unwrapAxiosApiData(response)
-        },
+        }),
+        enabled: isReadyToFetch,
         staleTime: QUERY_STALE_TIME.SHORT,
         meta: AUTH_SCOPED_QUERY_META,
     })

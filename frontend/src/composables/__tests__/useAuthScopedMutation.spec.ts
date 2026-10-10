@@ -115,6 +115,43 @@ afterEach(() => {
 })
 
 describe('useAuthScopedMutation with real Vue Query', () => {
+  it('provides the original scope inside async success callbacks after their own awaits', async () => {
+    const gate = deferred<void>()
+    const entered = vi.fn()
+    const effect = vi.fn()
+    const { result } = setupComposable(() => useAuthScopedMutation({
+      mutationFn: async () => 'saved',
+      onSuccess: async (_data, _variables, _result, context) => {
+        entered(context.intent.userId)
+        await gate.promise
+        context.runIfCurrent(effect)
+        context.assertCurrent()
+      },
+    }))
+    const pending = rejectionOf(result.mutateAsync())
+    await vi.waitFor(() => expect(entered).toHaveBeenCalledWith(1))
+    switchAccount()
+    gate.resolve()
+    expectCancellation(await pending)
+    expect(effect).not.toHaveBeenCalled()
+  })
+
+  it('provides the scope to per-call callbacks without changing optimistic context', async () => {
+    const success = vi.fn()
+    const { result } = setupComposable(() => useAuthScopedMutation({
+      mutationFn: async () => 'saved',
+      onMutate: () => ({ previous: 'before' }),
+    }))
+    await result.mutateAsync(undefined, {
+      onSuccess: (data, _variables, optimistic, context) => {
+        expect(optimistic).toEqual({ previous: 'before' })
+        expect(context.requestConfig.expectedSession.userId).toBe(1)
+        context.runIfCurrent(() => success(data))
+      },
+    })
+    expect(success).toHaveBeenCalledWith('saved')
+  })
+
   it('rejects completion after switching during an asynchronous success callback', async () => {
     const gate = deferred<void>()
     const entered = vi.fn()

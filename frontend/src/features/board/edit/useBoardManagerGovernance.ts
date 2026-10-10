@@ -46,10 +46,10 @@ export function useBoardManagerGovernance(boardUrl: Ref<string>, enabled: Ref<bo
   })
   const reportQuery = useApiPageQuery<Report>({
     queryKey: computed(() => boardQueryKeys.managerReports(boardUrl.value, reportPagination.params.value)),
-    request: ({ signal }) => boardApi.getManagerReports(
+    request: ({ requestConfig }) => boardApi.getManagerReports(
       boardUrl.value,
       reportPagination.params.value as ReportSearchParams,
-      { signal },
+      requestConfig,
     ),
     enabled,
     retry: false,
@@ -83,10 +83,10 @@ export function useBoardManagerGovernance(boardUrl: Ref<string>, enabled: Ref<bo
   })
   const auditQuery = useApiPageQuery<ModerationAuditLog>({
     queryKey: computed(() => boardQueryKeys.managerAudits(boardUrl.value, auditPagination.params.value)),
-    request: ({ signal }) => boardApi.getManagerAudits(
+    request: ({ requestConfig }) => boardApi.getManagerAudits(
       boardUrl.value,
       auditPagination.params.value as ModerationAuditSearchParams,
-      { signal },
+      requestConfig,
     ),
     enabled,
     retry: false,

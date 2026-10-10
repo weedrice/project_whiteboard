@@ -8,6 +8,7 @@ import {
   useAdminInquiryPosts,
 } from '@/features/admin/inquiries/useAdminInquiryPosts'
 import { apiSuccessDataResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
+import { authQueryConfig, queryTestContext } from '@/test/authScopedQueryOptions'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -128,10 +129,10 @@ describe('useAdminInquiryPosts', () => {
     )
 
     const manager = useAdminInquiryPosts()
-    const listQuery = mocks.queryOptions[0] as { queryFn: () => Promise<PageResponse<ReturnType<typeof toAdminInquiryListItem>>> }
-    const detailQuery = mocks.queryOptions[1] as { queryFn: () => Promise<ReturnType<typeof toAdminInquiryDetail>> }
+    const listQuery = mocks.queryOptions[0] as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<PageResponse<ReturnType<typeof toAdminInquiryListItem>>> }
+    const detailQuery = mocks.queryOptions[1] as { queryFn: (context: ReturnType<typeof queryTestContext>) => Promise<ReturnType<typeof toAdminInquiryDetail>> }
 
-    await expect(listQuery.queryFn()).resolves.toMatchObject({
+    await expect(listQuery.queryFn(queryTestContext(listQuery))).resolves.toMatchObject({
       content: [{
         id: 7,
         authorName: 'Inquiry Author',
@@ -141,14 +142,14 @@ describe('useAdminInquiryPosts', () => {
       page: 0,
       size: 20,
       sort: 'createdAt,desc',
-    })
+    }, authQueryConfig())
 
     manager.openDetail(7)
-    await expect(detailQuery.queryFn()).resolves.toMatchObject({
+    await expect(detailQuery.queryFn(queryTestContext(detailQuery))).resolves.toMatchObject({
       id: 7,
       authorName: 'Admin User',
     })
-    expect(adminApi.getInquiryPost).toHaveBeenCalledWith(7)
+    expect(adminApi.getInquiryPost).toHaveBeenCalledWith(7, authQueryConfig())
   })
 
   it('preserves page metadata while mapping content', () => {

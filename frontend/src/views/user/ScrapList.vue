@@ -105,7 +105,7 @@ const {
 } = useApiQuery({
   queryKey: userQueryKeys.scrapFolders,
   meta: AUTH_SCOPED_QUERY_META,
-  request: ({ signal }) => userApi.getScrapFolders({ signal }),
+  request: ({ requestConfig }) => userApi.getScrapFolders(requestConfig),
   staleTime: 60_000,
 })
 

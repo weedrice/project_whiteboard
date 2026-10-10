@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,7 +46,7 @@ vi.mock('@tanstack/vue-query', () => ({
             error: ref(null),
             refetch: async () => {
                 if (options.queryFn) {
-                    return await (options.queryFn as () => Promise<unknown>)()
+                    return await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
                 }
                 return null
             },
@@ -133,7 +134,7 @@ describe('useBoard', () => {
         const { useBoards } = useBoard()
         const query = useBoards()
         const options = mocks.queryOptions.at(-1)!
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'boards',
@@ -141,7 +142,7 @@ describe('useBoard', () => {
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         expect(options.meta).toEqual({ authScoped: true, errorMessage: false })
         expect(result).toEqual([{ boardId: 1 }])
-        expect(boardApi.getBoards).toHaveBeenCalledWith({ skipGlobalErrorHandler: true })
+        expect(boardApi.getBoards).toHaveBeenCalledWith(authQueryConfig({ skipGlobalErrorHandler: true }))
         expect(query).toHaveProperty('data')
     })
 
@@ -172,8 +173,8 @@ describe('useBoard', () => {
         useSubscribedBoards(5, true)
         options = mocks.queryOptions.at(-1)!
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        const result = await (options.queryFn as () => Promise<unknown>)()
-        expect(userApi.getMySubscriptions).toHaveBeenCalledWith({ size: 5 })
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+        expect(userApi.getMySubscriptions).toHaveBeenCalledWith({ size: 5 }, authQueryConfig())
         expect(result).toEqual([{ boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' }])
 
         useSubscribedBoards(3, ref(false))
@@ -193,9 +194,9 @@ describe('useBoard', () => {
         const queryKey = options.queryKey as ReturnType<typeof computed>
         expect(queryKey.value).toEqual(['session', 0, 'board', 'detail', 'free'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free', authQueryConfig())
 
         boardUrl.value = 'notice'
         expect(queryKey.value).toEqual(['session', 0, 'board', 'detail', 'notice'])
@@ -215,9 +216,9 @@ describe('useBoard', () => {
             'session', 0, 'board', 'notices', 'free',
         ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
         expect(result).toEqual([{ postId: 11, title: 'Notice' }])
-        expect(boardApi.getNotices).toHaveBeenCalledWith('free')
+        expect(boardApi.getNotices).toHaveBeenCalledWith('free', authQueryConfig())
     })
 
     it('fetches board posts through boardApi when not searching', async () => {
@@ -232,11 +233,11 @@ describe('useBoard', () => {
         useBoardPosts(boardUrl, params, isSearching)
 
         const options = mocks.queryOptions.at(-1)!
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         expect(options.placeholderData).toBeUndefined()
-        expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 20, sort: 'latest' })
+        expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 20, sort: 'latest' }, authQueryConfig())
         expect(result).toEqual({ content: [{ postId: 1 }] })
 
         const queryKey = options.queryKey as ReturnType<typeof computed>
@@ -288,7 +289,7 @@ describe('useBoard', () => {
         useBoardPosts(boardUrl, params, isSearching)
 
         const options = mocks.queryOptions.at(-1)!
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         expect(searchApi.searchPosts).toHaveBeenCalledWith({
             page: 1,
@@ -296,7 +297,7 @@ describe('useBoard', () => {
             q: 'keyword',
             searchType: 'TITLE',
             boardUrl: 'free',
-        })
+        }, authQueryConfig())
         expect(result).toEqual({ content: [{ postId: 2 }] })
     })
 
@@ -315,14 +316,10 @@ describe('useBoard', () => {
         })
 
         const options = mocks.queryOptions.at(-1)!
-        await (options.queryFn as () => Promise<unknown>)()
+        await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         expect(options.meta).toEqual({ errorMessage: false, authScoped: true })
-        expect(boardApi.getPosts).toHaveBeenCalledWith(
-            'free',
-            { page: 0, size: 20, sort: 'createdAt,desc' },
-            { skipGlobalErrorHandler: true }
-        )
+        expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 20, sort: 'createdAt,desc' }, authQueryConfig({ skipGlobalErrorHandler: true }))
     })
 
     it('forwards search requestConfig when board posts are fetched through searchApi', async () => {
@@ -339,18 +336,15 @@ describe('useBoard', () => {
         })
 
         const options = mocks.queryOptions.at(-1)!
-        await (options.queryFn as () => Promise<unknown>)()
+        await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
-        expect(searchApi.searchPosts).toHaveBeenCalledWith(
-            {
+        expect(searchApi.searchPosts).toHaveBeenCalledWith({
                 page: 1,
                 size: 10,
                 q: 'keyword',
                 searchType: 'TITLE',
                 boardUrl: 'free',
-            },
-            { skipGlobalErrorHandler: true }
-        )
+            }, authQueryConfig({ skipGlobalErrorHandler: true }))
     })
 
     it('fetches infinite board posts with pageParam while retaining the URL start page in the cache key', async () => {
@@ -371,9 +365,9 @@ describe('useBoard', () => {
         })
 
         const options = mocks.infiniteQueryOptions.at(-1)!
-        const result = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<unknown>)({
+        const result = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<unknown>)(queryTestContext(options, {
             pageParam: 2,
-        })
+        }))
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session',
             0,
@@ -384,11 +378,7 @@ describe('useBoard', () => {
             { page: 7, size: 20, sort: 'createdAt,desc', categoryId: 2 },
             false,
         ])
-        expect(boardApi.getPosts).toHaveBeenCalledWith(
-            'free',
-            { size: 20, sort: 'createdAt,desc', categoryId: 2, page: 2 },
-            { skipGlobalErrorHandler: true }
-        )
+        expect(boardApi.getPosts).toHaveBeenCalledWith('free', { size: 20, sort: 'createdAt,desc', categoryId: 2, page: 2 }, authQueryConfig({ skipGlobalErrorHandler: true }))
         expect((options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined)({
             number: 2,
             last: false,
@@ -412,9 +402,9 @@ describe('useBoard', () => {
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session', 0, 'board', 'categories', 'free',
         ])
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
-        expect(boardApi.getCategories).toHaveBeenCalledWith('free')
+        expect(boardApi.getCategories).toHaveBeenCalledWith('free', authQueryConfig())
         expect(result).toEqual([{ categoryId: 1, name: 'notice' }])
     })
 
@@ -597,9 +587,9 @@ describe('useBoard', () => {
 
         enabled.value = true
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
-        expect(boardApi.getBoardManagerCandidates).toHaveBeenCalledWith('free', { page: 0, size: 10, q: 'manager' })
+        expect(boardApi.getBoardManagerCandidates).toHaveBeenCalledWith('free', { page: 0, size: 10, q: 'manager' }, authQueryConfig())
         expect(result).toEqual({
             content: [{ userId: 1, loginId: 'manager', currentManager: true }],
             empty: false,

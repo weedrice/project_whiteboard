@@ -195,8 +195,10 @@ export const postApi = {
             params: { ...params, ...config?.params },
         }),
 
-    getScheduledPost: (scheduledPostId: string | number) =>
-        api.get<ApiResponse<ScheduledPostDetail>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
+    getScheduledPost: (scheduledPostId: string | number, config?: AxiosRequestConfig) =>
+        config
+            ? api.get<ApiResponse<ScheduledPostDetail>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, config)
+            : api.get<ApiResponse<ScheduledPostDetail>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
 
     updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData, config?: AxiosRequestConfig) =>
         api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data, config),

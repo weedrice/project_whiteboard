@@ -1,3 +1,4 @@
+import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { useInfiniteQuery, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
@@ -145,17 +146,16 @@ export function useComment() {
 
     const useInfiniteComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useInfiniteQuery({
-            queryKey: computed(() => authKey([
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey([
                 ...commentQueryKeys.postRoot(postId.value),
                 'infinite',
                 { size: params.value.size, sort: params.value.sort },
-            ] as const)),
-            initialPageParam: 0,
-            queryFn: async ({ pageParam, signal }) => unwrapAxiosApiPageData(await commentApi.getComments(
+            ] as const)), async ({ pageParam, requestConfig }) => unwrapAxiosApiPageData(await commentApi.getComments(
                 postId.value,
                 { ...params.value, page: Number(pageParam) },
-                { signal },
-            )),
+                requestConfig,
+            ))),
+            initialPageParam: 0,
             getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
             enabled: computed(() => !!postId.value),
             meta: AUTH_SCOPED_QUERY_META,
@@ -199,13 +199,12 @@ export function useComment() {
         params: Ref<Omit<CommentParams, 'page'>>,
         enabled: Ref<boolean>,
     ) => useInfiniteQuery({
-        queryKey: computed(() => authKey(commentQueryKeys.infiniteReplies(postId.value, parentId.value, params.value))),
-        initialPageParam: 0,
-        queryFn: async ({ pageParam, signal }) => unwrapAxiosApiPageData(await commentApi.getReplies(
+        ...createReactiveAuthScopedQueryOptions(authStore, computed(() => authKey(commentQueryKeys.infiniteReplies(postId.value, parentId.value, params.value))), async ({ pageParam, requestConfig }) => unwrapAxiosApiPageData(await commentApi.getReplies(
             parentId.value,
-            { ...params.value, page: pageParam },
-            { signal },
-        )),
+            { ...params.value, page: Number(pageParam) },
+            requestConfig,
+        ))),
+        initialPageParam: 0,
         getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
         enabled: computed(() => Boolean(parentId.value) && enabled.value),
         meta: AUTH_SCOPED_QUERY_META,

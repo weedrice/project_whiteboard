@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -186,9 +187,9 @@ describe('usePost', () => {
         expect(queryKey.value).toEqual(sessionKey(postDetailQueryKey(1)))
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
 
-        const result = await (query.queryFn as () => Promise<unknown>)()
+        const result = await (query.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(query))
         expect(result).toEqual({ postId: 1, title: 'Test Post', liked: false, scrapped: false })
-        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
+        expect(postApi.getPost).toHaveBeenCalledWith(1, authQueryConfig({ params: { incrementView: true } }))
 
         postId.value = 2
         expect(queryKey.value).toEqual(sessionKey(postDetailQueryKey(2)))
@@ -206,8 +207,8 @@ describe('usePost', () => {
         const query = mocks.queryOptions.at(-1)!
         expect((query.queryKey as ReturnType<typeof computed>).value).toEqual(sessionKey(postDetailQueryKey(1, false)))
 
-        await (query.queryFn as () => Promise<unknown>)()
-        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
+        await (query.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(query))
+        expect(postApi.getPost).toHaveBeenCalledWith(1, authQueryConfig({ params: { incrementView: false } }))
     })
 
     it('uses normalized post detail reaction flags from the API response', async () => {
@@ -224,7 +225,7 @@ describe('usePost', () => {
         usePostDetail(ref(1))
 
         const query = mocks.queryOptions.at(-1)!
-        const result = await (query.queryFn as () => Promise<unknown>)()
+        const result = await (query.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(query))
 
         expect(result).toMatchObject({
             postId: 1,
@@ -257,10 +258,10 @@ describe('usePost', () => {
 
         enabled.value = true
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
-        await expect((query.queryFn as () => Promise<unknown>)()).resolves.toEqual([
+        await expect((query.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(query))).resolves.toEqual([
             { versionId: 3, actionType: 'MODIFY', title: 'Changed', createdAt: '2026-07-14T10:00:00' },
         ])
-        expect(postApi.getPostVersions).toHaveBeenCalledWith(1, { skipGlobalErrorHandler: true })
+        expect(postApi.getPostVersions).toHaveBeenCalledWith(1, authQueryConfig({ skipGlobalErrorHandler: true }))
         expect(query.retry).toBe(false)
     })
 

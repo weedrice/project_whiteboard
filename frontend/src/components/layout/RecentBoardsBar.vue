@@ -18,7 +18,7 @@ const {
     refetch: retryRecentUpdates,
 } = useApiQuery({
     queryKey: computed(() => ['boards', 'recent-updates', recentBoardUrls.value]),
-    request: ({ signal }) => boardApi.getRecentBoardUpdates(recentBoardUrls.value, { signal }),
+    request: ({ requestConfig }) => boardApi.getRecentBoardUpdates(recentBoardUrls.value, requestConfig),
     enabled: hasBoards,
     staleTime: 60_000,
     meta: { authScoped: true },

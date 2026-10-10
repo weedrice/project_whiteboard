@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
+import { useConfirmStore } from '../confirm'
 import logger from '@/utils/logger'
 import { createDeferred } from '@/test/async'
 import {
@@ -243,6 +244,34 @@ describe('Auth Store', () => {
             store.accessToken = 'token'
             store.user = authUser()
             persistAccessToken('token')
+        })
+
+        it('completes explicit logout after the session-owned confirmation is accepted', async () => {
+            const dialog = useConfirmStore()
+            mockExplicitLogout.mockImplementationOnce(() => dialog.open('Discard drafts and log out?'))
+            vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
+            const pending = store.logout()
+            expect(dialog.isOpen).toBe(true)
+            dialog.confirm()
+            await expect(pending).resolves.toBe(true)
+            expect(store.user).toBeNull()
+            expect(dialog.isOpen).toBe(false)
+            expect(authApi.logout).toHaveBeenCalledOnce()
+            dialog.$dispose()
+        })
+
+        it('cancels a logout dialog on account change and preserves the new session', async () => {
+            const dialog = useConfirmStore()
+            mockExplicitLogout.mockImplementationOnce(() => dialog.open('Discard drafts and log out?'))
+            const pending = store.logout()
+            store.setTokens('replacement-session')
+            store.user = authUser({ userId: 2 })
+            await expect(pending).resolves.toBe(false)
+            expect(dialog.isOpen).toBe(false)
+            expect(store.accessToken).toBe('replacement-session')
+            expect(store.user?.userId).toBe(2)
+            expect(authApi.logout).not.toHaveBeenCalled()
+            dialog.$dispose()
         })
 
         it('handles successful logout', async () => {

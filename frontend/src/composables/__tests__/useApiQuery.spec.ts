@@ -85,7 +85,7 @@ describe('useApiQuery', () => {
     const options = latestQueryOptions()
 
     await expect(options.queryFn(queryContext)).resolves.toBe('first')
-    expect(request).toHaveBeenCalledWith(queryContext)
+    expect(request).toHaveBeenCalledWith({ ...queryContext, requestConfig: { signal: queryContext.signal } })
     expect(options).toEqual(expect.objectContaining({
       enabled: true,
       staleTime: 1000,

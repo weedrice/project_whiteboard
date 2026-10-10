@@ -1,3 +1,4 @@
+import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { computed, getCurrentScope, onScopeDispose, type Ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
@@ -24,10 +25,9 @@ export function useAttendance() {
     const authStore = useAuthStore()
 
     const useMyAttendance = (enabled: Ref<boolean>, month?: Ref<string | undefined>) => useQuery({
-        queryKey: computed(() => currentSessionQueryKey(authStore, attendanceQueryKeys.me(month?.value))),
-        queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+        ...createReactiveAuthScopedQueryOptions(authStore, computed(() => currentSessionQueryKey(authStore, attendanceQueryKeys.me(month?.value))), async (context) => unwrapAxiosApiData(
             await attendanceApi.getMyAttendance(month?.value, withQuerySignal(undefined, context))
-        ),
+        )),
         enabled,
         meta: AUTH_SCOPED_QUERY_META,
     })

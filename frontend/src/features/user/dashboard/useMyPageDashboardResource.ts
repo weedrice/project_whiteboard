@@ -1,3 +1,4 @@
+import { createAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
@@ -35,12 +36,11 @@ export function useMyPageDashboardResource(t: Translate) {
 
   const myPostsPagination = useDashboardPagination<PostSummary>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: authKey(userQueryKeys.myPosts(params)),
-      meta: { authScoped: true },
-      queryFn: async () => {
-        const { data } = await userApi.getMyPosts(params, { signal })
+      ...createAuthScopedQueryOptions(authStore, authKey(userQueryKeys.myPosts(params)), async ({ withRequestConfig }) => {
+        const { data } = await userApi.getMyPosts(params, withRequestConfig({ signal }))
         return data
-      },
+      }),
+      meta: { authScoped: true },
       staleTime: QUERY_STALE_TIME.SHORT
     }),
     { page: 0, size: 10, sort: 'createdAt,desc' },
@@ -49,12 +49,11 @@ export function useMyPageDashboardResource(t: Translate) {
   )
   const myCommentsPagination = useDashboardPagination<MyComment>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: authKey(userQueryKeys.myComments(params)),
-      meta: { authScoped: true },
-      queryFn: async () => {
-        const { data } = await userApi.getMyComments(params, { signal })
+      ...createAuthScopedQueryOptions(authStore, authKey(userQueryKeys.myComments(params)), async ({ withRequestConfig }) => {
+        const { data } = await userApi.getMyComments(params, withRequestConfig({ signal }))
         return data
-      },
+      }),
+      meta: { authScoped: true },
       staleTime: QUERY_STALE_TIME.SHORT
     }),
     { page: 0, size: 10 },

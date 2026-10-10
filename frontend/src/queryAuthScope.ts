@@ -31,14 +31,26 @@ const PRIVATE_USER_SEGMENTS = new Set([
 export const AUTH_SCOPED_QUERY_META = { authScoped: true } as const
 
 let resolveSessionGeneration = () => 0
+let resolveSessionUserId: () => string | number | null = () => null
 const sessionBoundaryListeners = new Set<(generation: number) => void>()
 
-export function configureAuthQueryScope(resolver: () => number) {
+export function configureAuthQueryScope(
+  resolver: () => number,
+  userIdResolver: () => string | number | null = () => null,
+) {
   resolveSessionGeneration = resolver
+  resolveSessionUserId = userIdResolver
 }
 
 export function getCurrentSessionGeneration() {
   return resolveSessionGeneration()
+}
+
+export function getCurrentQuerySessionSource() {
+  return {
+    get sessionGeneration() { return resolveSessionGeneration() },
+    get user() { return { userId: resolveSessionUserId() } },
+  }
 }
 
 export function isStaleMutationSessionContext(context: unknown): boolean {

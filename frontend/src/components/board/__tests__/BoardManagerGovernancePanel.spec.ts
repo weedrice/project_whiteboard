@@ -93,12 +93,12 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerReports).toHaveBeenCalledWith(
       'free',
       { page: 0, size: 20 },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
     expect(boardApiMock.getManagerAudits).toHaveBeenCalledWith(
       'free',
       { page: 0, size: 20, sort: 'createdAt,desc' },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
 
     const reportsSection = wrapper.get('[aria-labelledby="board-manager-reports-title"]')
@@ -109,7 +109,7 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerReports).toHaveBeenLastCalledWith(
       'free',
       { page: 1, size: 20 },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
 
     await wrapper.get('#board-report-status').setValue('PENDING')
@@ -117,7 +117,7 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerReports).toHaveBeenLastCalledWith(
       'free',
       { page: 0, size: 20, status: 'PENDING' },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
 
     const auditsSection = wrapper.get('[aria-labelledby="board-manager-audits-title"]')
@@ -128,7 +128,7 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerAudits).toHaveBeenLastCalledWith(
       'free',
       { page: 1, size: 20, sort: 'createdAt,desc' },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
 
     await wrapper.get('#board-audit-action').setValue('POST_BLIND')
@@ -150,7 +150,7 @@ describe('BoardManagerGovernancePanel', () => {
         endDate: '2026-07-31',
         sort: 'createdAt,desc',
       },
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
 
     const queryKeys = queryClient.getQueryCache().getAll().map((query) => query.queryKey)
@@ -172,12 +172,12 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerReports).toHaveBeenLastCalledWith(
       'qna',
       expect.objectContaining({ page: 0, status: 'PENDING' }),
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
     expect(boardApiMock.getManagerAudits).toHaveBeenLastCalledWith(
       'qna',
       expect.objectContaining({ page: 0, action: 'POST_BLIND' }),
-      { signal: expect.any(AbortSignal) },
+      expect.objectContaining({ signal: expect.any(AbortSignal), expectedSession: expect.objectContaining({ sessionGeneration: expect.any(Number) }) }),
     )
   })
 

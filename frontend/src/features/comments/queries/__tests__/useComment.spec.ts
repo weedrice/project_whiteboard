@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,13 +99,13 @@ describe('useComment', () => {
 
         useComments(postId, params)
         const options = mockQueryOptions[0]
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         const queryKey = options.queryKey as ReturnType<typeof computed>
         expect(queryKey.value).toEqual(['session', 0, 'comments', 'post', 1, { page: 0, size: 10 }])
         expect((options.enabled as { value: boolean }).value).toBe(true)
         expect(options.placeholderData).toBeUndefined()
-        expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
+        expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 }, authQueryConfig())
         expect(result).toEqual({
             content: [{ commentId: 1, content: 'hello' }],
             empty: false,
@@ -140,7 +141,7 @@ describe('useComment', () => {
         const page = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<{
             number: number
             last: boolean
-        }>)({ pageParam: 1 })
+        }>)(queryTestContext(options, { pageParam: 1 }))
         const getNextPageParam = options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined
 
         expect(page).toMatchObject({ number: 1, last: false })
@@ -163,7 +164,7 @@ describe('useComment', () => {
 
         useReplies(parentId, params, enabled)
         const options = mockQueryOptions[0]
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
             'session',
@@ -174,7 +175,7 @@ describe('useComment', () => {
             { page: 0, size: 10 },
         ])
         expect((options.enabled as { value: boolean }).value).toBe(true)
-        expect(commentApi.getReplies).toHaveBeenCalledWith(10, { page: 0, size: 10 })
+        expect(commentApi.getReplies).toHaveBeenCalledWith(10, { page: 0, size: 10 }, authQueryConfig())
         expect(result).toEqual({ content: [{ commentId: 2, content: 'reply' }], totalElements: 1 })
     })
 

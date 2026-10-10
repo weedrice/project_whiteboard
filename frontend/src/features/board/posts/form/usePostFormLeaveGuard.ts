@@ -1,5 +1,7 @@
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { getCurrentQuerySessionSource } from '@/queryAuthScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 export interface PostFormLeaveState {
     dirty: boolean
@@ -28,8 +30,14 @@ export function usePostFormLeaveGuard(
             return false
         }
         if (leaveState.dirty) {
+            const source = getCurrentQuerySessionSource()
+            const intent = captureAuthSessionIntent(source)
             const message = leaveState.message || fallbackMessage
-            if (!await confirmLeave(message)) {
+            const confirmed = await confirmLeave(message)
+            // A boundary closes the old dialog. Let the router re-evaluate access,
+            // without saving the old form under the replacement session.
+            if (!isAuthSessionIntentCurrent(source, intent)) return true
+            if (!confirmed) {
                 return false
             }
         }

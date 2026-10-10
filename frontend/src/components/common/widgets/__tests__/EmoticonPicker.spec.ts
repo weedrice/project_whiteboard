@@ -1,3 +1,4 @@
+import { queryTestContext, authQueryConfig } from '@/test/authScopedQueryOptions'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick, unref } from 'vue'
@@ -129,9 +130,9 @@ describe('EmoticonPicker', () => {
         expect(unref(options.queryKey)).toEqual(['session', 0, 'emoticons', 'accessible', 'picker'])
         expect((options.enabled as () => boolean)()).toBe(false)
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
-        expect(mocks.getPurchasedEmoticons).toHaveBeenCalledWith({ size: 100 })
-        expect(mocks.getMyEmoticons).toHaveBeenCalledWith({ size: 100 })
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+        expect(mocks.getPurchasedEmoticons).toHaveBeenCalledWith({ size: 100 }, authQueryConfig())
+        expect(mocks.getMyEmoticons).toHaveBeenCalledWith({ size: 100 }, authQueryConfig())
         expect(result).toEqual([...purchasedList, ...myList])
     })
 
@@ -147,7 +148,7 @@ describe('EmoticonPicker', () => {
         mountPicker(false)
         const options = mocks.queryOptions[0]
 
-        const result = await (options.queryFn as () => Promise<EmoticonMaster[]>)()
+        const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<EmoticonMaster[]>)(queryTestContext(options))
 
         expect(result.map((emoticon) => emoticon.emoticonId)).toEqual([1, 2])
     })

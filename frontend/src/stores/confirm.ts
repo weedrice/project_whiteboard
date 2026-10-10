@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 export const useConfirmStore = defineStore('confirm', () => {
+    const authStore = useAuthStore()
+    let scope: AuthSessionScope | null = null
     const isOpen = ref(false)
     const title = ref('')
     const message = ref('')
@@ -15,10 +20,8 @@ export const useConfirmStore = defineStore('confirm', () => {
         confirmTxt: string = 'Confirm',
         cancelTxt: string = 'Cancel'
     ): Promise<boolean> {
-        if (resolvePromise.value) {
-            resolvePromise.value(false)
-            resolvePromise.value = null
-        }
+        cancel()
+        scope = createAuthSessionScope(authStore)
 
         title.value = ttl
         message.value = msg
@@ -33,7 +36,7 @@ export const useConfirmStore = defineStore('confirm', () => {
 
     function confirm() {
         if (resolvePromise.value) {
-            resolvePromise.value(true)
+            resolvePromise.value(scope?.isCurrent() === true)
         }
         close()
     }
@@ -46,11 +49,16 @@ export const useConfirmStore = defineStore('confirm', () => {
     }
 
     function close() {
+        scope?.dispose()
+        scope = null
         isOpen.value = false
         resolvePromise.value = null
         title.value = ''
         message.value = ''
     }
+
+    useAuthSessionReset(cancel, authStore)
+    onScopeDispose(cancel)
 
     return {
         isOpen,

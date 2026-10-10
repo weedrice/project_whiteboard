@@ -2,6 +2,7 @@ import { authMutationConfig } from '@/test/authScopedMutationOptions'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { computed, ref, type Ref } from 'vue'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
+import { authQueryConfig, queryTestContext } from '@/test/authScopedQueryOptions'
 import {
   getNotificationMocks,
   setupNotificationTest,
@@ -26,11 +27,11 @@ describe('useNotification queries and mutations', () => {
     useNotifications(params)
 
     const options = mocks.queryOptions[0]
-    const result = await (options.queryFn as () => Promise<unknown>)()
+    const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
 
     const queryKey = options.queryKey as ReturnType<typeof computed>
     expect(queryKey.value).toEqual(['session', 0, 'notifications', { page: 0, size: 20 }])
-    expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value)
+    expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value, authQueryConfig())
     expect(result).toEqual(pageResponse)
     expect(options.placeholderData).toBeUndefined()
 
@@ -53,7 +54,8 @@ describe('useNotification queries and mutations', () => {
     expect(options.refetchInterval).toBe(60000)
     expect(options.staleTime).toBe(0)
 
-    const result = await (options.queryFn as () => Promise<unknown>)()
+    const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
+    expect(mocks.notificationApi.getUnreadCount).toHaveBeenCalledWith(authQueryConfig())
     expect(result).toBe(7)
   })
 

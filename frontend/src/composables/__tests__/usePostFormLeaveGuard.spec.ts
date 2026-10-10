@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
+import { configureAuthQueryScope } from '@/queryAuthScope'
 
 const routeGuard = vi.hoisted(() => ({
   leaveCallback: undefined as undefined | (() => boolean | Promise<boolean>),
@@ -40,6 +41,24 @@ function createForm(options: Partial<{
 }
 
 describe('usePostFormLeaveGuard', () => {
+  afterEach(() => configureAuthQueryScope(() => 0))
+
+  it.each([true, false])('does not flush an old draft after the session changes during confirmation (%s)', async (confirmed) => {
+    let generation = 1
+    configureAuthQueryScope(() => generation)
+    const form = createForm({ dirty: true })
+    let settle!: (value: boolean) => void
+    const confirmLeave = vi.fn(() => new Promise<boolean>((resolve) => { settle = resolve }))
+    usePostFormLeaveGuard(ref(form.target), 'fallback', confirmLeave)
+
+    const navigation = runLeaveGuard()
+    generation++
+    settle(confirmed)
+
+    expect(await navigation).toBe(true)
+    expect(form.flushDraft).not.toHaveBeenCalled()
+  })
+
   it('continues without flushing when the form is clean', async () => {
     const form = createForm()
     const confirmLeave = vi.fn()

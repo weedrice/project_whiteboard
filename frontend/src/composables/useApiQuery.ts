@@ -3,18 +3,20 @@ import {
   type QueryFunctionContext,
   type QueryKey,
 } from '@tanstack/vue-query'
-import type { AxiosResponse } from 'axios'
-import { computed, toValue, type ComputedRef, type Ref } from 'vue'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { type ComputedRef, type Ref } from 'vue'
 import type { ApiResponse, PageResponse } from '@/types'
 import { unwrapAxiosApiData, unwrapAxiosApiPageData } from '@/api/response'
 import type { PageResponseRaw } from '@/utils/pageResponse'
-import { getCurrentSessionGeneration, sessionQueryKey } from '@/queryAuthScope'
+import { createReactiveAuthScopedQueryOptions, getAuthQuerySource } from '@/utils/authScopedQuery'
 
 type QueryEnabled = boolean | Ref<boolean> | ComputedRef<boolean>
 type ApiQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
-type ApiRequest<TResponse> = (context: QueryFunctionContext) => Promise<AxiosResponse<ApiResponse<TResponse>>>
+export type ApiQueryContext = QueryFunctionContext & { requestConfig: AxiosRequestConfig }
+
+type ApiRequest<TResponse> = (context: ApiQueryContext) => Promise<AxiosResponse<ApiResponse<TResponse>>>
 type ApiNullableRequest<TResponse> = (
-  context: QueryFunctionContext
+  context: ApiQueryContext
 ) => Promise<AxiosResponse<ApiResponse<TResponse>> | null> | null
 type RefetchTriggerOption = boolean | 'always'
 type RetryOption = boolean | number | ((failureCount: number, error: Error) => boolean)
@@ -80,10 +82,27 @@ function resolveSelectedData<TResponse, TData>(
   return selectData ? selectData(data) : data
 }
 
-function resolveQueryKey(queryKey: ApiQueryKey, meta?: Record<string, unknown>): ApiQueryKey {
-  if (meta?.authScoped !== true) return queryKey
+function resolveQueryOptions<T>(
+  queryKey: ApiQueryKey,
+  meta: Record<string, unknown> | undefined,
+  request: (context: ApiQueryContext) => Promise<T>,
+) {
+  if (meta?.authScoped !== true) {
+    return {
+      queryKey,
+      queryFn: (context: QueryFunctionContext) => request({
+        ...context,
+        requestConfig: { signal: context.signal },
+      }),
+    }
+  }
 
-  return computed(() => sessionQueryKey(getCurrentSessionGeneration(), toValue(queryKey)))
+  const source = getAuthQuerySource()
+  const scopedOptions = createReactiveAuthScopedQueryOptions<T, never>(source, queryKey, request)
+  return {
+    queryKey: scopedOptions.queryKey,
+    queryFn: scopedOptions.queryFn,
+  }
 }
 
 export function useApiQuery<TResponse>(
@@ -102,14 +121,12 @@ export function useApiQuery<TResponse, TData = TResponse>({
   keepPreviousData = false,
   ...queryOptions
 }: ApiQueryOptions<TResponse, TData>) {
-  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<TResponse | TData, Error, TResponse | TData>({
     ...queryOptions,
-    queryKey: resolvedQueryKey,
-    queryFn: async (context) => {
+    ...resolveQueryOptions(queryKey, queryOptions.meta, async (context) => {
       const data = unwrapAxiosApiData(await request(context))
       return resolveSelectedData(data, selectData)
-    },
+    }),
     enabled,
     staleTime,
     refetchInterval,
@@ -134,11 +151,9 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
   refetchInterval,
   ...queryOptions
 }: ApiNullableQueryOptions<TResponse, TData>) {
-  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<TResponse | TData | null, Error, TResponse | TData | null>({
     ...queryOptions,
-    queryKey: resolvedQueryKey,
-    queryFn: async (context) => {
+    ...resolveQueryOptions(queryKey, queryOptions.meta, async (context) => {
       const response = await request(context)
       if (response === null) {
         return null
@@ -146,7 +161,7 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
 
       const data = unwrapAxiosApiData(response)
       return resolveSelectedData(data, selectData)
-    },
+    }),
     enabled,
     staleTime,
     refetchInterval,
@@ -169,14 +184,12 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiPageQueryOptions<TItem, TData>) {
-  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<PageResponse<TItem> | TData, Error, PageResponse<TItem> | TData>({
     ...queryOptions,
-    queryKey: resolvedQueryKey,
-    queryFn: async (context) => {
+    ...resolveQueryOptions(queryKey, queryOptions.meta, async (context) => {
       const page = unwrapAxiosApiPageData(await request(context))
       return resolveSelectedData(page, selectData)
-    },
+    }),
     enabled,
     staleTime,
     refetchInterval,
@@ -201,11 +214,9 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiNullablePageQueryOptions<TItem, TData>) {
-  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<PageResponse<TItem> | TData | null, Error, PageResponse<TItem> | TData | null>({
     ...queryOptions,
-    queryKey: resolvedQueryKey,
-    queryFn: async (context) => {
+    ...resolveQueryOptions(queryKey, queryOptions.meta, async (context) => {
       const response = await request(context)
       if (response === null) {
         return null
@@ -213,7 +224,7 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
 
       const page = unwrapAxiosApiPageData(response)
       return resolveSelectedData(page, selectData)
-    },
+    }),
     enabled,
     staleTime,
     placeholderData: previousDataPlaceholder(
