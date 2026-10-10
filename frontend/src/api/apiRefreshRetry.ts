@@ -73,16 +73,25 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
   const previousToken = authStore?.accessToken ?? getStoredAccessToken()
   const expectedUserId = authStore?.user?.userId ?? authStore?.user?.id ?? null
+  const hasCurrentTokenStamp = isStampedAuthContextCurrent(originalRequest, generation, previousToken)
+  // A response can arrive after another request rotated this session's token.
+  // Only reuse the new token when the old request has a real same-session stamp;
+  // explicit cleanup credentials must never be replaced with the current user.
+  const hasRotatedTokenStamp = !hasCurrentTokenStamp
+    && originalRequest._authSessionGeneration === generation
+    && typeof originalRequest._authAccessToken === 'string'
+    && originalRequest._authAccessToken.length > 0
+    && Boolean(previousToken)
+    && !originalRequest.preserveAuthHeader
+  if (!hasCurrentTokenStamp && !hasRotatedTokenStamp) {
+    return Promise.reject(createSuppressedSessionChangedError())
+  }
   if (isRefreshInCooldown(generation, previousToken)) {
     const cooldownError = new Error('Refresh temporarily unavailable') as SuppressibleApiError
     cooldownError.suppressGlobalErrorToast = true
     cooldownError.isAuthRefreshFailure = true
     return Promise.reject(cooldownError)
   }
-  if (!isStampedAuthContextCurrent(originalRequest, generation, previousToken)) {
-    return Promise.reject(createSuppressedSessionChangedError())
-  }
-
   if (isRefreshInProgress()) {
     originalRequest._retry = true
     return new Promise<string | null>((resolve, reject) => {
@@ -101,13 +110,21 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       .catch((err) => Promise.reject(err))
   }
 
+  if (hasRotatedTokenStamp) {
+    originalRequest._retry = true
+    if (originalRequest.headers) {
+      originalRequest.headers.Authorization = `Bearer ${previousToken}`
+    }
+    return api(originalRequest)
+  }
+
   originalRequest._retry = true
   const refreshOperation = beginAuthRefresh()
   // The refresh belongs to the session and may have other waiting requests.
   // Keep its identity checks, but do not let this request's cancellation signal
   // discard the shared token or fail the other requests in the refresh queue.
   const refreshIdentity = { expectedSession: originalRequest.expectedSession }
-  let newAccessToken: string
+  let newAccessToken: string | null = null
 
   try {
     const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
@@ -162,7 +179,9 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     const sessionChanged = refreshError instanceof AuthSessionChangedError
       || (authStore !== null && authStore.sessionGeneration !== generation)
       || (originalRequest.expectedSession !== undefined && isCanceledRequestError(refreshError as AxiosError))
-    if (!sessionChanged) markRefreshFailure(generation, previousToken)
+    // Hydration may fail after token application. Late 401s must not bypass that
+    // failure by immediately reusing the newly applied, unhydrated token.
+    if (!sessionChanged) markRefreshFailure(generation, newAccessToken ?? previousToken)
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true
     suppressibleRefreshError.isAuthRefreshFailure = true
