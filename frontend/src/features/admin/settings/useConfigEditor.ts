@@ -67,7 +67,13 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
         return drafts.value[key]
     }
 
+    function resetDrafts() {
+        drafts.value = {}
+        baselines.value = {}
+    }
+
     return {
+        resetDrafts,
         configs,
         hasUnsavedChanges,
         updateDraft,

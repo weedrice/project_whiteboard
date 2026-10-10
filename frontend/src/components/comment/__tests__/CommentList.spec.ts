@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, getComment, refetchComments } = vi.hoisted(() => ({
+const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, getComment, refetchComments, confirm } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
+    sessionGeneration: 0,
+    user: { userId: 1 },
   },
   commentsValue: {
     content: [
@@ -18,6 +20,7 @@ const { authState, bestCommentsValue, commentsValue, commentsState, deleteCommen
     hasNextPage: false,
   },
   bestCommentsValue: [] as Array<{ commentId: number; content: string }>,
+  confirm: vi.fn(),
   deleteComment: vi.fn(),
   fetchNextPage: vi.fn(),
   getComment: vi.fn(),
@@ -51,7 +54,7 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
-    confirm: vi.fn(async () => true),
+    confirm,
   }),
 }))
 
@@ -80,7 +83,7 @@ vi.mock('@/features/comments/queries/useComment', () => ({
       data: ref(bestCommentsValue),
     }),
     useDeleteComment: () => ({
-      mutate: deleteComment,
+      mutateAsync: deleteComment,
     }),
   }),
 }))
@@ -124,6 +127,10 @@ const mountCommentList = (props: { targetCommentId?: number | null; readOnly?: b
 describe('CommentList', () => {
   beforeEach(() => {
     authState.isAuthenticated = true
+    authState.sessionGeneration = 0
+    authState.user.userId = 1
+    deleteComment.mockClear()
+    confirm.mockReset().mockResolvedValue(true)
     commentsState.error = null
     commentsState.hasNextPage = false
     fetchNextPage.mockClear()
@@ -216,7 +223,6 @@ describe('CommentList', () => {
 
     expect(deleteComment).toHaveBeenCalledWith(
       { commentId: 1, postId: 1 },
-      expect.any(Object),
     )
   })
 
@@ -289,4 +295,18 @@ describe('CommentList', () => {
     ], {} as IntersectionObserver)
     expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
   })
+  it.each(['session', 'principal', 'post'] as const)('does not approve an old comment deletion after %s changes', async boundary => {
+    let approve!: (value: boolean) => void
+    confirm.mockReturnValueOnce(new Promise<boolean>(resolve => { approve = resolve }))
+    const wrapper = mountCommentList()
+    await wrapper.get('[data-testid="delete-comment"]').trigger('click')
+    if (boundary === 'session') authState.sessionGeneration += 1
+    if (boundary === 'principal') authState.user.userId = 2
+    if (boundary === 'post') await wrapper.setProps({ postId: 2 })
+    approve(true)
+    await flushPromises()
+    expect(deleteComment).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

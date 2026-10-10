@@ -2,6 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
 import AdminManagement from '../AdminManagement.vue'
 
 const superAdminsData = ref([
@@ -195,4 +197,40 @@ describe('AdminManagement', () => {
     await flushPromises()
     expect((wrapper.get('#superAdminLoginId').element as HTMLInputElement).value).toBe('new-admin')
   })
+  it('cancels an old reason prompt and clears the private create input on session change', async () => {
+    const reason = createDeferred<string>()
+    confirmWithReason.mockReturnValueOnce(reason.promise)
+    const wrapper = mountAdminManagement()
+    await wrapper.get('#superAdminLoginId').setValue('old-account-target')
+    await wrapper.get('form').trigger('submit')
+    useAuthStore().sessionGeneration += 1
+    reason.resolve('approved before switching')
+    await flushPromises()
+    expect(updateSuperAdminStatus).not.toHaveBeenCalled()
+    expect((wrapper.get('#superAdminLoginId').element as HTMLInputElement).value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('keeps the next create action disabled until its own request finishes', async () => {
+    const first = createDeferred<void>()
+    const second = createDeferred<void>()
+    updateSuperAdminStatus.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const wrapper = mountAdminManagement()
+    await wrapper.get('#superAdminLoginId').setValue('old-target')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    useAuthStore().sessionGeneration += 1
+    await wrapper.get('#superAdminLoginId').setValue('new-target')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    first.resolve()
+    await flushPromises()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(addToast).not.toHaveBeenCalled()
+    second.resolve()
+    await flushPromises()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
 })

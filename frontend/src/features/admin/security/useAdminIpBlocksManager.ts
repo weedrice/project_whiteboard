@@ -1,6 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { useToastStore } from '@/stores/toast'
@@ -16,7 +18,8 @@ export function useAdminIpBlocksManager() {
 
   const newIp = ref('')
   const blockReason = ref('')
-  const isBlockingIp = ref(false)
+  const operations = useAuthScopedOperation(authStore)
+  const isBlockingIp = computed(() => operations.isPending('block'))
   const page = ref(0)
   const ipBlockParams = computed(() => ({
     page: page.value,
@@ -47,40 +50,36 @@ export function useAdminIpBlocksManager() {
     const reason = blockReason.value.trim()
     if (!ipAddress || !reason) return
 
-    const sessionGeneration = authStore.sessionGeneration
-    isBlockingIp.value = true
-    try {
-      await blockIp({ ipAddress, reason })
-      if (sessionGeneration !== authStore.sessionGeneration) return
-      page.value = 0
-      toastStore.addToast(t('admin.security.messages.blocked'), 'success')
-      if (newIp.value.trim() === ipAddress && blockReason.value.trim() === reason) {
-        newIp.value = ''
-        blockReason.value = ''
+    await operations.run('block', async (scope) => {
+      try {
+        await blockIp({ ipAddress, reason })
+        scope.assertCurrent()
+        page.value = 0
+        toastStore.addToast(t('admin.security.messages.blocked'), 'success')
+        if (newIp.value.trim() === ipAddress && blockReason.value.trim() === reason) {
+          newIp.value = ''
+          blockReason.value = ''
+        }
+      } catch {
+        // Error handled globally.
       }
-    } catch {
-      // Error handled globally
-    } finally {
-      isBlockingIp.value = false
-    }
+    })
   }
 
   async function handleUnblockIp(ipAddress: string) {
-    const sessionGeneration = authStore.sessionGeneration
-    const isConfirmed = await confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))
-    if (!isConfirmed) return
-    if (sessionGeneration !== authStore.sessionGeneration) return
-
-    try {
-      await unblockIp(ipAddress)
-      if (sessionGeneration !== authStore.sessionGeneration) return
-      if (page.value > 0 && ipBlocks.value.length === 1) {
-        page.value -= 1
+    await operations.run(`unblock:${ipAddress}`, async (scope) => {
+      const isConfirmed = await confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))
+      scope.assertCurrent()
+      if (!isConfirmed) return
+      try {
+        await unblockIp(ipAddress)
+        scope.assertCurrent()
+        if (page.value > 0 && ipBlocks.value.length === 1) page.value -= 1
+        toastStore.addToast(t('admin.security.messages.unblocked'), 'success')
+      } catch {
+        // Error handled globally.
       }
-      toastStore.addToast(t('admin.security.messages.unblocked'), 'success')
-    } catch {
-      // Error handled globally
-    }
+    })
   }
 
   watch(totalPages, (nextTotalPages) => {
@@ -94,12 +93,12 @@ export function useAdminIpBlocksManager() {
     }
   })
 
-  watch(() => authStore.sessionGeneration, () => {
+  useAuthSessionReset(() => {
     newIp.value = ''
     blockReason.value = ''
     page.value = 0
     closeDetailModal()
-  }, { flush: 'sync' })
+  }, authStore)
 
   return {
     blockReason,

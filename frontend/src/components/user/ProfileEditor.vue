@@ -86,7 +86,7 @@ const {
   isError: isAgentsError,
   refetch: refetchAgents,
 } = useMyAgents()
-const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
+const { mutateAsync: claimAgent } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
 
 const isEmailVerified = computed(() => {
@@ -173,6 +173,7 @@ async function handleProfileSubmit() {
 }
 
 const {
+  isClaiming,
   agentToken,
   agentError,
   processingAgentId,
@@ -185,7 +186,7 @@ const {
   agentsData,
   isAgentsLoading,
   isAgentsFetching,
-  isClaiming,
+  authSession: authStore,
   isEmailVerified,
   claimAgent,
   suspendMyAgent,

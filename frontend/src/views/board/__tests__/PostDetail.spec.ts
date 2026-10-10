@@ -1,6 +1,6 @@
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
 import {
   resetNotificationStreamConnectionForTest,
@@ -169,12 +169,12 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
       data: ref([]),
       isLoading: ref(false)
     }),
-    useDeletePost: () => ({ mutate: deleteMutate }),
-    useLikePost: () => ({ mutate: likeMutate }),
-    useUnlikePost: () => ({ mutate: unlikeMutate }),
-    useScrapPost: () => ({ mutate: scrapMutate }),
-    useUnscrapPost: () => ({ mutate: unscrapMutate }),
-    useReportPost: () => ({ mutate: reportMutate }),
+    useDeletePost: () => ({ mutateAsync: deleteMutate }),
+    useLikePost: () => ({ mutateAsync: likeMutate }),
+    useUnlikePost: () => ({ mutateAsync: unlikeMutate }),
+    useScrapPost: () => ({ mutateAsync: scrapMutate }),
+    useUnscrapPost: () => ({ mutateAsync: unscrapMutate }),
+    useReportPost: () => ({ mutateAsync: reportMutate }),
     useBlindPostByManager: () => ({
       mutateAsync: blindPostMutateAsync
     }),
@@ -471,6 +471,8 @@ describe('PostDetail', () => {
   })
 
   it('uses the original board route after a delete succeeds', async () => {
+    let finishDelete!: () => void
+    deleteMutate.mockImplementationOnce(() => new Promise<void>((resolve) => { finishDelete = resolve }))
     const wrapper = mount(PostDetail, {
       global: {
         mocks: {
@@ -493,9 +495,9 @@ describe('PostDetail', () => {
       expect(deleteMutate).toHaveBeenCalled()
     })
 
-    const [, options] = deleteMutate.mock.calls[0]
     postValue.board.boardUrl = 'changed'
-    options.onSuccess()
+    finishDelete()
+    await flushPromises()
 
     expect(router.push).toHaveBeenCalledWith({
       path: '/board/free',

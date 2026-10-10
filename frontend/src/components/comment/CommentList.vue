@@ -6,6 +6,8 @@ import { commentApi } from '@/api/comment'
 import { unwrapApiData } from '@/api/response'
 import { useComment } from '@/features/comments/queries/useComment'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { createAuthSessionScope } from '@/utils/authSessionScope'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
@@ -35,6 +37,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const operations = useAuthScopedOperation(authStore)
 const commentListRoot = ref<HTMLElement | null>(null)
 const observedCommentElements = new Set<Element>()
 let readObserver: IntersectionObserver | null = null
@@ -89,18 +92,20 @@ const loadMoreCommentsLabel = computed(() => t('comment.loadMore', {
   remaining: Math.max(totalCommentCount.value - comments.value.length, 0)
 }))
 
-const { mutate: deleteComment } = useDeleteComment()
+const { mutateAsync: deleteComment } = useDeleteComment()
 
 async function handleDelete(comment: Comment) {
-  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-  if (!isConfirmed) {
-    return
-  }
-
-  deleteComment({ commentId: comment.commentId, postId: props.postId }, {
-    onError: (err) => {
-      logger.error('Failed to delete comment:', err)
-    },
+  const targetPostId = props.postId
+  const commentId = comment.commentId
+  await operations.run(`delete:${commentId}`, async (scope) => {
+    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    scope.assertCurrent()
+    if (!isConfirmed || props.postId !== targetPostId || props.readOnly) return
+    try {
+      await deleteComment({ commentId, postId: targetPostId })
+    } catch (err) {
+      scope.runIfCurrent(() => logger.error('Failed to delete comment:', err))
+    }
   })
 }
 
@@ -109,27 +114,33 @@ function loadMoreComments() {
 }
 
 async function resolveDeepLinkPath(targetCommentId: number, revision: number, controller: AbortController) {
-  const reversedPath: number[] = []
-  const visited = new Set<number>()
-  let currentId: number | null | undefined = targetCommentId
+  const scope = createAuthSessionScope(authStore)
+  try {
+    const reversedPath: number[] = []
+    const visited = new Set<number>()
+    let currentId: number | null | undefined = targetCommentId
 
-  while (currentId != null && !visited.has(currentId) && reversedPath.length < 32) {
-    visited.add(currentId)
-    const { data } = await commentApi.getComment(currentId, {
-      signal: controller.signal,
-      skipGlobalErrorHandler: true,
-    })
-    if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
+    while (currentId != null && !visited.has(currentId) && reversedPath.length < 32) {
+      visited.add(currentId)
+      const { data } = await commentApi.getComment(currentId, scope.withRequestConfig({
+        signal: controller.signal,
+        skipGlobalErrorHandler: true,
+      }))
+      scope.assertCurrent()
+      if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
 
-    const current = unwrapApiData(data)
-    if (String(current.postId) !== String(props.postId)) return
-    reversedPath.push(current.commentId)
-    currentId = current.parentId
+      const current = unwrapApiData(data)
+      if (String(current.postId) !== String(props.postId)) return
+      reversedPath.push(current.commentId)
+      currentId = current.parentId
+    }
+
+    if (revision !== deepLinkRevision || controller.signal.aborted) return
+    deepLinkCommentIds.value = reversedPath.reverse()
+    void loadDeepLinkRootPage(revision)
+  } finally {
+    scope.dispose()
   }
-
-  if (revision !== deepLinkRevision || controller.signal.aborted) return
-  deepLinkCommentIds.value = reversedPath.reverse()
-  void loadDeepLinkRootPage(revision)
 }
 
 function loadDeepLinkRootPage(revision = deepLinkRevision) {
@@ -143,7 +154,7 @@ function loadDeepLinkRootPage(revision = deepLinkRevision) {
 }
 
 watch(
-  [() => props.targetCommentId, () => props.postId, () => authStore.sessionGeneration, sort],
+  [() => props.targetCommentId, () => props.postId, () => authStore.sessionGeneration, () => authStore.user?.userId, sort],
   ([targetCommentId]) => {
     deepLinkRevision += 1
     deepLinkController?.abort()

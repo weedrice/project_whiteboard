@@ -3,6 +3,8 @@ import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
+import { runAuthScopedAction } from '@/utils/authSessionScope'
 import { useAuthStore } from '@/stores/auth'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
@@ -88,20 +90,30 @@ export function useErrorLogDetailModal() {
         }
     }
 
+    useAuthSessionReset(() => {
+        closeDetailModal()
+        closeResolveModal()
+    }, authStore)
+
     async function copyStackTrace() {
         const stackTrace = selectedLog.value?.stackTrace
         if (!stackTrace) return
-        if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
-            toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
-            return
-        }
-
-        try {
-            await navigator.clipboard.writeText(stackTrace)
-            toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopied'), 'success')
-        } catch {
-            toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
-        }
+        const revision = detailRevision
+        await runAuthScopedAction(authStore, async (scope) => {
+            if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+                toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
+                return
+            }
+            try {
+                await navigator.clipboard.writeText(stackTrace)
+                scope.assertCurrent()
+                if (revision !== detailRevision) return
+                toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopied'), 'success')
+            } catch {
+                if (!scope.isCurrent() || revision !== detailRevision) return
+                toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
+            }
+        })
     }
 
     return {

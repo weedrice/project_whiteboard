@@ -59,4 +59,23 @@ describe('useEmoticonDetailActions destructive intent', () => {
 
     expect(purchase).not.toHaveBeenCalled()
   })
+  it.each(['session', 'principal'] as const)('does not toggle visibility after the initiating %s changes', async boundary => {
+    const authSession = { sessionGeneration: 3, user: { userId: 1 } }
+    let approve!: (value: boolean) => void
+    const toggleVisibility = vi.fn()
+    const actions = useEmoticonDetailActions({
+      authSession, canPurchase: computed(() => false),
+      confirm: () => new Promise<boolean>(resolve => { approve = resolve }),
+      emoticonId: computed(() => 7), emoticonView: computed(() => ({ isActive: true }) as never),
+      purchase: vi.fn(), purchasePrice: computed(() => 100),
+      router: { push: vi.fn() } as never, t: key => key, toggleVisibility,
+    })
+    const pending = actions.handleToggleVisibility()
+    if (boundary === 'session') authSession.sessionGeneration += 1
+    else authSession.user.userId = 2
+    approve(true)
+    await pending
+    expect(toggleVisibility).not.toHaveBeenCalled()
+  })
+
 })

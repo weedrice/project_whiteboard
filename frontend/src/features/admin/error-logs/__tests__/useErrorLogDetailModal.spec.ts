@@ -24,9 +24,11 @@ vi.mock('@/stores/toast', () => ({
     }),
 }))
 
-vi.mock('@/stores/auth', () => ({
-    useAuthStore: () => mocks.authStore,
-}))
+vi.mock('@/stores/auth', async () => {
+    const { reactive } = await import('vue')
+    mocks.authStore = reactive(mocks.authStore)
+    return { useAuthStore: () => mocks.authStore }
+})
 
 vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
@@ -166,4 +168,30 @@ describe('useErrorLogDetailModal', () => {
         await Promise.all([firstResolve, duplicateResolve])
         expect(modal.isResolving.value).toBe(false)
     })
+    it('clears already displayed details and resolve drafts at the session boundary', async () => {
+        mocks.fetchErrorLogDetail.mockResolvedValueOnce({ errorLogId: 7, stackTrace: 'private' })
+        const modal = mountErrorLogDetailModal()
+        await modal.openDetailModal({ errorLogId: 7 } as ErrorLogDetail)
+        modal.openResolveModal({ errorLogId: 7 } as ErrorLogDetail)
+        modal.resolveMemo.value = 'private memo'
+        mocks.authStore.sessionGeneration += 1
+        expect(modal.selectedLog.value).toBeNull()
+        expect(modal.isDetailModalOpen.value).toBe(false)
+        expect(modal.isResolveModalOpen.value).toBe(false)
+        expect(modal.resolveTargetLog.value).toBeNull()
+        expect(modal.resolveMemo.value).toBe('')
+    })
+
+    it('does not show clipboard completion for a previous session', async () => {
+        const copied = createDeferred<void>()
+        vi.stubGlobal('navigator', { clipboard: { writeText: () => copied.promise } })
+        const modal = mountErrorLogDetailModal()
+        modal.selectedLog.value = { errorLogId: 7, stackTrace: 'private' } as ErrorLogDetail
+        const pending = modal.copyStackTrace()
+        mocks.authStore.sessionGeneration += 1
+        copied.resolve()
+        await pending
+        expect(mocks.addToast).not.toHaveBeenCalled()
+    })
+
 })

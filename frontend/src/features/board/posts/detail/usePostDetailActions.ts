@@ -1,5 +1,8 @@
-import { onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router, RouteLocationRaw } from 'vue-router'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent, type AuthSessionIntent, type AuthSessionIntentSource } from '@/utils/authSessionIntent'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { useToastStore } from '@/stores/toast'
@@ -10,7 +13,7 @@ import logger from '@/utils/logger'
 interface UsePostDetailActionsOptions {
   post: Ref<Post | null | undefined>
   canReport: ComputedRef<boolean>
-  authStore: { isAuthenticated: boolean, sessionGeneration: number }
+  authStore: AuthSessionIntentSource & { isAuthenticated: boolean }
   route: RouteLocationNormalizedLoaded
   router: Router
   t: (key: string) => string
@@ -38,47 +41,48 @@ export function usePostDetailActions({
     useUnlikePost,
     useUnscrapPost,
   } = usePost()
-  const { mutate: deleteMutate } = useDeletePost()
-  const { mutate: likeMutate } = useLikePost()
-  const { mutate: unlikeMutate } = useUnlikePost()
-  const { mutate: scrapMutate } = useScrapPost()
-  const { mutate: unscrapMutate } = useUnscrapPost()
-  const { mutate: reportMutate } = useReportPost()
+  const { mutateAsync: deleteMutate } = useDeletePost()
+  const { mutateAsync: likeMutate } = useLikePost()
+  const { mutateAsync: unlikeMutate } = useUnlikePost()
+  const { mutateAsync: scrapMutate } = useScrapPost()
+  const { mutateAsync: unscrapMutate } = useUnscrapPost()
+  const { mutateAsync: reportMutate } = useReportPost()
   const isLikeAnimating = ref(false)
   const isBookmarkAnimating = ref(false)
-  const isLikeMutationPending = ref(false)
-  const isBookmarkMutationPending = ref(false)
+  const operations = useAuthScopedOperation(authStore)
+  const isLikeMutationPending = computed(() => operations.isPending('like'))
+  const isBookmarkMutationPending = computed(() => operations.isPending('bookmark'))
   const showReportModal = ref(false)
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let reportRevision = 0
   let reportIntent: {
     postId: string | number
-    sessionGeneration: number
+    session: AuthSessionIntent
     revision: number
   } | null = null
 
   const currentPostId = () => route.params.postId as string | number
-  const isIntentCurrent = (postId: string | number, sessionGeneration: number) => (
+  const isIntentCurrent = (postId: string | number, session: AuthSessionIntent) => (
     String(currentPostId()) === String(postId)
-    && authStore.sessionGeneration === sessionGeneration
+    && isAuthSessionIntentCurrent(authStore, session)
   )
 
   async function handleDelete() {
     const postId = currentPostId()
     const boardUrl = post.value?.board.boardUrl
-    const sessionGeneration = authStore.sessionGeneration
-    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-    if (!isConfirmed || !isIntentCurrent(postId, sessionGeneration)) return
-
-    deleteMutate(postId, {
-      onSuccess: () => {
-        if (boardUrl && isIntentCurrent(postId, sessionGeneration)) {
-          router.push(buildBoardListRoute(boardUrl))
+    await operations.run('delete', async (scope) => {
+      const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+      scope.assertCurrent()
+      if (!isConfirmed || !isIntentCurrent(postId, scope.intent)) return
+      try {
+        await deleteMutate(postId)
+        scope.assertCurrent()
+        if (boardUrl && isIntentCurrent(postId, scope.intent)) {
+          await router.push(buildBoardListRoute(boardUrl))
         }
-      },
-      onError: (err) => {
-        logger.error('Failed to delete post:', err)
+      } catch (err) {
+        scope.runIfCurrent(() => logger.error('Failed to delete post:', err))
       }
     })
   }
@@ -102,48 +106,30 @@ export function usePostDetailActions({
   }
 
   async function handleLike() {
-    if (!authStore.isAuthenticated || !post.value || isLikeMutationPending.value) return
-
-    isLikeMutationPending.value = true
-    const onSettled = () => {
-      isLikeMutationPending.value = false
-    }
-
-    if (post.value.liked) {
-      unlikeMutate(route.params.postId as string | number, {
-        onError: (err) => logger.error(t('board.postDetail.likeFailed'), err),
-        onSettled,
-      })
-      return
-    }
-
-    triggerLikeAnimation()
-    likeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err),
-      onSettled,
+    if (!authStore.isAuthenticated || !post.value) return
+    const postId = currentPostId()
+    const liked = post.value.liked
+    await operations.run('like', async (scope) => {
+      if (!liked) triggerLikeAnimation()
+      try {
+        await (liked ? unlikeMutate(postId) : likeMutate(postId))
+      } catch (err) {
+        scope.runIfCurrent(() => logger.error(t('board.postDetail.likeFailed'), err))
+      }
     })
   }
 
   async function handleBookmark() {
-    if (!authStore.isAuthenticated || !post.value || isBookmarkMutationPending.value) return
-
-    isBookmarkMutationPending.value = true
-    const onSettled = () => {
-      isBookmarkMutationPending.value = false
-    }
-
-    if (post.value.scrapped) {
-      unscrapMutate(route.params.postId as string | number, {
-        onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err),
-        onSettled,
-      })
-      return
-    }
-
-    triggerBookmarkAnimation()
-    scrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err),
-      onSettled,
+    if (!authStore.isAuthenticated || !post.value) return
+    const postId = currentPostId()
+    const scrapped = post.value.scrapped
+    await operations.run('bookmark', async (scope) => {
+      if (!scrapped) triggerBookmarkAnimation()
+      try {
+        await (scrapped ? unscrapMutate(postId) : scrapMutate(postId))
+      } catch (err) {
+        scope.runIfCurrent(() => logger.error(t('board.postDetail.scrapFailed'), err))
+      }
     })
   }
 
@@ -151,7 +137,7 @@ export function usePostDetailActions({
     if (!canReport.value) return
     reportIntent = {
       postId: currentPostId(),
-      sessionGeneration: authStore.sessionGeneration,
+      session: captureAuthSessionIntent(authStore),
       revision: ++reportRevision,
     }
     showReportModal.value = true
@@ -166,43 +152,47 @@ export function usePostDetailActions({
 
   async function submitReport(reason: string, reasonType?: ReportReasonType) {
     const intent = reportIntent
-    if (!intent || !isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+    if (!intent || !isIntentCurrent(intent.postId, intent.session)) {
       closeReportModal()
       return false
     }
     const isReportIntentCurrent = () => (
       reportIntent === intent
       && intent.revision === reportRevision
-      && isIntentCurrent(intent.postId, intent.sessionGeneration)
+      && isIntentCurrent(intent.postId, intent.session)
     )
 
-    return await new Promise<boolean>((resolve) => {
-      reportMutate({
-        targetPostId: intent.postId,
-        reason,
-        ...(reasonType ? { reasonType } : {}),
-      }, {
-        onSuccess: () => {
-          if (!isReportIntentCurrent()) {
-            resolve(false)
-            return
-          }
-          toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-          closeReportModal()
-          resolve(true)
-        },
-        onError: (err) => {
-          if (!isReportIntentCurrent()) {
-            resolve(false)
-            return
-          }
-          logger.error('Report failed:', err)
-          toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
-          resolve(false)
-        },
-      })
+    const submitted = await operations.run(`report:${intent.revision}`, async (scope) => {
+      try {
+        await reportMutate({
+          targetPostId: intent.postId,
+          reason,
+          ...(reasonType ? { reasonType } : {}),
+        })
+        scope.assertCurrent()
+        if (!isReportIntentCurrent()) return false
+        toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
+        closeReportModal()
+        return true
+      } catch (err) {
+        if (!scope.isCurrent() || !isReportIntentCurrent()) return false
+        logger.error('Report failed:', err)
+        toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
+        return false
+      }
     })
+    return submitted === true
   }
+
+  useAuthSessionReset(() => {
+    closeReportModal()
+    if (likeAnimationTimer) clearTimeout(likeAnimationTimer)
+    if (bookmarkAnimationTimer) clearTimeout(bookmarkAnimationTimer)
+    likeAnimationTimer = null
+    bookmarkAnimationTimer = null
+    isLikeAnimating.value = false
+    isBookmarkAnimating.value = false
+  }, authStore)
 
   watch(() => route.params.postId, () => {
     closeReportModal()

@@ -16,6 +16,8 @@ import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatDate } from '@/utils/date'
 import type { SuperAdminInfo } from '@/types'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
@@ -28,8 +30,10 @@ const {
 } = useAdmin()
 
 const newSuperAdminLoginId = ref('')
-const isCreatingSuperAdmin = ref(false)
-const pendingSuperAdminLoginIds = ref<Set<string>>(new Set())
+const operations = useAuthScopedOperation(authStore)
+const isCreatingSuperAdmin = computed(() => operations.isPending('create'))
+const isSuperAdminPending = (loginId: string) => operations.isPending(`status:${loginId}`)
+useAuthSessionReset(() => { newSuperAdminLoginId.value = '' }, authStore)
 
 const { data: superAdminsData, isLoading: isSuperAdminsLoading, isError: isSuperAdminsError, refetch: refetchSuperAdmins } = useSuperAdmins()
 const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
@@ -67,61 +71,45 @@ async function handleCreateSuperAdmin() {
     return
   }
 
-  const sessionGeneration = authStore.sessionGeneration
-  const reason = await confirmWithReason(
-    t('admin.admins.addSuperAdminDesc'),
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    { maxLength: 500 },
-  )
-  if (!reason) return
-  if (sessionGeneration !== authStore.sessionGeneration || newSuperAdminLoginId.value.trim() !== loginId) return
-
-  isCreatingSuperAdmin.value = true
-  try {
-    await updateSuperAdminStatus({ loginId, action: 'activate', reason })
-    if (sessionGeneration !== authStore.sessionGeneration) return
-    toastStore.addToast(t('admin.admins.messages.added'), 'success')
-    if (newSuperAdminLoginId.value.trim() === loginId) newSuperAdminLoginId.value = ''
-  } catch {
-    // Error handled globally
-  } finally {
-    isCreatingSuperAdmin.value = false
-  }
+  await operations.run('create', async (scope) => {
+    const reason = await confirmWithReason(
+      t('admin.admins.addSuperAdminDesc'), undefined, undefined, undefined, undefined, { maxLength: 500 },
+    )
+    scope.assertCurrent()
+    if (!reason || newSuperAdminLoginId.value.trim() !== loginId) return
+    try {
+      await updateSuperAdminStatus({ loginId, action: 'activate', reason })
+      scope.assertCurrent()
+      toastStore.addToast(t('admin.admins.messages.added'), 'success')
+      if (newSuperAdminLoginId.value.trim() === loginId) newSuperAdminLoginId.value = ''
+    } catch {
+      // Error handled globally.
+    }
+  })
 }
 
 async function toggleSuperAdminStatus(admin: SuperAdminRow) {
   const loginId = String(admin.loginId ?? '')
-  if (!loginId || pendingSuperAdminLoginIds.value.has(loginId)) return
+  if (!loginId) return
   const expectedStatus = admin.superAdmin
-  const sessionGeneration = authStore.sessionGeneration
-  const reason = await confirmWithReason(
-    expectedStatus ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc'),
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    { maxLength: 500 },
-  )
-  if (!reason) return
-  const currentAdmin = superAdmins.value.find((item) => item.loginId === loginId)
-  if (sessionGeneration !== authStore.sessionGeneration || currentAdmin?.superAdmin !== expectedStatus) return
-
-  pendingSuperAdminLoginIds.value = new Set(pendingSuperAdminLoginIds.value).add(loginId)
-  try {
-    const action = expectedStatus ? 'deactivate' : 'activate'
-    await updateSuperAdminStatus({ loginId, action, reason })
-    if (sessionGeneration !== authStore.sessionGeneration) return
-    toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
-  } catch {
-    // Error handled globally
-  } finally {
-    const nextPending = new Set(pendingSuperAdminLoginIds.value)
-    nextPending.delete(loginId)
-    pendingSuperAdminLoginIds.value = nextPending
-  }
+  await operations.run(`status:${loginId}`, async (scope) => {
+    const reason = await confirmWithReason(
+      expectedStatus ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc'),
+      undefined, undefined, undefined, undefined, { maxLength: 500 },
+    )
+    scope.assertCurrent()
+    if (!reason) return
+    const currentAdmin = superAdmins.value.find((item) => item.loginId === loginId)
+    if (currentAdmin?.superAdmin !== expectedStatus) return
+    try {
+      const action = expectedStatus ? 'deactivate' : 'activate'
+      await updateSuperAdminStatus({ loginId, action, reason })
+      scope.assertCurrent()
+      toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
+    } catch {
+      // Error handled globally.
+    }
+  })
 }
 
 const superAdminColumns: { key: string; label: string; width: string; align?: 'left' | 'center' | 'right'; hideBelow?: 'sm' | 'lg' }[] = [
@@ -204,7 +192,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
           <AdminActionButton
             :label="item.superAdmin ? t('common.deactivate') : t('common.activate')"
             tone="accent"
-            :disabled="pendingSuperAdminLoginIds.has(item.loginId)"
+            :disabled="isSuperAdminPending(item.loginId)"
             @click="toggleSuperAdminStatus(item)"
           >
             {{ item.superAdmin ? t('common.deactivate') : t('common.activate') }}

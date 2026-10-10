@@ -1,311 +1,201 @@
-import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h, ref } from 'vue'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, defineComponent, h, reactive, ref } from 'vue'
+import { QueryClient, VueQueryPlugin, onlineManager } from '@tanstack/vue-query'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { usePostDetailActions } from '@/features/board/posts/detail/usePostDetailActions'
+import { createDeferred } from '@/test/async'
 import type { Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
-  addToast: vi.fn(),
-  confirm: vi.fn(),
-  deleteMutate: vi.fn(),
-  likeMutate: vi.fn(),
-  reportMutate: vi.fn(),
-  scrapMutate: vi.fn(),
-  unlikeMutate: vi.fn(),
-  unscrapMutate: vi.fn(),
-  loggerError: vi.fn(),
-}))
-
-vi.mock('@/stores/toast', () => ({
-  useToastStore: () => ({
-    addToast: mocks.addToast,
-  }),
-}))
-
-vi.mock('@/composables/useConfirm', () => ({
-  useConfirm: () => ({
-    confirm: mocks.confirm,
-  }),
-}))
-
-vi.mock('@/features/board/posts/queries/usePost', () => ({
-  usePost: () => ({
-    useDeletePost: () => ({ mutate: mocks.deleteMutate }),
-    useLikePost: () => ({ mutate: mocks.likeMutate }),
-    useReportPost: () => ({ mutate: mocks.reportMutate }),
-    useScrapPost: () => ({ mutate: mocks.scrapMutate }),
-    useUnlikePost: () => ({ mutate: mocks.unlikeMutate }),
-    useUnscrapPost: () => ({ mutate: mocks.unscrapMutate }),
-  }),
-}))
-
-vi.mock('@/utils/logger', () => ({
-  default: {
-    error: mocks.loggerError,
+  addToast: vi.fn(), confirm: vi.fn(), deleteMutate: vi.fn(), likeMutate: vi.fn(),
+  reportMutate: vi.fn(), scrapMutate: vi.fn(), unlikeMutate: vi.fn(), unscrapMutate: vi.fn(),
+  loggerError: vi.fn(), authStore: null as unknown as {
+    isAuthenticated: boolean, sessionGeneration: number, user: { userId: number }, accessToken: string,
   },
 }))
-
-const route = {
-  params: {
-    postId: '7',
-  },
-}
-
-const router = {
-  push: vi.fn(),
-}
-
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => mocks.authStore }))
+vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addToast }) }))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: mocks.confirm }) }))
+vi.mock('@/features/board/posts/queries/usePost', async () => {
+  const { useAuthScopedMutation } = await import('@/composables/useAuthScopedMutation')
+  const mutation = (handler: (variables: unknown) => Promise<unknown>) =>
+    useAuthScopedMutation({ mutationFn: (variables: unknown) => handler(variables) })
+  return { usePost: () => ({
+    useDeletePost: () => mutation(mocks.deleteMutate),
+    useLikePost: () => mutation(mocks.likeMutate),
+    useReportPost: () => mutation(mocks.reportMutate),
+    useScrapPost: () => mutation(mocks.scrapMutate),
+    useUnlikePost: () => mutation(mocks.unlikeMutate),
+    useUnscrapPost: () => mutation(mocks.unscrapMutate),
+  }) }
+})
+vi.mock('@/utils/logger', () => ({ default: { error: mocks.loggerError } }))
+const wrappers: VueWrapper[] = []
+const clients: QueryClient[] = []
+const route = reactive({ params: { postId: '7' } })
+const router = { push: vi.fn() }
 const postFactory = (overrides: Partial<Post> = {}): Post => ({
-  postId: 7,
-  title: 'Post',
-  contents: '<p>Body</p>',
-  viewCount: 1,
-  likeCount: 0,
-  commentCount: 0,
-  isNotice: false,
-  isNsfw: false,
-  isSpoiler: false,
-  liked: false,
-  scrapped: false,
-  author: {
-    userId: 1,
-    displayName: 'Author',
-  },
-  board: {
-    boardId: 1,
-    boardName: 'Free',
-    boardUrl: 'free',
-  },
-  createdAt: '2026-01-01T00:00:00',
+  postId: 7, title: 'Post', contents: '<p>Body</p>', viewCount: 1, likeCount: 0,
+  commentCount: 0, isNotice: false, isNsfw: false, isSpoiler: false, liked: false, scrapped: false,
+  author: { userId: 1, displayName: 'Author' },
+  board: { boardId: 1, boardName: 'Free', boardUrl: 'free' }, createdAt: '2026-01-01T00:00:00',
   ...overrides,
 })
-
-function createActions(overrides: {
-  authenticated?: boolean
-  canReport?: boolean
-  post?: Post | null
-} = {}) {
+function createActions(overrides: { authenticated?: boolean, canReport?: boolean, post?: Post | null } = {}) {
   const closeOverflowMenu = vi.fn()
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+  clients.push(client)
   let actions!: ReturnType<typeof usePostDetailActions>
-
-  mount(defineComponent({
-    setup() {
-      actions = usePostDetailActions({
-        post: ref(overrides.post === undefined ? postFactory() : overrides.post),
-        canReport: computed(() => overrides.canReport ?? true),
-        authStore: { isAuthenticated: overrides.authenticated ?? true, sessionGeneration: 0 },
-        route: route as unknown as RouteLocationNormalizedLoaded,
-        router: router as Partial<Router> as Router,
-        t: (key: string) => key,
-        buildBoardListRoute: (boardUrl: string) => ({ name: 'board-detail', params: { boardUrl } }),
-        closeOverflowMenu,
-      })
-
-      return () => h('div')
-    },
-  }))
-
-  return {
-    actions,
-    closeOverflowMenu,
-  }
+  mocks.authStore.isAuthenticated = overrides.authenticated ?? true
+  wrappers.push(mount(defineComponent({ setup() {
+    actions = usePostDetailActions({
+      post: ref(overrides.post === undefined ? postFactory() : overrides.post),
+      canReport: computed(() => overrides.canReport ?? true), authStore: mocks.authStore,
+      route: route as unknown as RouteLocationNormalizedLoaded, router: router as unknown as Router,
+      t: key => key, buildBoardListRoute: boardUrl => ({ name: 'board-detail', params: { boardUrl } }),
+      closeOverflowMenu,
+    })
+    return () => h('div')
+  } }), { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } }))
+  return { actions, closeOverflowMenu }
 }
 
-describe('usePostDetailActions', () => {
+describe('usePostDetailActions with real scoped Vue Query mutations', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    mocks.authStore = reactive({ isAuthenticated: true, sessionGeneration: 1, user: { userId: 1 }, accessToken: 'first' })
     mocks.confirm.mockResolvedValue(true)
     route.params.postId = '7'
   })
-
-  it('confirms before deleting and navigates to the board after success', async () => {
+  afterEach(() => {
+    onlineManager.setOnline(true)
+    wrappers.splice(0).forEach(wrapper => wrapper.unmount())
+    clients.splice(0).forEach(client => client.clear())
+  })
+  it('confirms and deletes the original post before navigating', async () => {
     const { actions } = createActions()
-
     await actions.handleDelete()
-
     expect(mocks.confirm).toHaveBeenCalledWith('common.messages.confirmDelete')
-    expect(mocks.deleteMutate).toHaveBeenCalledWith('7', expect.objectContaining({
-      onSuccess: expect.any(Function),
-      onError: expect.any(Function),
-    }))
-
-    const options = mocks.deleteMutate.mock.calls[0][1]
-    options.onSuccess()
-
+    expect(mocks.deleteMutate).toHaveBeenCalledWith('7')
     expect(router.push).toHaveBeenCalledWith({ name: 'board-detail', params: { boardUrl: 'free' } })
   })
-
-  it('skips delete when confirmation is cancelled', async () => {
-    mocks.confirm.mockResolvedValueOnce(false)
+  it.each(['cancel', 'route', 'session', 'principal'])('discards a delete confirmation after %s', async reason => {
+    const confirmation = createDeferred<boolean>()
+    mocks.confirm.mockReturnValueOnce(confirmation.promise)
     const { actions } = createActions()
-
-    await actions.handleDelete()
-
+    const pending = actions.handleDelete()
+    if (reason === 'route') route.params.postId = '8'
+    if (reason === 'session') mocks.authStore.sessionGeneration += 1
+    if (reason === 'principal') mocks.authStore.user.userId = 2
+    confirmation.resolve(reason !== 'cancel')
+    await pending
     expect(mocks.deleteMutate).not.toHaveBeenCalled()
   })
-
-  it('does not delete a different post after the route changes during confirmation', async () => {
-    let resolveConfirmation!: (confirmed: boolean) => void
-    mocks.confirm.mockReturnValueOnce(new Promise((resolve) => {
-      resolveConfirmation = resolve
-    }))
+  it.each([false, true])('selects the correct like/bookmark operations for previous state %s', async previous => {
+    const { actions } = createActions({ post: postFactory({ liked: previous, scrapped: previous }) })
+    await actions.handleLike()
+    await actions.handleBookmark()
+    expect(previous ? mocks.unlikeMutate : mocks.likeMutate).toHaveBeenCalledWith('7')
+    expect(previous ? mocks.unscrapMutate : mocks.scrapMutate).toHaveBeenCalledWith('7')
+  })
+  it.each(['like', 'bookmark'] as const)('keeps a new %s pending when an old session finishes', async kind => {
+    const first = createDeferred<void>()
+    const second = createDeferred<void>()
+    const mutation = kind === 'like' ? mocks.likeMutate : mocks.scrapMutate
+    mutation.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const { actions } = createActions()
-
-    const deletion = actions.handleDelete()
-    route.params.postId = '8'
-    resolveConfirmation(true)
-    await deletion
-
-    expect(mocks.deleteMutate).not.toHaveBeenCalled()
+    const run = kind === 'like' ? actions.handleLike : actions.handleBookmark
+    const pending = kind === 'like' ? actions.isLikeMutationPending : actions.isBookmarkMutationPending
+    const oldRun = run()
+    await flushPromises()
+    await run()
+    expect(mutation).toHaveBeenCalledTimes(1)
+    mocks.authStore.sessionGeneration += 1
+    expect(pending.value).toBe(false)
+    const newRun = run()
+    await flushPromises()
+    first.resolve()
+    await oldRun
+    expect(pending.value).toBe(true)
+    second.resolve()
+    await newRun
+    expect(pending.value).toBe(false)
   })
-
-  it('likes or unlikes depending on current post state', async () => {
-    const { actions } = createActions({ post: postFactory({ liked: false }) })
-
-    await actions.handleLike()
-
-    expect(mocks.likeMutate).toHaveBeenCalledWith('7', expect.objectContaining({
-      onError: expect.any(Function),
-    }))
-    expect(mocks.unlikeMutate).not.toHaveBeenCalled()
-
-    const likedPostActions = createActions({ post: postFactory({ liked: true }) }).actions
-
-    await likedPostActions.handleLike()
-
-    expect(mocks.unlikeMutate).toHaveBeenCalledWith('7', expect.objectContaining({
-      onError: expect.any(Function),
-    }))
+  it('settles a report after session cancellation instead of waiting for skipped callbacks', async () => {
+    const response = createDeferred<void>()
+    mocks.reportMutate.mockReturnValueOnce(response.promise)
+    const { actions } = createActions()
+    actions.openReportModal()
+    const submission = actions.submitReport('Spam')
+    await flushPromises()
+    mocks.authStore.sessionGeneration += 1
+    expect(actions.showReportModal.value).toBe(false)
+    response.resolve()
+    await expect(submission).resolves.toBe(false)
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.loggerError).not.toHaveBeenCalled()
   })
-
-  it('serializes repeated like toggles until the active mutation settles', async () => {
-    const { actions } = createActions({ post: postFactory({ liked: false }) })
-
-    await actions.handleLike()
-    await actions.handleLike()
-
-    expect(mocks.likeMutate).toHaveBeenCalledOnce()
-    expect(mocks.unlikeMutate).not.toHaveBeenCalled()
-
-    mocks.likeMutate.mock.calls[0][1].onSettled()
-    await actions.handleLike()
-
-    expect(mocks.likeMutate).toHaveBeenCalledTimes(2)
+  it('settles report success/failure and ignores an old modal response', async () => {
+    const { actions } = createActions()
+    actions.openReportModal()
+    await expect(actions.submitReport('Spam')).resolves.toBe(true)
+    expect(mocks.reportMutate).toHaveBeenCalledWith({ targetPostId: '7', reason: 'Spam' })
+    expect(actions.showReportModal.value).toBe(false)
+    actions.openReportModal()
+    mocks.reportMutate.mockRejectedValueOnce(new Error('failed'))
+    await expect(actions.submitReport('Abuse')).resolves.toBe(false)
+    expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportFailed', 'error')
+    const response = createDeferred<void>()
+    mocks.reportMutate.mockReturnValueOnce(response.promise)
+    const oldReport = actions.submitReport('Old')
+    await flushPromises()
+    actions.closeReportModal()
+    actions.openReportModal()
+    response.resolve()
+    await expect(oldReport).resolves.toBe(false)
+    expect(actions.showReportModal.value).toBe(true)
   })
-
-  it('scraps or unscraps depending on current post state', async () => {
-    const { actions } = createActions({ post: postFactory({ scrapped: false }) })
-
-    await actions.handleBookmark()
-
-    expect(mocks.scrapMutate).toHaveBeenCalledWith('7', expect.objectContaining({
-      onError: expect.any(Function),
-    }))
-    expect(mocks.unscrapMutate).not.toHaveBeenCalled()
-
-    const scrappedPostActions = createActions({ post: postFactory({ scrapped: true }) }).actions
-
-    await scrappedPostActions.handleBookmark()
-
-    expect(mocks.unscrapMutate).toHaveBeenCalledWith('7', expect.objectContaining({
-      onError: expect.any(Function),
-    }))
+  it('prevents stale offline work from executing after reconnect while releasing local pending', async () => {
+    onlineManager.setOnline(false)
+    const { actions } = createActions()
+    const pending = actions.handleLike()
+    await flushPromises()
+    expect(actions.isLikeMutationPending.value).toBe(true)
+    mocks.authStore.sessionGeneration += 1
+    expect(actions.isLikeMutationPending.value).toBe(false)
+    onlineManager.setOnline(true)
+    await pending
+    expect(mocks.likeMutate).not.toHaveBeenCalled()
   })
-
-  it('serializes repeated bookmark toggles until the active mutation settles', async () => {
-    const { actions } = createActions({ post: postFactory({ scrapped: false }) })
-
-    await actions.handleBookmark()
-    await actions.handleBookmark()
-
-    expect(mocks.scrapMutate).toHaveBeenCalledOnce()
-    expect(mocks.unscrapMutate).not.toHaveBeenCalled()
-
-    mocks.scrapMutate.mock.calls[0][1].onSettled()
-    await actions.handleBookmark()
-
-    expect(mocks.scrapMutate).toHaveBeenCalledTimes(2)
+  it('allows ordinary token refresh without cancelling the report', async () => {
+    const response = createDeferred<void>()
+    mocks.reportMutate.mockReturnValueOnce(response.promise)
+    const { actions } = createActions()
+    actions.openReportModal()
+    const submission = actions.submitReport('Spam')
+    await flushPromises()
+    mocks.authStore.accessToken = 'refreshed'
+    response.resolve()
+    await expect(submission).resolves.toBe(true)
   })
-
-  it('does not like or bookmark when unauthenticated or post is missing', async () => {
-    const unauthenticated = createActions({ authenticated: false }).actions
-    await unauthenticated.handleLike()
-    await unauthenticated.handleBookmark()
-
-    const missingPost = createActions({ post: null }).actions
-    await missingPost.handleLike()
-    await missingPost.handleBookmark()
-
+  it('requires authentication and a post for reactions, and report permission', async () => {
+    const blocked = createActions({ authenticated: false, canReport: false }).actions
+    blocked.openReportModal()
+    await blocked.handleLike()
+    await blocked.handleBookmark()
+    expect(blocked.showReportModal.value).toBe(false)
+    const missing = createActions({ post: null }).actions
+    await missing.handleLike()
+    await missing.handleBookmark()
     expect(mocks.likeMutate).not.toHaveBeenCalled()
     expect(mocks.scrapMutate).not.toHaveBeenCalled()
   })
-
-  it('opens the report modal only when reporting is allowed', () => {
-    const allowed = createActions({ canReport: true })
-
-    allowed.actions.openReportModal()
-
-    expect(allowed.actions.showReportModal.value).toBe(true)
-    expect(allowed.closeOverflowMenu).toHaveBeenCalled()
-
-    const blocked = createActions({ canReport: false })
-    blocked.actions.openReportModal()
-
-    expect(blocked.actions.showReportModal.value).toBe(false)
-  })
-
-  it('submits a report and handles success and failure callbacks', async () => {
-    const { actions } = createActions()
-    actions.openReportModal()
-
-    const successPromise = actions.submitReport('Spam')
-
-    expect(mocks.reportMutate).toHaveBeenCalledWith({
-      targetPostId: '7',
-      reason: 'Spam',
-    }, expect.objectContaining({
-      onSuccess: expect.any(Function),
-      onError: expect.any(Function),
-    }))
-
-    const options = mocks.reportMutate.mock.calls[0][1]
-    options.onSuccess()
-    await expect(successPromise).resolves.toBe(true)
-    expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportSuccess', 'success')
-    expect(actions.showReportModal.value).toBe(false)
-
-    actions.openReportModal()
-    const failurePromise = actions.submitReport('Abuse')
-    const failureOptions = mocks.reportMutate.mock.calls[1][1]
-    failureOptions.onError(new Error('failed'))
-    await expect(failurePromise).resolves.toBe(false)
-    expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportFailed', 'error')
-  })
-
-  it('does not submit a report for a route that changed after opening the modal', async () => {
+  it('does not submit a report for a route changed after opening', async () => {
     const { actions } = createActions()
     actions.openReportModal()
     route.params.postId = '9'
-
     await expect(actions.submitReport('Spam')).resolves.toBe(false)
-
     expect(mocks.reportMutate).not.toHaveBeenCalled()
-    expect(actions.showReportModal.value).toBe(false)
-  })
-
-  it('does not let a closed report response close a reopened modal', async () => {
-    const { actions } = createActions()
-    actions.openReportModal()
-    const staleReport = actions.submitReport('Old report')
-    const staleOptions = mocks.reportMutate.mock.calls[0][1]
-
-    actions.closeReportModal()
-    actions.openReportModal()
-    staleOptions.onSuccess()
-
-    await expect(staleReport).resolves.toBe(false)
-    expect(actions.showReportModal.value).toBe(true)
-    expect(mocks.addToast).not.toHaveBeenCalledWith('board.postDetail.reportSuccess', 'success')
   })
 })

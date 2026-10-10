@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import { useGlobalSettingsManager } from '../useGlobalSettingsManager'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
@@ -317,4 +317,28 @@ describe('useGlobalSettingsManager', () => {
     expect(manager.isModalOpen.value).toBe(false)
     expect(manager.newConfig).toEqual({ key: '', value: '', description: '' })
   })
+  it('clears unsaved existing values and preserves the next session pending save', async () => {
+    const first = createDeferred<void>()
+    const second = createDeferred<void>()
+    mocks.updateConfig.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const manager = useGlobalSettingsManager()
+    manager.updateDraft('site.name', { value: 'Old private draft' })
+    const oldRun = manager.handleSave('site.name')
+    useAuthStore().sessionGeneration += 1
+    expect(manager.hasUnsavedChanges.value).toBe(false)
+    expect(manager.isSavePending('site.name')).toBe(false)
+    mocks.configsData.value = [{ key: 'site.name', value: 'Next account value' }]
+    await nextTick()
+    manager.updateDraft('site.name', { value: 'New draft' })
+    const newRun = manager.handleSave('site.name')
+    first.resolve()
+    await oldRun
+    expect(manager.isSavePending('site.name')).toBe(true)
+    expect(manager.configs.value[0]?.value).toBe('New draft')
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    second.resolve()
+    await newRun
+    expect(manager.isSavePending('site.name')).toBe(false)
+  })
+
 })

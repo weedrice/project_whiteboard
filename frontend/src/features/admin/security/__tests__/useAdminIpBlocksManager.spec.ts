@@ -4,6 +4,7 @@ import { nextTick, type Ref } from 'vue'
 import { useAdminIpBlocksManager } from '../useAdminIpBlocksManager'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import type { IpBlock, PageResponse } from '@/types'
+import { createDeferred } from '@/test/async'
 import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
@@ -280,4 +281,28 @@ describe('useAdminIpBlocksManager', () => {
     expect(manager.isDetailModalOpen.value).toBe(false)
     expect(manager.selectedIpBlock.value).toBeNull()
   })
+  it('releases old blocking state without clearing the next session request', async () => {
+    const first = createDeferred<void>()
+    const second = createDeferred<void>()
+    mocks.blockIp.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const manager = useAdminIpBlocksManager()
+    manager.newIp.value = '10.0.0.1'
+    manager.blockReason.value = 'Old'
+    const oldRun = manager.handleBlockIp()
+    useAuthStore().sessionGeneration += 1
+    expect(manager.isBlockingIp.value).toBe(false)
+    manager.newIp.value = '10.0.0.2'
+    manager.blockReason.value = 'New'
+    const newRun = manager.handleBlockIp()
+    first.resolve()
+    await oldRun
+    expect(manager.isBlockingIp.value).toBe(true)
+    expect(manager.newIp.value).toBe('10.0.0.2')
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    second.resolve()
+    await newRun
+    expect(manager.isBlockingIp.value).toBe(false)
+    expect(manager.newIp.value).toBe('')
+  })
+
 })
