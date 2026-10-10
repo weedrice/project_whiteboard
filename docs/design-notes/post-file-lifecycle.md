@@ -28,6 +28,14 @@
 
 초안·게시글 파일 동기화는 요청된 파일과 현재 대상에 연결된 파일을 함께 잠근다. 요청 파일의 유효성을 확인하고 연결한 뒤, 목록에서 빠진 기존 파일에 삭제 대기를 표시한다. 파일 표시 순서는 요청 순서를 유지하며 잠금 순서와 구분한다.
 
+### 본문 이모티콘 참조와 소유 첨부파일
+
+이모티콘 이미지는 본문에서 참조하더라도 초안·게시글 소유 파일로 이동하지 않는다. [postForm.ts](../../frontend/src/utils/postForm.ts)는 에디터가 설정한 `:emoticon:` 표식으로 업로드 첨부 목록과 구분한다. 서버가 거부한 참조를 본문에서 제거하는 용도의 전체 파일 추출은 이모티콘도 포함한다. 따라서 서버 정규화 응답을 반영할 때 유효한 이모티콘은 보존하고 거부된 참조는 제거할 수 있다.
+
+서버는 표식에 의존하지 않고 `FileRepository.findUsableEmoticonImageFileIds`에서 활성 저장 상태, 예약 참조 부재, 제작자·구매자 권한을 확인한다. `EMOTICON_IMAGE` 팩 연결이 있거나, 아직 연결되지 않은 레거시 파일이 실제 이모티콘 이미지 URL에 등록되어 있어야 한다. 다른 게시글·초안·썸네일 연결은 이 예외로 재분류하지 않는다. 팩 편집에서 선택 목록에서 제거했어도 기존 이미지의 활성 파일과 팩 연결이 남아 있으면 보존한다.
+
+초안은 이 참조를 본문 허용 목록에 포함하고 소유 `fileIds`에서는 제외한다. 게시글 생성·수정·예약 저장도 구형 클라이언트가 보낸 이모티콘 ID를 일반 첨부 목록에서 제외하여 원본 소유권과 팩 연결을 유지한다. 파일 다운로드 접근 정책은 그대로 따르며, 이 분류는 임의 HTML 전체의 사용 권한을 검증하는 기능을 추가한 것은 아니다.
+
 ## 예약 생성·변경과 초안 보호
 
 [ScheduledPostService](../../backend/src/main/java/com/weedrice/whiteboard/domain/post/scheduled/service/ScheduledPostService.java)는 원본 초안이 있으면 소유자와 게시판을 확인하고 잠근다. 기존 게시글을 수정하는 초안은 새 글의 예약발행 원본으로 사용할 수 없다.
@@ -77,6 +85,7 @@
 | --- | --- |
 | [FileAssociationReservationTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/file/service/FileAssociationReservationTest.java) | 실제 저장소의 예약 충돌, 일치/불일치 발행 문맥, 취소 후 연결, 같은 대상 재호출, 초안 선별, 여러 파일 중 충돌, 오류 우선순위, 잠금 정렬, 1차 캐시 refresh |
 | [FileRepositoryTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/file/repository/FileRepositoryTest.java) | 연결 UPDATE와 파일 상태 조건 |
+| [EmoticonContentFileReferenceTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/file/repository/EmoticonContentFileReferenceTest.java) | 실제 H2 저장소의 제작자·구매자 권한, 레거시/보존 이미지, 예약·삭제 대기·일반 첨부 제외 |
 | [PostDraftFileReferenceTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/file/service/PostDraftFileReferenceTest.java) | 원본 초안에서 게시글로의 파일 이동과 참조 규칙 |
 | [PostServiceTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/post/service/PostServiceTest.java) | 일반 생성·수정과 발행 부수 효과 |
 | [ScheduledPostServiceTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/post/scheduled/service/ScheduledPostServiceTest.java) | 예약 생성·변경·취소와 원본 초안 검증 |

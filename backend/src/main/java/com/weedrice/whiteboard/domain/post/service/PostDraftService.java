@@ -132,12 +132,18 @@ public class PostDraftService {
         DraftResolution draftResolution = resolveDraftPost(
                 user, request, board, category, series, originalPost, normalizedPoll);
         DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftResolution.draftPost());
+        Set<Long> referencedFileIds = extractDraftFileReferences(savedDraftPost.getContents());
+        Set<Long> usableEmoticonFileIds = fileService.findUsableEmoticonImageFileIds(
+                java.util.stream.Stream.concat(orEmpty(request.getFileIds()).stream(), referencedFileIds.stream())
+                        .collect(Collectors.toSet()), userId);
         List<Long> retainedFileIds = draftResolution.retainedFileIds() != null
                 ? draftResolution.retainedFileIds()
-                : fileService.retainValidDraftFileIds(request.getFileIds(), userId, savedDraftPost.getDraftId());
+                : fileService.retainValidDraftFileIds(orEmpty(request.getFileIds()).stream()
+                        .filter(fileId -> fileId == null || !usableEmoticonFileIds.contains(fileId)).toList(),
+                        userId, savedDraftPost.getDraftId());
         List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
-        Set<Long> referencedFileIds = extractDraftFileReferences(savedDraftPost.getContents());
         Set<Long> validContentFileIds = new HashSet<>(retainedFileIds);
+        validContentFileIds.addAll(usableEmoticonFileIds);
         if (originalPost != null) {
             // Existing post attachments remain owned by the post, not by its editing draft.
             fileService.getFilesByRelatedEntity(originalPost.getPostId(), FileService.RELATED_TYPE_POST_CONTENT)
@@ -201,8 +207,12 @@ public class PostDraftService {
 
         List<Long> resolvedFileIds = request.getFileIds();
         if (draftPost != null) {
+            Set<Long> usableEmoticonFileIds = fileService.findUsableEmoticonImageFileIds(
+                    request.getFileIds(), user.getUserId());
             resolvedFileIds = fileService.retainValidDraftFileIds(
-                    request.getFileIds(), user.getUserId(), draftPost.getDraftId());
+                    orEmpty(request.getFileIds()).stream()
+                            .filter(fileId -> fileId == null || !usableEmoticonFileIds.contains(fileId)).toList(),
+                    user.getUserId(), draftPost.getDraftId());
         }
 
         if (draftPost == null) {

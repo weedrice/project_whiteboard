@@ -15,6 +15,29 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FileRepository extends JpaRepository<File, Long> {
+    // The entitlement matches EmoticonMasterRepository.canUseEmoticon. A retained image
+    // may no longer occur in the picker, but its EMOTICON_IMAGE association remains valid.
+    @Query("""
+            SELECT f.fileId FROM File f
+            WHERE f.fileId IN :fileIds
+              AND f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
+              AND EXISTS (
+                  SELECT e.emoticonId FROM EmoticonMaster e
+                  WHERE (e.creator.userId = :userId OR EXISTS (
+                      SELECT ep.purchaseId FROM EmoticonPurchase ep
+                      WHERE ep.emoticon = e AND ep.user.userId = :userId))
+                    AND ((f.relatedType = 'EMOTICON_IMAGE' AND f.relatedId = e.emoticonId)
+                         OR (f.relatedId IS NULL AND f.relatedType IS NULL AND EXISTS (
+                             SELECT i.imageId FROM EmoticonImage i
+                             WHERE i.emoticonMaster = e
+                               AND (i.imageUrl = CONCAT('/api/v1/files/', CAST(f.fileId AS string))
+                                    OR i.imageUrl = CONCAT('/files/', CAST(f.fileId AS string))))))
+              )
+            """)
+    List<Long> findUsableEmoticonImageFileIds(@Param("fileIds") List<Long> fileIds,
+            @Param("userId") Long userId);
+
     @Query("""
             SELECT f FROM File f
             WHERE f.fileId > :afterId

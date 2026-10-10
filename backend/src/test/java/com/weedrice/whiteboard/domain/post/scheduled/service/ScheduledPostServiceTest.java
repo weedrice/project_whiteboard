@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.scheduled.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
@@ -58,6 +59,7 @@ class ScheduledPostServiceTest {
     @Mock ScheduledPostPayloadMapper payloadMapper;
     @Mock ScheduledPostPublishWorker publishWorker;
     @Mock ScheduledPostFileService scheduledPostFileService;
+    @Mock FileService fileService;
 
     private ScheduledPostService service;
     private User user;
@@ -77,6 +79,7 @@ class ScheduledPostServiceTest {
                 payloadMapper,
                 publishWorker,
                 scheduledPostFileService,
+                fileService,
                 clock);
         user = User.builder().email("scheduled@example.com").displayName("scheduled-user").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -385,6 +388,41 @@ class ScheduledPostServiceTest {
 
         assertThat(method.getAnnotation(Lock.class).value())
                 .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void scheduledPayloadAndReservationsExcludeUsableEmoticons(boolean update) {
+        ScheduledPostRequest request = requestWithDraft(null);
+        ReflectionTestUtils.setField(request, "fileIds", List.of(21L, 22L));
+        ReflectionTestUtils.setField(request, "contents", "<img src=\"/api/v1/files/21\" alt=\":emoticon:\">");
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
+        when(fileService.findUsableEmoticonImageFileIds(List.of(21L, 22L), 1L))
+                .thenReturn(java.util.Set.of(21L));
+        when(payloadMapper.fileIdsJson(List.of(22L))).thenReturn("[22]");
+        ScheduledPost scheduledPost;
+        if (update) {
+            scheduledPost = ScheduledPost.builder().user(user).board(board).title("old").contents("old")
+                    .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
+            ReflectionTestUtils.setField(scheduledPost, "scheduledPostId", 9L);
+            when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
+            service.update(1L, 9L, request);
+        } else {
+            when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+            when(scheduledPostRepository.saveAndFlush(any(ScheduledPost.class))).thenAnswer(invocation -> {
+                ScheduledPost saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "scheduledPostId", 9L);
+                return saved;
+            });
+            service.create(1L, "scheduled-board", request);
+            var captor = org.mockito.ArgumentCaptor.forClass(ScheduledPost.class);
+            verify(scheduledPostRepository).saveAndFlush(captor.capture());
+            scheduledPost = captor.getValue();
+        }
+
+        assertThat(scheduledPost.getContents()).contains("/api/v1/files/21");
+        assertThat(scheduledPost.getFileIdsJson()).isEqualTo("[22]");
+        verify(scheduledPostFileService).replaceReferences(9L, 1L, null, List.of(22L));
     }
 
     private ScheduledPostRequest requestWithDraft(Long draftId) {

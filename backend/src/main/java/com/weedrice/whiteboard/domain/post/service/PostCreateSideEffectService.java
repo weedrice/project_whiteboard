@@ -47,7 +47,10 @@ public class PostCreateSideEffectService {
         DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
                 request.getDraftId(), user, savedPost.getBoard(), null, publishingScheduledPostId);
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId(),
+            var emoticonFileIds = fileService.findUsableEmoticonImageFileIds(request.getFileIds(), userId);
+            var attachmentFileIds = request.getFileIds().stream()
+                    .filter(fileId -> fileId == null || !emoticonFileIds.contains(fileId)).toList();
+            fileService.attachFilesToPost(attachmentFileIds, userId, savedPost.getPostId(), request.getDraftId(),
                     publishingScheduledPostId);
         }
         postDraftPublicationService.deletePublishedDraft(publishedDraft);

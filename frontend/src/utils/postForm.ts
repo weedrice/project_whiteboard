@@ -142,12 +142,23 @@ export function extractFileIdFromPostImageSrc(src: string, baseOrigin = getDefau
 }
 
 export function extractPostFileIdsFromContent(content: string): number[] {
+    return collectPostFileIdsFromContent(content, true)
+}
+
+function collectPostFileIdsFromContent(content: string, includeEmoticonReferences: boolean): number[] {
     const fileIds = new Set<number>()
     const parser = new DOMParser()
     const expandedContent = expandSandboxedPostHtml(content) ?? content
     const doc = parser.parseFromString(expandedContent, 'text/html')
 
     doc.querySelectorAll('img[src]').forEach((image) => {
+        // The editor marker separates an existing emoticon asset from uploads.
+        // The server remains responsible for validating the actual file reference.
+        if (!includeEmoticonReferences && (
+            image.getAttribute('alt') === ':emoticon:'
+            || image.getAttribute('title') === ':emoticon:'
+        )) return
+
         const dataFileIdAttribute = image.getAttribute('data-file-id')
         const dataFileId = dataFileIdAttribute && /^\d+$/.test(dataFileIdAttribute)
             ? Number(dataFileIdAttribute)
@@ -216,7 +227,7 @@ export function resolvePostFormFileIds(
     draftFileIds: number[],
     scope: PostFormFileIdScope,
 ): number[] {
-    const contentFileIds = extractPostFileIdsFromContent(content)
+    const contentFileIds = collectPostFileIdsFromContent(content, false)
     if (scope === 'content') {
         return contentFileIds
     }

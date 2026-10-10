@@ -87,6 +87,46 @@ describe('postForm', () => {
         expect(resolvePostFormFileIds(content, [11], 'draft')).toEqual([11])
     })
 
+    it('keeps emoticon references in HTML without submitting them as post attachments', () => {
+        const content = [
+            '<img src="/api/v1/files/20" alt=":emoticon:" title=":emoticon:">',
+            '<img src="/files/21" title=":emoticon:">',
+            '<img src="blob:https://noviis.kr/emoticon" data-file-id="22" data-server-src="/api/v1/files/22" alt=":emoticon:">',
+            '<img src="/api/v1/files/23" alt="attachment">',
+            '<a href="/api/v1/files/24">attachment</a>',
+        ].join('')
+
+        // Reference reconciliation still needs every ID, including an emoticon
+        // rejected by the server. Only the association payload excludes them.
+        expect(extractPostFileIdsFromContent(content)).toEqual([20, 21, 22, 23, 24])
+        expect(resolvePostFormFileIds(content, [20, 22, 23, 24], 'content')).toEqual([23, 24])
+        expect(resolvePostFormFileIds(content, [20, 22, 23, 24], 'draft')).toEqual([23, 24])
+        const payload = buildPostFormPayload({
+            form: { ...baseForm, content },
+            mode: 'create',
+            showNotice: false,
+            canShowNsfw: true,
+            fileIds: resolvePostFormFileIds(content, [], 'content'),
+        })
+        expect(payload.contents).toContain('src="/api/v1/files/20"')
+        expect(payload.contents).toContain('src="/api/v1/files/22"')
+        expect(payload.fileIds).toEqual([23, 24])
+        expect(removePostFileReferencesFromContent(content, [20])).not.toContain('/api/v1/files/20')
+    })
+
+    it('separates emoticons inside preserved HTML from ordinary attachment references', () => {
+        const content = encodeSandboxedPostHtml([
+            '<style>.gallery{display:grid}</style>',
+            '<img src="/api/v1/files/20" alt=":emoticon:">',
+            '<img src="/api/v1/files/21">',
+            '<a href="/api/v1/files/22">attachment</a>',
+        ].join(''))
+
+        expect(extractPostFileIdsFromContent(content)).toEqual([20, 21, 22])
+        expect(resolvePostFormFileIds(content, [], 'content')).toEqual([21, 22])
+        expect(resolvePostFormFileIds(content, [20, 21], 'draft')).toEqual([21])
+    })
+
     it('removes detached draft file references while preserving other content', () => {
         const content = [
             '<p>Before<img src="/api/v1/files/10"><img src="/api/v1/files/11"></p>',

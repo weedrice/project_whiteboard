@@ -356,6 +356,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 수정 초안의 본문은 검증된 `originalPostId`에 활성 상태로 연결된 현재 사용자 소유 이미지·첨부파일 참조를 보존한다. 원글 파일은 초안으로 이동하지 않으며 초안 응답의 `fileIds`에도 포함하지 않는다. 유효하지 않은 참조를 정리한 `staleReferencesReset` 응답을 적용할 때 클라이언트는 응답 본문에 남은 원글 파일 참조도 보존해야 한다.
 
+제작자 또는 구매자가 사용할 수 있는 활성 이모티콘 이미지도 초안 본문에 보존한다. 이모티콘은 초안·게시글의 소유 첨부파일이 아니므로 초안 응답의 `fileIds`에서 제외하며, 게시글 생성·수정·예약 요청의 `fileIds`에 포함되어도 일반 파일 연결·예약 대상으로 옮기지 않는다. 서버는 DB의 팩 연결과 사용 권한을 확인하며 HTML의 `alt`·`title` 표식만으로 예외를 허용하지 않는다. 삭제 대기 파일과 다른 예약이 참조한 파일에는 이 예외를 적용하지 않는다.
+
 초안 단건 응답은 `draftId`, `clientDraftKey`, `version`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다.
 
 `GET /api/v1/users/me/drafts/recovery`는 `boardUrl`과 선택적인 `originalPostId`, `draftId`, `clientDraftKey`를 받아 한 번의 요청으로 복구 상태를 판정한다. 응답의 `status`는 `AVAILABLE`, `MISSING`, `PROTECTED`, `AMBIGUOUS` 중 하나다. `AVAILABLE`에는 `draft`, `AVAILABLE`과 `PROTECTED`에는 `draftId`가 포함된다. 전달한 후보 ID가 없거나 작성 대상과 일치하지 않아 대체 후보를 검색한 경우 `staleCandidate`가 `true`다. 다른 사용자 소유 후보 ID도 존재 여부를 노출하지 않고 stale 후보로 처리한다.

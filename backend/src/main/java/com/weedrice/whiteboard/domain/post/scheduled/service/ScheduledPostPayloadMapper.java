@@ -30,8 +30,8 @@ class ScheduledPostPayloadMapper {
         return toJson(request.getTags());
     }
 
-    String fileIdsJson(ScheduledPostRequest request) {
-        return toJson(request.getFileIds());
+    String fileIdsJson(List<Long> fileIds) {
+        return toJson(fileIds);
     }
 
     String pollJson(ScheduledPostRequest request) {

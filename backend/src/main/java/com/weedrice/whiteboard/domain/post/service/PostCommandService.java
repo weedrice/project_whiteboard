@@ -205,7 +205,10 @@ public class PostCommandService {
         DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
                 request.getDraftId(), modifier, board, post.getPostId(), null);
         if (request.getFileIds() != null) {
-            fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());
+            var emoticonFileIds = fileService.findUsableEmoticonImageFileIds(request.getFileIds(), userId);
+            var attachmentFileIds = request.getFileIds().stream()
+                    .filter(fileId -> fileId == null || !emoticonFileIds.contains(fileId)).toList();
+            fileService.syncPostFiles(attachmentFileIds, userId, post.getPostId(), request.getDraftId());
         }
         postDraftPublicationService.deletePublishedDraft(publishedDraft);
 

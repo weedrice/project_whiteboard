@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.actor.ActorUserPrincipal;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
@@ -57,6 +58,7 @@ public class ScheduledPostService {
     private final ScheduledPostPayloadMapper payloadMapper;
     private final ScheduledPostPublishWorker publishWorker;
     private final ScheduledPostFileService scheduledPostFileService;
+    private final FileService fileService;
     private final Clock clock;
 
     @Transactional
@@ -74,6 +76,7 @@ public class ScheduledPostService {
         scheduledPostRequestPolicy.validate(user, board, request);
         validateDraftReference(request.getDraftId(), user, board);
         validateDraftAvailability(request.getDraftId(), null);
+        List<Long> attachmentFileIds = resolveAttachmentFileIds(userId, request);
 
         ScheduledPost scheduledPost = ScheduledPost.builder()
                 .userId(user.getUserId())
@@ -86,7 +89,7 @@ public class ScheduledPostService {
                 .isSpoiler(request.isSpoiler())
                 .isSecret(request.isSecret())
                 .tagsJson(payloadMapper.tagsJson(request))
-                .fileIdsJson(payloadMapper.fileIdsJson(request))
+                .fileIdsJson(payloadMapper.fileIdsJson(attachmentFileIds))
                 .pollJson(payloadMapper.pollJson(request))
                 .seriesId(request.getSeriesId())
                 .draftId(request.getDraftId())
@@ -95,7 +98,7 @@ public class ScheduledPostService {
         try {
             ScheduledPost saved = scheduledPostRepository.saveAndFlush(scheduledPost);
             scheduledPostFileService.replaceReferences(
-                    saved.getScheduledPostId(), userId, request.getDraftId(), request.getFileIds());
+                    saved.getScheduledPostId(), userId, request.getDraftId(), attachmentFileIds);
             return ScheduledPostResponse.from(saved);
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -125,6 +128,7 @@ public class ScheduledPostService {
         scheduledPostRequestPolicy.validate(user, scheduledPost.getBoard(), request);
         validateDraftReference(request.getDraftId(), user, scheduledPost.getBoard());
         validateDraftAvailability(request.getDraftId(), scheduledPostId);
+        List<Long> attachmentFileIds = resolveAttachmentFileIds(userId, request);
         scheduledPost.update(
                 request.getCategoryId(),
                 request.getTitle(),
@@ -134,13 +138,13 @@ public class ScheduledPostService {
                 request.isSpoiler(),
                 request.isSecret(),
                 payloadMapper.tagsJson(request),
-                payloadMapper.fileIdsJson(request),
+                payloadMapper.fileIdsJson(attachmentFileIds),
                 payloadMapper.pollJson(request),
                 request.getSeriesId(),
                 request.getDraftId(),
                 request.getScheduledAt());
         scheduledPostFileService.replaceReferences(
-                scheduledPostId, userId, request.getDraftId(), request.getFileIds());
+                scheduledPostId, userId, request.getDraftId(), attachmentFileIds);
         try {
             scheduledPostRepository.flush();
             return ScheduledPostResponse.from(scheduledPost);
@@ -254,6 +258,14 @@ public class ScheduledPostService {
         if (alreadyScheduled) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private List<Long> resolveAttachmentFileIds(Long userId, ScheduledPostRequest request) {
+        if (request.getFileIds() == null) {
+            return null;
+        }
+        var emoticonFileIds = fileService.findUsableEmoticonImageFileIds(request.getFileIds(), userId);
+        return request.getFileIds().stream().filter(fileId -> fileId == null || !emoticonFileIds.contains(fileId)).toList();
     }
 
     private LocalDateTime now() {

@@ -138,12 +138,12 @@ describe('PostForm draft behavior', () => {
     expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', '<p>Kept body</p>')
   })
 
-  it('removes a legacy content reference that was already absent from draft fileIds', async () => {
+  it.each(['', ' alt=":emoticon:" title=":emoticon:"'])('removes a server-rejected reference absent from draft fileIds (%s)', async (attributes) => {
     mockPostFormAuthStore({
       isAuthenticated: true,
       user: { userId: 1, role: 'USER' },
     })
-    const contents = '<p>Kept body</p><img src="/api/v1/files/7">'
+    const contents = `<p>Kept body</p><img src="/api/v1/files/7"${attributes}>`
     mockSaveDraftMutateAsync.mockResolvedValueOnce({
       data: {
         data: {
@@ -438,6 +438,54 @@ describe('PostForm draft behavior', () => {
 
     const variables = getLastCreatePostVariables()
     expect(variables.data.draftId).toBe(91)
+  })
+
+  it.each(['create', 'edit'] as const)('preserves a local emoticon through draft save and %s submission', async (mode) => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const contents = '<p>Body<img src="/api/v1/files/20" alt=":emoticon:" title=":emoticon:"></p><img src="/api/v1/files/7">'
+    if (mode === 'edit') {
+      routeState.params.postId = '77'
+      postRef.value = {
+        postId: 77,
+        title: 'Before title',
+        contents: '<p>Before body</p>',
+        category: { categoryId: 5 },
+        tags: [],
+        isNsfw: false,
+        isSpoiler: false,
+      }
+    }
+    mockSaveDraftMutateAsync.mockImplementation(async (payload) => ({
+      data: { data: {
+        ...payload,
+        draftId: 91,
+        version: 1,
+        boardId: 1,
+        boardName: 'Free',
+        staleReferencesReset: false,
+        updatedAt: '2026-10-07T00:00:00.000Z',
+      } },
+    }))
+    const wrapper = mountPostForm(mode)
+    await flushPromises()
+    await wrapper.get('#title').setValue('Emoticon post')
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+      .handleEditorFileUploaded(7)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      contents,
+      fileIds: [7],
+    }))
+    const variables = mode === 'create' ? getLastCreatePostVariables() : getLastUpdatePostVariables()
+    expect(variables.data).toEqual(expect.objectContaining({ contents, fileIds: [7], draftId: 91 }))
+    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', contents)
   })
 
   it('saves the draft before update submit and includes draft id', async () => {

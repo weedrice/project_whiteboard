@@ -471,6 +471,29 @@ class PostServiceTest {
     // --- Create Post ---
 
     @Test
+    void createPostKeepsEmoticonContentButAssociatesOnlyOrdinaryAttachments() {
+        PostCreateRequest request = new PostCreateRequest(null, "Emoticons",
+                "<img src=\"/api/v1/files/21\" alt=\":emoticon:\"><img src=\"/api/v1/files/22\">",
+                Collections.emptyList(), false, false, false, false, List.of(21L, 22L));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.findUsableEmoticonImageFileIds(List.of(21L, 22L), 1L))
+                .thenReturn(java.util.Set.of(21L));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+
+        assertThat(postService.createPost(1L, "free", request)).isEqualTo(100L);
+
+        ArgumentCaptor<Post> createdPost = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(createdPost.capture());
+        assertThat(createdPost.getValue().getContents()).contains("/api/v1/files/21", "/api/v1/files/22");
+        verify(fileService).attachFilesToPost(List.of(22L), 1L, 100L, null, null);
+    }
+
+    @Test
     @DisplayName("게시글 생성 성공 - BoardUrl 사용")
     void createPost_withBoardUrl_success() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
@@ -1363,6 +1386,22 @@ class PostServiceTest {
     }
 
     // --- Update Post ---
+
+    @Test
+    void updatePostKeepsEmoticonContentWithoutMovingItIntoPostOwnership() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Emoticons",
+                "<img src=\"/api/v1/files/21\" title=\":emoticon:\"><img src=\"/api/v1/files/22\">",
+                Collections.emptyList(), false, false, false, List.of(21L, 22L));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.findUsableEmoticonImageFileIds(List.of(21L, 22L), 1L))
+                .thenReturn(java.util.Set.of(21L));
+
+        postService.updatePost(1L, 1L, request);
+
+        assertThat(post.getContents()).contains("/api/v1/files/21", "/api/v1/files/22");
+        verify(fileService).syncPostFiles(List.of(22L), 1L, 1L, null);
+    }
 
     @Test
     @DisplayName("게시글 수정 성공")

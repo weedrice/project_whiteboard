@@ -18,9 +18,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -95,6 +98,17 @@ public class FileService {
 
     public List<Long> retainValidDraftFileIds(List<Long> fileIds, Long ownerUserId, Long draftId) {
         return fileAssociationService.retainValidDraftFileIds(fileIds, ownerUserId, draftId);
+    }
+
+    public Set<Long> findUsableEmoticonImageFileIds(Collection<Long> fileIds, Long userId) {
+        if (fileIds == null || fileIds.isEmpty() || userId == null) {
+            return Set.of();
+        }
+        List<Long> candidates = fileIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (candidates.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(fileRepository.findUsableEmoticonImageFileIds(candidates, userId));
     }
 
     @Transactional

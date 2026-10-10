@@ -210,6 +210,58 @@ class PostDraftFileReferenceTest {
                 .contents(contents).fileIds(fileIds).build();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void savingDraftKeepsUsableEmoticonsWithoutTakingOwnership(boolean existingDraft) {
+        User creator = User.builder().build();
+        ReflectionTestUtils.setField(creator, "userId", 2L);
+        File emoticon = file(21L, creator, 71L, FileService.RELATED_TYPE_EMOTICON_IMAGE);
+        File attachment = file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        when(fileRepository.findUsableEmoticonImageFileIds(anyList(), eq(1L))).thenReturn(List.of(21L));
+        if (existingDraft) {
+            DraftPost draft = DraftPost.builder().user(owner).board(board).build();
+            ReflectionTestUtils.setField(draft, "draftId", 10L);
+            ReflectionTestUtils.setField(draft, "version", 2L);
+            when(draftRepository.findByDraftIdAndUserForUpdate(10L, 1L)).thenReturn(Optional.of(draft));
+        }
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(existingDraft ? 10L : null).version(existingDraft ? 2L : null)
+                .boardUrl("free").title("Emoticons")
+                .contents("<img src=\"/api/v1/files/21\" alt=\":emoticon:\"><img src=\"/api/v1/files/12\">")
+                .fileIds(existingDraft ? List.of(12L) : List.of(21L, 12L)).build();
+
+        DraftResponse response = draftService.saveDraftPost(1L, request);
+
+        assertThat(response.getContents()).contains("/api/v1/files/21", "/api/v1/files/12");
+        assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.isStaleReferencesReset()).isFalse();
+        assertThat(emoticon.isAssociatedWith(71L, FileService.RELATED_TYPE_EMOTICON_IMAGE)).isTrue();
+        assertThat(emoticon.getUploader()).isSameAs(creator);
+
+        draftService.deleteDraftPost(1L, 10L, null);
+        assertThat(emoticon.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
+    void forgedEmoticonMarkerDoesNotKeepUnauthorizedFiles() {
+        User other = User.builder().build();
+        ReflectionTestUtils.setField(other, "userId", 2L);
+        File unrelated = file(21L, other, 90L, FileService.RELATED_TYPE_POST_CONTENT);
+        File unownedEmoticon = file(22L, other, 71L, FileService.RELATED_TYPE_EMOTICON_IMAGE);
+        PostDraftRequest request = PostDraftRequest.builder().boardUrl("free").title("Invalid references")
+                .contents("<img src=\"/api/v1/files/21\" alt=\":emoticon:\">"
+                        + "<img src=\"/api/v1/files/22\" title=\":emoticon:\">")
+                .fileIds(List.of()).build();
+
+        DraftResponse response = draftService.saveDraftPost(1L, request);
+
+        assertThat(response.getContents()).doesNotContain("/api/v1/files/21", "/api/v1/files/22");
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        assertThat(unrelated.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(unownedEmoticon.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
     private File file(Long id, User uploader, Long relatedId, String relatedType) {
         File file = File.builder().uploader(uploader).relatedId(relatedId).relatedType(relatedType).build();
         ReflectionTestUtils.setField(file, "fileId", id);
