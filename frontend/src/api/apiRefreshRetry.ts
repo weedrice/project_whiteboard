@@ -103,10 +103,15 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
 
   originalRequest._retry = true
   const refreshOperation = beginAuthRefresh()
+  // The refresh belongs to the session and may have other waiting requests.
+  // Keep its identity checks, but do not let this request's cancellation signal
+  // discard the shared token or fail the other requests in the refresh queue.
+  const refreshIdentity = { expectedSession: originalRequest.expectedSession }
+  let newAccessToken: string
 
   try {
     const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
-      assertExpectedSession(originalRequest, authStore)
+      assertExpectedSession(refreshIdentity, authStore)
       if (authStore && (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken)) {
         throw new AuthSessionChangedError()
       }
@@ -119,27 +124,28 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
           signal,
         },
       )
-      assertExpectedSession(originalRequest, authStore)
+      assertExpectedSession(refreshIdentity, authStore)
       if (!data.success) throw new Error('Refresh failed')
       return unwrapApiData(data).accessToken
     }, { previousToken })
-    assertExpectedSession(originalRequest, authStore)
+    assertExpectedSession(refreshIdentity, authStore)
     lastRefreshFailure = null
     resetSessionExpiredToastDebounce()
 
-    const newAccessToken = applyRefreshedAccessToken(
+    const appliedAccessToken = applyRefreshedAccessToken(
       authStore,
       refreshedAccessToken,
       generation,
       previousToken,
     )
-    if (!newAccessToken) {
+    if (!appliedAccessToken) {
       throw new AuthSessionChangedError()
     }
+    newAccessToken = appliedAccessToken
 
     if (authStore) {
       const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true }, expectedUserId)
-      assertExpectedSession(originalRequest, authStore)
+      assertExpectedSession(refreshIdentity, authStore)
       if (!didFetchUser) {
         const hydrationError = new Error('User hydration failed after token refresh') as SuppressibleApiError
         hydrationError.isUserHydrationFailure = true
@@ -152,12 +158,6 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
 
     processRefreshQueue(null, newAccessToken, generation)
-
-    if (originalRequest.headers) {
-      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-    }
-    assertExpectedSession(originalRequest, authStore)
-    return api(originalRequest)
   } catch (refreshError) {
     const sessionChanged = refreshError instanceof AuthSessionChangedError
       || (authStore !== null && authStore.sessionGeneration !== generation)
@@ -181,4 +181,11 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   } finally {
     finishAuthRefresh(refreshOperation)
   }
+
+  // Cancellation only suppresses this replay after shared work has settled.
+  assertExpectedSession(originalRequest, authStore)
+  if (originalRequest.headers) {
+    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+  }
+  return api(originalRequest)
 }
