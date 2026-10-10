@@ -41,7 +41,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('does not apply settings that resolve after logout', async () => {
-    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
     const setTheme = vi.fn()
     const settingsResult = createDeferred<UserSettings | null>()
     const queryClient = {
@@ -71,7 +71,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('applies settings while still authenticated', async () => {
-    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
     const setTheme = vi.fn()
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
@@ -96,7 +96,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('ignores account A settings after logout and account B login', async () => {
-    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
     const setTheme = vi.fn()
     const accountASettings = createDeferred<UserSettings | null>()
     const accountBSettings = createDeferred<UserSettings | null>()
@@ -145,7 +145,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('loads the next account settings when generation changes without an auth boolean transition', async () => {
-    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
     const setTheme = vi.fn()
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
@@ -176,7 +176,7 @@ describe('useAppUserSettingsSync', () => {
       removeQueries: vi.fn(),
     }
     const sync = useAppUserSettingsSync(
-      reactive({ isAuthenticated: true, sessionGeneration: 0 }),
+      reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } }),
       { setTheme: vi.fn() },
       queryClient as never,
     )
@@ -190,7 +190,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('passes a commit guard that rejects a locale after the session changes', async () => {
-    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 3 })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 3, user: { userId: 1 } })
     const localeLoad = createDeferred<void>()
     let commitAllowed: boolean | undefined
     localeMocks.setAppLocale.mockImplementationOnce(async (_locale, canCommit: () => boolean) => {
