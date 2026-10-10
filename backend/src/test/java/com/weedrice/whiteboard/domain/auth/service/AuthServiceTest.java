@@ -261,14 +261,11 @@ class AuthServiceTest {
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
                         .findFirst());
-        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
-            Optional<PasswordResetToken> stored = passwordResetTokens.values().stream()
+        when(passwordResetTokenRepository.findResetCandidateByToken(anyString())).thenAnswer(invocation ->
+                passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
-                        .findFirst();
-            return stored.isPresent()
-                    ? stored
-                    : passwordResetTokenRepository.findByTokenForUpdate(invocation.getArgument(0));
-        });
+                        .findFirst()
+                        .map(this::resetCandidate));
     }
 
     @Test
@@ -1143,6 +1140,25 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    private PasswordResetTokenRepository.PasswordResetCandidate resetCandidate(PasswordResetToken token) {
+        return new PasswordResetTokenRepository.PasswordResetCandidate() {
+            @Override
+            public Long getTokenId() {
+                return token.getTokenId();
+            }
+
+            @Override
+            public Long getUserId() {
+                return token.getUser().getUserId();
+            }
+
+            @Override
+            public Long getVerificationId() {
+                return token.getVerificationCode() == null ? null : token.getVerificationCode().getVerificationId();
+            }
+        };
     }
 
     private SignupRequest signupRequest() {

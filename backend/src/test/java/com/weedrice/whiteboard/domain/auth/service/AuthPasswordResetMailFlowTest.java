@@ -189,14 +189,11 @@ class AuthPasswordResetMailFlowTest {
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
                         .findFirst());
-        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
-            Optional<PasswordResetToken> stored = passwordResetTokens.values().stream()
+        when(passwordResetTokenRepository.findResetCandidateByToken(anyString())).thenAnswer(invocation ->
+                passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
-                        .findFirst();
-            return stored.isPresent()
-                    ? stored
-                    : passwordResetTokenRepository.findByTokenForUpdate(invocation.getArgument(0));
-        });
+                        .findFirst()
+                        .map(this::resetCandidate));
     }
 
     @Test
@@ -465,7 +462,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(pendingToken, "tokenId", 1L);
         ReflectionTestUtils.setField(pendingToken, "createdAt", FIXED_NOW);
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(pendingToken));
+        passwordResetTokens.put(pendingToken.getTokenId(), pendingToken);
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
@@ -485,7 +482,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
+        passwordResetTokens.put(latestSentToken.getTokenId(), latestSentToken);
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
@@ -494,7 +491,7 @@ class AuthPasswordResetMailFlowTest {
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         assertThat(latestSentToken.getIsUsed()).isFalse();
-        verify(passwordResetTokenRepository, times(2)).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         verify(passwordResetTokenRepository, never()).save(latestSentToken);
         verify(passwordHistoryRepository, never()).save(any());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
@@ -513,7 +510,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
+        passwordResetTokens.put(latestSentToken.getTokenId(), latestSentToken);
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
@@ -522,7 +519,7 @@ class AuthPasswordResetMailFlowTest {
                 .isEqualTo(ErrorCode.USER_DELETED);
 
         assertThat(latestSentToken.getIsUsed()).isFalse();
-        verify(passwordResetTokenRepository, times(2)).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         verify(passwordResetTokenRepository, never()).save(latestSentToken);
         verify(passwordHistoryRepository, never()).save(any());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
@@ -540,7 +537,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(failedToken, "createdAt", FIXED_NOW);
         failedToken.markFailed();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(failedToken));
+        passwordResetTokens.put(failedToken.getTokenId(), failedToken);
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
@@ -568,7 +565,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(olderSentToken));
+        passwordResetTokens.put(olderSentToken.getTokenId(), olderSentToken);
         when(passwordResetTokenRepository.findLatestSentByUser(user)).thenReturn(Optional.of(latestSentToken));
 
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
@@ -589,7 +586,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
+        passwordResetTokens.put(latestSentToken.getTokenId(), latestSentToken);
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(user)).thenReturn(Optional.of(latestSentToken));
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of());
@@ -604,6 +601,7 @@ class AuthPasswordResetMailFlowTest {
                 userRepository,
                 passwordHistoryRepository,
                 refreshTokenLifecycleService);
+        inOrder.verify(passwordResetTokenRepository).findResetCandidateByToken(anyString());
         inOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
         inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         inOrder.verify(passwordResetTokenRepository).findLatestSentByUser(user);
@@ -626,7 +624,7 @@ class AuthPasswordResetMailFlowTest {
         latestUsedToken.markSent();
         latestUsedToken.useToken();
 
-        when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestUsedToken));
+        passwordResetTokens.put(latestUsedToken.getTokenId(), latestUsedToken);
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(user)).thenReturn(Optional.of(latestUsedToken));
 
@@ -655,6 +653,25 @@ class AuthPasswordResetMailFlowTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USED_PASSWORD_RESET_TOKEN);
         assertThat(user.getPassword()).isEqualTo("newEncodedPassword");
+    }
+
+    private PasswordResetTokenRepository.PasswordResetCandidate resetCandidate(PasswordResetToken token) {
+        return new PasswordResetTokenRepository.PasswordResetCandidate() {
+            @Override
+            public Long getTokenId() {
+                return token.getTokenId();
+            }
+
+            @Override
+            public Long getUserId() {
+                return token.getUser().getUserId();
+            }
+
+            @Override
+            public Long getVerificationId() {
+                return token.getVerificationCode() == null ? null : token.getVerificationCode().getVerificationId();
+            }
+        };
     }
 
     private String extractResetToken(String emailBody) {

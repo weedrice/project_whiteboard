@@ -151,12 +151,12 @@ public class PasswordResetService {
     @Transactional
     public void resetPasswordWithToken(String rawToken, String newPassword) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
-        PasswordResetToken candidate = passwordResetTokenRepository.findByToken(hashedToken)
+        // Load only lock identities here so the token state is first read after the user lock.
+        PasswordResetTokenRepository.PasswordResetCandidate candidate =
+                passwordResetTokenRepository.findResetCandidateByToken(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
-        Long candidateUserId = candidate.getUser().getUserId();
-        Long candidateVerificationId = candidate.getVerificationCode() == null
-                ? null
-                : candidate.getVerificationCode().getVerificationId();
+        Long candidateUserId = candidate.getUserId();
+        Long candidateVerificationId = candidate.getVerificationId();
 
         User user = userRepository.findByIdForUpdate(candidateUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

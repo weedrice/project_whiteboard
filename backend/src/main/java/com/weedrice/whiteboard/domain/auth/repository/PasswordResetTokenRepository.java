@@ -18,7 +18,15 @@ import java.util.Optional;
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
     boolean existsByVerificationCodeVerificationId(Long verificationId);
 
-    Optional<PasswordResetToken> findByToken(String token);
+    @Query("""
+            SELECT token.tokenId AS tokenId,
+                   token.user.userId AS userId,
+                   verificationCode.verificationId AS verificationId
+            FROM PasswordResetToken token
+            LEFT JOIN token.verificationCode verificationCode
+            WHERE token.token = :token
+            """)
+    Optional<PasswordResetCandidate> findResetCandidateByToken(@Param("token") String token);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -90,4 +98,12 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     int deleteExpiredBatch(
             @Param("cutoff") LocalDateTime cutoff,
             @Param("batchSize") int batchSize);
+
+    interface PasswordResetCandidate {
+        Long getTokenId();
+
+        Long getUserId();
+
+        Long getVerificationId();
+    }
 }
