@@ -87,7 +87,6 @@ describe('useToggleEmoticonVisibility', () => {
     const options = mocks.mutationOptions.at(-1)!
 
     const intent = {
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 7,
     }
@@ -96,7 +95,6 @@ describe('useToggleEmoticonVisibility', () => {
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
     expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, authMutationConfig({
-      signal: intent.controller.signal,
       skipGlobalErrorHandler: true,
     }))
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
@@ -114,7 +112,6 @@ describe('useToggleEmoticonVisibility', () => {
     const options = mocks.mutationOptions.at(-1)!
 
     ;(options.onSuccess as (value: unknown) => void)({
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 9,
       updatedEmoticon: { isActive: true },
@@ -135,7 +132,6 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId)
     const options = mocks.mutationOptions.at(-1)!
     const intent = {
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 7,
     }
@@ -143,7 +139,9 @@ describe('useToggleEmoticonVisibility', () => {
     currentId.value = 8
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
-    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 7] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
     expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
@@ -156,7 +154,6 @@ describe('useToggleEmoticonVisibility', () => {
     const options = mocks.mutationOptions.at(-1)!
 
     ;(options.onError as (error: unknown, intent: unknown) => void)(error, {
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 11,
     })
@@ -170,7 +167,6 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId)
     const options = mocks.mutationOptions.at(-1)!
     const intent = {
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 12,
     }
@@ -186,7 +182,7 @@ describe('useToggleEmoticonVisibility', () => {
     expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
-  it('aborts an in-flight visibility request when its component unmounts', async () => {
+  it('keeps successful cache invalidation but suppresses toasts after unmount', async () => {
     let resolveRequest!: (value: EmoticonMaster) => void
     vi.mocked(emoticonApi.toggleVisibilityData).mockReturnValueOnce(new Promise((resolve) => {
       resolveRequest = resolve
@@ -199,7 +195,6 @@ describe('useToggleEmoticonVisibility', () => {
     }))
     const options = mocks.mutationOptions.at(-1)!
     const intent = {
-      controller: new AbortController(),
       sessionGeneration: 0,
       targetEmoticonId: 15,
     }
@@ -207,9 +202,13 @@ describe('useToggleEmoticonVisibility', () => {
 
     wrapper.unmount()
 
-    expect(intent.controller.signal.aborted).toBe(true)
+    expect(vi.mocked(emoticonApi.toggleVisibilityData).mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
     resolveRequest(createToggleResult({ emoticonId: 15 }))
-    await request
+    const result = await request
+    ;(options.onSuccess as (value: unknown) => void)(result)
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 15] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 })
 

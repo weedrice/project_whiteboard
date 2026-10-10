@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, nextTick, reactive } from 'vue'
+import { computed, defineComponent, nextTick, reactive, ref } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import type { AxiosRequestConfig } from 'axios'
@@ -8,6 +8,7 @@ import { useEmoticonDetailResource } from '../useEmoticonDetailResource'
 import { useEmoticonEditResource } from '@/features/emoticon/form/useEmoticonEditResource'
 import { useEmoticonEditForm } from '@/features/emoticon/form/useEmoticonEditForm'
 import { useEmoticonEditSubmit } from '@/features/emoticon/form/useEmoticonEditSubmit'
+import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBoundary, sessionQueryKey } from '@/queryAuthScope'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import { createDeferred } from '@/test/async'
@@ -92,6 +93,30 @@ function transitionSession(client: QueryClient, userId: number | null) {
   auth.isAuthenticated = userId !== null
   notifyAuthSessionBoundary(auth.sessionGeneration)
   clearAuthScopedQueries(client)
+}
+
+function mountVisibility() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30000 } } })
+  clients.push(client)
+  const target = ref(41)
+  let mutation!: ReturnType<typeof useToggleEmoticonVisibility>
+  const wrapper = mount(defineComponent({
+    setup() {
+      mutation = useToggleEmoticonVisibility(computed(() => target.value), { invalidatePurchaseStatus: true })
+      return () => null
+    },
+  }), { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } })
+  wrappers.push(wrapper)
+  const detailKey = sessionQueryKey(1, emoticonQueryKeys.detail(41))
+  const purchaseKey = sessionQueryKey(1, emoticonQueryKeys.purchaseStatus(41))
+  const nextDetailKey = sessionQueryKey(1, emoticonQueryKeys.detail(42))
+  const nextSessionKey = sessionQueryKey(2, emoticonQueryKeys.detail(41))
+  client.setQueryData(detailKey, { ...serverDetail, isActive: true })
+  client.setQueryData(purchaseKey, { purchased: false, available: true })
+  client.setQueryData(nextDetailKey, { ...serverDetail, emoticonId: 42, isActive: true })
+  client.setQueryData(nextSessionKey, { ...serverDetail, isActive: true })
+  client.setQueryData(emoticonQueryKeys.listRoot, [{ ...serverDetail, isActive: true }])
+  return { client, target, mutation, wrapper, detailKey, purchaseKey, nextDetailKey, nextSessionKey }
 }
 
 beforeEach(() => {
@@ -211,6 +236,53 @@ describe('emoticon detail session cache', () => {
 
     expect(editor.emoticon.value?.isActive).toBe(true)
     expect(mocks.getEmoticon).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['route change', 'unmount'] as const)('refreshes the completed visibility target after %s without stale UI effects', async (transition) => {
+    const response = createDeferred<EmoticonMaster>()
+    mocks.toggleVisibilityData.mockReturnValueOnce(response.promise)
+    const { client, target, mutation, wrapper, detailKey, purchaseKey, nextDetailKey, nextSessionKey } = mountVisibility()
+    const request = mutation.mutateAsync()
+    await vi.waitFor(() => expect(mocks.toggleVisibilityData).toHaveBeenCalledOnce())
+    const signal = mocks.toggleVisibilityData.mock.calls[0]?.[1]?.signal as AbortSignal
+
+    if (transition === 'route change') target.value = 42
+    else wrapper.unmount()
+    auth.accessToken = 'rotated-token'
+    response.resolve({ ...serverDetail, isActive: false })
+    await request
+
+    expect(signal.aborted).toBe(false)
+    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(purchaseKey)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(emoticonQueryKeys.listRoot)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(nextDetailKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(nextSessionKey)?.isInvalidated).toBe(false)
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    const reload = vi.fn(async () => ({ ...serverDetail, isActive: false }))
+    expect(await client.fetchQuery({ queryKey: detailKey, queryFn: reload })).toMatchObject({ isActive: false })
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it.each([null, 2, 1])('blocks late visibility completion after unmount and a new session for user %s', async (userId) => {
+    const response = createDeferred<EmoticonMaster>()
+    mocks.toggleVisibilityData.mockReturnValueOnce(response.promise)
+    const { client, mutation, wrapper, detailKey, nextSessionKey } = mountVisibility()
+    const request = mutation.mutateAsync().catch(error => error)
+    await vi.waitFor(() => expect(mocks.toggleVisibilityData).toHaveBeenCalledOnce())
+    const signal = mocks.toggleVisibilityData.mock.calls[0]?.[1]?.signal as AbortSignal
+    wrapper.unmount()
+    auth.sessionGeneration = 2
+    auth.user = userId === null ? null : { userId }
+    notifyAuthSessionBoundary(2)
+
+    expect(signal.aborted).toBe(true)
+    response.resolve({ ...serverDetail, isActive: false })
+    expect(await request).toMatchObject({ name: 'AbortError' })
+    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(nextSessionKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(emoticonQueryKeys.listRoot)?.isInvalidated).toBe(false)
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
   it('refreshes the same session detail after saving an edit', async () => {

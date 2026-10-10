@@ -8,9 +8,8 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import { useAuthStore } from '@/stores/auth'
 import {
-  currentSessionQueryKey,
   isSessionGenerationCurrent,
-  subscribeAuthSessionBoundary,
+  sessionQueryKey,
 } from '@/queryAuthScope'
 
 interface UseToggleEmoticonVisibilityOptions {
@@ -25,72 +24,56 @@ export function useToggleEmoticonVisibility(
   const toastStore = useToastStore()
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
-  const activeControllers = new Set<AbortController>()
+  let disposed = false
 
   if (getCurrentScope()) {
-    const stopSessionBoundaryListener = subscribeAuthSessionBoundary(() => {
-      activeControllers.forEach((controller) => controller.abort())
-      activeControllers.clear()
-    })
     onScopeDispose(() => {
-      stopSessionBoundaryListener()
-      activeControllers.forEach((controller) => controller.abort())
-      activeControllers.clear()
+      disposed = true
     })
   }
 
   type VisibilityIntent = {
-    controller: AbortController
     sessionGeneration: number
     targetEmoticonId: number
   }
 
   const mutation = useAuthScopedMutation({
     mutationFn: async (intent: VisibilityIntent, mutationContext) => {
-      activeControllers.add(intent.controller)
       const updatedEmoticon = await emoticonApi.toggleVisibilityData(intent.targetEmoticonId, mutationContext.withRequestConfig({
-        signal: intent.controller.signal,
         skipGlobalErrorHandler: true,
       }))
       return { ...intent, updatedEmoticon }
     },
-    onSuccess: ({ controller, sessionGeneration, targetEmoticonId, updatedEmoticon }) => {
-      if (
-        controller.signal.aborted
-        || targetEmoticonId !== emoticonId.value
-        || !isSessionGenerationCurrent(authStore, sessionGeneration)
-      ) return
-      const isNowActive = updatedEmoticon.isActive
-      toastStore.addToast(
-        isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
-        'success'
-      )
+    onSuccess: ({ sessionGeneration, targetEmoticonId, updatedEmoticon }) => {
+      if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
+      // A successful write still owns its caches after the view moves or unmounts.
       queryClient.invalidateQueries({
-        queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.detail(targetEmoticonId)),
+        queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.detail(targetEmoticonId)),
       })
       if (options.invalidatePurchaseStatus) {
         queryClient.invalidateQueries({
-          queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
+          queryKey: sessionQueryKey(sessionGeneration, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
         })
       }
       queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
+      if (disposed || targetEmoticonId !== emoticonId.value) return
+      toastStore.addToast(
+        updatedEmoticon.isActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
+        'success'
+      )
     },
     onError: (err: unknown, intent) => {
       if (
-        intent.controller.signal.aborted
+        disposed
         || intent.targetEmoticonId !== emoticonId.value
         || !isSessionGenerationCurrent(authStore, intent.sessionGeneration)
       ) return
       const message = extractErrorMessage(err) || t('emoticon.edit.failed')
       toastStore.addToast(message, 'error')
     },
-    onCleanup: (_data, _error, intent) => {
-      activeControllers.delete(intent.controller)
-    },
   })
 
   const createIntent = (): VisibilityIntent => ({
-    controller: new AbortController(),
     sessionGeneration: authStore.sessionGeneration,
     targetEmoticonId: emoticonId.value,
   })
