@@ -62,6 +62,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
   }, options.authSession)
 
   const updateProfile = async () => {
+    if (loading.value) return
     activeController?.abort()
     const controller = new AbortController()
     activeController = controller

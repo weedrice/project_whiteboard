@@ -9,6 +9,64 @@ function fulfillJson(route: Route, data: unknown) {
   })
 }
 
+test('repeated Enter while a profile image save is pending sends one upload and one write', async ({ page }) => {
+  await installMockApi(page, { authenticated: true })
+  const saveRequest = Promise.withResolvers<Route>()
+  let uploads = 0
+  const writes: Array<{ displayName: string, profileImageId: number }> = []
+  await page.route('**/api/v1/users/me/posts?**', route => fulfillJson(route, {
+    content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, first: true, last: true,
+  }))
+  await page.route('**/api/v1/users/me/comments?**', route => fulfillJson(route, {
+    content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, first: true, last: true,
+  }))
+  await page.route('**/api/v1/users/me/agents', route => fulfillJson(route, { agents: [] }))
+  await page.route('**/api/v1/files/upload', (route) => {
+    uploads += 1
+    return fulfillJson(route, { fileId: 500 + uploads })
+  })
+  await page.route('**/api/v1/users/me', (route) => {
+    if (route.request().method() === 'PUT') {
+      writes.push(route.request().postDataJSON())
+      if (writes.length === 1) {
+        saveRequest.resolve(route)
+        return
+      }
+      return fulfillJson(route, { ...mockUser, ...writes.at(-1) })
+    }
+    return fulfillJson(route, { ...mockUser, profileImageChangeFreeAvailable: true })
+  })
+
+  await page.goto('/mypage')
+  await page.getByRole('button', { name: '프로필 수정', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '프로필 수정', exact: true })
+  await dialog.locator('#profile-photo-input').setInputFiles({
+    name: 'profile.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'),
+  })
+  await expect(dialog.locator('img[src^="blob:"]')).toBeVisible()
+  const nameInput = dialog.locator('#profile-display-name')
+  await nameInput.fill('Updated Tester')
+  await nameInput.press('Enter')
+  const pendingSave = await saveRequest.promise
+  await expect(dialog.getByRole('button', { name: '저장 중...', exact: true })).toBeDisabled()
+
+  await nameInput.press('Enter')
+  await nameInput.press('Enter')
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+  await expect(dialog).toBeVisible()
+  expect(uploads).toBe(1)
+  expect(writes).toEqual([{ displayName: 'Updated Tester', profileImageId: 501 }])
+
+  await fulfillJson(pendingSave, { ...mockUser, ...writes[0] })
+  await expect(dialog).toBeHidden()
+  expect(uploads).toBe(1)
+  expect(writes).toHaveLength(1)
+})
+
 test('bootstrap restores settings after the user identity is hydrated', async ({ page }) => {
   await installMockApi(page, { authenticated: true })
   const meRequest = Promise.withResolvers<Route>()
