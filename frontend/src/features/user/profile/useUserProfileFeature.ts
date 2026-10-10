@@ -6,7 +6,7 @@ import type { AxiosRequestConfig } from 'axios'
 import { userApi, type UserUpdatePayload } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
-import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import { AUTH_SCOPED_QUERY_META, sessionQueryKey } from '@/queryAuthScope'
 import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -57,8 +57,13 @@ export function useUserProfileFeature(context: UserFeatureContext) {
     mutationFn: async (data: UserUpdatePayload, mutationContext) => {
       return resolveResponseData(userApi.updateMyProfile(data, mutationContext.withRequestConfig({ skipGlobalErrorHandler: true })))
     },
-    onSuccess: (_data, _variables, mutationContext) => {
+    onSuccess: (response, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
+      if ((response.data?.spentPoints ?? 0) > 0) {
+        void queryClient.invalidateQueries({
+          queryKey: sessionQueryKey(mutationContext.sessionGeneration, userQueryKeys.pointsRoot),
+        })
+      }
       const userId = authStore.user?.userId
       if (userId == null) {
         queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })

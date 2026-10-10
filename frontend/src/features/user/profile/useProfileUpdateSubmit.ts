@@ -118,7 +118,8 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       finalRequestStarted = true
       const response = await options.updateProfile(payload)
       profileUpdated = true
-      assertCurrent()
+      // A completed write still updates shared auth state after its editor closes.
+      throwIfAuthSessionIntentChanged(options.authSession, intent)
       await options.refreshUser()
       assertCurrent()
       const spentPoints = extractSpentPoints(response)
