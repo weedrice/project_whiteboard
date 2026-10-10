@@ -63,6 +63,8 @@ A 계정에서 시작한 작업이 확인창, 오프라인 대기, 비동기 준
 
 [CommonCodeManagement.vue](../../frontend/src/views/admin/CommonCodeManagement.vue)는 확인창 전에 scope를 만들고 쓰기 API에 `scope.requestConfig`를 전달한다. HTTP 완료, 재조회, 캐시 무효화 뒤에도 필요한 시점에 검사하여 이전 작업이 새 계정의 모달이나 저장 잠금을 변경하지 않도록 한다.
 
+[프로필 저장](../../frontend/src/features/user/profile/useProfileUpdateSubmit.ts)은 첫 await 전에 pending을 설정하고 함수 진입점에서 재제출을 차단한다. 확인창·이미지 업로드·최종 저장·사용자 재조회가 진행되는 동안 Enter 제출도 같은 잠금을 따른다. 실패·확인 취소 후에는 다시 저장할 수 있고, 세션 경계에서는 기존 revision 검사로 이전 작업의 finally가 새 작업의 pending을 해제하지 못하게 한다.
+
 로그인·로그아웃·부트스트랩은 정상 동작 자체가 세션을 변경할 수 있으므로 일반 업무 action wrapper에 일괄 편입하지 않는다. 이전 세션의 명시적 토큰으로 수행하는 제한된 정리 요청도 기존 인증 생명주기의 의도를 보존해야 한다.
 
 ## HTTP 전송·응답·재시도 경계
@@ -75,6 +77,8 @@ A 계정에서 시작한 작업이 확인창, 오프라인 대기, 비동기 준
 | 오류와 토스트·탐색 | [apiResponseErrorHandler.ts](../../frontend/src/api/apiResponseErrorHandler.ts): 오래된 요청의 오류 처리 제한 |
 | refresh 대기·토큰 반영·재전송 | [apiRefreshRetry.ts](../../frontend/src/api/apiRefreshRetry.ts): 원래 `expectedSession`을 유지하고 대기·refresh·사용자 hydration 이후 재검사 |
 | 공유 refresh 조정 | [authRefreshCoordinator.ts](../../frontend/src/api/authRefreshCoordinator.ts): refresh 조정과 취소를 소유하며 feature에서 복제하지 않음 |
+
+공유 refresh의 응답·토큰 반영·사용자 hydration에서는 원래 세션 신원을 검사하되, 최초 요청의 개별 signal은 적용하지 않는다. 화면 이탈로 최초 조회만 취소되어도 같은 세션의 다른 대기 요청은 새 토큰으로 재전송할 수 있어야 한다. 개별 signal은 공유 대기열 정산 이후 해당 요청의 재전송을 제한하며, 실제 세션 변경과 refresh 자체의 실패는 공유 작업에 계속 적용된다.
 
 API facade가 config를 받지 않거나 전달하지 않으면 호출부의 캡처가 전송 보호로 이어지지 않는다. 따라서 feature뿐 아니라 `src/api`의 최종 메서드까지 config 전달을 확인한다.
 
@@ -95,6 +99,8 @@ API facade가 config를 받지 않거나 전달하지 않으면 호출부의 캡
 5. query 데이터에서 복사한 [편집 폼과 이미지](../../frontend/src/features/emoticon/form/useEmoticonEditForm.ts), 아직 끝나지 않은 확인창의 유효성.
 
 query-key 계약의 공유 범위는 [feature 경계 규칙](../../frontend/src/features/AGENTS.md#public-contracts-and-dependencies)을 따른다.
+
+이모티콘 공개 상태 변경은 호출 시 캡처한 대상 ID와 세대의 상세·구매 상태 및 공개 목록 캐시를 갱신한다. 같은 세션에서 다른 상세로 이동하거나 컴포넌트가 해제되어도 성공한 변경의 캐시 갱신은 유지하고, 현재 화면과 관계없는 토스트만 억제한다. 전송 취소와 세션 리스너의 정리는 공통 mutation scope가 소유하므로 화면 해제 뒤 계정이 바뀌어도 이전 결과는 차단된다.
 
 ## 적용 상태: 확인창·작업 상태·조회·업로드
 
@@ -163,13 +169,15 @@ query-key 계약의 공유 범위는 [feature 경계 규칙](../../frontend/src/
 | [useAppUserSettingsSync.spec.ts](../../frontend/src/features/user/settings/__tests__/useAppUserSettingsSync.spec.ts) | 사용자 신원·세대 변경 이후 오래된 설정과 지연 로케일 반영 차단 |
 | [useAppUserSettingsSyncSession.spec.ts](../../frontend/src/features/user/settings/__tests__/useAppUserSettingsSyncSession.spec.ts) | 실제 auth store·Vue Query의 `/me` 대기, 캐시·계정 전환·지연 로케일, 정상 refresh와 동일 사용자 재조회 |
 | [InquiryNewLifecycle.spec.ts](../../frontend/src/views/inquiry/__tests__/InquiryNewLifecycle.spec.ts) | 실제 Vue Query의 unmount 전후 지연 성공·실패, 자원 정리·목록 갱신 유지와 오래된 탐색 차단 |
-| [session-ui-lifecycle.spec.ts](../../frontend/e2e/session-ui-lifecycle.spec.ts) | 실제 브라우저의 사용자 hydration 이후 설정 복원, 문의 작성 중 목록으로 이탈한 뒤 지연 완료 |
+| [session-ui-lifecycle.spec.ts](../../frontend/e2e/session-ui-lifecycle.spec.ts) | 실제 브라우저의 프로필 저장 중 Enter 재제출, 사용자 hydration 이후 설정 복원, 문의 작성 중 목록으로 이탈한 뒤 지연 완료 |
+| [useProfileUpdateSubmitLifecycle.spec.ts](../../frontend/src/features/user/profile/__tests__/useProfileUpdateSubmitLifecycle.spec.ts) | 실제 프로필 form의 단계별 중복 제출 차단, 취소·실패 후 재시도, 세션 전환 후 새 작업의 pending 보존 |
 | [authSessionScope.spec.ts](../../frontend/src/utils/__tests__/authSessionScope.spec.ts) | 세대·사용자 변경, 정상 토큰 회전, signal 결합, 오래된 수동 결과·오류, 리스너 해제 |
 | [useAuthScopedMutation.spec.ts](../../frontend/src/composables/__tests__/useAuthScopedMutation.spec.ts) | 실제 Vue Query의 오프라인 대기, 비동기 onMutate, 재시도, 중첩 실행, unmount 이후 완료와 정리 |
 | [apiExpectedSession.spec.ts](../../frontend/src/api/__tests__/apiExpectedSession.spec.ts) | 실제 Axios 인터셉터의 전송·응답·refresh queue·재전송 경계 |
+| [apiRefreshCancellation.spec.ts](../../frontend/src/api/__tests__/apiRefreshCancellation.spec.ts) | 실제 Axios·공유 refresh에서 최초 요청·대기 요청 취소의 분리, 세션 변경, HTTP·hydration 실패 정책 |
 | [commonCodeSession.spec.ts](../../frontend/src/api/__tests__/commonCodeSession.spec.ts) | 공통코드 API facade를 통과하는 config 전달과 계정 전환 차단 |
 | [CommonCodeManagement.spec.ts](../../frontend/src/views/admin/__tests__/CommonCodeManagement.spec.ts) | 확인창, 재조회, 오래된 finally, 새 계정의 저장 상태 |
-| [emoticonSessionCache.spec.ts](../../frontend/src/features/emoticon/detail/__tests__/emoticonSessionCache.spec.ts) | 실제 Vue Query의 로그아웃·계정 전환·지연 상세 응답·동일 사용자 재로그인과 구매/숨김/편집 갱신 |
+| [emoticonSessionCache.spec.ts](../../frontend/src/features/emoticon/detail/__tests__/emoticonSessionCache.spec.ts) | 실제 Vue Query의 로그아웃·계정 전환·지연 상세 응답·동일 사용자 재로그인과 구매/숨김/편집 갱신; 상세 이동·unmount 이후 성공한 변경의 캐시 갱신 |
 | [useEmoticonEditForm.spec.ts](../../frontend/src/features/emoticon/form/__tests__/useEmoticonEditForm.spec.ts) | 편집 초기화와 세션 변경 전 확인창의 실행 차단 |
 | [RefreshTokenCookieWriterTest](../../backend/src/test/java/com/weedrice/whiteboard/global/security/RefreshTokenCookieWriterTest.java) | refresh 쿠키 속성과 정리 |
 | [SessionTokenServiceTest](../../backend/src/test/java/com/weedrice/whiteboard/domain/auth/service/SessionTokenServiceTest.java) | refresh·폐기·세션 family 동작 |
