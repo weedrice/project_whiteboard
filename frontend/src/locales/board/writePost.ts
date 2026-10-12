@@ -92,6 +92,14 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     tableCols: '열 수',
     tableHeaderRow: '첫 줄을 헤더로 사용',
     tableInsert: '표 삽입',
+    editTools: {
+      undo: '실행 취소',
+      redo: '다시 실행',
+      clearFormatting: '서식 초기화',
+      blockStyle: '본문 스타일',
+      paragraph: '본문',
+      heading: '제목 {level}',
+    },
     tableTools: {
       label: '표 편집',
       hint: '현재 셀을 기준으로 편집합니다. 여러 셀을 드래그해 선택하면 병합할 수 있습니다.',
@@ -187,6 +195,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       resize: '이미지 크기 조절',
     },
     codeBlock: {
+      plainText: '일반 텍스트',
       exit: '코드 아래에 본문 작성',
       copy: '복사',
       copyAriaLabel: '코드 복사',

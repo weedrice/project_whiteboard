@@ -208,6 +208,9 @@ vi.mock('lucide-vue-next', () => {
     return {
         Image: icon,
         Code2: icon,
+        Undo2: icon,
+        Redo2: icon,
+        RemoveFormatting: icon,
         Link2: icon,
         List: icon,
         ListOrdered: icon,

@@ -207,7 +207,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.text()).toContain('Line height')
         expect(wrapper.get('.tiptap-color-bar').attributes('style')).toContain('rgb(34, 197, 94)')
 
-        const selects = wrapper.findAll('select.tiptap-select')
+        const selects = [wrapper.get('select:has(option[value="18px"])'), wrapper.get('select:has(option[value="1.5"])')]
         await selects[0].setValue('18px')
         await selects[1].setValue('1.5')
         await selects[0].setValue('')
@@ -300,8 +300,8 @@ describe('PostEditorTipTap', () => {
 
         expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
         expect(wrapper.get(selectors.video).attributes('aria-label')).toBe('board.writePost.toolbar.video')
-        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
-        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
+        expect(wrapper.get('select[aria-label="board.writePost.fontSize"]').attributes('aria-label')).toBe('board.writePost.fontSize')
+        expect(wrapper.get('select[aria-label="board.writePost.lineHeight"]').attributes('aria-label')).toBe('board.writePost.lineHeight')
 
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')

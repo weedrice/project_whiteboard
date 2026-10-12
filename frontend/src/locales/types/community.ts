@@ -367,6 +367,14 @@ export interface BoardMessages {
     tableCols: string
     tableHeaderRow: string
     tableInsert: string
+    editTools: {
+      undo: string
+      redo: string
+      clearFormatting: string
+      blockStyle: string
+      paragraph: string
+      heading: string
+    }
     tableTools: {
       label: string
       hint: string
@@ -462,6 +470,7 @@ export interface BoardMessages {
       resize: string
     }
     codeBlock: {
+      plainText: string
       exit: string
       copy: string
       copyAriaLabel: string

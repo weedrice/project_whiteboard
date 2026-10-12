@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
+import { computed } from 'vue'
+import PostEditorTextTools from './PostEditorTextTools.vue'
+import { codeLanguageLabel } from './postEditorOptions'
 import {
   Code2,
   Image as ImageIcon,
@@ -19,7 +22,7 @@ import { useI18n } from 'vue-i18n'
 import PostEditorImageUploadStatus from '@/components/board/editor/PostEditorImageUploadStatus.vue'
 import PostEditorTableTools from '@/components/board/editor/PostEditorTableTools.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   editor: Editor
   isUploadingImage: boolean
   hasImageUploadError: boolean
@@ -75,6 +78,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const languageOptions = computed(() => [...new Set([
+  ...props.codeBlockLanguages.filter(Boolean), props.currentCodeBlockLanguage,
+])].filter(Boolean))
 </script>
 
 <template>
@@ -84,6 +90,7 @@ const { t } = useI18n()
     </p>
     <div class="tiptap-toolbar-row tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group tiptap-toolbar-group--format">
+        <PostEditorTextTools :editor="editor" :is-raw-html-block-selected="isRawHtmlBlockSelected" />
         <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-bold')">
           <span class="font-bold">B</span>
         </button>
@@ -160,8 +167,8 @@ const { t } = useI18n()
           @change="emit('code-block-language', ($event.target as HTMLSelectElement).value)"
         >
           <option value="">{{ t('board.writePost.codeBlock.auto') }}</option>
-          <option v-for="language in codeBlockLanguages.filter(Boolean)" :key="language" :value="language">
-            {{ language }}
+          <option v-for="language in languageOptions" :key="language" :value="language">
+            {{ ['text', 'plaintext'].includes(language.toLowerCase()) ? t('board.writePost.codeBlock.plainText') : codeLanguageLabel(language) }}
           </option>
         </select>
         <button v-if="editor.isActive('codeBlock')" type="button" class="tiptap-btn tiptap-btn-pill" @mousedown.prevent @click="emit('exit-code-block')">

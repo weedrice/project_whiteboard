@@ -93,6 +93,14 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     tableCols: 'Columns',
     tableHeaderRow: 'Use first row as header',
     tableInsert: 'Insert table',
+    editTools: {
+      undo: 'Undo',
+      redo: 'Redo',
+      clearFormatting: 'Clear formatting',
+      blockStyle: 'Block style',
+      paragraph: 'Paragraph',
+      heading: 'Heading {level}',
+    },
     tableTools: {
       label: 'Table editing',
       hint: 'Edit relative to the current cell. Drag across multiple cells to merge them.',
@@ -188,6 +196,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       resize: 'Resize image',
     },
     codeBlock: {
+      plainText: 'Plain text',
       exit: 'Write below code',
       copy: 'Copy',
       copyAriaLabel: 'Copy code',
