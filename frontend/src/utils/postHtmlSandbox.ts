@@ -118,8 +118,8 @@ const EDITOR_STYLE_PROPERTIES: Readonly<Record<string, ReadonlySet<string>>> = {
     mark: new Set(['background-color', 'color']),
     table: new Set(['min-width', 'width']),
     col: new Set(['min-width', 'width']),
-    th: new Set(['text-align', 'min-width', 'width']),
-    td: new Set(['text-align', 'min-width', 'width']),
+    th: new Set(['text-align', 'min-width', 'width', 'background-color']),
+    td: new Set(['text-align', 'min-width', 'width', 'background-color']),
     img: new Set(['width']),
 }
 

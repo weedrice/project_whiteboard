@@ -376,6 +376,11 @@ export interface BoardMessages {
       heading: string
     }
     tableTools: {
+      distributeColumns: string
+      background: string
+      noBackground: string
+      customBackground: string
+
       label: string
       hint: string
       addRowBefore: string

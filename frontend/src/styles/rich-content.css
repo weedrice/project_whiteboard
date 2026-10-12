@@ -1,6 +1,28 @@
 @reference "../style.css";
 
 @layer components {
+  /* Only the editor's pastel presets adapt to dark mode. Keep saved colors and
+     custom colors intact; cover both CSSOM rgb() and sanitized hex markup. */
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #fef3c7;"], [style$="background-color: #fef3c7"], [style*="background-color: rgb(254, 243, 199)"]) {
+    background-color: #453d24 !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #dbeafe;"], [style$="background-color: #dbeafe"], [style*="background-color: rgb(219, 234, 254)"]) {
+    background-color: #26384e !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #dcfce7;"], [style$="background-color: #dcfce7"], [style*="background-color: rgb(220, 252, 231)"]) {
+    background-color: #263e30 !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #fce7f3;"], [style$="background-color: #fce7f3"], [style*="background-color: rgb(252, 231, 243)"]) {
+    background-color: #482f3d !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #e5e7eb;"], [style$="background-color: #e5e7eb"], [style*="background-color: rgb(229, 231, 235)"]) {
+    background-color: #36393f !important;
+  }
+
   .nv-rich-content {
     --tw-prose-body: var(--nv-ink-soft);
     --tw-prose-headings: var(--nv-ink);

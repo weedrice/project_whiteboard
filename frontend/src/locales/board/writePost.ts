@@ -101,6 +101,11 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       heading: '제목 {level}',
     },
     tableTools: {
+      distributeColumns: '열 너비 균등 분배',
+      background: '셀 배경색',
+      noBackground: '배경색 없음',
+      customBackground: '사용자 지정 / 혼합',
+
       label: '표 편집',
       hint: '현재 셀을 기준으로 편집합니다. 여러 셀을 드래그해 선택하면 병합할 수 있습니다.',
       addRowBefore: '위에 행 추가',

@@ -1,4 +1,4 @@
-import { mergeAttributes } from '@tiptap/core'
+import { Extension, mergeAttributes } from '@tiptap/core'
 import { VueNodeViewRenderer, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
@@ -98,6 +98,24 @@ const EditorTable = Table.extend({
       width: createPreservedHtmlAttribute('width'),
       style: createPreservedHtmlAttribute('style'),
     }
+  },
+})
+
+const TableCellBackground = Extension.create({
+  name: 'tableCellBackground',
+  addGlobalAttributes() {
+    return [{
+      types: ['tableCell', 'tableHeader'],
+      attributes: {
+        backgroundColor: {
+          default: null,
+          parseHTML: (element: HTMLElement) => element.style.backgroundColor || null,
+          renderHTML: (attributes: { backgroundColor?: string | null }) => (
+            attributes.backgroundColor ? { style: `background-color: ${attributes.backgroundColor}` } : {}
+          ),
+        },
+      },
+    }]
   },
 })
 
@@ -356,6 +374,7 @@ export function createPostEditorExtensions() {
     TableKit.configure({
       table: false,
     }),
+    TableCellBackground,
     HorizontalRule,
     Video,
   ]

@@ -102,6 +102,11 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       heading: 'Heading {level}',
     },
     tableTools: {
+      distributeColumns: 'Distribute columns evenly',
+      background: 'Cell background',
+      noBackground: 'No background',
+      customBackground: 'Custom / mixed',
+
       label: 'Table editing',
       hint: 'Edit relative to the current cell. Drag across multiple cells to merge them.',
       addRowBefore: 'Row above',
