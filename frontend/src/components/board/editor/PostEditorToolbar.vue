@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
 import {
+  Code2,
   Image as ImageIcon,
   Link2,
   List as ListIcon,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import PostEditorImageUploadStatus from '@/components/board/editor/PostEditorImageUploadStatus.vue'
+import PostEditorTableTools from '@/components/board/editor/PostEditorTableTools.vue'
 
 withDefaults(defineProps<{
   editor: Editor
@@ -58,6 +60,8 @@ const emit = defineEmits<{
   (e: 'font-size', value: string): void
   (e: 'line-height', value: string): void
   (e: 'code-block-language', value: string): void
+  (e: 'toggle-code-block'): void
+  (e: 'exit-code-block'): void
   (e: 'toggle-color-panel', trigger: HTMLElement): void
   (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
   (e: 'toggle-slash-menu', trigger: HTMLElement): void
@@ -144,6 +148,9 @@ const { t } = useI18n()
       </div>
 
       <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('codeBlock') }" :title="t('board.writePost.toolbar.codeBlock')" :aria-label="t('board.writePost.toolbar.codeBlock')" :aria-pressed="editor.isActive('codeBlock')" @mousedown.prevent @click="emit('toggle-code-block')">
+          <Code2 :size="16" aria-hidden="true" />
+        </button>
         <select
           v-if="editor.isActive('codeBlock')"
           data-ui-native="specialized"
@@ -157,6 +164,9 @@ const { t } = useI18n()
             {{ language }}
           </option>
         </select>
+        <button v-if="editor.isActive('codeBlock')" type="button" class="tiptap-btn tiptap-btn-pill" @mousedown.prevent @click="emit('exit-code-block')">
+          {{ t('board.writePost.codeBlock.exit') }}
+        </button>
         <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
           {{ t('board.writePost.toolbar.insertBlock') }}
         </button>
@@ -168,6 +178,8 @@ const { t } = useI18n()
         </button>
       </div>
     </div>
+
+    <PostEditorTableTools :editor="editor" />
 
     <PostEditorImageUploadStatus
       :is-uploading-image="isUploadingImage"

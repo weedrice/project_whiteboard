@@ -367,6 +367,21 @@ export interface BoardMessages {
     tableCols: string
     tableHeaderRow: string
     tableInsert: string
+    tableTools: {
+      label: string
+      hint: string
+      addRowBefore: string
+      addRowAfter: string
+      deleteRow: string
+      addColumnBefore: string
+      addColumnAfter: string
+      deleteColumn: string
+      mergeCells: string
+      splitCell: string
+      toggleHeaderRow: string
+      toggleHeaderColumn: string
+      deleteTable: string
+    }
     draftStatus: {
       saving: string
       restoring: string
@@ -447,6 +462,7 @@ export interface BoardMessages {
       resize: string
     }
     codeBlock: {
+      exit: string
       copy: string
       copyAriaLabel: string
       copyDone: string

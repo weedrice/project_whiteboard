@@ -34,6 +34,19 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(names).toHaveLength(new Set(names).size)
     })
 
+    it('exits a code block into a paragraph without changing its code or language', () => {
+        editor = createEditor('<pre><code class="language-typescript">// comment\nconst value = 1</code></pre>')
+        editor.commands.setTextSelection(3)
+        expect(editor.chain().focus().exitCode().run()).toBe(true)
+        expect(editor.isActive('paragraph')).toBe(true)
+        editor.commands.insertContent('After code')
+        const document = parseHTML(editor.getHTML())
+        expect(document.querySelector('pre code')?.textContent).toBe('// comment\nconst value = 1')
+        expect(document.querySelector('pre code')?.className).toBe('language-typescript')
+        expect(document.querySelector('pre + p')?.textContent).toBe('After code')
+        expect(requiresPreservedPostHtml(editor.getHTML())).toBe(false)
+    })
+
     it('serializes link marks with the configured anchor attributes', () => {
         editor = createEditor()
         editor.commands.setContent({

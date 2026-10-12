@@ -317,6 +317,11 @@ function applyCodeBlockLanguage(language: string) {
   }).run()
 }
 
+function toggleCodeBlockAtSelection() {
+  prepareInsertionAfterRawHtmlBlock()
+  editor.value?.chain().focus().toggleCodeBlock().run()
+}
+
 defineExpose({
   editor,
   setVideo,
@@ -373,6 +378,8 @@ onBeforeUnmount(() => {
       @font-size="applyFontSize"
       @line-height="applyLineHeight"
       @code-block-language="applyCodeBlockLanguage"
+      @toggle-code-block="toggleCodeBlockAtSelection"
+      @exit-code-block="editor.chain().focus().exitCode().run()"
       @toggle-color-panel="toggleColorPanel"
       @align="setTextAlign"
       @toggle-slash-menu="toggleSlashMenuAtSelection"

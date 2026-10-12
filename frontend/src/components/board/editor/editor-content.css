@@ -1,7 +1,8 @@
 .tiptap-editor-wrap .tiptap-content {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  /* The toolbar scrolls when controls grow; keep the body available for typing. */
+  min-height: 10rem;
   overflow-y: auto;
   position: relative;
 }
@@ -124,6 +125,14 @@
 
 .tiptap-editor-wrap .ProseMirror .tableWrapper {
   overflow-x: auto;
+}
+
+.tiptap-editor-wrap .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--nv-accent) 18%, transparent);
 }
 
 .tiptap-editor-wrap .ProseMirror .column-resize-handle {

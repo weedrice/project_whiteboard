@@ -9,7 +9,7 @@ describe('PostEditorToolbar responsive contract', () => {
   it('keeps both toolbar rows in independent horizontal scroll containers', () => {
     const wrapper = mount(PostEditorToolbar, {
       props: {
-        editor: { isActive: vi.fn(() => false) } as unknown as Editor,
+        editor: { isActive: vi.fn(() => false), state: { doc: { descendants: vi.fn() } } } as unknown as Editor,
         isUploadingImage: false,
         hasImageUploadError: false,
         currentUploadingImageName: '',
@@ -50,7 +50,7 @@ describe('PostEditorToolbar responsive contract', () => {
   it('keeps insertion controls available when text formatting is disabled for an HTML block', () => {
     const wrapper = mount(PostEditorToolbar, {
       props: {
-        editor: { isActive: vi.fn(() => false) } as unknown as Editor,
+        editor: { isActive: vi.fn(() => false), state: { doc: { descendants: vi.fn() } } } as unknown as Editor,
         isUploadingImage: false,
         hasImageUploadError: false,
         currentUploadingImageName: '',

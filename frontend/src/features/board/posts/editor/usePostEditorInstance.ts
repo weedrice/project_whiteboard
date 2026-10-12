@@ -27,7 +27,7 @@ export function usePostEditorInstance(options: {
                 },
                 keydown: (_view, event) => {
                     const instance = editor.value
-                    if (!instance || event.key !== '/') {
+                    if (!instance || event.key !== '/' || event.isComposing || instance.isActive('codeBlock')) {
                         return false
                     }
                     const selection = instance.state.selection

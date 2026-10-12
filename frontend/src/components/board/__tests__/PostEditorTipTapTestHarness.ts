@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => {
         setBlockquote: vi.fn(),
         toggleHeading: vi.fn(),
         toggleCodeBlock: vi.fn(),
+        exitCode: vi.fn(),
         setHorizontalRule: vi.fn(),
         setImage: vi.fn(),
         setVideo: vi.fn(),
@@ -67,6 +68,7 @@ const mocks = vi.hoisted(() => {
         state: {
             selection: { from: 1, to: 1 },
             doc: {
+                descendants: vi.fn(),
                 textBetween: vi.fn(() => 'selected text'),
                 content: { size: 8 },
             },
@@ -205,6 +207,7 @@ vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         Image: icon,
+        Code2: icon,
         Link2: icon,
         List: icon,
         ListOrdered: icon,
