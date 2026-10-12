@@ -10,6 +10,7 @@ import { focusPostEditorAtPointer, usePostEditorInstance } from '@/features/boar
 import { usePostEditorColorPanel } from '@/features/board/posts/editor/usePostEditorColorPanel'
 import { usePostEditorFloatingPanelRefs } from '@/features/board/posts/editor/usePostEditorFloatingPanelRefs'
 import { usePostEditorImageFiles } from '@/features/board/posts/editor/usePostEditorImageFiles'
+import { pastePostEditorCode } from '@/features/board/posts/editor/postEditorCodePaste'
 import { usePostEditorImageUploadState } from '@/features/board/posts/editor/usePostEditorImageUploadState'
 import { usePostEditorLinkCommands } from '@/features/board/posts/editor/usePostEditorLinkCommands'
 import { usePostEditorListCommands } from '@/features/board/posts/editor/usePostEditorListCommands'
@@ -246,7 +247,7 @@ const {
   prepareInsertionAfterRawHtmlBlock()
   editor.value?.chain().focus().insertContent(encodeSandboxedPostHtml(html)).run()
   return true
-})
+}, (event) => pastePostEditorCode(editor.value, event))
 
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value

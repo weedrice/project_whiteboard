@@ -3,7 +3,7 @@ import { escapeHtmlAttribute, escapeHtmlText } from '@/utils/htmlEscape'
 
 export const lowlight = createLowlight(common)
 
-const LANGUAGE_CLASS_PATTERN = /\blanguage-([a-z0-9_+-]+)\b/i
+const LANGUAGE_CLASS_PATTERN = /^language-([a-z0-9_+.#-]+)$/i
 
 export interface CodeBlockHighlightLabels {
   copy: string
@@ -40,7 +40,9 @@ export function highlightCodeBlocksInDocument(
 ): void {
   doc.querySelectorAll('pre code').forEach((code) => {
     const rawCode = code.textContent ?? ''
-    const language = code.className.match(LANGUAGE_CLASS_PATTERN)?.[1]
+    const language = Array.from(code.classList)
+      .map((token) => token.match(LANGUAGE_CLASS_PATTERN)?.[1])
+      .find(Boolean)
     const tree = language && lowlight.registered(language)
       ? lowlight.highlight(language, rawCode)
       : lowlight.highlightAuto(rawCode)
