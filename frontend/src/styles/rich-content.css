@@ -217,6 +217,28 @@
     vertical-align: baseline;
   }
 
+  .nv-rich-content :where(.nv-image-with-caption) {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    vertical-align: baseline;
+  }
+
+  .nv-rich-content :where(.nv-image-with-caption > img) {
+    display: block;
+    margin: 0;
+  }
+
+  .nv-rich-content :where(.nv-image-caption) {
+    display: block;
+    padding-top: 0.4rem;
+    color: var(--nv-ink-soft);
+    font-size: var(--text-xs);
+    text-align: center;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
   .nv-rich-content :where(.tiptap-image-align-left, .tiptap-image-align-center, .tiptap-image-align-right) {
     display: block;
   }

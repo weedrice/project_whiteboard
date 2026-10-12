@@ -191,6 +191,11 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     },
     dropImageHint: 'Drop images to upload',
     imageControls: {
+      description: 'Image description',
+      alt: 'Alternative text',
+      altHint: 'Describe the image for screen readers and when the image cannot be displayed.',
+      caption: 'Caption',
+
       original: 'Original',
       originalSize: 'Original size',
       sizePercent: '{percent}% of content width',

@@ -15,6 +15,10 @@
 
 ## 공통 계약
 
+### 게시글·초안 본문 HTML
+
+- 적용: 기존 `contents` HTML 안에서 이미지의 `alt`와 `data-caption`, 표 셀의 `colwidth`와 안전한 `background-color` 스타일을 보존한다. 캡션은 일반 텍스트 속성이며 실행 가능한 HTML로 해석하지 않는다. 엔드포인트와 DTO 필드에는 변경이 없다.
+
 ### 응답 Envelope
 
 성공:

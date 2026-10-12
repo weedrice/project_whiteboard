@@ -193,6 +193,16 @@
   width: 100%;
 }
 
+.post-editor-image-caption {
+  display: block;
+  padding-top: 0.4rem;
+  color: var(--nv-ink-soft);
+  font-size: var(--text-xs);
+  text-align: center;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .post-editor-image-node > img:active {
   cursor: grabbing;
 }
@@ -252,6 +262,11 @@
   transform: translateX(calc(-50% + var(--post-editor-image-controls-shift, 0px)));
   white-space: nowrap;
   z-index: 15;
+}
+
+.post-editor-image-controls > button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .post-editor-image-node--inline .post-editor-image-controls,

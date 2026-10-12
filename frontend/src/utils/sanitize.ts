@@ -55,7 +55,8 @@ export function sanitizeHtml(html: string, options?: Config): SanitizedHtml {
  * @returns Sanitized HTML string branded for v-html rendering.
  */
 export function sanitizeQuillHtml(html: string): SanitizedHtml {
-    const sanitized = DOMPurify.sanitize(html, {
+    const { source, captions } = protectImageCaptionText(html)
+    const sanitized = DOMPurify.sanitize(source, {
         ALLOWED_TAGS: [
             'p', 'br', 'strong', 'em', 'u', 's', 'strike',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -70,7 +71,7 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
             'href', 'src', 'alt', 'title', 'class', 'target', 'rel',
             'loading', 'width', 'height', 'style', 'role', 'tabindex',
             'start', 'span', 'colspan', 'rowspan', 'colwidth', 'data-color',
-            'data-file-id', 'data-server-src', 'data-video-embed', 'data-type', 'data-id', 'data-label',
+            'data-file-id', 'data-server-src', 'data-caption', 'data-video-embed', 'data-type', 'data-id', 'data-label',
             'data-mention-suggestion-char', 'data-mention-user-id',
             'frameborder', 'allowfullscreen', 'allow',
             'referrerpolicy', 'sandbox',
@@ -79,10 +80,27 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
         ADD_ATTR: ['loading']
     })
 
-    return asSanitizedHtml(tightenQuillHtml(sanitized))
+    return asSanitizedHtml(tightenQuillHtml(sanitized, captions))
 }
 
-function tightenQuillHtml(html: string): string {
+function protectImageCaptionText(html: string): { source: string; captions: Map<string, string> } {
+    const captions = new Map<string, string>()
+    if (typeof document === 'undefined' || typeof DOMParser === 'undefined' || !/data-caption/i.test(html)) {
+        return { source: html, captions }
+    }
+    const template = document.createElement('template')
+    template.innerHTML = html
+    template.content.querySelectorAll('img[data-caption]').forEach(image => {
+        const key = `caption-${captions.size}`
+        captions.set(key, image.getAttribute('data-caption') ?? '')
+        image.setAttribute('data-caption', key)
+    })
+    // DOMPurify still checks every element and attribute. Only caption text is
+    // replaced with a per-call key so strings such as </script> are not discarded.
+    return { source: template.innerHTML, captions }
+}
+
+function tightenQuillHtml(html: string, captions: ReadonlyMap<string, string>): string {
     if (typeof DOMParser === 'undefined') {
         return html
     }
@@ -105,6 +123,11 @@ function tightenQuillHtml(html: string): string {
         if (!isAllowedPostImageSrc(image.getAttribute('src'))) {
             image.remove()
             return
+        }
+        const captionKey = image.getAttribute('data-caption')
+        if (captionKey != null && captions.has(captionKey)) {
+            // Restore a text attribute on surviving, URL-validated images only.
+            image.setAttribute('data-caption', captions.get(captionKey)!)
         }
         image.setAttribute('referrerpolicy', 'no-referrer')
     })

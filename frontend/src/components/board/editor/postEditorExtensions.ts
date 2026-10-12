@@ -30,6 +30,13 @@ const EditorImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      caption: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-caption'),
+        renderHTML: (attributes: { caption?: string | null }) => (
+          attributes.caption ? { 'data-caption': attributes.caption } : {}
+        ),
+      },
       loading: {
         default: null,
         parseHTML: (element: HTMLElement) => {

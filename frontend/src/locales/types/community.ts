@@ -465,6 +465,11 @@ export interface BoardMessages {
     }
     dropImageHint: string
     imageControls: {
+      description: string
+      alt: string
+      altHint: string
+      caption: string
+
       original: string
       originalSize: string
       sizePercent: string

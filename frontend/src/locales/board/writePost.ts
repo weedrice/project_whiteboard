@@ -190,6 +190,11 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     },
     dropImageHint: '이미지를 놓아 업로드',
     imageControls: {
+      description: '이미지 설명',
+      alt: '대체 텍스트',
+      altHint: '이미지가 보이지 않거나 화면 읽기 도구를 사용할 때 전달할 설명입니다.',
+      caption: '캡션',
+
       original: '원본',
       originalSize: '원본 크기',
       sizePercent: '본문 너비의 {percent}%',

@@ -8,6 +8,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InputSanitizerTest {
 
     @Test
+    void sanitizePostHtml_preservesImageDescriptionsAndTableFormatting() {
+        String input = """
+                <p><img src="/api/v1/files/10" alt="Diagram" data-caption="&lt;script&gt;caption&lt;/script&gt;" onerror="alert(1)"></p>
+                <table><tbody><tr><td colwidth="160" style="background-color:#dbeafe"><p>Cell</p></td></tr></tbody></table>
+                """;
+        String result = InputSanitizer.sanitizePostHtml(input);
+        var doc = org.jsoup.Jsoup.parseBodyFragment(result);
+        assertThat(doc.selectFirst("img").attr("alt")).isEqualTo("Diagram");
+        assertThat(doc.selectFirst("img").attr("data-caption")).isEqualTo("<script>caption</script>");
+        assertThat(doc.selectFirst("td").attr("colwidth")).isEqualTo("160");
+        assertThat(doc.selectFirst("td").attr("style")).contains("background-color: #dbeafe");
+        assertThat(doc.select("script")).isEmpty();
+        assertThat(doc.selectFirst("img").hasAttr("onerror")).isFalse();
+    }
+
+    @Test
     void stripHtml_preservesPlainComparisonText() {
         String input = "1 < 2 and 3 > 2\nprice < 1000, stock > 0";
         assertThat(InputSanitizer.stripHtml(input)).isEqualTo(input);

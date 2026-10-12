@@ -1,9 +1,8 @@
-const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
 import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
 
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
-const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
+const SANDBOX_DOCUMENT_TAGS = new Set(['html', 'head', 'body'])
 const EDITABLE_SANDBOX_BLOCK_START_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->/gi
 const HTML_RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'])
 
@@ -71,6 +70,7 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
         'style',
         'data-file-id',
         'data-server-src',
+        'data-caption',
     ]),
     br: new Set(),
     hr: new Set(),
@@ -126,7 +126,45 @@ const EDITOR_STYLE_PROPERTIES: Readonly<Record<string, ReadonlySet<string>>> = {
 export const SANDBOXED_POST_HTML_MARKER_CLASS = SANDBOX_MARKER_CLASS
 
 export function requiresSandboxedPostHtml(content: string | null | undefined): boolean {
-    return SANDBOX_TRIGGER_PATTERN.test(content ?? '')
+    return hasSandboxHtmlStructure(content ?? '')
+}
+
+// Inspect tag and attribute names, never strings inside quoted attribute values.
+function hasSandboxHtmlStructure(content: string, documentOnly = false): boolean {
+    let cursor = 0
+    while (cursor < content.length) {
+        const start = content.indexOf('<', cursor)
+        if (start < 0) break
+        if (content.startsWith('<!--', start)) {
+            const end = content.indexOf('-->', start + 4)
+            cursor = end < 0 ? content.length : end + 3
+            continue
+        }
+        if (/^<!doctype\b/i.test(content.slice(start, start + 10))) return true
+        if (content.startsWith('<!', start) || content.startsWith('<?', start)) {
+            const end = content.indexOf('>', start + 2)
+            cursor = end < 0 ? content.length : end + 1
+            continue
+        }
+        const token = parseHtmlTagAt(content, start)
+        if (!token) {
+            cursor = start + 1
+            continue
+        }
+        if (!token.closing) {
+            if (SANDBOX_DOCUMENT_TAGS.has(token.name)) return true
+            if (!documentOnly && (token.name === 'style' || token.name === 'script'
+                || Array.from(parseHtmlAttributes(token).keys()).some(name => /^on[a-z]+$/i.test(name)))) {
+                return true
+            }
+            if (HTML_RAW_TEXT_ELEMENTS.has(token.name)) {
+                cursor = findRawTextElementEnd(content, token)
+                continue
+            }
+        }
+        cursor = token.end
+    }
+    return false
 }
 
 export function containsSandboxedPostHtml(content: string | null | undefined): boolean {
@@ -322,7 +360,7 @@ function buildFlattenedSandboxMarker(content: string): string {
 }
 
 function hasOnlyTopLevelSandboxMarkers(content: string, expectedMarkerCount: number): boolean {
-    if (SANDBOX_DOCUMENT_STRUCTURE_PATTERN.test(content) || typeof DOMParser === 'undefined') return false
+    if (hasSandboxHtmlStructure(content, true) || typeof DOMParser === 'undefined') return false
 
     const document = new DOMParser().parseFromString(content, 'text/html')
     const markers = Array.from(document.body.querySelectorAll(SANDBOX_MARKER_SELECTOR))
@@ -677,7 +715,6 @@ function parseHtmlTagAt(content: string, start: number): HtmlTagToken | null {
     let cursor = start + 1
     const closing = content[cursor] === '/'
     if (closing) cursor += 1
-    while (/\s/.test(content[cursor] ?? '')) cursor += 1
 
     const nameMatch = content.slice(cursor).match(/^[a-z][\w:-]*/i)
     if (!nameMatch) return null
@@ -728,7 +765,11 @@ function parseHtmlAttributes(token: HtmlTagToken): Map<string, HtmlAttributeToke
 
     while (cursor < source.length) {
         while (/\s/.test(source[cursor] ?? '')) cursor += 1
-        if (source[cursor] === '>' || source[cursor] === '/') break
+        if (source[cursor] === '>') break
+        if (source[cursor] === '/') {
+            cursor += 1
+            continue
+        }
 
         const nameStart = cursor
         while (cursor < source.length && !/[\s=/>]/.test(source[cursor])) cursor += 1
@@ -751,7 +792,7 @@ function parseHtmlAttributes(token: HtmlTagToken): Map<string, HtmlAttributeToke
             if (quote) {
                 while (cursor < source.length && source[cursor] !== quote) cursor += 1
             } else {
-                while (cursor < source.length && !/[\s/>]/.test(source[cursor])) cursor += 1
+                while (cursor < source.length && !/[\s>]/.test(source[cursor])) cursor += 1
             }
             valueEnd = cursor
             value = source.slice(valueStart, valueEnd)

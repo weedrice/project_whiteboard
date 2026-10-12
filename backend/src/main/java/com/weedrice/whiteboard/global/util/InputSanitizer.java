@@ -45,7 +45,7 @@ public class InputSanitizer {
                     "mark")
             .addAttributes(":all", "class", "title", "style")
             .addAttributes("a", "href", "target", "rel")
-            .addAttributes("img", "src", "alt", "loading", "width", "height")
+            .addAttributes("img", "src", "alt", "loading", "width", "height", "data-caption")
             .addAttributes("video", "src", "controls", "width", "height")
             .addAttributes("iframe", "src", "width", "height", "frameborder", "allowfullscreen", "allow",
                     "loading", "referrerpolicy", "sandbox")
