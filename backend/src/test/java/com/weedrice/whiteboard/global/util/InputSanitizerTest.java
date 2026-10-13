@@ -8,6 +8,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InputSanitizerTest {
 
     @Test
+    void sanitizePostHtml_preservesContentBlocksWithoutExecutableMarkup() {
+        String input = """
+                <ul data-type="taskList"><li data-type="taskItem" data-checked="true" onclick="bad()"><p>Done</p></li></ul>
+                <aside data-callout="warning"><p>Warning</p></aside>
+                <details ontoggle="bad()"><summary>Title</summary><div data-details-content=""><p>Body</p><script>bad()</script></div></details>
+                """;
+        var document = org.jsoup.Jsoup.parseBodyFragment(InputSanitizer.sanitizePostHtml(input));
+        assertThat(document.selectFirst("li").attr("data-checked")).isEqualTo("true");
+        assertThat(document.selectFirst("aside").attr("data-callout")).isEqualTo("warning");
+        assertThat(document.selectFirst("details > summary").text()).isEqualTo("Title");
+        assertThat(document.selectFirst("details > div[data-details-content]").text()).isEqualTo("Body");
+        assertThat(document.select("[onclick], [ontoggle], script, input")).isEmpty();
+    }
+
+    @Test
     void sanitizePostHtml_preservesImageDescriptionsAndTableFormatting() {
         String input = """
                 <p><img src="/api/v1/files/10" alt="Diagram" data-caption="&lt;script&gt;caption&lt;/script&gt;" onerror="alert(1)"></p>

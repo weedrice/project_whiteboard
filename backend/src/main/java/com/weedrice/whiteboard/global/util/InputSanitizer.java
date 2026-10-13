@@ -42,7 +42,10 @@ public class InputSanitizer {
                     "a", "img", "video", "iframe",
                     "div", "span", "sub", "sup",
                     "table", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "th", "td", "hr",
-                    "mark")
+                    "mark", "aside", "details", "summary")
+            .addAttributes("li", "data-checked")
+            .addAttributes("aside", "data-callout")
+            .addAttributes("div", "data-details-content")
             .addAttributes(":all", "class", "title", "style")
             .addAttributes("a", "href", "target", "rel")
             .addAttributes("img", "src", "alt", "loading", "width", "height", "data-caption")

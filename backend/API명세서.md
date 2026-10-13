@@ -17,6 +17,8 @@
 
 ### 게시글·초안 본문 HTML
 
+- 체크리스트는 `ul[data-type=taskList]`와 `li[data-type=taskItem][data-checked]`, 안내·주의 상자는 `aside[data-callout]`, 접기 영역은 `details > summary + div[data-details-content]`로 저장한다. 입력 요소나 이벤트 핸들러를 저장하지 않으며 기존 `contents` 필드를 사용한다.
+
 - 적용: 기존 `contents` HTML 안에서 이미지의 `alt`와 `data-caption`, 표 셀의 `colwidth`와 안전한 `background-color` 스타일을 보존한다. 캡션은 일반 텍스트 속성이며 실행 가능한 HTML로 해석하지 않는다. 엔드포인트와 DTO 필드에는 변경이 없다.
 
 ### 응답 Envelope
