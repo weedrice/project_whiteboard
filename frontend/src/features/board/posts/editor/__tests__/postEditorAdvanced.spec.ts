@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { ref, shallowRef } from 'vue'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { cleanPostEditorPaste, pasteWithPostEditorMode } from '../postEditorPaste'
+import { exitPostEditorContentBlock, findPostEditorText, replacePostEditorText } from '../postEditorDocumentTools'
 import { usePostEditorSlashActions } from '../usePostEditorSlashActions'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
@@ -13,6 +15,56 @@ describe('advanced post editor', () => {
     editor = new Editor({ extensions: createPostEditorExtensions(), content: html })
     return editor
   }
+  function clipboard(html: string, text: string) {
+    return { clipboardData: { getData: (type: string) => type === 'text/html' ? html : text } } as ClipboardEvent
+  }
+
+  it('cleans external formatting while preserving editable structure and safe media', () => {
+    const cleaned = cleanPostEditorPaste('<section class="word"><p style="color:red"><strong>Title</strong></p><table><tr><td>Cell</td></tr></table><script>bad()</script><img src="javascript:bad()"><img src="/api/v1/files/10" onerror="bad()"></section>')
+    create(cleaned)
+    expect(editor.getHTML()).toContain('<strong>Title</strong>')
+    expect(editor.getHTML()).toContain('<table')
+    expect(editor.getHTML()).not.toMatch(/script|onerror|javascript:|color: red|class="word"/)
+    expect(requiresPreservedPostHtml(editor.getHTML())).toBe(false)
+  })
+
+  it('inserts cleaned paste in one undo step', () => {
+    create()
+    editor.commands.setTextSelection(7)
+    pasteWithPostEditorMode(editor, clipboard('<p style="color:red">After</p>', 'After'), 'clean')
+    expect(editor.getText()).toContain('After')
+    editor.commands.undo()
+    expect(editor.getText()).toBe('Before')
+  })
+
+  it('pastes text only without interpreting markup or losing code line breaks', () => {
+    vi.stubGlobal('ClipboardEvent', class extends Event {})
+    create('<pre><code>x</code></pre>')
+    editor.commands.setTextSelection(2)
+    pasteWithPostEditorMode(editor, clipboard('<strong>new</strong>', '\n<b>literal</b>\nnext'), 'text')
+    expect(editor.getText()).toContain('x\n<b>literal</b>\nnext')
+    expect(editor.getHTML()).not.toContain('<strong>')
+  })
+
+  it('finds text across marks but never crosses an image or block boundary', () => {
+    create('<p><strong>Al</strong>pha Alpha</p><p>Al<img src="/api/v1/files/10">pha</p><p>Al</p><p>pha</p>')
+    expect(findPostEditorText(editor.state.doc, 'alpha')).toEqual([{ from: 1, to: 6 }, { from: 7, to: 12 }])
+    expect(findPostEditorText(editor.state.doc, '[')).toEqual([])
+    expect(replacePostEditorText(editor, 'alpha', 'Beta', true)).toBe(2)
+    expect(editor.getText()).toContain('Beta Beta')
+    editor.commands.undo()
+    expect(editor.getHTML()).toContain('<strong>Al</strong>pha Alpha')
+  })
+
+  it('only replaces a selected exact match and respects read-only state', () => {
+    create('<p>one one</p>')
+    expect(replacePostEditorText(editor, 'one', 'two', false)).toBe(0)
+    editor.commands.setTextSelection({ from: 1, to: 4 })
+    expect(replacePostEditorText(editor, 'one', 'two', false)).toBe(1)
+    expect(editor.getText()).toBe('two one')
+    editor.setEditable(false)
+    expect(replacePostEditorText(editor, 'one', 'two', true)).toBe(0)
+  })
 
   it.each([
     '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p></li><li data-type="taskItem" data-checked="false"><p>Todo</p></li></ul>',
@@ -26,6 +78,16 @@ describe('advanced post editor', () => {
     editor.commands.setContent(sanitizeQuillHtml(saved))
     expect(editor.getHTML()).toBe(saved)
     expect(editor.getText()).toBeTruthy()
+  })
+
+  it('creates a checklist and exits a callout without losing its contents', () => {
+    create('<p>Task</p>')
+    editor.commands.toggleList('taskList', 'taskItem')
+    expect(editor.getHTML()).toContain('data-type="taskList"')
+    editor.commands.setContent('<aside data-callout="info"><p>Inside</p></aside>')
+    editor.commands.setTextSelection(3)
+    expect(exitPostEditorContentBlock(editor)).toBe(true)
+    expect(editor.getHTML()).toBe('<aside data-callout="info"><p>Inside</p></aside><p></p>')
   })
 
   it('starts the next checklist item unchecked after completing the previous item', () => {

@@ -3,6 +3,10 @@ import { computed, onBeforeUnmount, ref, toRef, watch } from 'vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloatingPanels.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
+import PostEditorDocumentTools from '@/components/board/editor/PostEditorDocumentTools.vue'
+import PostEditorSelectionTools from '@/components/board/editor/PostEditorSelectionTools.vue'
+import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
+import { pasteWithPostEditorMode, type PostEditorPasteMode } from '@/features/board/posts/editor/postEditorPaste'
 import { codeBlockLanguages, colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
@@ -26,6 +30,7 @@ import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
 import { encodeSandboxedPostHtml, requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 
@@ -48,6 +53,29 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
+const pasteMode = ref<PostEditorPasteMode>('original')
+const focused = ref(false)
+const editorWrap = ref<HTMLElement | null>(null)
+const { isTopDialog: isFocusDialogTop } = useDialogLifecycle({
+  isOpen: focused,
+  dialogRef: editorWrap,
+  close: () => { focused.value = false },
+  closeOnEscape: () => {
+    const active = document.activeElement
+    if (active?.closest('.post-editor-document-panel, .post-editor-selection-tools')) return false
+    const editorElement = editor.value?.view.dom
+    // An open suggestion owns Escape; otherwise it should exit focus mode before block selection.
+    return !editorElement?.contains(active) || editorElement.getAttribute('aria-expanded') !== 'true'
+  },
+  initialFocus: 'container',
+})
+function exitFocusMode(event: KeyboardEvent) {
+  if (!focused.value) return
+  event.stopPropagation()
+  if (event.defaultPrevented || isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  focused.value = false
+}
 const isRawHtmlBlockSelected = ref(false)
 const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
 const availableSlashActions = computed(() => slashActions.filter(action => {
@@ -128,17 +156,16 @@ const {
   abort: abortImageUpload,
 })
 
-watch(
-  () => imageUploadQueue.isProcessing.value || imageUploadQueueCount.value > 0,
-  (pending) => emit('upload-pending', pending),
-  { immediate: true, flush: 'sync' },
-)
-
 const {
   fileIds,
   insertUploadedImage,
   disposeUploadedImagePreviews,
 } = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
+watch(
+  () => imageUploadQueue.isProcessing.value || imageUploadQueueCount.value > 0,
+  (pending) => emit('upload-pending', pending),
+  { immediate: true, flush: 'sync' },
+)
 
 const {
   currentTextColor,
@@ -249,7 +276,7 @@ const {
   prepareInsertionAfterRawHtmlBlock()
   editor.value?.chain().focus().insertContent(encodeSandboxedPostHtml(html)).run()
   return true
-}, (event) => pastePostEditorCode(editor.value, event))
+}, (event) => pasteWithPostEditorMode(editor.value, event, pasteMode.value) || pastePostEditorCode(editor.value, event))
 
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value
@@ -341,8 +368,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
+  <div ref="editorWrap" class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col" :class="{ 'post-editor-focus': focused }" :role="focused ? 'dialog' : undefined" :aria-modal="isFocusDialogTop ? 'true' : undefined" :aria-label="focused ? t('board.writePost.advanced.focus') : undefined" @keydown.esc="exitFocusMode">
     <input ref="imageInput" type="file" data-ui-native="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
+    <PostEditorDocumentTools v-if="editor" v-model:paste-mode="pasteMode" v-model:focused="focused" :editor="editor" />
+    <PostEditorSelectionTools v-if="editor" :editor="editor" :focused="focused" @link="openLinkPopover" @color="toggleColorPanel" />
 
     <PostEditorToolbar
       v-if="editor"

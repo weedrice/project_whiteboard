@@ -368,12 +368,33 @@ export interface BoardMessages {
     tableHeaderRow: string
     tableInsert: string
     advanced: {
+      exitBlock: string
+      pasteMode: string
+      pasteOriginal: string
+      pasteClean: string
+      pasteText: string
       taskList: string
       info: string
       warning: string
       details: string
       detailsTitle: string
       toggleTask: string
+      outline: string
+      noHeadings: string
+      emptyHeading: string
+      findReplace: string
+      find: string
+      replacement: string
+      matchCount: string
+      previous: string
+      next: string
+      replace: string
+      replaceAll: string
+      focus: string
+      exitFocus: string
+      selectionTools: string
+      link: string
+      color: string
     }
     editTools: {
       undo: string

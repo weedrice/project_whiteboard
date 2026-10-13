@@ -79,6 +79,8 @@ const mocks = vi.hoisted(() => {
             posAtCoords: vi.fn((): EditorPosition | null => ({ pos: 3 })),
         },
         destroy: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
     }
 
     const editorRef: { __v_isRef: true; value: typeof editor | null } = {

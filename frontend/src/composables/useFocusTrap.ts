@@ -20,6 +20,11 @@ export function useFocusTrap(
     ].join(', ')
     return Array.from(containerRef.value.querySelectorAll<HTMLElement>(selector))
       .filter((element) => {
+        // Links inside an editing host are skipped by native Tab navigation.
+        // Counting them as the last stop lets Tab escape a rich-text dialog.
+        if (element.matches('a[href]')
+          && element.closest('[contenteditable]')?.getAttribute('contenteditable') === 'true'
+          && !element.hasAttribute('tabindex')) return false
         const style = window.getComputedStyle(element)
         return style.display !== 'none' && style.visibility !== 'hidden'
       })

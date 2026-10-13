@@ -459,7 +459,7 @@ describe('PostEditorTipTap', () => {
 
     it('renders grouped desktop toolbar controls with insert block affordance', () => {
         const wrapper = mountEditor()
-        const toolbarRows = wrapper.findAll('.tiptap-toolbar-row')
+        const toolbarRows = wrapper.findAll('.tiptap-toolbar .tiptap-toolbar-row')
         const firstRow = toolbarRows[0]
         const secondRow = toolbarRows[1]
 

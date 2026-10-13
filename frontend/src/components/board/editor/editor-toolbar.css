@@ -252,3 +252,54 @@
   border-radius: 999px;
 }
 
+.post-editor-document-tools {
+  flex-shrink: 0;
+  padding: 0.4rem;
+  border-bottom: 1px solid var(--nv-line);
+}
+
+.post-editor-document-tools > .tiptap-toolbar-row > * {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.post-editor-document-panel {
+  max-height: min(30vh, 16rem);
+  overflow: auto;
+  padding: 0.5rem;
+}
+
+.post-editor-find-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.post-editor-selection-tools {
+  position: fixed;
+  z-index: var(--nv-z-popup);
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  max-width: calc(100vw - 16px);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.6rem;
+  background: var(--nv-surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+}
+
+.post-editor-focus {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--nv-z-overlay) - 1);
+  background: var(--nv-surface);
+  padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+}
+
+.post-editor-focus .tiptap-content {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+}
+
