@@ -1,5 +1,6 @@
 import { getPostEditorContentBlock, setPostEditorCalloutKind, unwrapPostEditorContentBlock } from '../postEditorContentBlocks'
 import { postEditorSearchKey } from '../postEditorSearch'
+import { isPostEditorFormattingDisabled } from '../postEditorFormatting'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { ref, shallowRef } from 'vue'
@@ -231,4 +232,16 @@ describe('advanced post editor', () => {
     expect(editor.getHTML()).toBe(original)
   })
 
+  it('disables formatting for code and selected media while allowing editable mixed text selections', () => {
+    create('<pre><code>code</code></pre><p>Text<img src="/api/v1/files/10"></p>')
+    editor.commands.setTextSelection(2)
+    expect(isPostEditorFormattingDisabled(editor)).toBe(true)
+    editor.commands.setNodeSelection(11)
+    expect(isPostEditorFormattingDisabled(editor)).toBe(true)
+    editor.commands.setTextSelection({ from: 2, to: 10 })
+    expect(isPostEditorFormattingDisabled(editor)).toBe(false)
+    expect(editor.can().toggleBold()).toBe(true)
+    editor.setEditable(false)
+    expect(isPostEditorFormattingDisabled(editor)).toBe(true)
+  })
 })
