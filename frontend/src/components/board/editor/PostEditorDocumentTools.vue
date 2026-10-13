@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { exitPostEditorContentBlock, findPostEditorText, replacePostEditorText } from '@/features/board/posts/editor/postEditorDocumentTools'
+import { getPostEditorContentBlock, setPostEditorCalloutKind, unwrapPostEditorContentBlock } from '@/features/board/posts/editor/postEditorContentBlocks'
+import { postEditorSearchKey } from '@/features/board/posts/editor/postEditorSearch'
 import type { PostEditorPasteMode } from '@/features/board/posts/editor/postEditorPaste'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
@@ -16,6 +18,13 @@ const { t } = useI18n()
 const panel = ref<'outline' | 'find' | null>(null)
 const query = ref('')
 const replacement = ref('')
+const contentBlock = computed(() => getPostEditorContentBlock(props.editor))
+watch([panel, query], () => {
+  props.editor.view.dispatch(props.editor.state.tr.setMeta(postEditorSearchKey, panel.value === 'find' ? query.value : ''))
+})
+onBeforeUnmount(() => {
+  if (!props.editor.isDestroyed) props.editor.view.dispatch(props.editor.state.tr.setMeta(postEditorSearchKey, ''))
+})
 function closePanel(event: KeyboardEvent) {
   if (isComposingKeyboardEvent(event)) return
   panel.value = null
@@ -24,7 +33,7 @@ function closePanel(event: KeyboardEvent) {
 function findNext(event: KeyboardEvent) {
   if (isComposingKeyboardEvent(event)) return
   event.preventDefault()
-  navigate(1)
+  navigate(event.shiftKey ? -1 : 1)
 }
 const matches = computed(() => findPostEditorText(props.editor.state.doc, query.value))
 const selectedMatch = computed(() => matches.value.findIndex(match => match.from === props.editor.state.selection.from && match.to === props.editor.state.selection.to))
@@ -59,6 +68,11 @@ function jump(position: number) {
         <option value="clean">{{ t('board.writePost.advanced.pasteClean') }}</option>
         <option value="text">{{ t('board.writePost.advanced.pasteText') }}</option>
       </select>
+      <select v-if="contentBlock?.node.type.name === 'callout'" data-ui-native="specialized" class="tiptap-select" :aria-label="t('board.writePost.advanced.calloutKind')" :disabled="!editor.isEditable" :value="contentBlock.node.attrs.kind" @change="setPostEditorCalloutKind(editor, ($event.target as HTMLSelectElement).value as 'info' | 'warning')">
+        <option value="info">{{ t('board.writePost.advanced.info') }}</option>
+        <option value="warning">{{ t('board.writePost.advanced.warning') }}</option>
+      </select>
+      <button v-if="contentBlock" type="button" class="tiptap-btn tiptap-btn-pill" :disabled="!editor.isEditable" @mousedown.prevent @click="unwrapPostEditorContentBlock(editor)">{{ t('board.writePost.advanced.unwrapBlock') }}</button>
       <button v-if="editor.isActive('callout') || editor.isActive('details') || editor.isActive('taskList')" type="button" class="tiptap-btn tiptap-btn-pill" :disabled="!editor.isEditable" @mousedown.prevent @click="exitPostEditorContentBlock(editor)">{{ t('board.writePost.advanced.exitBlock') }}</button>
       <button type="button" class="tiptap-btn tiptap-btn-pill" :aria-expanded="panel === 'outline'" @click="panel = panel === 'outline' ? null : 'outline'">{{ t('board.writePost.advanced.outline') }}</button>
       <button type="button" class="tiptap-btn tiptap-btn-pill" :aria-expanded="panel === 'find'" @click="panel = panel === 'find' ? null : 'find'">{{ t('board.writePost.advanced.findReplace') }}</button>

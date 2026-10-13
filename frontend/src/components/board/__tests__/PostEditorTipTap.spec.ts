@@ -272,7 +272,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('>Example</a>'))
 
         mocks.chain.setLink.mockClear()
-        mocks.editor.state.selection = { from: 2, to: 5 }
+        setEditorSelection({ from: 2, to: 5 })
         await wrapper.get(selectors.link).trigger('click')
         await wrapper.findAll('.link-popover-input')[0].setValue('https://selected.test')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
@@ -337,14 +337,14 @@ describe('PostEditorTipTap', () => {
         const wrapper = mountEditor()
         const imageInputClickSpy = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click')
 
-        mocks.editor.state.selection = { from: 2, to: 6 }
+        setEditorSelection({ from: 2, to: 6 })
         const bulletBtn = wrapper.get(selectors.bulletList)
         await bulletBtn.trigger('mousedown')
         await bulletBtn.trigger('click')
         expect(mocks.chain.setTextSelection).toHaveBeenCalledWith({ from: 2, to: 6 })
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
-        mocks.editor.state.selection = { from: 4, to: 8 }
+        setEditorSelection({ from: 4, to: 8 })
         const orderedBtn = wrapper.get(selectors.orderedList)
         await orderedBtn.trigger('mousedown')
         await orderedBtn.trigger('click')

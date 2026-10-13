@@ -368,6 +368,8 @@ export interface BoardMessages {
     tableHeaderRow: string
     tableInsert: string
     advanced: {
+      calloutKind: string
+      unwrapBlock: string
       exitBlock: string
       pasteMode: string
       pasteOriginal: string

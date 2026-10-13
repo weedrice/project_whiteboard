@@ -1,3 +1,5 @@
+import { getPostEditorContentBlock, setPostEditorCalloutKind, unwrapPostEditorContentBlock } from '../postEditorContentBlocks'
+import { postEditorSearchKey } from '../postEditorSearch'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { ref, shallowRef } from 'vue'
@@ -167,4 +169,66 @@ describe('advanced post editor', () => {
   ])('preserves imported block structures that cannot round-trip: %s', html => {
     expect(requiresPreservedPostHtml(html)).toBe(true)
   })
+  it('changes an existing callout from the insert menu without nesting and undoes independently', () => {
+    create('<aside data-callout="info"><p>Keep <strong>format</strong></p></aside>')
+    editor.commands.setTextSelection(4)
+    const original = editor.getHTML()
+    const actions = usePostEditorSlashActions({
+      editor: shallowRef(editor), showSlashMenu: ref(true),
+      applyBulletList: vi.fn(), openLinkPopover: vi.fn(), openTablePopover: vi.fn(), openPollEditor: vi.fn(), detailsTitle: () => 'Details',
+    })
+    actions.applySlashAction('warning')
+    expect(editor.getHTML()).toBe(original.replace('data-callout="info"', 'data-callout="warning"'))
+    expect(unwrapPostEditorContentBlock(editor)).toBe(true)
+    expect(editor.getHTML()).toBe(original.replace('<aside data-callout="info">', '').replace('</aside>', ''))
+    editor.commands.undo()
+    expect(editor.getHTML()).toContain('data-callout="warning"')
+    editor.commands.undo()
+    expect(editor.getHTML()).toBe(original)
+  })
+
+  it('unwraps only the innermost block and preserves a details title, media and body in order', () => {
+    create('<aside data-callout="info"><details><summary><strong>Title</strong><img src="/api/v1/files/10"></summary><div data-details-content=""><p>Body</p><h2>End</h2></div></details></aside>')
+    editor.commands.setTextSelection(4)
+    const original = editor.getHTML()
+    expect(getPostEditorContentBlock(editor)?.node.type.name).toBe('details')
+    expect(unwrapPostEditorContentBlock(editor)).toBe(true)
+    expect(editor.getHTML()).toContain('<aside data-callout="info"><p><strong>Title</strong><img')
+    expect(editor.getHTML()).toContain('</p><p>Body</p><h2>End</h2></aside>')
+    expect(editor.getHTML()).not.toContain('<details>')
+    editor.commands.undo()
+    expect(editor.getHTML()).toBe(original)
+  })
+
+  it('does not unwrap a spanning selection or change blocks in read-only mode', () => {
+    create('<aside data-callout="info"><p>Inside</p></aside><p>Outside</p>')
+    const original = editor.getHTML()
+    editor.commands.setTextSelection({ from: 3, to: editor.state.doc.content.size - 1 })
+    expect(unwrapPostEditorContentBlock(editor)).toBe(false)
+    editor.commands.setTextSelection(3)
+    editor.setEditable(false)
+    expect(unwrapPostEditorContentBlock(editor)).toBe(false)
+    expect(setPostEditorCalloutKind(editor, 'warning')).toBe(false)
+    expect(editor.getHTML()).toBe(original)
+  })
+
+  it('highlights all matches and the current selection without changing HTML or undo history', () => {
+    create('<p>one <strong>one</strong></p>')
+    const original = editor.getHTML()
+    editor.view.dispatch(editor.state.tr.setMeta(postEditorSearchKey, 'one'))
+    expect(postEditorSearchKey.getState(editor.state)?.decorations.find()).toHaveLength(2)
+    expect(editor.view.dom.querySelectorAll('.post-editor-search-match')).toHaveLength(2)
+    editor.commands.setTextSelection({ from: 5, to: 8 })
+    expect(editor.view.dom.querySelector('.post-editor-search-match--current')?.textContent).toBe('one')
+    expect(editor.getHTML()).toBe(original)
+    expect(editor.can().undo()).toBe(false)
+    replacePostEditorText(editor, 'one', 'two', false)
+    expect(postEditorSearchKey.getState(editor.state)?.matches).toHaveLength(1)
+    editor.commands.undo()
+    expect(postEditorSearchKey.getState(editor.state)?.matches).toHaveLength(2)
+    editor.view.dispatch(editor.state.tr.setMeta(postEditorSearchKey, ''))
+    expect(editor.view.dom.querySelectorAll('.post-editor-search-match')).toHaveLength(0)
+    expect(editor.getHTML()).toBe(original)
+  })
+
 })

@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
+import { setPostEditorCalloutKind } from './postEditorContentBlocks'
 import { closeHistory } from '@tiptap/pm/history'
 import type { SlashAction } from '@/components/board/editor/postEditorOptions'
 
@@ -56,7 +57,9 @@ export function usePostEditorSlashActions({
         break
       case 'info':
       case 'warning':
-        editor.value?.chain().focus().wrapIn('callout', { kind: action }).run()
+        if (instance?.isEditable && !setPostEditorCalloutKind(instance, action)) {
+          instance.chain().focus().wrapIn('callout', { kind: action }).run()
+        }
         break
       case 'details':
         editor.value?.chain().focus().insertContent([

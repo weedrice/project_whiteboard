@@ -94,6 +94,8 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     tableHeaderRow: 'Use first row as header',
     tableInsert: 'Insert table',
     advanced: {
+      calloutKind: 'Callout type',
+      unwrapBlock: 'Convert to body text',
       exitBlock: 'Write below block',
       pasteMode: 'Paste mode',
       pasteOriginal: 'Paste: keep original',

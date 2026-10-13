@@ -19,6 +19,7 @@ import {
   RawHtmlBlockKeyboardNavigation,
 } from '@/extensions/tiptap-raw-html-block'
 import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
+import { PostEditorSearch } from '@/features/board/posts/editor/postEditorSearch'
 import PostEditorImageView from '@/components/board/editor/PostEditorImageView.vue'
 import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
@@ -301,6 +302,7 @@ export function createPostEditorExtensions() {
     }),
     RawHtmlBlock,
     ...postEditorBlocks,
+    PostEditorSearch,
     RawHtmlBlockKeyboardNavigation,
     CodeBlockLowlight.configure({
       lowlight,

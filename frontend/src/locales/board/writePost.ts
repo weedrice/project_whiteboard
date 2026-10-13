@@ -93,6 +93,8 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     tableHeaderRow: '첫 줄을 헤더로 사용',
     tableInsert: '표 삽입',
     advanced: {
+      calloutKind: '상자 종류',
+      unwrapBlock: '일반 본문으로',
       exitBlock: '블록 아래에 쓰기',
       pasteMode: '붙여넣기 방식',
       pasteOriginal: '붙여넣기: 원본 유지',
