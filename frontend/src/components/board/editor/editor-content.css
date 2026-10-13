@@ -50,6 +50,21 @@
   margin: 0.25em 0;
 }
 
+.tiptap-editor-wrap .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.tiptap-editor-wrap .ProseMirror .post-editor-task-item {
+  display: flex;
+  gap: 0.5rem;
+  padding-inline-start: 0;
+}
+
+.post-editor-task-toggle { flex-shrink: 0; align-self: flex-start; }
+.post-editor-task-content { flex: 1; min-width: 0; }
+.post-editor-task-content > p:first-child { margin-top: 0; }
+
 .tiptap-editor-wrap .ProseMirror blockquote {
   border-left: 3px solid color-mix(in srgb, var(--nv-accent) 38%, var(--nv-line));
   color: var(--nv-ink-soft);

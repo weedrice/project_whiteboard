@@ -92,6 +92,14 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     tableCols: '열 수',
     tableHeaderRow: '첫 줄을 헤더로 사용',
     tableInsert: '표 삽입',
+    advanced: {
+      taskList: '체크리스트',
+      info: '안내 상자',
+      warning: '주의 상자',
+      details: '접기 영역',
+      detailsTitle: '접기 제목',
+      toggleTask: '완료 상태 변경',
+    },
     editTools: {
       undo: '실행 취소',
       redo: '다시 실행',

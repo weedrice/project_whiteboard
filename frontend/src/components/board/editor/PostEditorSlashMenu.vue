@@ -27,6 +27,10 @@ const actionLabels: Record<SlashAction, string> = {
   codeBlock: 'board.writePost.toolbar.codeBlock',
   divider: 'board.writePost.toolbar.divider',
   poll: 'board.writePost.toolbar.poll',
+  taskList: 'board.writePost.advanced.taskList',
+  info: 'board.writePost.advanced.info',
+  warning: 'board.writePost.advanced.warning',
+  details: 'board.writePost.advanced.details',
 }
 
 const actionButtonRefs = ref<HTMLButtonElement[]>([])

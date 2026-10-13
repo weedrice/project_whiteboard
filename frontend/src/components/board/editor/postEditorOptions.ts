@@ -1,4 +1,4 @@
-export type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider' | 'poll'
+export type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider' | 'poll' | 'taskList' | 'info' | 'warning' | 'details'
 
 export const DEFAULT_EDITOR_TEXT_COLOR = '#000000'
 
@@ -16,7 +16,7 @@ export const colorLabelKeys = [
   'white', 'dark', 'slate', 'paleGray',
 ]
 
-export const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider', 'poll']
+export const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider', 'poll', 'taskList', 'info', 'warning', 'details']
 
 export const codeBlockLanguages = [
   '',

@@ -6,7 +6,7 @@ import { hasCandidateImageFiles, isCandidateImageFile } from '../postEditorImage
 describe('post editor helper modules', () => {
   it('keeps option arrays aligned for toolbar and slash menu rendering', () => {
     expect(colorPresets).toHaveLength(colorLabelKeys.length)
-    expect(slashActions).toEqual(['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider', 'poll'])
+    expect(slashActions).toEqual(['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider', 'poll', 'taskList', 'info', 'warning', 'details'])
     expect(fontSizes).toEqual(['12px', '14px', '16px', '18px', '24px'])
     expect(lineHeights).toContain('1.5')
   })

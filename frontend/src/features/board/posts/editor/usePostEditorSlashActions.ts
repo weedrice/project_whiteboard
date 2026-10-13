@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
+import { closeHistory } from '@tiptap/pm/history'
 import type { SlashAction } from '@/components/board/editor/postEditorOptions'
 
 type SlashActionOptions = {
@@ -9,6 +10,7 @@ type SlashActionOptions = {
   openLinkPopover: () => void
   openTablePopover: () => void
   openPollEditor: () => void
+  detailsTitle: () => string
 }
 
 export function usePostEditorSlashActions({
@@ -18,8 +20,12 @@ export function usePostEditorSlashActions({
   openLinkPopover,
   openTablePopover,
   openPollEditor,
+  detailsTitle,
 }: SlashActionOptions) {
   function applySlashAction(action: SlashAction) {
+    const instance = editor.value
+    const isContentBlock = ['taskList', 'info', 'warning', 'details'].includes(action)
+    if (isContentBlock && instance) instance.view.dispatch(closeHistory(instance.state.tr))
     switch (action) {
       case 'heading':
         editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
@@ -45,7 +51,24 @@ export function usePostEditorSlashActions({
       case 'poll':
         openPollEditor()
         break
+      case 'taskList':
+        editor.value?.chain().focus().toggleList('taskList', 'taskItem').run()
+        break
+      case 'info':
+      case 'warning':
+        editor.value?.chain().focus().wrapIn('callout', { kind: action }).run()
+        break
+      case 'details':
+        editor.value?.chain().focus().insertContent([
+          { type: 'details', content: [
+            { type: 'detailsSummary', content: [{ type: 'text', text: detailsTitle() }] },
+            { type: 'detailsContent', content: [{ type: 'paragraph' }] },
+          ] },
+          { type: 'paragraph' },
+        ]).run()
+        break
     }
+    if (isContentBlock && instance) instance.view.dispatch(closeHistory(instance.state.tr))
     showSlashMenu.value = false
   }
 

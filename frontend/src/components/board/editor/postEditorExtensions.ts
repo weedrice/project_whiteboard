@@ -24,6 +24,7 @@ import { createMentionCandidateLookup } from '@/features/mentions/useMentionAuto
 import { lowlight } from '@/utils/codeHighlighting'
 import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
 import type { MentionCandidate } from '@/types'
+import { postEditorBlocks } from './postEditorBlocks'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const EditorImage = Image.extend({
@@ -299,6 +300,7 @@ export function createPostEditorExtensions() {
       underline: false,
     }),
     RawHtmlBlock,
+    ...postEditorBlocks,
     RawHtmlBlockKeyboardNavigation,
     CodeBlockLowlight.configure({
       lowlight,

@@ -50,11 +50,11 @@ const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
 const isRawHtmlBlockSelected = ref(false)
 const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
-const availableSlashActions = computed(() => (
-  props.pollEnabled === false
-    ? slashActions.filter((action) => action !== 'poll')
-    : slashActions
-))
+const availableSlashActions = computed(() => slashActions.filter(action => {
+  if (action === 'poll' && props.pollEnabled === false) return false
+  return !['taskList', 'info', 'warning', 'details'].includes(action)
+    || (!isRawHtmlBlockSelected.value && !editor.value?.isActive('codeBlock'))
+}))
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload(
   undefined,
@@ -86,6 +86,7 @@ const {
   moveSlashSelection,
   setSlashSelection,
 } = usePostEditorSlashMenu({
+  actions: availableSlashActions,
   showSlashMenu,
   slashPosition,
   closeFloatingMenus,
@@ -206,6 +207,7 @@ const {
   openLinkPopover,
   openTablePopover,
   openPollEditor: () => emit('open-poll'),
+  detailsTitle: () => t('board.writePost.advanced.detailsTitle'),
 })
 
 const {

@@ -65,7 +65,7 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
             'a', 'img', 'iframe', 'hr',
             'div', 'span', 'sub', 'sup',
             'table', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-            'mark'
+            'mark', 'aside', 'details', 'summary'
         ],
         ALLOWED_ATTR: [
             'href', 'src', 'alt', 'title', 'class', 'target', 'rel',
@@ -73,6 +73,7 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
             'start', 'span', 'colspan', 'rowspan', 'colwidth', 'data-color',
             'data-file-id', 'data-server-src', 'data-caption', 'data-video-embed', 'data-type', 'data-id', 'data-label',
             'data-mention-suggestion-char', 'data-mention-user-id',
+            'data-checked', 'data-callout', 'data-details-content',
             'frameborder', 'allowfullscreen', 'allow',
             'referrerpolicy', 'sandbox',
         ],

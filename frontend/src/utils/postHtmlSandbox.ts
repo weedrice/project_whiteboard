@@ -49,9 +49,12 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
     h5: new Set(['style']),
     h6: new Set(['style']),
     blockquote: new Set(),
-    ul: new Set(),
+    ul: new Set(['data-type']),
     ol: new Set(['start']),
-    li: new Set(),
+    li: new Set(['data-type', 'data-checked']),
+    aside: new Set(['data-callout']),
+    details: new Set(),
+    summary: new Set(),
     pre: new Set(['class']),
     code: new Set(['class']),
     strong: new Set(),
@@ -93,7 +96,7 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
     tr: new Set(),
     th: new Set(['colspan', 'rowspan', 'colwidth', 'style']),
     td: new Set(['colspan', 'rowspan', 'colwidth', 'style']),
-    div: new Set(['class', 'data-video-embed']),
+    div: new Set(['class', 'data-video-embed', 'data-details-content']),
     iframe: new Set([
         'src',
         'width',
@@ -213,9 +216,37 @@ function isSupportedEditorElement(element: HTMLElement): boolean {
     if (!hasSupportedEditorClass(element, tag) || !hasSupportedEditorStyle(element, tag)) return false
 
     if (tag === 'div') {
+        if (element.hasAttribute('data-details-content')) {
+            return element.attributes.length === 1 && element.parentElement?.tagName === 'DETAILS'
+        }
         return element.classList.length === 1
             && element.classList.contains('tiptap-video-wrapper')
             && element.querySelector(':scope > iframe') != null
+    }
+    if (tag === 'ul' && element.hasAttribute('data-type')) {
+        return element.getAttribute('data-type') === 'taskList'
+            && element.children.length > 0
+            && !Array.from(element.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
+            && Array.from(element.children).every(child => child.matches('li[data-type="taskItem"]'))
+    }
+    if (tag === 'li' && (element.hasAttribute('data-type') || element.hasAttribute('data-checked'))) {
+        return element.getAttribute('data-type') === 'taskItem'
+            && ['true', 'false'].includes(element.getAttribute('data-checked') ?? '')
+            && element.parentElement?.matches('ul[data-type="taskList"]') === true
+            && element.firstElementChild?.tagName === 'P'
+            && !Array.from(element.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
+            && Array.from(element.children).every(child => /^(P|H[1-6]|UL|OL|BLOCKQUOTE|PRE|TABLE|HR|ASIDE|DETAILS|DIV)$/.test(child.tagName))
+    }
+    if (tag === 'aside') return ['info', 'warning'].includes(element.getAttribute('data-callout') ?? '')
+    if (tag === 'details') {
+        return element.children.length === 2 && element.firstElementChild?.tagName === 'SUMMARY'
+            && element.lastElementChild?.matches('div[data-details-content]') === true
+            && !Array.from(element.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim())
+    }
+    if (tag === 'summary') {
+        // detailsSummary accepts inline content only, including descendants inside marks.
+        return element.parentElement?.tagName === 'DETAILS' && element.parentElement.firstElementChild === element
+            && Array.from(element.querySelectorAll('*')).every(child => /^(STRONG|EM|S|U|A|CODE|IMG|BR|SPAN|MARK)$/.test(child.tagName))
     }
     if (tag === 'iframe') {
         const src = element.getAttribute('src') ?? ''

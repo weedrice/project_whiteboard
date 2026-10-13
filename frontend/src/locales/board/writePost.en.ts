@@ -93,6 +93,14 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     tableCols: 'Columns',
     tableHeaderRow: 'Use first row as header',
     tableInsert: 'Insert table',
+    advanced: {
+      taskList: 'Checklist',
+      info: 'Information box',
+      warning: 'Warning box',
+      details: 'Collapsible section',
+      detailsTitle: 'Section title',
+      toggleTask: 'Toggle completion',
+    },
     editTools: {
       undo: 'Undo',
       redo: 'Redo',

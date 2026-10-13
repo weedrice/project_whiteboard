@@ -367,6 +367,14 @@ export interface BoardMessages {
     tableCols: string
     tableHeaderRow: string
     tableInsert: string
+    advanced: {
+      taskList: string
+      info: string
+      warning: string
+      details: string
+      detailsTitle: string
+      toggleTask: string
+    }
     editTools: {
       undo: string
       redo: string
