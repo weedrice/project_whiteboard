@@ -121,6 +121,8 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       selectionTools: 'Selection tools',
       link: 'Link',
       color: 'Color',
+      replaceImage: 'Replace image',
+      replacingImage: 'Replacing…',
     },
     editTools: {
       undo: 'Undo',

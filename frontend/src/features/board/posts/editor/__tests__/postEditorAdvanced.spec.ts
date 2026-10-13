@@ -4,6 +4,7 @@ import { ref, shallowRef } from 'vue'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
 import { cleanPostEditorPaste, pasteWithPostEditorMode } from '../postEditorPaste'
 import { exitPostEditorContentBlock, findPostEditorText, replacePostEditorText } from '../postEditorDocumentTools'
+import { usePostEditorUploadedImages } from '../usePostEditorUploadedImages'
 import { usePostEditorSlashActions } from '../usePostEditorSlashActions'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
@@ -88,6 +89,21 @@ describe('advanced post editor', () => {
     editor.commands.setTextSelection(3)
     expect(exitPostEditorContentBlock(editor)).toBe(true)
     expect(editor.getHTML()).toBe('<aside data-callout="info"><p>Inside</p></aside><p></p>')
+  })
+
+  it('replaces only the image source and file identity and supports undo', () => {
+    create('<p><img src="/api/v1/files/10" width="240" alt="Alt" data-caption="Caption" class="tiptap-image-align-right"></p>')
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:replacement')
+    const uploaded = vi.fn()
+    const images = usePostEditorUploadedImages(shallowRef(editor), uploaded)
+    const original = editor.getHTML()
+    expect(images.replaceUploadedImage({ url: '/api/v1/files/20', fileId: 20 }, new File(['image'], 'new.png'), 1)).toBe(true)
+    const node = editor.state.doc.nodeAt(1)!
+    expect(node.attrs).toMatchObject({ src: 'blob:replacement', serverSrc: '/api/v1/files/20', fileId: 20, alt: 'Alt', caption: 'Caption', width: '240', alignment: 'right' })
+    expect(uploaded).toHaveBeenCalledWith(20)
+    editor.commands.undo()
+    expect(editor.getHTML()).toBe(original)
+    images.disposeUploadedImagePreviews()
   })
 
   it('starts the next checklist item unchecked after completing the previous item', () => {

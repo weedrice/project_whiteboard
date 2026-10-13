@@ -395,6 +395,8 @@ export interface BoardMessages {
       selectionTools: string
       link: string
       color: string
+      replaceImage: string
+      replacingImage: string
     }
     editTools: {
       undo: string

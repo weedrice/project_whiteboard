@@ -7,6 +7,7 @@ import PostEditorDocumentTools from '@/components/board/editor/PostEditorDocumen
 import PostEditorSelectionTools from '@/components/board/editor/PostEditorSelectionTools.vue'
 import { useDialogLifecycle } from '@/composables/useDialogLifecycle'
 import { pasteWithPostEditorMode, type PostEditorPasteMode } from '@/features/board/posts/editor/postEditorPaste'
+import { usePostEditorImageReplacement } from '@/features/board/posts/editor/usePostEditorImageReplacement'
 import { codeBlockLanguages, colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
@@ -160,9 +161,15 @@ const {
   fileIds,
   insertUploadedImage,
   disposeUploadedImagePreviews,
+  replaceUploadedImage,
 } = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
+const { input: replacementInput, busy: replacingImage, onChange: onReplacementChange, cancel: cancelReplacement } = usePostEditorImageReplacement({
+  editor, ownerIdentity: uploadOwnerIdentity, replace: replaceUploadedImage,
+  invalid: reportImageValidationError,
+  failed: () => toastStore.addToast(t('common.messages.uploadFailed'), 'error'),
+})
 watch(
-  () => imageUploadQueue.isProcessing.value || imageUploadQueueCount.value > 0,
+  () => imageUploadQueue.isProcessing.value || imageUploadQueueCount.value > 0 || replacingImage.value,
   (pending) => emit('upload-pending', pending),
   { immediate: true, flush: 'sync' },
 )
@@ -370,6 +377,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="editorWrap" class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col" :class="{ 'post-editor-focus': focused }" :role="focused ? 'dialog' : undefined" :aria-modal="isFocusDialogTop ? 'true' : undefined" :aria-label="focused ? t('board.writePost.advanced.focus') : undefined" @keydown.esc="exitFocusMode">
     <input ref="imageInput" type="file" data-ui-native="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
+    <input ref="replacementInput" type="file" data-ui-native="file" :accept="IMAGE_UPLOAD_ACCEPT" class="hidden" data-image-replacement @change="onReplacementChange" @cancel="cancelReplacement">
     <PostEditorDocumentTools v-if="editor" v-model:paste-mode="pasteMode" v-model:focused="focused" :editor="editor" />
     <PostEditorSelectionTools v-if="editor" :editor="editor" :focused="focused" @link="openLinkPopover" @color="toggleColorPanel" />
 

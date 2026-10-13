@@ -47,7 +47,7 @@ for (const language of ['ko', 'en']) {
         await page.goto('/board/general/post/1/edit')
         await expect(page.getByRole('combobox', { name: language === 'en' ? 'Font size' : '글자 크기', exact: true })).toBeVisible()
         const editor = page.locator('.ProseMirror')
-        const uploadInput = page.locator('.tiptap-editor-wrap input[type="file"]')
+        const uploadInput = page.locator('.tiptap-editor-wrap input[type="file"][multiple]')
         const status = page.locator('.image-upload-status')
         const failedItems = page.locator('.image-upload-failed-item')
         await editor.getByText('Alpha', { exact: true }).click()

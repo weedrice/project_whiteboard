@@ -120,6 +120,8 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       selectionTools: '선택 영역 도구',
       link: '링크',
       color: '색상',
+      replaceImage: '이미지 교체',
+      replacingImage: '교체 중…',
     },
     editTools: {
       undo: '실행 취소',

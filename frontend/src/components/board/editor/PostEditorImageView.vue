@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
+import { postEditorImageReplacementKey } from '@/features/board/posts/editor/usePostEditorImageReplacement'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { AlignCenter, AlignLeft, AlignRight, Undo2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -18,6 +19,7 @@ const MINIMUM_IMAGE_WIDTH_PERCENT = 25
 
 const props = defineProps(nodeViewProps)
 const { t } = useI18n()
+const replacement = inject(postEditorImageReplacementKey, null)
 const showDescription = ref(false)
 const descriptionAlt = ref('')
 const descriptionCaption = ref('')
@@ -497,6 +499,7 @@ onBeforeUnmount(() => {
 
       <span class="post-editor-image-control-divider" aria-hidden="true" />
       <button type="button" class="post-editor-image-control post-editor-image-control--size" :disabled="!props.editor.isEditable" @click="openDescription">{{ t('board.writePost.imageControls.description') }}</button>
+      <button v-if="replacement" type="button" class="post-editor-image-control post-editor-image-control--size" :disabled="!props.editor.isEditable || replacement.busy.value" @click="replacement.request(props.getPos)">{{ replacement.busy.value ? t('board.writePost.advanced.replacingImage') : t('board.writePost.advanced.replaceImage') }}</button>
 
       <button
         v-for="item in [
