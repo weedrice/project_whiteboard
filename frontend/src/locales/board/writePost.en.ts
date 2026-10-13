@@ -96,6 +96,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     advanced: {
       calloutKind: 'Callout type',
       unwrapBlock: 'Convert to body text',
+      cancelReplacement: 'Cancel image replacement',
       exitBlock: 'Write below block',
       pasteMode: 'Paste mode',
       pasteOriginal: 'Paste: keep original',

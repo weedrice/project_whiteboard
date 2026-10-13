@@ -1,4 +1,4 @@
-import { provide, ref, type InjectionKey, type Ref } from 'vue'
+import { onBeforeUnmount, provide, ref, watch, type InjectionKey, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { fileApi } from '@/api/file'
 import logger from '@/utils/logger'
@@ -19,6 +19,15 @@ export function usePostEditorImageReplacement(options: {
 }) {
   const input = ref<HTMLInputElement | null>(null)
   const uploader = useEditorImageUpload(undefined, options.ownerIdentity)
+  const currentFileName = ref('')
+  let active: { cancelled: boolean } | null = null
+  function cancel() {
+    target = null
+    if (active) active.cancelled = true
+    uploader.abortImageUpload()
+  }
+  watch(options.ownerIdentity, cancel, { flush: 'sync' })
+  onBeforeUnmount(cancel)
   let target: { editor: Editor; getPosition: () => number | undefined; src: string } | null = null
   provide(postEditorImageReplacementKey, {
     busy: uploader.isUploadingImage,
@@ -41,12 +50,18 @@ export function usePostEditorImageReplacement(options: {
     if (!file || !current || uploader.isUploadingImage.value) return
     const error = uploader.validateImageFile(file)
     if (error) { options.invalid(error); return }
+    const operation = { cancelled: false }
+    active = operation
+    currentFileName.value = file.name
     try {
       const uploaded = await uploader.uploadImage(file)
-      if (!uploaded) { options.failed(); return }
+      if (!uploaded) {
+        if (!operation.cancelled) options.failed()
+        return
+      }
       let position: number | undefined
       // A removed node view can no longer resolve its position. The upload still needs cleanup.
-      if (!current.editor.isDestroyed && current.editor === options.editor.value) {
+      if (!operation.cancelled && !current.editor.isDestroyed && current.editor === options.editor.value) {
         try { position = current.getPosition() } catch { position = undefined }
       }
       const node = position == null ? null : current.editor.state.doc.nodeAt(position)
@@ -56,11 +71,16 @@ export function usePostEditorImageReplacement(options: {
         await fileApi.discardUploads([uploaded.fileId], { skipGlobalErrorHandler: true })
       }
     } catch (error) {
-      if (!uploader.isAbortUploadError(error)) {
+      if (!operation.cancelled && !uploader.isAbortUploadError(error)) {
         logger.error('Image replacement failed:', error)
         options.failed()
       }
+    } finally {
+      if (active === operation) {
+        active = null
+        currentFileName.value = ''
+      }
     }
   }
-  return { input, busy: uploader.isUploadingImage, onChange, cancel: () => { target = null } }
+  return { input, busy: uploader.isUploadingImage, currentFileName, onChange, cancel }
 }

@@ -163,7 +163,7 @@ const {
   disposeUploadedImagePreviews,
   replaceUploadedImage,
 } = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
-const { input: replacementInput, busy: replacingImage, onChange: onReplacementChange, cancel: cancelReplacement } = usePostEditorImageReplacement({
+const { input: replacementInput, busy: replacingImage, currentFileName: replacingImageName, onChange: onReplacementChange, cancel: cancelReplacement } = usePostEditorImageReplacement({
   editor, ownerIdentity: uploadOwnerIdentity, replace: replaceUploadedImage,
   invalid: reportImageValidationError,
   failed: () => toastStore.addToast(t('common.messages.uploadFailed'), 'error'),
@@ -385,6 +385,8 @@ onBeforeUnmount(() => {
       v-if="editor"
       :editor="editor"
       :is-uploading-image="isUploadingImage"
+      :is-replacing-image="replacingImage"
+      :replacing-image-name="replacingImageName"
       :has-image-upload-error="hasImageUploadError"
       :current-uploading-image-name="currentUploadingImageName"
       :image-upload-queue-count="imageUploadQueueCount"
@@ -428,6 +430,7 @@ onBeforeUnmount(() => {
       @retry-image-upload="retryImageUpload"
       @retry-failed-image-upload="retryFailedImageUpload"
       @cancel-image-upload="cancelImageUpload"
+      @cancel-image-replacement="cancelReplacement"
       @dismiss-image-upload-error="dismissImageUploadError"
       @dismiss-failed-image-upload="dismissFailedImageUpload"
     />

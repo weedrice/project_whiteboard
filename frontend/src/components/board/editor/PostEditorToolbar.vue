@@ -26,6 +26,8 @@ import PostEditorTableTools from '@/components/board/editor/PostEditorTableTools
 const props = withDefaults(defineProps<{
   editor: Editor
   isUploadingImage: boolean
+  isReplacingImage?: boolean
+  replacingImageName?: string
   hasImageUploadError: boolean
   currentUploadingImageName: string
   imageUploadQueueCount: number
@@ -47,6 +49,8 @@ const props = withDefaults(defineProps<{
   isRawHtmlBlockSelected?: boolean
 }>(), {
   isRawHtmlBlockSelected: false,
+  isReplacingImage: false,
+  replacingImageName: '',
 })
 
 const emit = defineEmits<{
@@ -74,6 +78,7 @@ const emit = defineEmits<{
   (e: 'retry-image-upload'): void
   (e: 'retry-failed-image-upload', file: File): void
   (e: 'cancel-image-upload'): void
+  (e: 'cancel-image-replacement'): void
   (e: 'dismiss-image-upload-error'): void
   (e: 'dismiss-failed-image-upload', file: File): void
 }>()
@@ -195,6 +200,8 @@ const languageOptions = computed(() => [...new Set([
 
     <PostEditorImageUploadStatus
       :is-uploading-image="isUploadingImage"
+      :is-replacing-image="isReplacingImage"
+      :replacing-image-name="replacingImageName"
       :has-image-upload-error="hasImageUploadError"
       :current-uploading-image-name="currentUploadingImageName"
       :image-upload-queue-count="imageUploadQueueCount"
@@ -203,6 +210,7 @@ const languageOptions = computed(() => [...new Set([
       @retry-image-upload="emit('retry-image-upload')"
       @retry-failed-image-upload="(file) => emit('retry-failed-image-upload', file)"
       @cancel-image-upload="emit('cancel-image-upload')"
+      @cancel-image-replacement="emit('cancel-image-replacement')"
       @dismiss-image-upload-error="emit('dismiss-image-upload-error')"
       @dismiss-failed-image-upload="(file) => emit('dismiss-failed-image-upload', file)"
     />

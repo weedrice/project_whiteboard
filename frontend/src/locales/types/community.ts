@@ -370,6 +370,7 @@ export interface BoardMessages {
     advanced: {
       calloutKind: string
       unwrapBlock: string
+      cancelReplacement: string
       exitBlock: string
       pasteMode: string
       pasteOriginal: string

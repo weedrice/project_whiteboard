@@ -95,6 +95,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     advanced: {
       calloutKind: '상자 종류',
       unwrapBlock: '일반 본문으로',
+      cancelReplacement: '이미지 교체 취소',
       exitBlock: '블록 아래에 쓰기',
       pasteMode: '붙여넣기 방식',
       pasteOriginal: '붙여넣기: 원본 유지',
