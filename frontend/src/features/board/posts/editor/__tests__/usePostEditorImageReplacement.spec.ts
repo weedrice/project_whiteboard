@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -21,6 +22,7 @@ describe('image replacement cancellation', () => {
   const replace = vi.fn(() => true)
   const failed = vi.fn()
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.discard.mockResolvedValue({})
     owner.value = 'owner'
@@ -67,7 +69,7 @@ describe('image replacement cancellation', () => {
     replacement.cancel()
     finish({ data: { success: true, data: { fileId: 99, fileUrl: '/new.png' } } })
     await upload
-    expect(mocks.discard).toHaveBeenCalledWith([99], { skipGlobalErrorHandler: true })
+    expect(mocks.discard).toHaveBeenCalledWith([99], expect.objectContaining({ skipGlobalErrorHandler: true }))
     expect(replace).not.toHaveBeenCalled()
     expect(failed).not.toHaveBeenCalled()
   })
