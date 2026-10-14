@@ -90,9 +90,11 @@ test('preserved HTML editing remains keyboard-usable without page overflow on mo
   await page.goto('/board/general/post/1/edit')
 
   const htmlBlock = page.locator('.raw-html-block')
-  const toolbarRows = page.locator('.tiptap-toolbar-row--scrollable')
+  const toolbarRows = page.locator('.tiptap-toolbar .tiptap-toolbar-row--scrollable')
+  const documentToolsRow = page.locator('.post-editor-document-tools .tiptap-toolbar-row--scrollable')
   await expect(htmlBlock).toBeVisible()
   await expect(toolbarRows).toHaveCount(2)
+  await expect(documentToolsRow).toBeVisible()
   await expect(htmlBlock.locator('iframe')).toHaveAttribute('loading', 'lazy')
   await expect(htmlBlock.locator('iframe').contentFrame().locator('body')).toHaveCSS('color', 'rgb(249, 250, 251)')
 

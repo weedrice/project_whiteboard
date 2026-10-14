@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { slashActions } from '@/components/board/editor/postEditorOptions'
+import { slashActions, type SlashAction } from '@/components/board/editor/postEditorOptions'
 
 interface AnchorPositionController {
   setAnchor(anchor?: HTMLElement): void
@@ -10,12 +10,14 @@ interface UsePostEditorSlashMenuOptions {
   showSlashMenu: Ref<boolean>
   slashPosition: AnchorPositionController
   closeFloatingMenus: () => void
+  actions?: Readonly<Ref<SlashAction[]>>
 }
 
 export function usePostEditorSlashMenu({
   showSlashMenu,
   slashPosition,
   closeFloatingMenus,
+  actions,
 }: UsePostEditorSlashMenuOptions) {
   const slashActiveIndex = ref(0)
 
@@ -35,11 +37,12 @@ export function usePostEditorSlashMenu({
   }
 
   function moveSlashSelection(direction: 1 | -1) {
-    slashActiveIndex.value = (slashActiveIndex.value + direction + slashActions.length) % slashActions.length
+    const count = actions?.value.length ?? slashActions.length
+    slashActiveIndex.value = count ? (slashActiveIndex.value + direction + count) % count : 0
   }
 
   function setSlashSelection(index: number) {
-    slashActiveIndex.value = Math.max(0, Math.min(slashActions.length - 1, index))
+    slashActiveIndex.value = Math.max(0, Math.min((actions?.value.length ?? slashActions.length) - 1, index))
   }
 
   return {

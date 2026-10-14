@@ -1,4 +1,4 @@
-import { mergeAttributes } from '@tiptap/core'
+import { Extension, mergeAttributes } from '@tiptap/core'
 import { VueNodeViewRenderer, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
@@ -19,17 +19,26 @@ import {
   RawHtmlBlockKeyboardNavigation,
 } from '@/extensions/tiptap-raw-html-block'
 import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
+import { PostEditorSearch } from '@/features/board/posts/editor/postEditorSearch'
 import PostEditorImageView from '@/components/board/editor/PostEditorImageView.vue'
 import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
 import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
 import type { MentionCandidate } from '@/types'
+import { postEditorBlocks } from './postEditorBlocks'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const EditorImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      caption: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-caption'),
+        renderHTML: (attributes: { caption?: string | null }) => (
+          attributes.caption ? { 'data-caption': attributes.caption } : {}
+        ),
+      },
       loading: {
         default: null,
         parseHTML: (element: HTMLElement) => {
@@ -98,6 +107,24 @@ const EditorTable = Table.extend({
       width: createPreservedHtmlAttribute('width'),
       style: createPreservedHtmlAttribute('style'),
     }
+  },
+})
+
+const TableCellBackground = Extension.create({
+  name: 'tableCellBackground',
+  addGlobalAttributes() {
+    return [{
+      types: ['tableCell', 'tableHeader'],
+      attributes: {
+        backgroundColor: {
+          default: null,
+          parseHTML: (element: HTMLElement) => element.style.backgroundColor || null,
+          renderHTML: (attributes: { backgroundColor?: string | null }) => (
+            attributes.backgroundColor ? { style: `background-color: ${attributes.backgroundColor}` } : {}
+          ),
+        },
+      },
+    }]
   },
 })
 
@@ -274,6 +301,8 @@ export function createPostEditorExtensions() {
       underline: false,
     }),
     RawHtmlBlock,
+    ...postEditorBlocks,
+    PostEditorSearch,
     RawHtmlBlockKeyboardNavigation,
     CodeBlockLowlight.configure({
       lowlight,
@@ -356,6 +385,7 @@ export function createPostEditorExtensions() {
     TableKit.configure({
       table: false,
     }),
+    TableCellBackground,
     HorizontalRule,
     Video,
   ]

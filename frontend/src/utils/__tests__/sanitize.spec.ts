@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { sanitizeHtml, sanitizeQuillHtml } from '../sanitize'
 
 describe('sanitize', () => {
+    it('preserves caption text without retaining unsafe images, tags or event handlers', () => {
+        const html = '<img src="javascript:alert(1)" data-caption="discarded">'
+            + '<img src="/api/v1/files/10" data-caption="&lt;/script&gt; 한글" onerror="alert(1)">'
+            + '<img src="https://evil.example/test.png" data-caption="discarded too">'
+            + '<img src="/api/v1/files/11" data-caption="caption-0">'
+            + '<script>alert(1)</script>'
+        const clean = sanitizeQuillHtml(html)
+        const doc = new DOMParser().parseFromString(clean, 'text/html')
+        expect(Array.from(doc.querySelectorAll('img')).map(image => image.getAttribute('data-caption'))).toEqual(['</script> 한글', 'caption-0'])
+        expect(doc.querySelector('script, [onerror]')).toBeNull()
+        expect(sanitizeQuillHtml(clean)).toBe(clean)
+        expect(sanitizeQuillHtml('<img src="/api/v1/files/10" data-caption="caption-1">')).toContain('data-caption="caption-1"')
+    })
     it('sanitizeHtml removes script tags and event handlers', () => {
         const dirty = '<p onclick="evil()">hello</p><script>alert(1)</script>'
         const clean = sanitizeHtml(dirty)

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
+import { postEditorImageReplacementKey } from '@/features/board/posts/editor/usePostEditorImageReplacement'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { AlignCenter, AlignLeft, AlignRight, Undo2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import { resolveLegacyPostEditorImageCssWidth } from '@/utils/postEditorImageLayout'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 type ImageAlignment = 'inline' | 'left' | 'center' | 'right'
 
@@ -14,6 +19,37 @@ const MINIMUM_IMAGE_WIDTH_PERCENT = 25
 
 const props = defineProps(nodeViewProps)
 const { t } = useI18n()
+const replacement = inject(postEditorImageReplacementKey, null)
+const showDescription = ref(false)
+const descriptionAlt = ref('')
+const descriptionCaption = ref('')
+
+function openDescription() {
+  descriptionAlt.value = String(props.node.attrs.alt ?? '')
+  descriptionCaption.value = String(props.node.attrs.caption ?? '')
+  showDescription.value = true
+}
+
+function saveDescription() {
+  if (!props.editor.isEditable || typeof props.getPos() !== 'number') return
+  props.updateAttributes({ alt: descriptionAlt.value, caption: descriptionCaption.value || null })
+  void closeDescription()
+}
+
+async function closeDescription() {
+  showDescription.value = false
+  await nextTick()
+  const position = props.getPos()
+  if (!props.editor.isDestroyed && typeof position === 'number') {
+    props.editor.chain().focus().setNodeSelection(position).run()
+  }
+}
+
+function onDescriptionEnter(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  saveDescription()
+}
 const resizingWidthPercent = ref<number | null>(null)
 const imageControlsRef = ref<HTMLElement | null>(null)
 const controlsShift = ref(0)
@@ -427,6 +463,7 @@ onBeforeUnmount(() => {
       data-drag-handle
       @click.stop="selectImage"
     >
+    <span v-if="props.node.attrs.caption" class="post-editor-image-caption" contenteditable="false" @click.stop="selectImage">{{ props.node.attrs.caption }}</span>
 
     <span
       v-if="props.selected"
@@ -461,6 +498,8 @@ onBeforeUnmount(() => {
       </button>
 
       <span class="post-editor-image-control-divider" aria-hidden="true" />
+      <button type="button" class="post-editor-image-control post-editor-image-control--size" :disabled="!props.editor.isEditable" @click="openDescription">{{ t('board.writePost.imageControls.description') }}</button>
+      <button v-if="replacement" type="button" class="post-editor-image-control post-editor-image-control--size" :disabled="!props.editor.isEditable || replacement.busy.value" @click="replacement.request(props.getPos)">{{ replacement.busy.value ? t('board.writePost.advanced.replacingImage') : t('board.writePost.advanced.replaceImage') }}</button>
 
       <button
         v-for="item in [
@@ -498,5 +537,16 @@ onBeforeUnmount(() => {
       @pointerdown="startResize"
       @keydown="resizeWithKeyboard"
     />
+    <BaseModal :is-open="showDescription" :title="t('board.writePost.imageControls.description')" size="md" @close="closeDescription">
+      <div class="flex flex-col gap-4">
+        <BaseInput :model-value="descriptionAlt" :label="t('board.writePost.imageControls.alt')" @update:model-value="descriptionAlt = String($event)" @keydown.enter="onDescriptionEnter" />
+        <p class="text-xs nv-text-muted">{{ t('board.writePost.imageControls.altHint') }}</p>
+        <BaseInput :model-value="descriptionCaption" :label="t('board.writePost.imageControls.caption')" @update:model-value="descriptionCaption = String($event)" @keydown.enter="onDescriptionEnter" />
+      </div>
+      <template #footer>
+        <BaseButton variant="secondary" @click="closeDescription">{{ t('common.cancel') }}</BaseButton>
+        <BaseButton :disabled="!props.editor.isEditable" @click="saveDescription">{{ t('common.save') }}</BaseButton>
+      </template>
+    </BaseModal>
   </NodeViewWrapper>
 </template>

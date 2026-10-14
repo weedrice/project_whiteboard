@@ -1,7 +1,8 @@
 .tiptap-editor-wrap .tiptap-content {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  /* The toolbar scrolls when controls grow; keep the body available for typing. */
+  min-height: 10rem;
   overflow-y: auto;
   position: relative;
 }
@@ -48,6 +49,21 @@
   display: list-item;
   margin: 0.25em 0;
 }
+
+.tiptap-editor-wrap .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.tiptap-editor-wrap .ProseMirror .post-editor-task-item {
+  display: flex;
+  gap: 0.5rem;
+  padding-inline-start: 0;
+}
+
+.post-editor-task-toggle { flex-shrink: 0; align-self: flex-start; }
+.post-editor-task-content { flex: 1; min-width: 0; }
+.post-editor-task-content > p:first-child { margin-top: 0; }
 
 .tiptap-editor-wrap .ProseMirror blockquote {
   border-left: 3px solid color-mix(in srgb, var(--nv-accent) 38%, var(--nv-line));
@@ -126,6 +142,14 @@
   overflow-x: auto;
 }
 
+.tiptap-editor-wrap .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--nv-accent) 18%, transparent);
+}
+
 .tiptap-editor-wrap .ProseMirror .column-resize-handle {
   position: absolute;
   right: -3px;
@@ -182,6 +206,16 @@
   height: auto;
   max-width: 100%;
   width: 100%;
+}
+
+.post-editor-image-caption {
+  display: block;
+  padding-top: 0.4rem;
+  color: var(--nv-ink-soft);
+  font-size: var(--text-xs);
+  text-align: center;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .post-editor-image-node > img:active {
@@ -243,6 +277,11 @@
   transform: translateX(calc(-50% + var(--post-editor-image-controls-shift, 0px)));
   white-space: nowrap;
   z-index: 15;
+}
+
+.post-editor-image-controls > button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .post-editor-image-node--inline .post-editor-image-controls,
@@ -364,3 +403,14 @@
   border-radius: 8px;
 }
 
+
+.tiptap-editor-wrap .ProseMirror .post-editor-search-match {
+  background: color-mix(in srgb, var(--nv-accent) 18%, transparent);
+  box-shadow: inset 0 -1px var(--nv-accent);
+}
+
+.tiptap-editor-wrap .ProseMirror .post-editor-search-match--current {
+  background: color-mix(in srgb, var(--nv-accent) 32%, transparent);
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 1px;
+}

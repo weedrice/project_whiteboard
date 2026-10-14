@@ -1,6 +1,79 @@
 @reference "../style.css";
 
 @layer components {
+  .nv-rich-content :where(aside[data-callout]) {
+    border-inline-start: 3px solid var(--nv-accent);
+    background: color-mix(in srgb, var(--nv-accent) 8%, var(--nv-surface));
+    border-radius: 0.5rem;
+    margin-block: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .nv-rich-content :where(aside[data-callout="warning"]) {
+    border-color: var(--nv-warning-text);
+    background: color-mix(in srgb, var(--nv-warning-text) 8%, var(--nv-surface));
+  }
+
+  .nv-rich-content :where(details) {
+    border: 1px solid var(--nv-line);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-block: 0.75rem;
+  }
+
+  .nv-rich-content :where(summary) {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .nv-rich-content :where(summary:focus-visible) {
+    outline: 2px solid var(--nv-accent);
+    outline-offset: 2px;
+  }
+
+  .nv-rich-content :where(ul[data-type="taskList"]) {
+    list-style: none;
+    padding-inline-start: 0;
+  }
+
+  .nv-rich-content :where(li[data-type="taskItem"]) {
+    list-style: none;
+    position: relative;
+    padding-inline-start: 1.75rem;
+  }
+
+  .nv-rich-content :where(li[data-type="taskItem"]:not(.post-editor-task-item))::before {
+    content: '☐';
+    position: absolute;
+    inset-inline-start: 0;
+  }
+
+  .nv-rich-content :where(li[data-type="taskItem"][data-checked="true"]:not(.post-editor-task-item))::before {
+    content: '☑';
+  }
+
+  /* Only the editor's pastel presets adapt to dark mode. Keep saved colors and
+     custom colors intact; cover both CSSOM rgb() and sanitized hex markup. */
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #fef3c7;"], [style$="background-color: #fef3c7"], [style*="background-color: rgb(254, 243, 199)"]) {
+    background-color: #453d24 !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #dbeafe;"], [style$="background-color: #dbeafe"], [style*="background-color: rgb(219, 234, 254)"]) {
+    background-color: #26384e !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #dcfce7;"], [style$="background-color: #dcfce7"], [style*="background-color: rgb(220, 252, 231)"]) {
+    background-color: #263e30 !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #fce7f3;"], [style$="background-color: #fce7f3"], [style*="background-color: rgb(252, 231, 243)"]) {
+    background-color: #482f3d !important;
+  }
+
+  .dark :is(.nv-rich-content, .tiptap-editor-wrap .ProseMirror) :is(td, th):is([style*="background-color: #e5e7eb;"], [style$="background-color: #e5e7eb"], [style*="background-color: rgb(229, 231, 235)"]) {
+    background-color: #36393f !important;
+  }
+
   .nv-rich-content {
     --tw-prose-body: var(--nv-ink-soft);
     --tw-prose-headings: var(--nv-ink);
@@ -193,6 +266,28 @@
   .nv-rich-content :where(.tiptap-image-inline) {
     display: inline-block;
     vertical-align: baseline;
+  }
+
+  .nv-rich-content :where(.nv-image-with-caption) {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    vertical-align: baseline;
+  }
+
+  .nv-rich-content :where(.nv-image-with-caption > img) {
+    display: block;
+    margin: 0;
+  }
+
+  .nv-rich-content :where(.nv-image-caption) {
+    display: block;
+    padding-top: 0.4rem;
+    color: var(--nv-ink-soft);
+    font-size: var(--text-xs);
+    text-align: center;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 
   .nv-rich-content :where(.tiptap-image-align-left, .tiptap-image-align-center, .tiptap-image-align-right) {

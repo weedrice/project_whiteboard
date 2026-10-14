@@ -162,6 +162,35 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.find('.slash-popover').exists()).toBe(true)
     })
 
+    it('inserts code from the toolbar and exits to body text', async () => {
+        const wrapper = mountEditor()
+        await wrapper.get('button[title="board.writePost.toolbar.codeBlock"]').trigger('click')
+        expect(mocks.chain.toggleCodeBlock).toHaveBeenCalled()
+
+        mocks.editor.isActive.mockImplementation((name: unknown) => name === 'codeBlock')
+        const codeWrapper = mountEditor('<pre><code>const value = 1</code></pre>')
+        await codeWrapper.get('select[aria-label="board.writePost.codeBlock.language"]').setValue('typescript')
+        expect(mocks.chain.updateAttributes).toHaveBeenCalledWith('codeBlock', { language: 'typescript' })
+        const exit = codeWrapper.findAll('button').find((button) => button.text() === 'board.writePost.codeBlock.exit')!
+        await exit.trigger('click')
+        expect(mocks.chain.exitCode).toHaveBeenCalled()
+    })
+
+    it.each(['codeBlock', 'composition'])('allows slash input during %s without opening the block menu', async (context) => {
+        const wrapper = mountEditor()
+        setEditorSelection({
+            from: 1,
+            to: 1,
+            $from: { parent: { textContent: '' }, parentOffset: 0 },
+        })
+        mocks.editor.isActive.mockImplementation((name: unknown) => context === 'codeBlock' && name === 'codeBlock')
+        const event = new KeyboardEvent('keydown', { key: '/', isComposing: context === 'composition', cancelable: true })
+        expect(getEditorDomEventHandler<KeyboardEvent>('keydown')(null, event)).toBe(false)
+        expect(event.defaultPrevented).toBe(false)
+        await nextTick()
+        expect(wrapper.find('.slash-popover').exists()).toBe(false)
+    })
+
     it('applies toolbar formatting controls and table insertion', async () => {
         mocks.i18nT.mockImplementation((key: string) => {
             if (key === 'board.writePost.fontSize') return ''
@@ -180,7 +209,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.text()).toContain('Line height')
         expect(wrapper.get('.tiptap-color-bar').attributes('style')).toContain('rgb(34, 197, 94)')
 
-        const selects = wrapper.findAll('select.tiptap-select')
+        const selects = [wrapper.get('select:has(option[value="18px"])'), wrapper.get('select:has(option[value="1.5"])')]
         await selects[0].setValue('18px')
         await selects[1].setValue('1.5')
         await selects[0].setValue('')
@@ -245,7 +274,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('>Example</a>'))
 
         mocks.chain.setLink.mockClear()
-        mocks.editor.state.selection = { from: 2, to: 5 }
+        setEditorSelection({ from: 2, to: 5 })
         await wrapper.get(selectors.link).trigger('click')
         await wrapper.findAll('.link-popover-input')[0].setValue('https://selected.test')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
@@ -273,8 +302,8 @@ describe('PostEditorTipTap', () => {
 
         expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
         expect(wrapper.get(selectors.video).attributes('aria-label')).toBe('board.writePost.toolbar.video')
-        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
-        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
+        expect(wrapper.get('select[aria-label="board.writePost.fontSize"]').attributes('aria-label')).toBe('board.writePost.fontSize')
+        expect(wrapper.get('select[aria-label="board.writePost.lineHeight"]').attributes('aria-label')).toBe('board.writePost.lineHeight')
 
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')
@@ -310,14 +339,14 @@ describe('PostEditorTipTap', () => {
         const wrapper = mountEditor()
         const imageInputClickSpy = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click')
 
-        mocks.editor.state.selection = { from: 2, to: 6 }
+        setEditorSelection({ from: 2, to: 6 })
         const bulletBtn = wrapper.get(selectors.bulletList)
         await bulletBtn.trigger('mousedown')
         await bulletBtn.trigger('click')
         expect(mocks.chain.setTextSelection).toHaveBeenCalledWith({ from: 2, to: 6 })
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
-        mocks.editor.state.selection = { from: 4, to: 8 }
+        setEditorSelection({ from: 4, to: 8 })
         const orderedBtn = wrapper.get(selectors.orderedList)
         await orderedBtn.trigger('mousedown')
         await orderedBtn.trigger('click')
@@ -432,7 +461,7 @@ describe('PostEditorTipTap', () => {
 
     it('renders grouped desktop toolbar controls with insert block affordance', () => {
         const wrapper = mountEditor()
-        const toolbarRows = wrapper.findAll('.tiptap-toolbar-row')
+        const toolbarRows = wrapper.findAll('.tiptap-toolbar .tiptap-toolbar-row')
         const firstRow = toolbarRows[0]
         const secondRow = toolbarRows[1]
 

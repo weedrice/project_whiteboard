@@ -38,6 +38,59 @@ describe('postHtmlSandbox', () => {
         expect(requiresSandboxedPostHtml('<script>alert(1)</script>')).toBe(true)
     })
 
+    it.each([
+        'example onload=demo',
+        '<script>hello</script>',
+        '<html><head></head><body>example</body></html>',
+        'onerror="demo" & 한글',
+    ])('does not treat caption text as HTML structure: %s', (caption) => {
+        const image = document.createElement('img')
+        image.setAttribute('src', '/api/v1/files/10')
+        image.setAttribute('data-caption', caption)
+        expect(requiresSandboxedPostHtml(image.outerHTML)).toBe(false)
+        expect(requiresPreservedPostHtml(image.outerHTML)).toBe(false)
+        expect(encodeSandboxedPostHtml(image.outerHTML)).toBe(image.outerHTML)
+        vi.stubGlobal('DOMParser', undefined)
+        expect(requiresSandboxedPostHtml(image.outerHTML)).toBe(false)
+    })
+
+    it('distinguishes literal attribute values from actual executable attributes and tags', () => {
+        expect(requiresSandboxedPostHtml('<img data-caption="onload=demo <script>x</script>">')).toBe(false)
+        expect(requiresSandboxedPostHtml("<img data-caption='onload=demo <style>x</style>'>")).toBe(false)
+        expect(requiresSandboxedPostHtml('<img data-caption="example" ONLOAD = "demo()">')).toBe(true)
+        expect(requiresSandboxedPostHtml('<img data-caption="example"><script>demo()</script>')).toBe(true)
+        expect(requiresSandboxedPostHtml('<!DOCTYPE html><html><body>hello</body></html>')).toBe(true)
+    })
+
+    it.each(['Example: < script > is text', '1 < html > 0', '<\tstyle >example'])('does not parse whitespace after < as a tag: %s', (html) => {
+        expect(requiresSandboxedPostHtml(html)).toBe(false)
+        expect(requiresPreservedPostHtml(html)).toBe(false)
+        expect(encodeSandboxedPostHtml(html)).toBe(html)
+        vi.stubGlobal('DOMParser', undefined)
+        expect(requiresSandboxedPostHtml(html)).toBe(false)
+    })
+
+    it.each([
+        '<p title=hello/world onmouseover="run()">Demo</p>',
+        '<img src=https://cdn.noviis.kr/test.png onload="run()">',
+        '<img/src=/api/v1/files/10/onload=example onerror="run()">',
+    ])('detects event attributes after unquoted paths: %s', (html) => {
+        expect(requiresSandboxedPostHtml(html)).toBe(true)
+        expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+        vi.stubGlobal('DOMParser', undefined)
+        expect(requiresSandboxedPostHtml(html)).toBe(true)
+    })
+
+    it('does not split an unquoted value at slashes or equals signs', () => {
+        expect(requiresSandboxedPostHtml('<img src=/api/v1/files/10/onload=example>')).toBe(false)
+    })
+
+    it('keeps captioned images editable alongside an existing preserved block', () => {
+        const block = encodeSandboxedPostHtml('<section>Preserved</section>')
+        const image = '<p><img src="/api/v1/files/10" data-caption="<html>example</html>"></p>'
+        expect(encodeSandboxedPostHtml(block + image)).toBe(block + image)
+    })
+
     it('encodes and decodes sandbox html without losing unicode content', () => {
         const raw = '<style>.cl{display:grid}</style><button onclick="run()">여권</button><script>function run(){}</script>'
         const encoded = encodeSandboxedPostHtml(raw)

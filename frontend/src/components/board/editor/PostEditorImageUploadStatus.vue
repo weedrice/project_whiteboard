@@ -5,6 +5,8 @@ import { X } from 'lucide-vue-next'
 
 defineProps<{
   isUploadingImage: boolean
+  isReplacingImage?: boolean
+  replacingImageName?: string
   hasImageUploadError: boolean
   currentUploadingImageName: string
   imageUploadQueueCount: number
@@ -16,6 +18,7 @@ const emit = defineEmits<{
   (e: 'retry-image-upload'): void
   (e: 'retry-failed-image-upload', file: File): void
   (e: 'cancel-image-upload'): void
+  (e: 'cancel-image-replacement'): void
   (e: 'dismiss-image-upload-error'): void
   (e: 'dismiss-failed-image-upload', file: File): void
 }>()
@@ -24,6 +27,16 @@ const { t } = useI18n()
 </script>
 
 <template>
+  <div v-if="isReplacingImage" class="image-upload-status image-replacement-status" role="status" aria-live="polite">
+    <BaseSpinner size="sm" />
+    <span>
+      {{ t('board.writePost.advanced.replacingImage') }}
+      <span class="image-upload-status-name">{{ replacingImageName }}</span>
+    </span>
+    <button type="button" class="image-upload-status-btn" @click="emit('cancel-image-replacement')">
+      {{ t('board.writePost.advanced.cancelReplacement') }}
+    </button>
+  </div>
   <div
     v-if="isUploadingImage || hasImageUploadError"
     class="image-upload-status"

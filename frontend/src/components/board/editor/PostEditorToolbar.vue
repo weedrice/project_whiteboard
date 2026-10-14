@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
+import { isPostEditorFormattingDisabled } from '@/features/board/posts/editor/postEditorFormatting'
+import { computed } from 'vue'
+import PostEditorTextTools from './PostEditorTextTools.vue'
+import { codeLanguageLabel } from './postEditorOptions'
 import {
+  Code2,
   Image as ImageIcon,
   Link2,
   List as ListIcon,
@@ -16,10 +21,13 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import PostEditorImageUploadStatus from '@/components/board/editor/PostEditorImageUploadStatus.vue'
+import PostEditorTableTools from '@/components/board/editor/PostEditorTableTools.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   editor: Editor
   isUploadingImage: boolean
+  isReplacingImage?: boolean
+  replacingImageName?: string
   hasImageUploadError: boolean
   currentUploadingImageName: string
   imageUploadQueueCount: number
@@ -41,6 +49,8 @@ withDefaults(defineProps<{
   isRawHtmlBlockSelected?: boolean
 }>(), {
   isRawHtmlBlockSelected: false,
+  isReplacingImage: false,
+  replacingImageName: '',
 })
 
 const emit = defineEmits<{
@@ -58,6 +68,8 @@ const emit = defineEmits<{
   (e: 'font-size', value: string): void
   (e: 'line-height', value: string): void
   (e: 'code-block-language', value: string): void
+  (e: 'toggle-code-block'): void
+  (e: 'exit-code-block'): void
   (e: 'toggle-color-panel', trigger: HTMLElement): void
   (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
   (e: 'toggle-slash-menu', trigger: HTMLElement): void
@@ -66,11 +78,19 @@ const emit = defineEmits<{
   (e: 'retry-image-upload'): void
   (e: 'retry-failed-image-upload', file: File): void
   (e: 'cancel-image-upload'): void
+  (e: 'cancel-image-replacement'): void
   (e: 'dismiss-image-upload-error'): void
   (e: 'dismiss-failed-image-upload', file: File): void
 }>()
 
 const { t } = useI18n()
+const formattingDisabled = computed(() => isPostEditorFormattingDisabled(props.editor, props.isRawHtmlBlockSelected))
+// Inline images can carry links even though text formatting is unavailable for their node selection.
+const linkDisabled = computed(() => !props.editor.isEditable || props.isRawHtmlBlockSelected
+  || !props.editor.can().setMark('link'))
+const languageOptions = computed(() => [...new Set([
+  ...props.codeBlockLanguages.filter(Boolean), props.currentCodeBlockLanguage,
+])].filter(Boolean))
 </script>
 
 <template>
@@ -80,48 +100,49 @@ const { t } = useI18n()
     </p>
     <div class="tiptap-toolbar-row tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group tiptap-toolbar-group--format">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-bold')">
+        <PostEditorTextTools :editor="editor" :is-raw-html-block-selected="isRawHtmlBlockSelected" />
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" :disabled="formattingDisabled || !editor.can().toggleBold()" @mousedown.prevent @click="emit('toggle-bold')">
           <span class="font-bold">B</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-label="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-italic')">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-label="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" :disabled="formattingDisabled || !editor.can().toggleItalic()" @mousedown.prevent @click="emit('toggle-italic')">
           <span class="italic">I</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-label="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-underline')">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-label="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" :disabled="formattingDisabled || !editor.can().toggleUnderline()" @mousedown.prevent @click="emit('toggle-underline')">
           <span class="underline">U</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-label="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-strike')">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-label="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" :disabled="formattingDisabled || !editor.can().toggleStrike()" @mousedown.prevent @click="emit('toggle-strike')">
           <span class="line-through">S</span>
         </button>
-        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" :disabled="isRawHtmlBlockSelected" @change="emit('font-size', ($event.target as HTMLSelectElement).value)">
+        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" :disabled="formattingDisabled || !editor.can().setMark('textStyle')" @change="emit('font-size', ($event.target as HTMLSelectElement).value)">
           <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
           <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
         </select>
-        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" :disabled="isRawHtmlBlockSelected" @change="emit('line-height', ($event.target as HTMLSelectElement).value)">
+        <select data-ui-native="specialized" class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" :disabled="formattingDisabled || !editor.can().setMark('textStyle')" @change="emit('line-height', ($event.target as HTMLSelectElement).value)">
           <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
           <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
         </select>
-        <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-color-panel', $event.currentTarget as HTMLElement)">
+        <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" :disabled="formattingDisabled || !editor.can().setMark('textStyle')" @mousedown.prevent @click="emit('toggle-color-panel', $event.currentTarget as HTMLElement)">
           <span class="tiptap-color-indicator">
             A
             <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? 'var(--nv-editor-default-dark)' : 'var(--nv-editor-default-light)') : currentTextColor }" />
           </span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'left' }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'left')">
+        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'left' }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" :disabled="formattingDisabled || !editor.can().setTextAlign('left')" @mousedown.prevent @click="emit('align', 'left')">
           <TextAlignStart :size="16" />
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'center' }" :title="t('board.writePost.alignCenter')" :aria-label="t('board.writePost.alignCenter')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'center')">
+        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'center' }" :title="t('board.writePost.alignCenter')" :aria-label="t('board.writePost.alignCenter')" :disabled="formattingDisabled || !editor.can().setTextAlign('center')" @mousedown.prevent @click="emit('align', 'center')">
           <TextAlignCenter :size="16" />
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'right' }" :title="t('board.writePost.alignRight')" :aria-label="t('board.writePost.alignRight')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'right')">
+        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'right' }" :title="t('board.writePost.alignRight')" :aria-label="t('board.writePost.alignRight')" :disabled="formattingDisabled || !editor.can().setTextAlign('right')" @mousedown.prevent @click="emit('align', 'right')">
           <TextAlignEnd :size="16" />
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'justify' }" :title="t('board.writePost.alignJustify')" :aria-label="t('board.writePost.alignJustify')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'justify')">
+        <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'justify' }" :title="t('board.writePost.alignJustify')" :aria-label="t('board.writePost.alignJustify')" :disabled="formattingDisabled || !editor.can().setTextAlign('justify')" @mousedown.prevent @click="emit('align', 'justify')">
           <TextAlignJustify :size="16" />
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-label="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent="emit('save-list-selection')" @click="emit('bullet-list')">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-label="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" :disabled="!editor.isEditable || isRawHtmlBlockSelected || !editor.can().toggleBulletList()" @mousedown.prevent="emit('save-list-selection')" @click="emit('bullet-list')">
           <ListIcon class="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent="emit('save-list-selection')" @click="emit('ordered-list')">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" :disabled="!editor.isEditable || isRawHtmlBlockSelected || !editor.can().toggleOrderedList()" @mousedown.prevent="emit('save-list-selection')" @click="emit('ordered-list')">
           <ListOrdered class="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
@@ -129,7 +150,7 @@ const { t } = useI18n()
 
     <div class="tiptap-toolbar-row tiptap-toolbar-row--secondary tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('open-link', $event.currentTarget as HTMLElement)">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" :disabled="linkDisabled" @mousedown.prevent @click="emit('open-link', $event.currentTarget as HTMLElement)">
           <Link2 class="h-4 w-4" aria-hidden="true" />
         </button>
         <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :aria-label="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="emit('upload-image')">
@@ -144,6 +165,9 @@ const { t } = useI18n()
       </div>
 
       <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('codeBlock') }" :title="t('board.writePost.toolbar.codeBlock')" :aria-label="t('board.writePost.toolbar.codeBlock')" :aria-pressed="editor.isActive('codeBlock')" @mousedown.prevent @click="emit('toggle-code-block')">
+          <Code2 :size="16" aria-hidden="true" />
+        </button>
         <select
           v-if="editor.isActive('codeBlock')"
           data-ui-native="specialized"
@@ -153,10 +177,13 @@ const { t } = useI18n()
           @change="emit('code-block-language', ($event.target as HTMLSelectElement).value)"
         >
           <option value="">{{ t('board.writePost.codeBlock.auto') }}</option>
-          <option v-for="language in codeBlockLanguages.filter(Boolean)" :key="language" :value="language">
-            {{ language }}
+          <option v-for="language in languageOptions" :key="language" :value="language">
+            {{ ['text', 'plaintext'].includes(language.toLowerCase()) ? t('board.writePost.codeBlock.plainText') : codeLanguageLabel(language) }}
           </option>
         </select>
+        <button v-if="editor.isActive('codeBlock')" type="button" class="tiptap-btn tiptap-btn-pill" @mousedown.prevent @click="emit('exit-code-block')">
+          {{ t('board.writePost.codeBlock.exit') }}
+        </button>
         <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
           {{ t('board.writePost.toolbar.insertBlock') }}
         </button>
@@ -169,8 +196,12 @@ const { t } = useI18n()
       </div>
     </div>
 
+    <PostEditorTableTools :editor="editor" />
+
     <PostEditorImageUploadStatus
       :is-uploading-image="isUploadingImage"
+      :is-replacing-image="isReplacingImage"
+      :replacing-image-name="replacingImageName"
       :has-image-upload-error="hasImageUploadError"
       :current-uploading-image-name="currentUploadingImageName"
       :image-upload-queue-count="imageUploadQueueCount"
@@ -179,6 +210,7 @@ const { t } = useI18n()
       @retry-image-upload="emit('retry-image-upload')"
       @retry-failed-image-upload="(file) => emit('retry-failed-image-upload', file)"
       @cancel-image-upload="emit('cancel-image-upload')"
+      @cancel-image-replacement="emit('cancel-image-replacement')"
       @dismiss-image-upload-error="emit('dismiss-image-upload-error')"
       @dismiss-failed-image-upload="(file) => emit('dismiss-failed-image-upload', file)"
     />

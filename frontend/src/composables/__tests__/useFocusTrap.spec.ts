@@ -79,6 +79,22 @@ describe('useFocusTrap', () => {
 
     })
 
+    it('wraps from a rich-text editing host instead of counting its inline links as Tab stops', () => {
+        const { wrapper } = createHarness()
+        const editor = document.createElement('div')
+        editor.contentEditable = 'true'
+        editor.setAttribute('contenteditable', 'true')
+        editor.tabIndex = 0
+        editor.innerHTML = '<a href="https://example.com">Inline link</a>'
+        wrapper.element.appendChild(editor)
+        editor.focus()
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+        editor.dispatchEvent(tab)
+        expect(tab.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(wrapper.get('#first').element)
+        wrapper.unmount()
+    })
+
     it('recovers programmatic focus escape', () => {
         const { composable, wrapper } = createHarness()
         const outside = document.createElement('button')

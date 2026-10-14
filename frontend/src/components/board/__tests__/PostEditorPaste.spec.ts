@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import type { Editor } from '@tiptap/core'
 import {
   mockCreateMutate,
   mountPostForm,
@@ -16,10 +17,11 @@ vi.mock('@/api/file', async (importOriginal) => {
 })
 vi.mock('@/stores/theme', () => ({ useThemeStore: () => ({ isDark: false }) }))
 
-function paste(target: Element, html: string, text: string, files: File[] = []) {
+function paste(target: Element, html: string, text: string, files: File[] = [], vscode = '') {
   const event = new Event('paste', { bubbles: true, cancelable: true })
+  const data: Record<string, string> = { 'text/html': html, 'text/plain': text, 'vscode-editor-data': vscode }
   Object.defineProperty(event, 'clipboardData', {
-    value: { files, getData: (type: string) => type === 'text/html' ? html : type === 'text/plain' ? text : '' },
+    value: { files, getData: (type: string) => data[type] ?? '' },
   })
   target.dispatchEvent(event)
 }
@@ -39,6 +41,8 @@ function submittedContents(): string {
 
 describe('PostEditor clipboard integration', () => {
   beforeEach(() => {
+    // jsdom does not implement the empty ClipboardEvent used by view.pasteText.
+    vi.stubGlobal('ClipboardEvent', class extends Event { clipboardData = null })
     resetPostFormTestState()
     uploadMocks.uploadFile.mockReset()
     uploadMocks.discardUploads.mockResolvedValue({ data: { data: { discardedCount: 0 } } })
@@ -49,6 +53,7 @@ describe('PostEditor clipboard integration', () => {
   afterEach(() => {
     unmountPostFormWrappers()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('preserves rich HTML once without submitting a duplicate plain paragraph', async () => {
@@ -71,10 +76,49 @@ describe('PostEditor clipboard integration', () => {
     expect(submittedContents().includes('<strong>Clipboard message</strong>')).toBe(format === 'supported HTML')
   })
 
-  it('uploads a clipboard image once and skips its accompanying HTML preview', async () => {
+  it.each([false, true])('pastes VS Code as editable code with HTML=%s', async (withHtml) => {
+    const wrapper = await mountComposer()
+    const text = 'const answer = 42;\r\n  // Code'
+    paste(wrapper.get('.ProseMirror').element,
+      withHtml ? '<div style="font-family:Consolas"><span style="color:blue">const</span> answer = 42;</div>' : '',
+      text, [], JSON.stringify({ mode: 'typescript' }))
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="raw-html-block"]')).toHaveLength(0)
+    expect(wrapper.get('pre code').element.textContent).toBe(text.replace('\r\n', '\n'))
+    expect(wrapper.get('pre code').classes()).toContain('language-typescript')
+    await submitPostForm(wrapper)
+    expect(submittedContents()).toContain('language-typescript')
+    expect(submittedContents()).not.toContain('noviis-sandboxed-post-html')
+  })
+
+  it('replaces the selection inside code with plain text, retaining language and line breaks', async () => {
+    const wrapper = await mountComposer()
+    const target = wrapper.get('.ProseMirror').element as HTMLElement & { editor: Editor }
+    target.editor.commands.setContent('<pre><code class="language-typescript">abcdef</code></pre>')
+    await flushPromises()
+    target.editor.commands.setTextSelection({ from: 2, to: 4 })
+    paste(target, '<div style="font-family:Consolas">formatted</div>', '<tag>\r\n  code', [], JSON.stringify({ mode: 'html' }))
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="raw-html-block"]')).toHaveLength(0)
+    expect(wrapper.get('pre code').element.textContent).toBe('a<tag>\n  codedef')
+    expect(wrapper.get('pre code').classes()).toContain('language-typescript')
+    expect(wrapper.find('pre tag').exists()).toBe(false)
+  })
+
+  it.each(['{bad', '{"mode":42}', '{"mode":"javascript other-class"}'])('safely falls back to text for invalid VS Code metadata %s', async (metadata) => {
+    const wrapper = await mountComposer()
+    paste(wrapper.get('.ProseMirror').element, '<div style="font-family:Consolas">formatted</div>', '<tag>Code</tag>', [], metadata)
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="raw-html-block"]')).toHaveLength(0)
+    expect(wrapper.get('.ProseMirror').text()).toContain('<tag>Code</tag>')
+    expect(wrapper.find('pre').exists()).toBe(false)
+    expect(wrapper.find('.ProseMirror tag').exists()).toBe(false)
+  })
+
+  it('uploads a clipboard image once and skips its accompanying HTML and code metadata', async () => {
     uploadMocks.uploadFile.mockResolvedValue({ data: { success: true, data: { fileId: 501, fileUrl: '/api/v1/files/501' } } })
     const wrapper = await mountComposer()
-    paste(wrapper.get('.ProseMirror').element, '<p><img src="https://example.com/clipboard.png"></p>', '', [new File(['image'], 'clipboard.png', { type: 'image/png' })])
+    paste(wrapper.get('.ProseMirror').element, '<p><img src="https://example.com/clipboard.png"></p>', 'code', [new File(['image'], 'clipboard.png', { type: 'image/png' })], JSON.stringify({ mode: 'typescript' }))
     await flushPromises()
     await submitPostForm(wrapper)
     expect(uploadMocks.uploadFile).toHaveBeenCalledOnce()

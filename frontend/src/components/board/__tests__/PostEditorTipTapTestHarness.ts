@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => {
         setBlockquote: vi.fn(),
         toggleHeading: vi.fn(),
         toggleCodeBlock: vi.fn(),
+        exitCode: vi.fn(),
         setHorizontalRule: vi.fn(),
         setImage: vi.fn(),
         setVideo: vi.fn(),
@@ -48,7 +49,17 @@ const mocks = vi.hoisted(() => {
     })
     chain.run.mockImplementation(() => true)
 
+    const transaction = { setMeta: vi.fn() }
+    transaction.setMeta.mockImplementation(() => transaction)
     const editor = {
+        isEditable: true,
+        isDestroyed: false,
+        can: vi.fn(() => ({
+            undo: () => true, redo: () => true,
+            setParagraph: () => true, setHeading: () => true,
+            toggleBold: () => true, toggleItalic: () => true, toggleUnderline: () => true, toggleStrike: () => true,
+            setMark: () => true, setTextAlign: () => true, toggleBulletList: () => true, toggleOrderedList: () => true,
+        })),
         getHTML: vi.fn(() => '<p>editor-html</p>'),
         chain: vi.fn(() => chain),
         commands: {
@@ -65,18 +76,23 @@ const mocks = vi.hoisted(() => {
         isActive: vi.fn((name: unknown) => name === 'link'),
         schema: { marks: {} },
         state: {
-            selection: { from: 1, to: 1 },
+            selection: { from: 1, to: 1, $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 } },
+            tr: transaction,
             doc: {
+                descendants: vi.fn(),
                 textBetween: vi.fn(() => 'selected text'),
                 content: { size: 8 },
             },
         },
         view: {
             dom: document.createElement('div'),
+            dispatch: vi.fn(),
             focus: vi.fn(),
             posAtCoords: vi.fn((): EditorPosition | null => ({ pos: 3 })),
         },
         destroy: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
     }
 
     const editorRef: { __v_isRef: true; value: typeof editor | null } = {
@@ -205,6 +221,10 @@ vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         Image: icon,
+        Code2: icon,
+        Undo2: icon,
+        Redo2: icon,
+        RemoveFormatting: icon,
         Link2: icon,
         List: icon,
         ListOrdered: icon,
@@ -239,6 +259,15 @@ vi.mock('@/features/board/posts/editor/useEditorImageUpload', () => ({
         uploadImage: mocks.uploadImage,
         abortImageUpload: mocks.abortImageUpload,
         isAbortUploadError: mocks.isAbortUploadError,
+    }),
+}))
+
+vi.mock('@/features/board/posts/editor/usePostEditorImageReplacement', () => ({
+    usePostEditorImageReplacement: () => ({
+        input: { __v_isRef: true, value: null },
+        busy: { __v_isRef: true, value: false },
+        currentFileName: { __v_isRef: true, value: '' },
+        onChange: vi.fn(), cancel: vi.fn(),
     }),
 }))
 
@@ -322,7 +351,7 @@ export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEve
 }
 
 export const setEditorSelection = (selection: unknown) => {
-    mocks.editor.state.selection = selection as typeof mocks.editor.state.selection
+    mocks.editor.state.selection = { $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 }, ...selection as object } as typeof mocks.editor.state.selection
 }
 
 export const mockNextEditorPositionAtCoords = (position: { pos: number } | null) => {
@@ -345,7 +374,8 @@ export const resetPostEditorTipTapTestState = () => {
     setEditorRefValue(mocks.editor)
     mocks.themeStore.isDark = false
     mocks.editor.getHTML.mockReturnValue('<p>editor-html</p>')
-    mocks.editor.state.selection = { from: 1, to: 1 }
+    mocks.editor.state.selection = { from: 1, to: 1, $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 } }
+    mocks.editor.isActive.mockImplementation((name: unknown) => name === 'link')
     mocks.editor.state.doc.content.size = 8
     mocks.editor.view.posAtCoords.mockReturnValue({ pos: 3 })
     mocks.validateImageFile.mockReturnValue(null)

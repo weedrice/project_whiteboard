@@ -1,8 +1,11 @@
 .image-upload-status-name {
+  display: inline-block;
   max-width: 10rem;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .image-upload-status-count {
@@ -12,7 +15,9 @@
 
 .image-upload-failed-list {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex: 1 0 100%;
+  flex-direction: column;
+  min-width: 0;
   gap: 0.35rem;
 }
 
@@ -20,4 +25,9 @@
   align-items: center;
   display: inline-flex;
   gap: 0.25rem;
+  min-width: 0;
+}
+
+.image-upload-failed-item .image-upload-status-name {
+  flex: 1 1 auto;
 }

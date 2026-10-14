@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
+import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
 import {
     ensurePostEditorEditableTail,
@@ -32,6 +33,28 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         const names = editor.extensionManager.extensions.map((extension) => extension.name)
 
         expect(names).toHaveLength(new Set(names).size)
+    })
+
+    it('keeps image captions editable through sanitized save and reload', () => {
+        editor = createEditor('<p><img src="/api/v1/files/10" alt="Diagram" data-caption="A &amp; B"></p>')
+        const saved = serializePostEditorHtml(editor.getHTML())
+        expect(requiresPreservedPostHtml(saved)).toBe(false)
+        editor.commands.setContent(sanitizeQuillHtml(saved))
+        expect(parseHTML(editor.getHTML()).querySelector('img')?.getAttribute('data-caption')).toBe('A & B')
+        expect(parseHTML(editor.getHTML()).querySelector('img')?.getAttribute('alt')).toBe('Diagram')
+    })
+
+    it('exits a code block into a paragraph without changing its code or language', () => {
+        editor = createEditor('<pre><code class="language-typescript">// comment\nconst value = 1</code></pre>')
+        editor.commands.setTextSelection(3)
+        expect(editor.chain().focus().exitCode().run()).toBe(true)
+        expect(editor.isActive('paragraph')).toBe(true)
+        editor.commands.insertContent('After code')
+        const document = parseHTML(editor.getHTML())
+        expect(document.querySelector('pre code')?.textContent).toBe('// comment\nconst value = 1')
+        expect(document.querySelector('pre code')?.className).toBe('language-typescript')
+        expect(document.querySelector('pre + p')?.textContent).toBe('After code')
+        expect(requiresPreservedPostHtml(editor.getHTML())).toBe(false)
     })
 
     it('serializes link marks with the configured anchor attributes', () => {

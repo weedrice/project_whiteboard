@@ -19,6 +19,10 @@ const allowedTemplateCalls = [
   { template: 'user.draftList.scheduledStatus.${post.status}', keys: /^user\.draftList\.scheduledStatus\.[^.]+$/ },
   { template: 'board.writePost.colorLabels.${colorLabelKeys[index]}', keys: /^board\.writePost\.colorLabels\.[^.]+$/ },
   {
+    template: 'board.writePost.tableTools.${action}',
+    keys: /^board\.writePost\.tableTools\.(addRowBefore|addRowAfter|deleteRow|addColumnBefore|addColumnAfter|deleteColumn|mergeCells|splitCell|toggleHeaderRow|toggleHeaderColumn|deleteTable)$/,
+  },
+  {
     template: 'board.writePost.imageControls.${item.label}',
     keys: /^board\.writePost\.imageControls\.(alignLeft|alignCenter|alignRight|alignInline)$/,
   },

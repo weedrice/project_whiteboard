@@ -367,6 +367,68 @@ export interface BoardMessages {
     tableCols: string
     tableHeaderRow: string
     tableInsert: string
+    advanced: {
+      calloutKind: string
+      unwrapBlock: string
+      cancelReplacement: string
+      exitBlock: string
+      pasteMode: string
+      pasteOriginal: string
+      pasteClean: string
+      pasteText: string
+      taskList: string
+      info: string
+      warning: string
+      details: string
+      detailsTitle: string
+      toggleTask: string
+      outline: string
+      noHeadings: string
+      emptyHeading: string
+      findReplace: string
+      find: string
+      replacement: string
+      matchCount: string
+      previous: string
+      next: string
+      replace: string
+      replaceAll: string
+      focus: string
+      exitFocus: string
+      selectionTools: string
+      link: string
+      color: string
+      replaceImage: string
+      replacingImage: string
+    }
+    editTools: {
+      undo: string
+      redo: string
+      clearFormatting: string
+      blockStyle: string
+      paragraph: string
+      heading: string
+    }
+    tableTools: {
+      distributeColumns: string
+      background: string
+      noBackground: string
+      customBackground: string
+
+      label: string
+      hint: string
+      addRowBefore: string
+      addRowAfter: string
+      deleteRow: string
+      addColumnBefore: string
+      addColumnAfter: string
+      deleteColumn: string
+      mergeCells: string
+      splitCell: string
+      toggleHeaderRow: string
+      toggleHeaderColumn: string
+      deleteTable: string
+    }
     draftStatus: {
       saving: string
       restoring: string
@@ -437,6 +499,11 @@ export interface BoardMessages {
     }
     dropImageHint: string
     imageControls: {
+      description: string
+      alt: string
+      altHint: string
+      caption: string
+
       original: string
       originalSize: string
       sizePercent: string
@@ -447,6 +514,8 @@ export interface BoardMessages {
       resize: string
     }
     codeBlock: {
+      plainText: string
+      exit: string
       copy: string
       copyAriaLabel: string
       copyDone: string
