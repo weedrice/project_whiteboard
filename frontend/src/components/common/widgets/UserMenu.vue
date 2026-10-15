@@ -152,7 +152,7 @@ const focusMenuItem = (index: number) => {
   if (items.length === 0) return
   const normalizedIndex = (index + items.length) % items.length
   selectedIndex.value = normalizedIndex
-  items[normalizedIndex]?.focus()
+  items[normalizedIndex]?.focus({ preventScroll: true })
 }
 
 const handleMenuKeyDown = (event: KeyboardEvent) => {
@@ -205,13 +205,16 @@ async function openDropdown() {
   await nextTick()
   if (!isDropdownOpen.value) return
   updateDropdownPosition()
+  // Apply the teleported menu's position before moving focus into it.
+  await nextTick()
+  if (!isDropdownOpen.value) return
   focusMenuItem(0)
 }
 
 function closeDropdown(restoreButtonFocus = true) {
   isDropdownOpen.value = false
   selectedIndex.value = -1
-  if (restoreButtonFocus) void nextTick(() => buttonRef.value?.focus())
+  if (restoreButtonFocus) void nextTick(() => buttonRef.value?.focus({ preventScroll: true }))
 }
 
 const handleClickOutside = (event: Event) => {
