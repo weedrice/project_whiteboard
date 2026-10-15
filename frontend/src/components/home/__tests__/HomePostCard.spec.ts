@@ -231,6 +231,48 @@ describe('HomePostCard', () => {
     expect(push).toHaveBeenNthCalledWith(2, '/board/free/post/101/')
   })
 
+  it.each([
+    'article',
+    '.nv-home-card-title-link',
+    '.nv-home-card-body strong',
+    '.nv-home-card-image-link img',
+    '.nv-home-card-personal-footer',
+  ])('opens a personal feed post when %s receives the click directly', async (selector) => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({ firstMediaType: 'image', firstMediaUrl: '/api/v1/files/1' }),
+        variant: 'personal',
+      },
+    })
+
+    await wrapper.get(selector).trigger('click')
+
+    expect(push).toHaveBeenCalledExactlyOnceWith('/board/free/post/101/')
+  })
+
+  it('keeps personal feed video controls separate from post navigation', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({ firstMediaType: 'video', firstMediaUrl: 'https://www.youtube.com/watch?v=video-id' }),
+        variant: 'personal',
+      },
+    })
+
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.find('iframe').exists()).toBe(true)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('does not hijack modified clicks in personal feed content', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: { post: makePost(), variant: 'personal' },
+    })
+    await wrapper.get('article').trigger('click', { ctrlKey: true })
+    await wrapper.get('.nv-home-card-body').trigger('click', { metaKey: true })
+    await wrapper.get('.nv-home-card-board-link').trigger('click', { ctrlKey: true })
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('renders blockquote HTML when the featured post has no media', () => {
     const wrapper = mount(HomePostCard, {
       props: {

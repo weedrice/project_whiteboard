@@ -118,10 +118,19 @@ const navigateToBoard = (event: MouseEvent) => {
 }
 
 const navigateLinkedContentToPost = (event: MouseEvent) => {
-  if (hasWholeCardLink.value) {
+  if (hasWholeCardLink.value && !isPersonal.value) {
     return
   }
 
+  navigateToPost(event)
+}
+
+const navigateCardToPost = (event: MouseEvent) => {
+  if (!isPersonal.value) return
+  const target = event.target
+  if (target instanceof Element && target.closest('a, button, input, select, textarea, iframe, [role="button"], [contenteditable]')) {
+    return
+  }
   navigateToPost(event)
 }
 
@@ -137,6 +146,7 @@ watch(() => props.post.postId, () => {
 <template>
   <article
     :class="cardClass"
+    @click="navigateCardToPost"
   >
     <a
       v-if="hasWholeCardLink"
