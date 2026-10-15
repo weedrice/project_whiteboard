@@ -178,6 +178,47 @@ describe('UserMenu', () => {
     wrapper.unmount()
   })
 
+  it('positions the teleported menu before focusing without scrolling', async () => {
+    const wrapper = mount(UserMenu, {
+      attachTo: document.body,
+      props: { userId: 2, displayName: 'Author' },
+      global: { stubs: { MessageModal: true, ReportModal: true } },
+    })
+    const trigger = wrapper.get<HTMLButtonElement>('.nv-user-menu-button')
+    const rectSpy = vi.spyOn(trigger.element, 'getBoundingClientRect').mockReturnValue({
+      top: 80, bottom: 100, left: 80, right: 180, width: 100, height: 20,
+      x: 80, y: 80, toJSON: () => ({}),
+    })
+    const positionsAtFocus: Array<{ top: string; left: string }> = []
+    const originalFocus = HTMLElement.prototype.focus
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLElement,
+      options?: FocusOptions,
+    ) {
+      const menu = this.closest<HTMLElement>('[role="menu"]')
+      if (menu) positionsAtFocus.push({ top: menu.style.top, left: menu.style.left })
+      originalFocus.call(this, options)
+    })
+
+    try {
+      await trigger.trigger('click')
+      await flushPromises()
+
+      expect(positionsAtFocus).toEqual([{ top: '105px', left: '80px' }])
+      expect(document.activeElement?.getAttribute('role')).toBe('menuitem')
+      expect(focusSpy).toHaveBeenLastCalledWith({ preventScroll: true })
+
+      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await flushPromises()
+      expect(document.activeElement).toBe(trigger.element)
+      expect(focusSpy).toHaveBeenLastCalledWith({ preventScroll: true })
+    } finally {
+      focusSpy.mockRestore()
+      rectSpy.mockRestore()
+      wrapper.unmount()
+    }
+  })
+
   it('aborts and ignores a pending user report when the menu target changes', async () => {
     const reportResult = createDeferred<Awaited<ReturnType<typeof reportApi.reportUser>>>()
     vi.mocked(reportApi.reportUser).mockReturnValueOnce(reportResult.promise)
