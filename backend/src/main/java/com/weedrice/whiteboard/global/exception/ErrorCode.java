@@ -35,6 +35,8 @@ public enum ErrorCode {
     USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "U010", "error.user.notActive"),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "U011", "error.user.emailNotVerified"),
 
+    PROFILE_SECTION_PRIVATE(HttpStatus.FORBIDDEN, "U012", "error.user.profileSectionPrivate"),
+
     // Board
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "error.board.notFound"),
     DUPLICATE_BOARD_NAME(HttpStatus.CONFLICT, "B002", "error.board.duplicateName"),

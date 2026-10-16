@@ -171,7 +171,8 @@ public class UserController {
                         @CurrentUserId Long userId) {
                 return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(userId,
                                 request.getTheme(), request.getLanguage(), request.getTimezone(),
-                                request.getHideNsfw())));
+                                request.getHideNsfw(), request.getProfileOverviewPublic(),
+                                request.getProfilePostsPublic(), request.getProfileCommentsPublic())));
         }
 
         @PutMapping("/me/onboarding-complete")

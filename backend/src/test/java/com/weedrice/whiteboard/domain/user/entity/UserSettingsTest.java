@@ -47,4 +47,19 @@ class UserSettingsTest {
         assertThat(settings.getTimezone()).isEqualTo("UTC");
         assertThat(settings.getHideNsfw()).isFalse();
     }
+
+    @Test
+    void privacyDefaultsPublicAndPartialUpdatesPreserveOmittedValues() {
+        UserSettings settings = UserSettings.builder().user(User.builder().build()).build();
+        assertThat(settings.getProfileOverviewPublic()).isTrue();
+        assertThat(settings.getProfilePostsPublic()).isTrue();
+        assertThat(settings.getProfileCommentsPublic()).isTrue();
+        settings.updateProfilePrivacy(false, false, false);
+        settings.updateProfilePrivacy(null, true, null);
+        settings.updateSettings("DARK", null, null, null);
+        assertThat(settings.getProfileOverviewPublic()).isFalse();
+        assertThat(settings.getProfilePostsPublic()).isTrue();
+        assertThat(settings.getProfileCommentsPublic()).isFalse();
+    }
+
 }

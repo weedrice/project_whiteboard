@@ -9,6 +9,8 @@ public interface CommentUserPort {
 
     void validateActive(Long userId);
 
+    void requireProfileCommentsVisible(Long targetUserId, Long viewerUserId);
+
     boolean isEitherDirectionBlocked(Long firstUserId, Long secondUserId);
 
     record UserReadContext(Long userId, boolean superAdmin, Set<Long> blockedUserIds) {

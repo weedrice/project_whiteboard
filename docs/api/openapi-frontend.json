@@ -8081,6 +8081,15 @@
             "minLength" : 0,
             "type" : "string"
           },
+          "profileCommentsPublic" : {
+            "type" : "boolean"
+          },
+          "profileOverviewPublic" : {
+            "type" : "boolean"
+          },
+          "profilePostsPublic" : {
+            "type" : "boolean"
+          },
           "theme" : {
             "maxLength" : 20,
             "minLength" : 0,
@@ -8177,23 +8186,41 @@
       },
       "UserProfileResponse" : {
         "properties" : {
+          "canViewComments" : {
+            "type" : "boolean"
+          },
+          "canViewOverview" : {
+            "type" : "boolean"
+          },
+          "canViewPosts" : {
+            "type" : "boolean"
+          },
           "commentCount" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "createdAt" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "displayName" : {
             "type" : "string"
           },
           "postCount" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
+          },
+          "profileCommentsPublic" : {
+            "type" : "boolean"
           },
           "profileImageUrl" : {
             "type" : "string"
+          },
+          "profileOverviewPublic" : {
+            "type" : "boolean"
+          },
+          "profilePostsPublic" : {
+            "type" : "boolean"
           },
           "userId" : {
             "format" : "int64",
@@ -8262,6 +8289,15 @@
           "onboardingCompletedAt" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "profileCommentsPublic" : {
+            "type" : "boolean"
+          },
+          "profileOverviewPublic" : {
+            "type" : "boolean"
+          },
+          "profilePostsPublic" : {
+            "type" : "boolean"
           },
           "pushEnabled" : {
             "type" : "boolean"

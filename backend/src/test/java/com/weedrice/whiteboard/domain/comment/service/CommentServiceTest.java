@@ -242,7 +242,7 @@ class CommentServiceTest {
                 commentRepository,
                 inquiryLegacyWritePolicy,
                 commentPostPort,
-                new CommentUserIntegrationAdapter(userReadableResolver, userBlockService, userBlockRepository),
+                new CommentUserIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userReadableResolver, userBlockService, userBlockRepository),
                 commentReadSupport,
                 commentReadModelAssembler,
                 commentMentionRepository,

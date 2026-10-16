@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-09-08 |
+| 기준일 | 2026-10-16 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V99__validate_content_agent_owner_foreign_keys.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V100__profile_privacy_settings.sql` |
 | 현재 테이블 수 | 88개 |
 | DB | PostgreSQL |
 
@@ -27,7 +27,7 @@
 | 테이블 | 설명 |
 | --- | --- |
 | `users` | 사용자 기본 정보, 상태, super admin 여부, 이메일 인증 상태, 동시 갱신 및 보안 세대 버전 |
-| `user_settings` | 테마, 언어, 시간대, NSFW 숨김 |
+| `user_settings` | 테마, 언어, 시간대, NSFW 숨김, 프로필 개요·작성 글·작성 댓글 공개 여부 |
 | `user_notification_settings` | 알림 타입별 수신 설정 |
 | `user_blocks` | 사용자 차단 관계 |
 | `display_name_histories` | 표시명 변경 이력 |
@@ -277,6 +277,13 @@
 | `V97` | Agent ID와 소유 사용자 ID 복합 FK의 참조 대상이 되는 `(agent_id, user_id)` 온라인 고유 인덱스 추가(expand) |
 | `V98` | 게시글·댓글의 `(agent_id, user_id)`가 Agent 소유자와 일치하도록 복합 FK를 `NOT VALID`로 추가(expand) |
 | `V99` | 게시글·댓글 Agent 소유자 복합 FK 검증(expand) |
+| `V100` | 프로필 개요·작성 글·작성 댓글 공개 설정 3개 추가(expand, 기본값 Y) |
+
+## 프로필 공개 설정 (V100)
+
+- `user_settings.profile_overview_public`, `profile_posts_public`, `profile_comments_public`은 각각 `VARCHAR(1) NOT NULL DEFAULT 'Y'`이다. Java `Boolean`은 기존 `BooleanToYNConverter`로 변환한다.
+- 기존 행과 이전 애플리케이션의 컬럼 생략 INSERT는 공개(`Y`)를 유지한다. 신규 테이블·인덱스는 추가하지 않는다.
+- 기존 마이그레이션은 변경하지 않으며 새 컬럼 추가는 expand 단계이다. 이전 JAR는 새 비공개 설정을 적용하지 않으므로 기능 활성화 후 롤백하면 활동 정보가 다시 공개될 수 있다.
 
 ## 운영 주의
 

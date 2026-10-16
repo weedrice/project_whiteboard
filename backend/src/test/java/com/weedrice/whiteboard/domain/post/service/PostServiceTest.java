@@ -197,7 +197,7 @@ class PostServiceTest {
                 .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostInteractionContextResolver postInteractionContextResolver = new PostInteractionContextResolver(
-                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),
                         userRepository, userBlockService),
                 postLikeRepository,
                 scrapRepository,
@@ -220,7 +220,7 @@ class PostServiceTest {
         lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy, inquiryLegacyWritePolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
-                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
+                new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService),
                 adminRepository);
         PostDetailContextResolver postDetailContextResolver = new PostDetailContextResolver(
                 postRepository,
@@ -280,7 +280,7 @@ class PostServiceTest {
                 postDetailContextResolver,
                 postViewCountWriter);
         postDraftService = new PostDraftService(
-                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
+                new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService),
                 boardRepository,
                 boardCategoryRepository,
                 postRepository,
@@ -310,12 +310,12 @@ class PostServiceTest {
                 inquiryLegacyWritePolicy);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
-                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
+                new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService),
                 postSummaryAssembler);
         postListReadService = new PostListReadService(
                 postRepository,
                 boardRepository,
-                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
+                new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService),
                 postReadContextResolver,
                 postSummaryAssembler,
                 feedPostSummaryAssembler,
@@ -388,7 +388,7 @@ class PostServiceTest {
                 actorReadPort);
         postService = new PostService(
                 boardRepository,
-                new PostUserReadIntegrationAdapter(userRepository, userBlockService),
+                new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService),
                 postDetailReadService,
                 postDetailViewCommandService,
                 postDraftService,

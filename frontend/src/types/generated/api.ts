@@ -6198,6 +6198,9 @@ export interface components {
         UpdateSettingsRequest: {
             hideNsfw?: boolean;
             language?: string;
+            profileCommentsPublic?: boolean;
+            profileOverviewPublic?: boolean;
+            profilePostsPublic?: boolean;
             theme?: string;
             timezone?: string;
         };
@@ -6234,14 +6237,20 @@ export interface components {
             currentPoint?: number;
         };
         UserProfileResponse: {
+            canViewComments?: boolean;
+            canViewOverview?: boolean;
+            canViewPosts?: boolean;
             /** Format: int64 */
-            commentCount?: number;
+            commentCount?: number | null;
             /** Format: date-time */
-            createdAt?: string;
+            createdAt?: string | null;
             displayName?: string;
             /** Format: int64 */
-            postCount?: number;
+            postCount?: number | null;
+            profileCommentsPublic?: boolean;
             profileImageUrl?: string;
+            profileOverviewPublic?: boolean;
+            profilePostsPublic?: boolean;
             /** Format: int64 */
             userId?: number;
         };
@@ -6268,6 +6277,9 @@ export interface components {
             language?: string;
             /** Format: date-time */
             onboardingCompletedAt?: string;
+            profileCommentsPublic?: boolean;
+            profileOverviewPublic?: boolean;
+            profilePostsPublic?: boolean;
             pushEnabled?: boolean;
             theme?: string;
             timezone?: string;

@@ -65,7 +65,7 @@ class PostDetailViewCommandServiceTest {
         BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostReadContextResolver postReadContextResolver =
                 new PostReadContextResolver(
-                        new PostUserReadIntegrationAdapter(userRepository, userBlockService), adminRepository);
+                        new PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userRepository, userBlockService), adminRepository);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(
                 boardAccessPolicy,
                 mock(com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class));

@@ -570,6 +570,15 @@ class UserSettingsServiceTest {
             }
 
             @Override
+            public Boolean getProfileOverviewPublic() { return true; }
+
+            @Override
+            public Boolean getProfilePostsPublic() { return true; }
+
+            @Override
+            public Boolean getProfileCommentsPublic() { return true; }
+
+            @Override
             public LocalDateTime getOnboardingCompletedAt() {
                 return null;
             }
@@ -597,4 +606,49 @@ class UserSettingsServiceTest {
             }
         };
     }
+
+    @Test
+    void privacyOnlyUpdatePreservesOtherSettingsAndLegacyUpdatesPreservePrivacy() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(
+                1L, null, null, null, null, false, false, false);
+        assertThat(response.getTheme()).isEqualTo("LIGHT");
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isFalse();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+
+        response = userSettingsService.updateSettings(1L, "DARK", null, null, null);
+        assertThat(response.getTheme()).isEqualTo("DARK");
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isFalse();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+
+        response = userSettingsService.updateSettings(1L, null, null, null, null, null, true, null);
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isTrue();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+    }
+
+    @Test
+    void privacyProjectionReturnsPersistedFlags() {
+        UserSettingsRepository.SettingsReadProjection projection =
+                org.mockito.Mockito.mock(UserSettingsRepository.SettingsReadProjection.class);
+        when(projection.getTheme()).thenReturn("LIGHT");
+        when(projection.getProfileOverviewPublic()).thenReturn(false);
+        when(projection.getProfilePostsPublic()).thenReturn(true);
+        when(projection.getProfileCommentsPublic()).thenReturn(false);
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.of(projection));
+
+        UserSettingsResponse response = userSettingsService.getSettings(1L);
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isTrue();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+    }
+
 }

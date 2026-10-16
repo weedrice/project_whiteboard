@@ -15,6 +15,8 @@ public interface PostUserReadPort {
 
     Long requireActiveUserId(Long userId);
 
+    void requireProfilePostsVisible(Long targetUserId, Long viewerUserId);
+
     boolean isBlockedEitherDirection(Long firstUserId, Long secondUserId);
 
     List<Long> getBlockedUserIds(Long userId);

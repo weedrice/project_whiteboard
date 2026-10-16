@@ -211,6 +211,7 @@ public class CommentQueryService {
         if (isRestrictedByBlock(targetUserId, viewerUserId)) {
             return Page.empty(safePageable);
         }
+        commentUserPort.requireProfileCommentsVisible(targetUserId, viewerUserId);
         BlockedUserIdsParameter blockedUserIds = BlockedUserIdsParameter.from(
                 resolveReadContext(viewerUserId).blockedUserIds());
         Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(

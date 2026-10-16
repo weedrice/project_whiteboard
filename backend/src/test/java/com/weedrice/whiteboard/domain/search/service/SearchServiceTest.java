@@ -111,7 +111,7 @@ class SearchServiceTest {
                 new PostCommentStatusIntegrationAdapter(commentRepository),
                 boardAccessPolicy,
                 new PostInteractionContextResolver(
-                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),
                         userRepository, userBlockService),
                         postLikeRepository,
                         scrapRepository,

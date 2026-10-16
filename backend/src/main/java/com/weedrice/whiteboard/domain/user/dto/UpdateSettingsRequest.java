@@ -12,4 +12,7 @@ public class UpdateSettingsRequest {
     @Size(max = 50)
     private String timezone;
     private Boolean hideNsfw;
+    private Boolean profileOverviewPublic;
+    private Boolean profilePostsPublic;
+    private Boolean profileCommentsPublic;
 }

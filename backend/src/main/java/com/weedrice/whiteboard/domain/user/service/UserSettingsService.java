@@ -66,6 +66,13 @@ public class UserSettingsService {
         @Transactional
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
+                return updateSettings(userId, theme, language, timezone, hideNsfw, null, null, null);
+        }
+
+        @Transactional
+        public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
+                        Boolean hideNsfw, Boolean profileOverviewPublic, Boolean profilePostsPublic,
+                        Boolean profileCommentsPublic) {
                 String normalizedTheme = normalizeTheme(theme);
                 String normalizedLanguage = normalizeLanguage(language);
                 String normalizedTimezone = normalizeTimezone(timezone);
@@ -76,9 +83,8 @@ public class UserSettingsService {
                                 normalizedLanguage,
                                 normalizedTimezone,
                                 hideNsfw);
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw(), Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                settings.updateProfilePrivacy(profileOverviewPublic, profilePostsPublic, profileCommentsPublic);
+                return toResponse(settings);
         }
 
         @Transactional
@@ -195,7 +201,10 @@ public class UserSettingsService {
                                 settings.getTimezone(),
                                 Boolean.TRUE.equals(settings.getHideNsfw()),
                                 Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                                settings.getOnboardingCompletedAt(),
+                                !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
+                                !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()));
         }
 
         private UserSettingsResponse defaultSettingsResponse() {
@@ -215,7 +224,10 @@ public class UserSettingsService {
                                 settings.getTimezone(),
                                 Boolean.TRUE.equals(settings.getHideNsfw()),
                                 Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                                settings.getOnboardingCompletedAt(),
+                                !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
+                                !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()));
         }
 
         private String normalizeTheme(String theme) {

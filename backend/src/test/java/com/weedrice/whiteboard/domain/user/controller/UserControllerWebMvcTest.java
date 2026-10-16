@@ -259,7 +259,7 @@ class UserControllerWebMvcTest {
         request.setTimezone("Asia/Seoul");
         request.setHideNsfw(false);
 
-        when(userSettingsService.updateSettings(any(), any(), any(), any(), any()))
+        when(userSettingsService.updateSettings(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new UserSettingsResponse("DARK", "en", "Asia/Seoul", false, false, null));
 
         mockMvc.perform(put("/api/v1/users/me/settings")
@@ -286,7 +286,7 @@ class UserControllerWebMvcTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
-        verify(userSettingsService, never()).updateSettings(any(), any(), any(), any(), any());
+        verify(userSettingsService, never()).updateSettings(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -381,6 +381,31 @@ class UserControllerWebMvcTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.agentId").value(7))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+
+    @Test
+    void privacySettingsRequestPassesExplicitFalseAndOmittedValues() throws Exception {
+        when(userSettingsService.updateSettings(1L, null, null, null, null, false, null, true))
+                .thenReturn(new UserSettingsResponse("LIGHT", "ko", "Asia/Seoul", true, false, null, false, false, true));
+        mockMvc.perform(put("/api/v1/users/me/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profileOverviewPublic\":false,\"profileCommentsPublic\":true}")
+                        .with(user(customUserDetails)).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileOverviewPublic").value(false))
+                .andExpect(jsonPath("$.data.profilePostsPublic").value(false))
+                .andExpect(jsonPath("$.data.profileCommentsPublic").value(true));
+        verify(userSettingsService).updateSettings(1L, null, null, null, null, false, null, true);
+    }
+
+    @Test
+    void privateProfileListReturnsDistinctForbiddenCode() throws Exception {
+        when(postListReadService.getPublicProfilePosts(eq(2L), eq(1L), any()))
+                .thenThrow(new com.weedrice.whiteboard.global.exception.BusinessException(ErrorCode.PROFILE_SECTION_PRIVATE));
+        mockMvc.perform(get("/api/v1/users/2/posts").with(user(customUserDetails)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("U012"));
     }
 
 }

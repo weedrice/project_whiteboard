@@ -203,6 +203,7 @@ public class PostListReadService {
         if (isRestrictedByBlock(targetUserId, viewerUserId)) {
             return Page.empty(safePageable);
         }
+        postUserReadPort.requireProfilePostsVisible(targetUserId, viewerUserId);
         Page<Post> posts = postRepository.findPublicProfilePostsByUserId(activeTargetUserId, safePageable);
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, false);
     }

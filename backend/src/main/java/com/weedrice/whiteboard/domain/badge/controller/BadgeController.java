@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.badge.service.BadgeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,13 +26,14 @@ public class BadgeController {
     private final BadgeService badgeService;
 
     @GetMapping("/users/{userId}/badges")
-    public ApiResponse<List<BadgeResponse>> getUserBadges(@PathVariable Long userId) {
-        return ApiResponse.success(badgeService.getUserBadges(userId));
+    public ApiResponse<List<BadgeResponse>> getUserBadges(@PathVariable Long userId,
+            @Parameter(hidden = true) @CurrentUserId(required = false) Long viewerUserId) {
+        return ApiResponse.success(badgeService.getUserBadges(userId, viewerUserId));
     }
 
     @GetMapping("/users/me/badges")
     public ApiResponse<List<BadgeResponse>> getMyBadges(@CurrentUserId Long userId) {
-        return ApiResponse.success(badgeService.getUserBadges(userId));
+        return ApiResponse.success(badgeService.getUserBadges(userId, userId));
     }
 
     @PutMapping("/users/me/badges/representative")

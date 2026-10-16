@@ -86,7 +86,7 @@ class CommentQueryReadAccessTest {
         CommentReadSupport readSupport = new CommentReadSupport(commentRepository);
         service = new CommentQueryService(
                 commentRepository, inquiryPolicy, postPort,
-                new CommentUserIntegrationAdapter(userResolver, userBlockService, mock(UserBlockRepository.class)),
+                new CommentUserIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userResolver, userBlockService, mock(UserBlockRepository.class)),
                 readSupport, new CommentReadModelAssembler(readSupport), mock(CommentMentionRepository.class),
                 new StaticMessageSource(), mock(ActorBatchReadPort.class));
 
