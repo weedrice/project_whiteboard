@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
+import { runInNewContext } from 'node:vm'
 import { parseDocument } from '../../../frontend/node_modules/yaml/dist/index.js'
 
 const root = path.resolve(import.meta.dirname, '../../..')
@@ -399,6 +400,50 @@ test('persistent public verification failure is reported after restoring the pre
 
 
 const ci = parseDocument(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8')).toJS()
+// This job uses only boolean operators, string equality and context access, which
+// share JavaScript semantics for these typed fixture values. Evaluate the actual
+// workflow expression, retaining explicit status checks for skipped dependencies.
+const frontendCandidateCondition = ci.jobs['candidate-frontend'].if
+  .replace(/needs\.([a-z][a-z-]*)/g, 'needs["$1"]')
+for (const [name, overrides, allowed] of [
+  ['joint deployment after verified backend recovery', {}, true],
+  ['backend still running', { backendResult: 'in_progress' }, false],
+  ['backend failed', { backendResult: 'failure' }, false],
+  ['backend cancelled', { backendResult: 'cancelled' }, false],
+  ['required backend skipped', { backendResult: 'skipped' }, false],
+  ['backend identity missing', { activatedSha: '' }, false],
+  ['wrong backend revision', { activatedSha: previous }, false],
+  ['frontend-only push', { backendChanged: 'false', backendResult: 'skipped' }, true],
+  ['unknown backend scope', { backendChanged: '', backendResult: 'skipped' }, false],
+  ['frontend not selected', { frontendChanged: 'false' }, false],
+  ['CI gate failed', { gateResult: 'failure' }, false],
+  ['CI gate skipped', { gateResult: 'skipped' }, false],
+  ['pull request', { event: 'pull_request' }, false],
+  ['non-main push', { ref: 'refs/heads/develop' }, false],
+  ['cancelled workflow', { cancelled: true }, false],
+  ['manual frontend-only ignores cumulative backend scope', { event: 'workflow_dispatch', manualBackend: false, backendResult: 'skipped' }, true],
+  ['manual joint deployment after backend', { event: 'workflow_dispatch' }, true],
+  ['manual required backend skipped despite unchanged paths', { event: 'workflow_dispatch', backendChanged: 'false', backendResult: 'skipped' }, false],
+  ['manual frontend disabled', { event: 'workflow_dispatch', manualFrontend: false }, false],
+]) {
+  test(`frontend SEO candidate readiness: ${name}`, () => {
+    const context = {
+      event: 'push', ref: 'refs/heads/main', backendChanged: 'true', frontendChanged: 'true',
+      backendResult: 'success', activatedSha: expected, gateResult: 'success', cancelled: false,
+      manualBackend: true, manualFrontend: true, ...overrides,
+    }
+    assert.equal(runInNewContext(frontendCandidateCondition, {
+      cancelled: () => context.cancelled,
+      github: { event_name: context.event, ref: context.ref, sha: expected },
+      inputs: { deploy_backend: context.manualBackend, deploy_frontend: context.manualFrontend },
+      needs: {
+        changes: { outputs: { backend_deploy: context.backendChanged, frontend_deploy: context.frontendChanged } },
+        'ci-gate': { result: context.gateResult },
+        'deploy-backend': { result: context.backendResult, outputs: { activated_sha: context.activatedSha } },
+      },
+    }, { timeout: 1000 }), allowed)
+  })
+}
 const smokeStep = ci.jobs['backend-postgres-migration'].steps.find((step) => step.name === 'Run PostgreSQL application context smoke test')
 const smokeReportCheck = smokeStep.run.split("python3 - <<'PY'\n")[1].split('\nPY')[0]
 for (const [name, attributes, expectedSuccess] of [

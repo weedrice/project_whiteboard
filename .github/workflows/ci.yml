@@ -977,10 +977,14 @@ jobs:
         run: echo "metadata_attempt=$METADATA_ATTEMPT" >> "$GITHUB_OUTPUT"
 
   candidate-frontend:
-    needs: [changes, ci-gate]
+    needs: [changes, ci-gate, deploy-backend]
     if: >-
       !cancelled() &&
       needs.ci-gate.result == 'success' &&
+      ((needs.deploy-backend.result == 'success' && needs.deploy-backend.outputs.activated_sha == github.sha) ||
+      (needs.deploy-backend.result == 'skipped' &&
+      ((github.event_name == 'push' && needs.changes.outputs.backend_deploy == 'false') ||
+      (github.event_name == 'workflow_dispatch' && !inputs.deploy_backend)))) &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
     runs-on: ubuntu-24.04
@@ -1010,6 +1014,8 @@ jobs:
           SEO_RELEASE_SHA: ${{ github.sha }}
           SITEMAP_SITE_URL: https://noviis.kr
           SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
+          SITEMAP_FETCH_RETRIES: 5
+          SITEMAP_FETCH_RETRY_DELAY_MS: 2000
           PRERENDER_FETCH_RETRIES: 5
           PRERENDER_FETCH_RETRY_DELAY_MS: 2000
         run: |

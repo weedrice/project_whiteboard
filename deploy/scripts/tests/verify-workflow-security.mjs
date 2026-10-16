@@ -330,6 +330,15 @@ assert(stepRuns(ci.jobs['backend-postgres-migration'], './gradlew postgresSmokeT
 assert(stepRuns(ci.jobs['backend-postgres-migration'], "assert counts['tests'] > counts['skipped']"),
   'PostgreSQL CI must reject zero or entirely skipped smoke tests')
 const frontendRollback = frontend.jobs.deploy.steps.find((step) => step.name === 'Roll back frontend after verification failure')
+const frontendCandidate = ci.jobs['candidate-frontend']
+assert(frontendCandidate.needs.includes('deploy-backend'),
+  'frontend SEO build must wait for backend deployment before querying the live API')
+assert(frontendCandidate.if.includes("needs.deploy-backend.result == 'success'")
+  && frontendCandidate.if.includes('needs.deploy-backend.outputs.activated_sha == github.sha')
+  && frontendCandidate.if.includes("needs.deploy-backend.result == 'skipped'")
+  && frontendCandidate.if.includes("needs.changes.outputs.backend_deploy == 'false'")
+  && frontendCandidate.if.includes('!inputs.deploy_backend'),
+  'frontend SEO build must require verified backend activation or an intentionally skipped backend')
 assert(frontendRollback.if === "failure() && steps.activate.outcome != 'skipped'",
   'frontend rollback must cover readback failure before activation-result succeeds')
 assert(frontendRollback.with.script.includes('refusing rollback')

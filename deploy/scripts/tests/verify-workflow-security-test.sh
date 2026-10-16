@@ -164,4 +164,17 @@ if node "$validator" "$fixture"; then
   exit 1
 fi
 
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i '/^  candidate-frontend:$/,/^    if:/s/needs: \[changes, ci-gate, deploy-backend\]/needs: [changes, ci-gate]/' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected frontend SEO build racing backend activation to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+sed -i '/^  candidate-frontend:$/,/^    runs-on:/s/needs.deploy-backend.outputs.activated_sha == github.sha/true/' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected frontend SEO build without backend runtime identity verification to fail" >&2
+  exit 1
+fi
+
 echo "Workflow AST negative fixtures passed"
