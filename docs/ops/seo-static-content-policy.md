@@ -12,6 +12,8 @@
 
 현재 배포 경로는 [GitHub Actions 운영 계약](../../.github/workflows/README.md)을 따른다. 새 frontend artifact 전체를 활성화해야 기존 본문 HTML과 게시글 제목 OG 파일도 공개 디렉터리에서 교체된다. 부분 파일 덮어쓰기나 이전 `dist`를 합치는 방식으로 배포하지 않는다. Nginx 설정·백엔드 API·DB 스키마 변경은 필요 없다.
 
+backend와 frontend를 함께 배포할 때 운영 API를 읽는 frontend SEO 빌드는 backend 활성화와 실행 SHA 검증이 성공한 뒤 시작한다. frontend만 배포할 때는 요청하지 않은 backend의 skip을 허용한다. 사이트맵 API의 일시적인 502 등은 운영 계약의 제한된 횟수와 대기 시간으로 재시도하지만, 지속적인 장애에서는 strict 빌드를 실패시킨다. 재시도는 서버 기동 실패나 운영 복구를 대신하지 않는다.
+
 `SEO_STRICT=true`의 API 실패, URL 0건, 산출물 개수, release SHA와 사이트맵 digest 검증은 유지한다. 로컬 Windows에서 Node 24와 설치된 frontend 의존성으로 다음 검증을 실행한다.
 
 ```powershell

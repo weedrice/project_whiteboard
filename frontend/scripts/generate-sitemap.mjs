@@ -11,6 +11,9 @@ const outputPath = resolve(process.cwd(), 'public', 'sitemap.xml')
 const pageSize = parsePositiveInt(process.env.SITEMAP_PAGE_SIZE, 100)
 const maxPagesPerBoard = parsePositiveInt(process.env.SITEMAP_MAX_PAGES_PER_BOARD, 200)
 const requestTimeoutMs = parsePositiveInt(process.env.SITEMAP_REQUEST_TIMEOUT_MS, 15000)
+const fetchRetries = parseNonNegativeInt(process.env.SITEMAP_FETCH_RETRIES, 3)
+const fetchRetryDelayMs = parsePositiveInt(process.env.SITEMAP_FETCH_RETRY_DELAY_MS, 1000)
+const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504])
 const strict = process.env.SEO_STRICT === 'true'
 const postUrlCapacity = readSeoPostUrlCapacity()
 const lastmodFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -27,6 +30,24 @@ function normalizeBaseUrl(url) {
 function parsePositiveInt(value, fallback) {
     const parsed = Number.parseInt(String(value ?? ''), 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function parseNonNegativeInt(value, fallback) {
+    const parsed = Number.parseInt(String(value ?? ''), 10)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+class HttpError extends Error {
+    constructor(status, path) {
+        super(`HTTP ${status} while fetching ${path}`)
+        this.name = 'HttpError'
+        this.status = status
+    }
+}
+
+function shouldRetryFetch(error) {
+    if (error instanceof HttpError) return retryableStatuses.has(error.status)
+    return error instanceof TypeError || error?.name === 'TimeoutError' || error?.name === 'AbortError'
 }
 
 function escapeXml(value) {
@@ -54,26 +75,37 @@ function toSortTimestamp(value) {
 
 async function fetchApiData(path) {
     const url = `${apiBaseUrl}${path}`
-    const response = await fetch(url, {
-        headers: {
-            Accept: 'application/json',
-            'User-Agent': 'noviis-sitemap-generator/1.0'
-        },
-        signal: AbortSignal.timeout(requestTimeoutMs)
-    })
 
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`)
-    }
+    for (let attempt = 0; attempt <= fetchRetries; attempt += 1) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'User-Agent': 'noviis-sitemap-generator/1.0'
+                },
+                signal: AbortSignal.timeout(requestTimeoutMs)
+            })
 
-    const payload = await response.json()
-    if (payload && typeof payload === 'object' && 'success' in payload) {
-        if (!payload.success) {
-            throw new Error(`API responded with success=false for ${path}`)
+            if (!response.ok) {
+                await response.body?.cancel().catch(() => {})
+                throw new HttpError(response.status, path)
+            }
+
+            const payload = await response.json()
+            if (payload && typeof payload === 'object' && 'success' in payload) {
+                if (!payload.success) {
+                    throw new Error(`API responded with success=false for ${path}`)
+                }
+                return payload.data
+            }
+            return payload
+        } catch (error) {
+            if (attempt >= fetchRetries || !shouldRetryFetch(error)) throw error
+
+            console.warn(`[sitemap] retrying ${path} after ${String(error)} (${attempt + 1}/${fetchRetries})`)
+            await new Promise((resolveDelay) => setTimeout(resolveDelay, fetchRetryDelayMs * (attempt + 1)))
         }
-        return payload.data
     }
-    return payload
 }
 
 function createEntry(loc, options = {}) {
