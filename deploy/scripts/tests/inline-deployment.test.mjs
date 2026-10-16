@@ -17,7 +17,7 @@ const shellPath = (value) => process.platform === 'win32'
   ? value.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`)
   : value
 
-function fixture(t) {
+function fixture(t, runAttempt = 1) {
   fs.mkdirSync(fixtureRoot, { recursive: true })
   const directory = fs.mkdtempSync(path.join(fixtureRoot, 'case-'))
   t.after(() => {
@@ -33,17 +33,18 @@ function fixture(t) {
   write('app/app.jar', 'previous jar')
   write('process-state', 'active')
   write('runtime-sha', previous)
-  const staging = `tmp/noviis-backend-${expected}-7-1`
+  const staging = `tmp/noviis-backend-${expected}-7-${runAttempt}`
   write(`${staging}/app.jar`, 'new jar')
-  write(`${staging}/RELEASE_METADATA`, `commit_sha=${expected}\n`)
-  write(`${staging}/SHA256SUMS`, ['app.jar', 'RELEASE_METADATA'].map((name) =>
+  write(`${staging}/RELEASE_METADATA`, `commit_sha=${expected}\nrun_id=7\nrun_number=3\nrun_attempt=1\n`)
+  const checksum = () => write(`${staging}/SHA256SUMS`, ['app.jar', 'RELEASE_METADATA'].map((name) =>
     `${createHash('sha256').update(read(`${staging}/${name}`)).digest('hex')}  ${name}\n`,
   ).join(''))
+  checksum()
   write('www/app/.noviis-release', expected)
   write('www/app/index.html', 'new frontend')
   write('www/app.rollback-7-1/.noviis-release', `${previous}\r\n`)
   write('www/app.rollback-7-1/index.html', 'previous frontend')
-  return { directory, write, read }
+  return { directory, write, read, staging, checksum }
 }
 
 // Only filesystem commands inside the isolated fixture execute. Service and HTTP
@@ -62,7 +63,15 @@ sudo() {
           return 1
         fi
         return 0 ;;
-      show) printf '%s\\n' "\${MOCK_STOP_PID:-0}"; return 0 ;;
+      show)
+        if [ "$4" = --property=MainPID ]; then
+          printf '%s\\n' "\${MOCK_STOP_PID:-0}"
+        else
+          printf '%s' "$*" > "$FIXTURE/diagnostic-command"
+          [ "\${MOCK_DIAGNOSTIC_FAIL:-false}" != true ] || return 1
+          printf 'ActiveState=%s\\nExecMainStatus=0\\nNRestarts=0\\n' "$(cat "$FIXTURE/process-state")"
+        fi
+        return 0 ;;
       is-active)
         [ "\${MOCK_STILL_ACTIVE:-false}" = true ] || [ "$(cat "$FIXTURE/process-state")" = active ]
         return $? ;;
@@ -103,7 +112,16 @@ sudo() {
 }
 curl() {
   case "$*" in
-    */actuator/health*) [ "$(cat "$FIXTURE/process-state")" = active ] || return 22; printf '{"status":"UP"}' ;;
+    */actuator/health*)
+      [ "$(cat "$FIXTURE/process-state")" = active ] || return 22
+      if [ "$(cat "$FIXTURE/app/app.jar")" = 'new jar' ]; then
+        [ "\${MOCK_HEALTH_FAIL:-false}" != true ] || return 7
+        probes=$(cat "$FIXTURE/health-probes" 2>/dev/null || printf 0)
+        probes=$((probes + 1))
+        printf '%s' "$probes" > "$FIXTURE/health-probes"
+        [ "$probes" -gt "\${MOCK_HEALTH_DELAY:-0}" ] || return 7
+      fi
+      printf '{"status":"UP"}' ;;
     */actuator/info*) printf '{"build":{"commit":"%s"}}' "$(cat "$FIXTURE/runtime-sha")" ;;
     *--resolve*) cat "$FIXTURE/www/app/.noviis-release" ;;
     *) [ "\${MOCK_PUBLIC_FAIL:-false}" != true ] || return 22; cat "$FIXTURE/www/app/.noviis-release" ;;
@@ -119,9 +137,10 @@ function runStep(f, workflow, idOrName, options = {}) {
   const script = step.with.script
     .replaceAll('${{ inputs.expected_sha }}', expected)
     .replaceAll('${{ inputs.contract_migration }}', String(options.contract ?? false))
+    .replaceAll('${{ inputs.release_metadata_attempt }}', String(options.metadataAttempt ?? 1))
     .replaceAll('${{ github.run_id }}', '7')
     .replaceAll('${{ github.run_number }}', '3')
-    .replaceAll('${{ github.run_attempt }}', '1')
+    .replaceAll('${{ github.run_attempt }}', String(options.runAttempt ?? 1))
     .replaceAll('/tmp/noviis-', `${base}/tmp/noviis-`)
     .replaceAll('/opt/app/backend', `${base}/app`)
     .replaceAll('/var/www', `${base}/www`)
@@ -239,6 +258,90 @@ test('backend activation and independent readback require the running release', 
   f.write('runtime-sha', previous)
   fails(runStep(f, backend, 'reconcile'))
 })
+
+test('backend readiness tolerates delayed startup within the existing probe budget', (t) => {
+  const f = fixture(t)
+  succeeds(runStep(f, backend, 'activate', { env: { MOCK_HEALTH_DELAY: '3' } }))
+  assert.equal(f.read('health-probes'), '4')
+})
+
+for (const contract of [false, true]) {
+  for (const diagnosticsFail of [false, true]) {
+    test(`unavailable backend health preserves recovery and exit status (contract=${contract}, diagnosticsFail=${diagnosticsFail})`, (t) => {
+      const f = fixture(t)
+      const result = runStep(f, backend, 'activate', {
+        contract,
+        env: { MOCK_HEALTH_FAIL: 'true', MOCK_DIAGNOSTIC_FAIL: String(diagnosticsFail) },
+      })
+      fails(result)
+      assert.equal(result.status, 1)
+      assert.match(result.stderr, /health_unavailable after 45 probes/)
+      assert.match(result.stderr, /phase=readiness exit=1/)
+      assert.equal(f.read('diagnostic-command'), 'systemctl show app --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts,MainPID')
+      assert.match(result.stderr, diagnosticsFail ? /diagnostics unavailable/ : /ActiveState=active/)
+      assert.equal(f.read('process-state'), contract ? 'inactive' : 'active')
+      assert.equal(f.read('app/app.jar'), contract ? 'new jar' : 'previous jar')
+      assert.doesNotMatch(result.stdout, /ACTIVATED_SHA=/)
+    })
+  }
+}
+
+for (const field of ['commit_sha', 'run_id', 'run_number', 'run_attempt']) {
+  test(`backend readback rejects mismatched ${field} even with a valid checksum`, (t) => {
+    const f = fixture(t)
+    succeeds(runStep(f, backend, 'activate'))
+    f.write(`${f.staging}/RELEASE_METADATA`, f.read(`${f.staging}/RELEASE_METADATA`).replace(new RegExp(`${field}=.*`), `${field}=999`))
+    f.checksum()
+    const result = runStep(f, backend, 'reconcile')
+    fails(result)
+    assert.match(result.stderr, /phase=artifact/)
+    assert.doesNotMatch(result.stdout, /ACTIVATED_SHA=/)
+  })
+}
+
+test('backend readback uses the producer attempt when consuming an earlier candidate', (t) => {
+  const f = fixture(t, 2)
+  succeeds(runStep(f, backend, 'activate', { runAttempt: 2 }))
+  succeeds(runStep(f, backend, 'reconcile', { runAttempt: 2, metadataAttempt: 1 }))
+  fails(runStep(f, backend, 'reconcile', { runAttempt: 2, metadataAttempt: 2 }))
+})
+
+test('backend readback rejects corrupted staged metadata', (t) => {
+  const f = fixture(t)
+  succeeds(runStep(f, backend, 'activate'))
+  f.write(`${f.staging}/RELEASE_METADATA`, `${f.read(`${f.staging}/RELEASE_METADATA`)}tampered=true\n`)
+  const result = runStep(f, backend, 'reconcile')
+  fails(result)
+  assert.doesNotMatch(result.stdout, /ACTIVATED_SHA=/)
+})
+
+for (const phase of ['service', 'health', 'runtime_identity']) {
+  test(`backend readback reports ${phase} failure without publishing success`, (t) => {
+    const f = fixture(t)
+    succeeds(runStep(f, backend, 'activate'))
+    if (phase === 'service') f.write('process-state', 'inactive')
+    if (phase === 'runtime_identity') f.write('runtime-sha', unrelated)
+    const result = runStep(f, backend, 'reconcile', { env: { MOCK_HEALTH_FAIL: String(phase === 'health') } })
+    fails(result)
+    assert.match(result.stderr, new RegExp(`phase=${phase}`))
+    assert.doesNotMatch(result.stdout, /ACTIVATED_SHA=/)
+  })
+}
+
+for (const outcome of ['success', 'failure', 'skipped', 'cancelled']) {
+  test(`backend activation output requires successful independent readback: ${outcome}`, (t) => {
+    const f = fixture(t)
+    const step = backend.jobs.deploy.steps.find((item) => item.id === 'activation-result')
+    f.write('github-output', '')
+    const result = spawnSync(process.env.BASH_EXECUTABLE ?? 'bash', ['-s'], {
+      cwd: f.directory, input: step.run, encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, EXPECTED_SHA: expected, RECONCILIATION_OUTCOME: outcome, GITHUB_OUTPUT: shellPath(path.join(f.directory, 'github-output')) },
+    })
+    if (outcome === 'success') succeeds(result)
+    else fails(result)
+    assert.equal(f.read('github-output'), outcome === 'success' ? `activated_sha=${expected}\n` : '')
+  })
+}
 
 test('healthy wrong backend revision fails and restores a non-contract release', (t) => {
   const f = fixture(t)
