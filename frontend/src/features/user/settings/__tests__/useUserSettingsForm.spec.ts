@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import type { NotificationSettingsPayload } from '@/api/user'
-import type { UserSettings } from '@/types'
+import type { ApiResponse, UserSettings } from '@/types'
+import { createDeferred } from '@/test/async'
 import { AUTO_TIME_ZONE } from '@/utils/displayTimeZone'
 import {
   useNotificationSettingsForm,
@@ -11,6 +12,114 @@ import {
 const t = (key: string) => key
 
 describe('useUserSettingsForm', () => {
+  it.each([false, undefined])('keeps normal saves available and omits privacy when activation is %s', async (profilePrivacyEnabled) => {
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
+      profilePrivacyEnabled, profileOverviewPublic: false, profilePostsPublic: false, profileCommentsPublic: false,
+    })
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
+    const form = useUserSettingsForm({ settingsData, isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
+    expect(form.profilePrivacyEnabled.value).toBe(false)
+    // Hidden or previously edited controls cannot add privacy flags to a normal save.
+    form.form.profilePostsPublic = true
+    expect(form.canSave.value).toBe(false)
+    form.form.theme = 'DARK'
+    await form.save()
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'AUTO', hideNsfw: true })
+    expect(form.form.profilePostsPublic).toBe(false)
+    expect(form.isDirty.value).toBe(false)
+  })
+
+  it('omits privacy edits if activation is disabled while locale messages load', async () => {
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
+      profilePrivacyEnabled: true, profilePostsPublic: true,
+    })
+    const localeLoading = createDeferred<boolean>()
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
+    const form = useUserSettingsForm({ settingsData, isSaving: ref(false), themeIsDark: () => false, updateSettings,
+      setLocale: () => localeLoading.promise, setTheme: vi.fn(), t })
+    form.form.profilePostsPublic = false
+    form.form.theme = 'DARK'
+    const saving = form.save()
+    settingsData.value = { ...settingsData.value, profilePrivacyEnabled: false }
+    localeLoading.resolve(true)
+    await saving
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'AUTO', hideNsfw: true })
+    expect(form.profilePrivacyEnabled.value).toBe(false)
+    expect(form.form.profilePostsPublic).toBe(true)
+  })
+
+  it('hydrates privacy values, tracks independent edits and preserves a failed save', async () => {
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
+      profilePrivacyEnabled: true,
+      profileOverviewPublic: false, profilePostsPublic: true, profileCommentsPublic: false,
+    })
+    const updateSettings = vi.fn().mockRejectedValueOnce(new Error('save failed')).mockResolvedValue(undefined)
+    const form = useUserSettingsForm({ settingsData, isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
+    expect(form.form.profileOverviewPublic).toBe(false)
+    expect(form.isDirty.value).toBe(false)
+    form.form.profilePostsPublic = false
+    expect(form.canSave.value).toBe(true)
+    await form.save()
+    expect(form.isError.value).toBe(true)
+    expect(form.isDirty.value).toBe(true)
+    expect(form.form.profilePostsPublic).toBe(false)
+    await form.save()
+    expect(updateSettings).toHaveBeenLastCalledWith({
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: false,
+    })
+    expect(form.isDirty.value).toBe(false)
+  })
+
+  it('does not republish privacy changed in another tab when saving unrelated settings', async () => {
+    const original: UserSettings = {
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
+      profilePrivacyEnabled: true,
+      profileOverviewPublic: true, profilePostsPublic: true, profileCommentsPublic: true,
+    }
+    const settingsData = ref(original)
+    const serverSettings = { ...original, profileOverviewPublic: false, profilePostsPublic: false, profileCommentsPublic: false }
+    const updateSettings = vi.fn().mockResolvedValue({ success: true, data: { ...serverSettings, language: 'en' } })
+    const form = useUserSettingsForm({ settingsData, isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
+    form.form.language = 'en'
+    // A refetch while dirty preserves the local draft; another tab has made all sections private.
+    settingsData.value = serverSettings
+    await nextTick()
+    expect(form.form.profilePostsPublic).toBe(true)
+
+    await form.save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'LIGHT', language: 'en', timezone: 'AUTO', hideNsfw: true })
+    expect(form.form).toMatchObject({ profileOverviewPublic: false, profilePostsPublic: false, profileCommentsPublic: false })
+    expect(form.isDirty.value).toBe(false)
+  })
+
+  it('saves intentional privacy changes independently and retains privacy edits made in flight', async () => {
+    const original: UserSettings = {
+      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
+      profilePrivacyEnabled: true,
+      profileOverviewPublic: true, profilePostsPublic: true, profileCommentsPublic: true,
+    }
+    const pending = createDeferred<ApiResponse<UserSettings>>()
+    const updateSettings = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(undefined)
+    const form = useUserSettingsForm({ settingsData: ref(original), isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
+    form.form.profilePostsPublic = false
+    const saving = form.save()
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: false })
+    form.form.profilePostsPublic = true
+    form.form.profileCommentsPublic = false
+    pending.resolve({ success: true, data: { ...original, profileOverviewPublic: false, profilePostsPublic: false } })
+    await saving
+
+    expect(form.form).toMatchObject({ profileOverviewPublic: false, profilePostsPublic: true, profileCommentsPublic: false })
+    expect(form.isDirty.value).toBe(true)
+    await form.save()
+    expect(updateSettings).toHaveBeenLastCalledWith({ theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: true, profileCommentsPublic: false })
+    expect(form.isDirty.value).toBe(false)
+  })
+
   it('stops the save and shows an error when locale messages cannot be loaded', async () => {
     const updateSettings = vi.fn()
     const form = useUserSettingsForm({

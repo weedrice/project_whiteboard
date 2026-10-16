@@ -1,10 +1,16 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosError } from 'axios'
 import { reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import UserProfilePage from '../UserProfilePage.vue'
 import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
+  overviewPublic: true,
+  postsPublic: true,
+  commentsPublic: true,
+  ownerAccess: true,
+  postsFailure: null as Error | null,
   route: null as { params: { userId: string } } | null,
   authStore: {
     user: { userId: 7 },
@@ -29,7 +35,7 @@ vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addTo
 vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useUserProfile: () => ({
-      data: ref({ userId: 7, displayName: 'Novi', profileImageUrl: null, createdAt: '2026-01-01', postCount: 2, commentCount: 1 }),
+      data: ref({ userId: 7, displayName: 'Novi', profileImageUrl: null, createdAt: '2026-01-01', postCount: 2, commentCount: 1, profileOverviewPublic: mocks.overviewPublic, profilePostsPublic: mocks.postsPublic, profileCommentsPublic: mocks.commentsPublic, canViewOverview: mocks.ownerAccess || mocks.overviewPublic, canViewPosts: mocks.ownerAccess || mocks.postsPublic, canViewComments: mocks.ownerAccess || mocks.commentsPublic }),
       isLoading: ref(false), isError: ref(false), refetch: mocks.refetchProfile,
     }),
     useUserBadges: () => ({
@@ -37,16 +43,16 @@ vi.mock('@/features/user/useUser', () => ({
         { badgeCode: 'FIRST', name: 'First', description: 'First badge', tier: 'BRONZE', acquired: true, representative: false },
         { badgeCode: 'LOCKED', name: 'Locked', description: '', tier: 'GOLD', acquired: false, representative: false },
       ]),
-      isLoading: ref(false), isError: ref(false), refetch: mocks.refetchBadges,
+      isLoading: ref(false), isError: ref(false), error: ref(null), refetch: mocks.refetchBadges,
     }),
     useUpdateRepresentativeBadge: () => ({ mutateAsync: mocks.updateBadge, isPending: ref(false) }),
     usePublicProfilePosts: () => ({
       data: ref({ content: [{ postId: 1, title: 'Post' }], totalPages: 2 }),
-      isLoading: ref(false), isError: ref(false), refetch: mocks.refetchPosts,
+      isLoading: ref(false), isError: ref(!!mocks.postsFailure), error: ref(mocks.postsFailure), refetch: mocks.refetchPosts,
     }),
     usePublicProfileComments: () => ({
       data: ref({ content: [{ commentId: 2, content: '![emoticon](/uploads/happy.png)', post: { boardUrl: 'news', postId: 1, title: 'Post' } }], totalPages: 2 }),
-      isLoading: ref(false), isError: ref(false), refetch: mocks.refetchComments,
+      isLoading: ref(false), isError: ref(false), error: ref(null), refetch: mocks.refetchComments,
     }),
   }),
 }))
@@ -77,9 +83,55 @@ function mountProfile() {
 describe('UserProfilePage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.overviewPublic = true
+    mocks.postsPublic = true
+    mocks.commentsPublic = true
+    mocks.ownerAccess = true
+    mocks.postsFailure = null
     mocks.authStore.user = { userId: 7 }
     mocks.authStore.sessionGeneration = 1
     mocks.updateBadge.mockResolvedValue(undefined)
+  })
+
+  it('hides private overview, counts and activity while keeping all tabs available', async () => {
+    mocks.overviewPublic = false
+    mocks.postsPublic = false
+    mocks.commentsPublic = false
+    mocks.ownerAccess = false
+    mocks.authStore.user = { userId: 8 }
+    const wrapper = mountProfile()
+    expect(wrapper.text()).toContain('user.publicProfile.privateSection')
+    expect(wrapper.text()).not.toContain('user.profile.joined')
+    expect(wrapper.text()).not.toContain('First')
+    await wrapper.find('[data-posts]').trigger('click')
+    expect(wrapper.text()).toContain('user.publicProfile.privateSection')
+    expect(wrapper.find('[data-post-list]').exists()).toBe(false)
+    await wrapper.find('[data-comments]').trigger('click')
+    expect(wrapper.text()).toContain('user.publicProfile.privateSection')
+    expect(wrapper.find('.comment-content-list').exists()).toBe(false)
+  })
+
+  it('allows owners to view hidden sections with a private-to-others indicator', async () => {
+    mocks.overviewPublic = false
+    mocks.postsPublic = false
+    const wrapper = mountProfile()
+    expect(wrapper.text()).toContain('First')
+    expect(wrapper.text()).toContain('user.publicProfile.privateToOthers')
+    await wrapper.find('[data-posts]').trigger('click')
+    expect(wrapper.find('[data-post-list]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('user.publicProfile.privateToOthers')
+  })
+
+  it('replaces cached post content with privacy feedback after a dedicated 403', async () => {
+    const failure = new AxiosError('private')
+    failure.response = { status: 403, data: { error: { code: 'U012' } } } as NonNullable<typeof failure.response>
+    mocks.postsFailure = failure
+    const wrapper = mountProfile()
+    await wrapper.find('[data-posts]').trigger('click')
+    expect(wrapper.text()).toContain('user.publicProfile.privateSection')
+    expect(wrapper.find('[data-post-list]').exists()).toBe(false)
+    expect(wrapper.find('[data-retry]').exists()).toBe(false)
+    expect(wrapper.find('[data-page]').exists()).toBe(false)
   })
 
   it('renders the overview and updates a representative badge', async () => {

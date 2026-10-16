@@ -516,6 +516,30 @@ describe('UserSettings', () => {
     expect(notificationSaveButton.attributes('disabled')).toBeUndefined()
   })
 
+  it.each([false, undefined])('hides privacy controls while keeping normal settings writable when activation is %s', async (profilePrivacyEnabled) => {
+    settingsData.value = { ...settingsData.value, profilePrivacyEnabled }
+    const wrapper = mountUserSettings()
+    await nextTick()
+    expect(wrapper.find('fieldset[aria-describedby="profile-privacy-help"]').exists()).toBe(false)
+    await wrapper.findAll('select')[0].setValue('DARK')
+    await getSaveButtons(wrapper).generalSaveButton.trigger('click')
+    await flushAll()
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true })
+    expect(wrapper.text()).toContain('user.settings.saved')
+  })
+
+  it('shows privacy controls only after explicit activation and hides them when disabled again', async () => {
+    const wrapper = mountUserSettings()
+    await nextTick()
+    expect(wrapper.find('fieldset[aria-describedby="profile-privacy-help"]').exists()).toBe(false)
+    settingsData.value = { ...settingsData.value, profilePrivacyEnabled: true }
+    await nextTick()
+    expect(wrapper.find('fieldset[aria-describedby="profile-privacy-help"]').findAll('input')).toHaveLength(3)
+    settingsData.value = { ...settingsData.value, profilePrivacyEnabled: false }
+    await nextTick()
+    expect(wrapper.find('fieldset[aria-describedby="profile-privacy-help"]').exists()).toBe(false)
+  })
+
   it('saves only general settings from the general section', async () => {
     const wrapper = mountUserSettings()
     await nextTick()

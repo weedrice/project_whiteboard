@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
+import com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,8 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class CommentUserIntegrationAdapter implements CommentUserPort {
+
+    private final ProfilePrivacyPolicy profilePrivacyPolicy;
 
     private final UserReadableResolver userReadableResolver;
     private final UserBlockService userBlockService;
@@ -32,6 +35,11 @@ public class CommentUserIntegrationAdapter implements CommentUserPort {
     @Override
     public void validateActive(Long userId) {
         userReadableResolver.resolveActive(userId);
+    }
+
+    @Override
+    public void requireProfileCommentsVisible(Long targetUserId, Long viewerUserId) {
+        profilePrivacyPolicy.requireCommentsVisible(targetUserId, viewerUserId);
     }
 
     @Override

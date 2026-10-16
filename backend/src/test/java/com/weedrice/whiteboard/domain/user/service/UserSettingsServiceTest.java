@@ -570,6 +570,15 @@ class UserSettingsServiceTest {
             }
 
             @Override
+            public Boolean getProfileOverviewPublic() { return true; }
+
+            @Override
+            public Boolean getProfilePostsPublic() { return true; }
+
+            @Override
+            public Boolean getProfileCommentsPublic() { return true; }
+
+            @Override
             public LocalDateTime getOnboardingCompletedAt() {
                 return null;
             }
@@ -597,4 +606,100 @@ class UserSettingsServiceTest {
             }
         };
     }
+
+    @Test
+    void privacyOnlyUpdatePreservesOtherSettingsAndLegacyUpdatesPreservePrivacy() {
+        when(globalConfigService.isProfilePrivacyEnabled()).thenReturn(true);
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(
+                1L, null, null, null, null, false, false, false);
+        assertThat(response.getTheme()).isEqualTo("LIGHT");
+        assertThat(response.isProfilePrivacyEnabled()).isTrue();
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isFalse();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+
+        response = userSettingsService.updateSettings(1L, "DARK", null, null, null);
+        assertThat(response.getTheme()).isEqualTo("DARK");
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isFalse();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+
+        response = userSettingsService.updateSettings(1L, null, null, null, null, null, true, null);
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isTrue();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+    }
+
+    @Test
+    void disabledPrivacyRejectsEveryExplicitFlagBeforeAnySettingsMutation() {
+        for (Boolean[] flags : new Boolean[][]{
+                {false, null, null}, {true, null, null}, {null, false, null},
+                {null, true, null}, {null, null, false}, {null, null, true}}) {
+            assertThatThrownBy(() -> userSettingsService.updateSettings(
+                    1L, "DARK", null, null, null, flags[0], flags[1], flags[2]))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PROFILE_PRIVACY_UNAVAILABLE);
+        }
+        org.mockito.Mockito.verifyNoInteractions(userRepository, userSettingsRepository, sanctionService);
+    }
+
+    @Test
+    void disabledPrivacyAllowsLegacySettingsSaveAndKeepsPersistedPrivacy() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        settings.updateProfilePrivacy(false, false, false);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(1L, "DARK", null, null, null);
+
+        assertThat(response.getTheme()).isEqualTo("DARK");
+        assertThat(response.isProfilePrivacyEnabled()).isFalse();
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isFalse();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+        ProfilePrivacyPolicy policy = new ProfilePrivacyPolicy(userSettingsRepository);
+        assertThatThrownBy(() -> policy.requireOverviewVisible(1L, null))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PROFILE_SECTION_PRIVATE);
+        assertThatThrownBy(() -> policy.requirePostsVisible(1L, 2L))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PROFILE_SECTION_PRIVATE);
+        assertThatThrownBy(() -> policy.requireCommentsVisible(1L, 2L))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PROFILE_SECTION_PRIVATE);
+    }
+
+    @Test
+    void missingSettingsStillReportsActivationAvailability() {
+        when(globalConfigService.isProfilePrivacyEnabled()).thenReturn(true);
+        when(userSettingsRepository.findSettingsReadByUserId(1L))
+                .thenReturn(Optional.of(settingsProjection(1L, null, null, null, null)));
+
+        assertThat(userSettingsService.getSettings(1L).isProfilePrivacyEnabled()).isTrue();
+    }
+
+    @Test
+    void privacyProjectionReturnsPersistedFlags() {
+        UserSettingsRepository.SettingsReadProjection projection =
+                org.mockito.Mockito.mock(UserSettingsRepository.SettingsReadProjection.class);
+        when(projection.getTheme()).thenReturn("LIGHT");
+        when(projection.getProfileOverviewPublic()).thenReturn(false);
+        when(projection.getProfilePostsPublic()).thenReturn(true);
+        when(projection.getProfileCommentsPublic()).thenReturn(false);
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.of(projection));
+
+        UserSettingsResponse response = userSettingsService.getSettings(1L);
+        assertThat(response.isProfileOverviewPublic()).isFalse();
+        assertThat(response.isProfilePostsPublic()).isTrue();
+        assertThat(response.isProfileCommentsPublic()).isFalse();
+        assertThat(response.isProfilePrivacyEnabled()).isFalse();
+    }
+
 }

@@ -94,6 +94,11 @@ dependencies {
 	implementation 'com.github.usefulness:webp-imageio:0.11.0'
 }
 
+tasks.withType(Test).configureEach {
+	// Match the application's KST policy before JDBC/H2 cache the JVM default zone.
+	systemProperty 'user.timezone', 'Asia/Seoul'
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	maxHeapSize = '1g'

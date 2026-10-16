@@ -45,6 +45,7 @@ public class UserProfileService {
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final UserActivityPort userActivityPort;
     private final UserBlockRepository userBlockRepository;
+    private final ProfilePrivacyPolicy profilePrivacyPolicy;
     private final FileService fileService;
     private final PointService pointService;
     private final GlobalConfigService globalConfigService;
@@ -95,15 +96,24 @@ public class UserProfileService {
             return restrictedProfile(user.getUserId());
         }
 
-        UserActivityPort.PublicActivityCounts activity = userActivityPort.getPublicActivityCounts(user.getUserId());
+        ProfilePrivacyPolicy.Visibility visibility = profilePrivacyPolicy.resolve(user.getUserId(), viewerUserId);
+        UserActivityPort.PublicActivityCounts activity = visibility.canViewPosts() || visibility.canViewComments()
+                ? userActivityPort.getPublicActivityCounts(user.getUserId())
+                : new UserActivityPort.PublicActivityCounts(0L, 0L);
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
-                .createdAt(user.getCreatedAt())
-                .postCount(activity.postCount())
-                .commentCount(activity.commentCount())
+                .createdAt(visibility.canViewOverview() ? user.getCreatedAt() : null)
+                .postCount(visibility.canViewPosts() ? activity.postCount() : null)
+                .commentCount(visibility.canViewComments() ? activity.commentCount() : null)
+                .profileOverviewPublic(visibility.profileOverviewPublic())
+                .profilePostsPublic(visibility.profilePostsPublic())
+                .profileCommentsPublic(visibility.profileCommentsPublic())
+                .canViewOverview(visibility.canViewOverview())
+                .canViewPosts(visibility.canViewPosts())
+                .canViewComments(visibility.canViewComments())
                 .build();
     }
 
@@ -119,8 +129,8 @@ public class UserProfileService {
                 .displayName(resolveMessage("user.profile.blocked", null, BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME))
                 .profileImageUrl(null)
                 .createdAt(null)
-                .postCount(0)
-                .commentCount(0)
+                .postCount(0L)
+                .commentCount(0L)
                 .build();
     }
 

@@ -76,7 +76,7 @@ class PostSummaryAssemblerTest {
                 new PostCommentStatusIntegrationAdapter(commentRepository),
                 new BoardAccessPolicy(adminRepository),
                 new PostInteractionContextResolver(
-                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),
                                 userRepository, org.mockito.Mockito.mock(
                                         com.weedrice.whiteboard.domain.user.service.UserBlockService.class)),
                         postLikeRepository,
@@ -87,7 +87,7 @@ class PostSummaryAssemblerTest {
         feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 new PostInteractionContextResolver(
-                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(
+                        new com.weedrice.whiteboard.domain.post.integration.PostUserReadIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),
                                 userRepository, org.mockito.Mockito.mock(
                                         com.weedrice.whiteboard.domain.user.service.UserBlockService.class)),
                         postLikeRepository,

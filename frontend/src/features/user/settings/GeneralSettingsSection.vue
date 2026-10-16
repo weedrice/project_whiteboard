@@ -11,6 +11,7 @@ import {
   SERVER_TIME_ZONE,
   detectBrowserTimeZone,
 } from '@/utils/displayTimeZone'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -44,6 +45,7 @@ const {
   isDirty,
   isError: saveIsError,
   message,
+  profilePrivacyEnabled,
   save,
 } = useUserSettingsForm({
   settingsData,
@@ -122,6 +124,13 @@ watch(
           </p>
         </div>
       </div>
+      <fieldset v-if="profilePrivacyEnabled" class="mt-6 border-t border-[var(--nv-line)] pt-5" aria-describedby="profile-privacy-help">
+        <legend class="text-base font-medium nv-title">{{ t('user.settings.profilePrivacy') }}</legend>
+        <p id="profile-privacy-help" class="mb-3 text-sm nv-text-subtle">{{ t('user.settings.profilePrivacyHelp') }}</p>
+        <BaseCheckbox v-model="form.profileOverviewPublic" :label="t('user.settings.profileOverviewPublic')" :description="t('user.settings.profileOverviewHelp')" />
+        <BaseCheckbox v-model="form.profilePostsPublic" :label="t('user.settings.profilePostsPublic')" :description="t('user.settings.profilePostsHelp')" />
+        <BaseCheckbox v-model="form.profileCommentsPublic" :label="t('user.settings.profileCommentsPublic')" :description="t('user.settings.profileCommentsHelp')" />
+      </fieldset>
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <p
           v-if="message"

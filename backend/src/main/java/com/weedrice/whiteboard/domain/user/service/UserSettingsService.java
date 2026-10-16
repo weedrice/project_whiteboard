@@ -66,6 +66,17 @@ public class UserSettingsService {
         @Transactional
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
+                return updateSettings(userId, theme, language, timezone, hideNsfw, null, null, null);
+        }
+
+        @Transactional
+        public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
+                        Boolean hideNsfw, Boolean profileOverviewPublic, Boolean profilePostsPublic,
+                        Boolean profileCommentsPublic) {
+                if ((profileOverviewPublic != null || profilePostsPublic != null || profileCommentsPublic != null)
+                                && !globalConfigService.isProfilePrivacyEnabled()) {
+                        throw new BusinessException(ErrorCode.PROFILE_PRIVACY_UNAVAILABLE);
+                }
                 String normalizedTheme = normalizeTheme(theme);
                 String normalizedLanguage = normalizeLanguage(language);
                 String normalizedTimezone = normalizeTimezone(timezone);
@@ -76,9 +87,8 @@ public class UserSettingsService {
                                 normalizedLanguage,
                                 normalizedTimezone,
                                 hideNsfw);
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw(), Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                settings.updateProfilePrivacy(profileOverviewPublic, profilePostsPublic, profileCommentsPublic);
+                return toResponse(settings);
         }
 
         @Transactional
@@ -195,7 +205,11 @@ public class UserSettingsService {
                                 settings.getTimezone(),
                                 Boolean.TRUE.equals(settings.getHideNsfw()),
                                 Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                                settings.getOnboardingCompletedAt(),
+                                !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
+                                !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()),
+                                globalConfigService.isProfilePrivacyEnabled());
         }
 
         private UserSettingsResponse defaultSettingsResponse() {
@@ -205,7 +219,7 @@ public class UserSettingsService {
                                 UserSettingsDefaults.TIMEZONE,
                                 UserSettingsDefaults.HIDE_NSFW,
                                 UserSettingsDefaults.PUSH_ENABLED,
-                                null);
+                                null, true, true, true, globalConfigService.isProfilePrivacyEnabled());
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {
@@ -215,7 +229,11 @@ public class UserSettingsService {
                                 settings.getTimezone(),
                                 Boolean.TRUE.equals(settings.getHideNsfw()),
                                 Boolean.TRUE.equals(settings.getPushEnabled()),
-                                settings.getOnboardingCompletedAt());
+                                settings.getOnboardingCompletedAt(),
+                                !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
+                                !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()),
+                                globalConfigService.isProfilePrivacyEnabled());
         }
 
         private String normalizeTheme(String theme) {

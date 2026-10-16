@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
@@ -30,6 +32,8 @@ public class BadgeService {
 
     private static final int BACKFILL_PAGE_SIZE = 200;
 
+    private final ProfilePrivacyPolicy profilePrivacyPolicy;
+    private final UserBlockRepository userBlockRepository;
     private final BadgeRepository badgeRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final UserRepository userRepository;
@@ -38,8 +42,17 @@ public class BadgeService {
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     public List<BadgeResponse> getUserBadges(Long targetUserId) {
+        return getUserBadges(targetUserId, null);
+    }
+
+    public List<BadgeResponse> getUserBadges(Long targetUserId, Long viewerUserId) {
         User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (viewerUserId != null && !viewerUserId.equals(targetUserId)
+                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId)) {
+            return List.of();
+        }
+        profilePrivacyPolicy.requireOverviewVisible(targetUserId, viewerUserId);
         List<Badge> badges = badgeRepository.findAllByOrderBySortOrderAscBadgeCodeAsc();
         Map<String, UserBadge> userBadges = userBadgeRepository
                 .findByUser_UserIdOrderByBadge_SortOrderAscBadge_BadgeCodeAsc(targetUserId)

@@ -22,6 +22,12 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
 
         Boolean getPushEnabled();
 
+        Boolean getProfileOverviewPublic();
+
+        Boolean getProfilePostsPublic();
+
+        Boolean getProfileCommentsPublic();
+
         LocalDateTime getOnboardingCompletedAt();
     }
 
@@ -32,6 +38,9 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
                    settings.timezone AS timezone,
                    settings.hideNsfw AS hideNsfw,
                    settings.pushEnabled AS pushEnabled,
+                   settings.profileOverviewPublic AS profileOverviewPublic,
+                   settings.profilePostsPublic AS profilePostsPublic,
+                   settings.profileCommentsPublic AS profileCommentsPublic,
                    settings.onboardingCompletedAt AS onboardingCompletedAt
             FROM User u
             LEFT JOIN UserSettings settings ON settings.user = u

@@ -17,6 +17,10 @@ export const API_ERROR_CODES = {
     BLOCKED_BY_USER: 'U009',
     /** U011 EMAIL_NOT_VERIFIED — 인증 티켓 만료 또는 무효 */
     EMAIL_NOT_VERIFIED: 'U011',
+    /** U012 PROFILE_SECTION_PRIVATE — 프로필 영역 비공개 */
+    PROFILE_SECTION_PRIVATE: 'U012',
+    /** U013 PROFILE_PRIVACY_UNAVAILABLE — 프로필 공개 범위 설정 사용 불가 */
+    PROFILE_PRIVACY_UNAVAILABLE: 'U013',
     /** A009 USER_DELETED — 탈퇴 계정 */
     USER_DELETED: 'A009',
     /** P004 DRAFT_OUTDATED — 임시저장본이 서버 최신본보다 오래됨 */

@@ -42,6 +42,18 @@ public class UserSettings extends BaseTimeEntity {
     @Column(name = "push_enabled", nullable = false, length = 1)
     private Boolean pushEnabled;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "profile_overview_public", nullable = false, length = 1)
+    private Boolean profileOverviewPublic;
+
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "profile_posts_public", nullable = false, length = 1)
+    private Boolean profilePostsPublic;
+
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "profile_comments_public", nullable = false, length = 1)
+    private Boolean profileCommentsPublic;
+
     @Column(name = "onboarding_completed_at")
     private LocalDateTime onboardingCompletedAt;
 
@@ -53,6 +65,9 @@ public class UserSettings extends BaseTimeEntity {
         this.timezone = "Asia/Seoul";
         this.hideNsfw = true;
         this.pushEnabled = false;
+        this.profileOverviewPublic = true;
+        this.profilePostsPublic = true;
+        this.profileCommentsPublic = true;
     }
 
     public void updateSettings(String theme, String language, String timezone, Boolean hideNsfw) {
@@ -67,6 +82,18 @@ public class UserSettings extends BaseTimeEntity {
         }
         if (hideNsfw != null) {
             this.hideNsfw = hideNsfw;
+        }
+    }
+
+    public void updateProfilePrivacy(Boolean overviewPublic, Boolean postsPublic, Boolean commentsPublic) {
+        if (overviewPublic != null) {
+            this.profileOverviewPublic = overviewPublic;
+        }
+        if (postsPublic != null) {
+            this.profilePostsPublic = postsPublic;
+        }
+        if (commentsPublic != null) {
+            this.profileCommentsPublic = commentsPublic;
         }
     }
 

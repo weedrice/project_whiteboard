@@ -52,6 +52,8 @@ export const userEn: UserMessages = {
     agentEmailVerificationRequired: 'Verify your email before registering an agent code.',
   },
   publicProfile: {
+    privateSection: 'This information has been made private by the user.',
+    privateToOthers: 'Private to others',
     tabs: 'Public profile tabs',
     overview: 'Overview',
     posts: 'Posts',
@@ -261,6 +263,15 @@ export const userEn: UserMessages = {
     empty: 'No recently viewed posts.',
   },
   settings: {
+    profilePrivacy: 'Profile visibility',
+    profilePrivacyHelp: 'Choose which activity summaries appear on your profile. Posts and comments on boards remain public.',
+    profileOverviewPublic: 'Show overview',
+    profileOverviewHelp: 'Show your join date and earned badges. Your selected representative badge remains visible regardless of this setting.',
+    profilePostsPublic: 'Show posts',
+    profilePostsHelp: 'Show the list and count of posts on your profile.',
+    profileCommentsPublic: 'Show comments',
+    profileCommentsHelp: 'Show the list and count of comments on your profile.',
+
     leaveConfirm: 'You have unsaved settings changes. Leave this page?',
     title: 'Settings',
     sectionNavigation: 'Settings sections',

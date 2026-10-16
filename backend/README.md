@@ -113,6 +113,8 @@ Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을
 ```
 
 위 명령은 `backend/`에서 실행합니다. 일반 테스트는 H2 PostgreSQL 모드를 사용합니다.
+모든 Gradle 테스트 JVM은 애플리케이션의 시간대 정책에 맞춰 시작부터 `Asia/Seoul`을 사용합니다.
+호스트가 UTC인 CI에서도 JDBC/H2가 초기화된 뒤 기본 시간대가 바뀌어 날짜가 9시간 어긋나지 않도록 합니다.
 변경한 코드의 대상 테스트를 다시 실행하려면 `--rerun-tasks`를 사용하고 실제 tests/failures/errors/skipped 수를 확인하세요.
 `test` 후 JaCoCo 리포트가 `build/reports/jacoco/html`에 생성되지만, 커버리지 기준 검증은 별도 작업입니다.
 

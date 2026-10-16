@@ -29,6 +29,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -97,6 +98,7 @@ class UserProfileServiceTest {
                         org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.actor.ActorBatchReadPort.class),
                         org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.comment.port.CommentPostPort.class)),
                 userBlockRepository,
+                new ProfilePrivacyPolicy(userSettingsRepository),
                 fileService,
                 pointService,
                 globalConfigService,
@@ -534,4 +536,60 @@ class UserProfileServiceTest {
         assertThat(response.getCommentCount()).isEqualTo(7L);
         verify(userBlockRepository, never()).existsEitherDirection(any(), any());
     }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = 1L)
+    void getUserProfile_hiddenActivityCounts_skipsActivityQueries(Long viewerUserId) {
+        User user = User.builder().displayName("target").build();
+        ReflectionTestUtils.setField(user, "userId", 2L);
+        ReflectionTestUtils.setField(user, "createdAt", FIXED_NOW);
+        UserSettings settings = UserSettings.builder().user(user).build();
+        settings.updateProfilePrivacy(true, false, false);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(2L)).thenReturn(Optional.of(settings));
+
+        UserProfileResponse response = userProfileService.getUserProfile(2L, viewerUserId);
+
+        assertThat(response.getDisplayName()).isEqualTo("target");
+        assertThat(response.getCreatedAt()).isEqualTo(FIXED_NOW);
+        assertThat(response.getPostCount()).isNull();
+        assertThat(response.getCommentCount()).isNull();
+        assertThat(response.isCanViewPosts()).isFalse();
+        assertThat(response.isCanViewComments()).isFalse();
+        verifyNoInteractions(postRepository, commentRepository);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7})
+    void profilePrivacy_appliesEveryCombinationToAnonymousOtherAndOwner(int mask) {
+        User user = User.builder().displayName("target").build();
+        ReflectionTestUtils.setField(user, "userId", 2L);
+        ReflectionTestUtils.setField(user, "createdAt", FIXED_NOW);
+        UserSettings settings = UserSettings.builder().user(user).build();
+        boolean overview = (mask & 1) != 0;
+        boolean posts = (mask & 2) != 0;
+        boolean comments = (mask & 4) != 0;
+        settings.updateProfilePrivacy(overview, posts, comments);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(2L)).thenReturn(Optional.of(settings));
+        when(postRepository.countPublicProfilePostsByUserId(2L)).thenReturn(3L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L)).thenReturn(4L);
+
+        for (Long viewer : new Long[]{null, 1L, 2L}) {
+            boolean owner = Long.valueOf(2L).equals(viewer);
+            UserProfileResponse response = userProfileService.getUserProfile(2L, viewer);
+            assertThat(response.isProfileOverviewPublic()).isEqualTo(overview);
+            assertThat(response.isProfilePostsPublic()).isEqualTo(posts);
+            assertThat(response.isProfileCommentsPublic()).isEqualTo(comments);
+            assertThat(response.isCanViewOverview()).isEqualTo(owner || overview);
+            assertThat(response.isCanViewPosts()).isEqualTo(owner || posts);
+            assertThat(response.isCanViewComments()).isEqualTo(owner || comments);
+            assertThat(response.getCreatedAt()).isEqualTo(owner || overview ? FIXED_NOW : null);
+            assertThat(response.getPostCount()).isEqualTo(owner || posts ? 3L : null);
+            assertThat(response.getCommentCount()).isEqualTo(owner || comments ? 4L : null);
+            assertThat(response.getDisplayName()).isEqualTo("target");
+        }
+    }
+
 }

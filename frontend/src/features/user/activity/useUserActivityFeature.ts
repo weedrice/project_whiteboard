@@ -91,14 +91,15 @@ export function useUserActivityFeature(context: UserFeatureContext) {
     meta: AUTH_SCOPED_QUERY_META,
   })
 
-  const useUserBadges = (userId: Ref<string | number>) => useApiQuery({
+  const useUserBadges = (userId: Ref<string | number>, enabled?: Ref<boolean>) => useApiQuery({
     queryKey: computed(() => userQueryKeys.badges(userId.value)),
     request: (queryContext) => callWithOptionalQuerySignal(
       queryContext,
-      () => badgeApi.getUserBadges(userId.value),
-      (config) => badgeApi.getUserBadges(userId.value, config),
+      () => badgeApi.getUserBadges(userId.value, { skipGlobalErrorHandler: true }),
+      (config) => badgeApi.getUserBadges(userId.value, { ...config, skipGlobalErrorHandler: true }),
     ),
-    enabled: computed(() => !!userId.value),
+    enabled: computed(() => !!userId.value && (enabled?.value ?? true)),
+    meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
   })
 
   const useMyBadges = () => useApiQuery<Badge[]>({
@@ -144,7 +145,7 @@ export function useUserActivityFeature(context: UserFeatureContext) {
         authStore.user?.userId,
       )
       queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.myBadges) })
-      queryClient.invalidateQueries({ queryKey: userQueryKeys.badgesRoot })
+      queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.badgesRoot) })
     },
   })
 

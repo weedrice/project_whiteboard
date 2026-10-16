@@ -38,6 +38,8 @@ class BadgeServiceTest {
     @BeforeEach
     void setUp() {
         service = new BadgeService(
+                mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),
+                mock(com.weedrice.whiteboard.domain.user.repository.UserBlockRepository.class),
                 badges,
                 userBadges,
                 users,

@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class PostUserReadIntegrationAdapter implements PostUserReadPort {
+
+    private final ProfilePrivacyPolicy profilePrivacyPolicy;
 
     private final UserRepository userRepository;
     private final UserBlockService userBlockService;
@@ -46,6 +49,11 @@ public class PostUserReadIntegrationAdapter implements PostUserReadPort {
         return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
                 .map(User::getUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Override
+    public void requireProfilePostsVisible(Long targetUserId, Long viewerUserId) {
+        profilePrivacyPolicy.requirePostsVisible(targetUserId, viewerUserId);
     }
 
     @Override
