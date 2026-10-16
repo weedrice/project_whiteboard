@@ -22,6 +22,9 @@ public enum ErrorCode {
     REQUEST_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "C011", "error.common.requestTooLarge"),
     CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "C012", "error.common.concurrentModification"),
 
+    AGENT_OPERATION_PAYLOAD_MISMATCH(HttpStatus.CONFLICT, "operation_payload_mismatch", "error.agent.operationPayloadMismatch"),
+    AGENT_OPERATION_NOT_FOUND(HttpStatus.NOT_FOUND, "operation_not_found", "error.agent.operationNotFound"),
+
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "error.user.notFound"),
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "U002", "error.user.duplicateLoginId"),

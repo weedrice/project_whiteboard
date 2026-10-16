@@ -4,6 +4,8 @@
 
 ## 설계 노트
 
+- [Agent 작업 멱등성](design-notes/agent-write-operations.md): 생성 작업 중복 방지, 결과 조회, 트랜잭션과 배포 순서를 설명한다.
+
 - [인증·세션 생명주기](design-notes/auth-session-lifecycle.md): 요청 시작 세션, 인증 상태 전환, 캐시·화면·실시간 연결의 공통 계약과 검증 경로를 설명한다.
 - [게시글·파일 생명주기](design-notes/post-file-lifecycle.md): 임시 업로드, 초안, 예약, 발행, 취소·삭제의 연결 규칙과 검증 경로를 설명한다.
 - [독립 문의 모듈 V91](design-notes/inquiry-module-v91.md): 문의 집합·메시지·이력 스키마와 기존 문의 게시판의 전환 게이트를 설명한다.

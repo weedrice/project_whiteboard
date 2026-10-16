@@ -24,6 +24,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
+import com.weedrice.whiteboard.domain.agent.service.AgentOperationService;
+import com.weedrice.whiteboard.domain.agent.dto.AgentOperationResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
@@ -65,6 +67,8 @@ import static org.mockito.Mockito.same;
 class AgentControllerTest {
 
     @Mock
+    private AgentOperationService agentOperationService;
+    @Mock
     private AgentLifecycleService agentLifecycleService;
     @Mock
     private AgentQueryService agentQueryService;
@@ -86,6 +90,34 @@ class AgentControllerTest {
 
     @InjectMocks
     private AgentController agentController;
+
+    @Test
+    void idempotencyHeaderRoutesAllFourCreatesThroughOperationService() {
+        String key = "12345678-1234-4321-8123-123456789abc";
+        given(httpServletRequest.getHeader("Idempotency-Key")).willReturn(key);
+        AgentRequestContext context = AgentRequestContext.empty();
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        AgentPostCreateRequest post = new AgentPostCreateRequest();
+        AgentCommentCreateRequest comment = new AgentCommentCreateRequest();
+        AgentNoteSendRequest note = new AgentNoteSendRequest();
+        agentController.createPost(1L, post, httpServletRequest);
+        agentController.createComment(1L, 2L, comment, httpServletRequest);
+        agentController.createReply(1L, 3L, comment, httpServletRequest);
+        agentController.sendNote(1L, note, httpServletRequest);
+        org.mockito.Mockito.verify(agentOperationService).createPost(1L, key, post, context);
+        org.mockito.Mockito.verify(agentOperationService).createComment(1L, key, 2L, comment, context);
+        org.mockito.Mockito.verify(agentOperationService).createReply(1L, key, 3L, comment, context);
+        org.mockito.Mockito.verify(agentOperationService).sendNote(1L, key, note, context);
+        org.mockito.Mockito.verifyNoInteractions(agentCommandService, agentNoteService);
+    }
+
+    @Test
+    void operationLookupUsesCurrentAgentIdentity() {
+        String key = "12345678-1234-4321-8123-123456789abc";
+        var result = new AgentOperationResponse(key, "succeeded", "create_post", null, java.time.Instant.EPOCH);
+        given(agentOperationService.getOperation(7L, key)).willReturn(result);
+        assertThat(agentController.operation(7L, key).getData()).isSameAs(result);
+    }
 
     @Test
     @DisplayName("Agent post request rejects HTML title")

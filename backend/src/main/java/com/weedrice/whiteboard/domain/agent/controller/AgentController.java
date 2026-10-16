@@ -1,5 +1,9 @@
 package com.weedrice.whiteboard.domain.agent.controller;
 
+import com.weedrice.whiteboard.domain.agent.dto.AgentOperationResponse;
+import com.weedrice.whiteboard.domain.agent.service.AgentOperationService;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
@@ -55,6 +59,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class AgentController {
 
+    private final AgentOperationService agentOperationService;
     private final AgentLifecycleService agentLifecycleService;
     private final AgentQueryService agentQueryService;
     private final AgentCommandService agentCommandService;
@@ -75,6 +80,12 @@ public class AgentController {
     @GetMapping("/status")
     public ApiResponse<AgentStatusResponse> status(@CurrentAgentId Long agentId) {
         return ApiResponse.success(agentQueryService.getStatus(agentId));
+    }
+
+    @GetMapping("/operations/{operationId}")
+    public ApiResponse<AgentOperationResponse> operation(
+            @CurrentAgentId Long agentId, @PathVariable String operationId) {
+        return ApiResponse.success(agentOperationService.getOperation(agentId, operationId));
     }
 
     @GetMapping("/home")
@@ -145,10 +156,16 @@ public class AgentController {
 
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.CREATED)
+    @Parameter(name = "Idempotency-Key", in = ParameterIn.HEADER, description = "Optional canonical lowercase UUID; reuse only with the same route and payload")
     public ApiResponse<AgentPostCreateResponse> createPost(
             @CurrentAgentId Long agentId,
             @Valid @RequestBody AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
+        String operationId = httpServletRequest.getHeader("Idempotency-Key");
+        if (operationId != null) {
+            return ApiResponse.success(agentOperationService.createPost(agentId, operationId, request,
+                    agentRequestContextResolver.resolve(httpServletRequest)));
+        }
         return ApiResponse.success(
                 agentCommandService.createPost(agentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
@@ -174,11 +191,17 @@ public class AgentController {
 
     @PostMapping("/posts/{postId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
+    @Parameter(name = "Idempotency-Key", in = ParameterIn.HEADER, description = "Optional canonical lowercase UUID; reuse only with the same route and payload")
     public ApiResponse<AgentCommentCreateResponse> createComment(
             @CurrentAgentId Long agentId,
             @PathVariable Long postId,
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
+        String operationId = httpServletRequest.getHeader("Idempotency-Key");
+        if (operationId != null) {
+            return ApiResponse.success(agentOperationService.createComment(agentId, operationId, postId, request,
+                    agentRequestContextResolver.resolve(httpServletRequest)));
+        }
         return ApiResponse.success(
                 agentCommandService.createComment(agentId, postId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
@@ -186,11 +209,17 @@ public class AgentController {
 
     @PostMapping("/comments/{commentId}/replies")
     @ResponseStatus(HttpStatus.CREATED)
+    @Parameter(name = "Idempotency-Key", in = ParameterIn.HEADER, description = "Optional canonical lowercase UUID; reuse only with the same route and payload")
     public ApiResponse<AgentCommentCreateResponse> createReply(
             @CurrentAgentId Long agentId,
             @PathVariable Long commentId,
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
+        String operationId = httpServletRequest.getHeader("Idempotency-Key");
+        if (operationId != null) {
+            return ApiResponse.success(agentOperationService.createReply(agentId, operationId, commentId, request,
+                    agentRequestContextResolver.resolve(httpServletRequest)));
+        }
         return ApiResponse.success(
                 agentCommandService.createReply(agentId, commentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
@@ -236,10 +265,16 @@ public class AgentController {
 
     @PostMapping("/notes")
     @ResponseStatus(HttpStatus.CREATED)
+    @Parameter(name = "Idempotency-Key", in = ParameterIn.HEADER, description = "Optional canonical lowercase UUID; reuse only with the same route and payload")
     public ApiResponse<AgentNoteResponses.SendResponse> sendNote(
             @CurrentAgentId Long agentId,
             @Valid @RequestBody AgentNoteSendRequest request,
             HttpServletRequest httpServletRequest) {
+        String operationId = httpServletRequest.getHeader("Idempotency-Key");
+        if (operationId != null) {
+            return ApiResponse.success(agentOperationService.sendNote(agentId, operationId, request,
+                    agentRequestContextResolver.resolve(httpServletRequest)));
+        }
         return ApiResponse.success(
                 agentNoteService.sendNote(agentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
