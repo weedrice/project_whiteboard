@@ -2,23 +2,27 @@ import { AUTO_TIME_ZONE, rememberUserTimeZone } from '@/utils/displayTimeZone'
 import { computed, reactive, ref, watch, type Ref } from 'vue'
 import type { NotificationSettingType, NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
 import logger from '@/utils/logger'
-import type { UserSettings, UserSettingsUpdatePayload } from '@/types'
+import type { ApiResponse, UserSettings, UserSettingsUpdatePayload } from '@/types'
 import { isConcurrentModificationError } from '@/utils/errorHandler'
 
 export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE', 'INQUIRY']
+const PROFILE_PRIVACY_FIELDS = ['profileOverviewPublic', 'profilePostsPublic', 'profileCommentsPublic'] as const
 
 interface UserSettingsForm {
   theme: 'LIGHT' | 'DARK'
   language: string
   timezone?: string
   hideNsfw?: boolean
+  profileOverviewPublic: boolean
+  profilePostsPublic: boolean
+  profileCommentsPublic: boolean
 }
 
 interface UseUserSettingsFormOptions {
   settingsData: Ref<UserSettings | undefined>
   isSaving: Ref<boolean>
   themeIsDark: () => boolean
-  updateSettings: (payload: UserSettingsUpdatePayload) => Promise<unknown>
+  updateSettings: (payload: UserSettingsUpdatePayload) => Promise<ApiResponse<UserSettings> | void>
   setTheme: (theme: 'LIGHT' | 'DARK') => void
   setLocale?: (
     locale: UserSettings['language'],
@@ -44,7 +48,10 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     theme: 'LIGHT',
     language: 'ko',
     timezone: AUTO_TIME_ZONE,
-    hideNsfw: true
+    hideNsfw: true,
+    profileOverviewPublic: true,
+    profilePostsPublic: true,
+    profileCommentsPublic: true
   })
   const form = reactive<UserSettingsForm>(createDefaultForm())
   const message = ref('')
@@ -57,6 +64,9 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       || form.language !== baseline.value.language
       || form.timezone !== baseline.value.timezone
       || form.hideNsfw !== baseline.value.hideNsfw
+      || form.profileOverviewPublic !== baseline.value.profileOverviewPublic
+      || form.profilePostsPublic !== baseline.value.profilePostsPublic
+      || form.profileCommentsPublic !== baseline.value.profileCommentsPublic
     )
   ))
   const canSave = computed(() => isDirty.value && !options.isSaving.value)
@@ -65,7 +75,10 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     theme: value.theme,
     language: value.language,
     timezone: Object.hasOwn(value, 'timezone') ? (value.timezone || AUTO_TIME_ZONE) : form.timezone,
-    hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw
+    hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw,
+    profileOverviewPublic: value.profileOverviewPublic ?? true,
+    profilePostsPublic: value.profilePostsPublic ?? true,
+    profileCommentsPublic: value.profileCommentsPublic ?? true
   })
 
   const hydrateFromSettings = (value: UserSettings) => {
@@ -115,11 +128,18 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     // AUTO도 그대로 보낸다. 서버가 이 표식을 저장하므로 "자동"이 다른 기기와 다음
     // 방문에도 유지된다. 빼고 보내면 서버는 "변경 없음"으로 읽어 이전에 고른 지역이
     // 그대로 남고, 화면에는 저장 성공으로 보이는 조용한 실패가 된다.
-    const payload: UserSettingsForm & { language: UserSettings['language'] } = {
+    const submittedForm = { ...form }
+    const payload: UserSettingsUpdatePayload & { theme: UserSettings['theme']; language: UserSettings['language'] } = {
       theme: form.theme,
       language: form.language as UserSettings['language'],
       timezone: form.timezone,
       hideNsfw: form.hideNsfw
+    }
+    // Unrelated settings saves must not restore stale privacy values from another tab/device.
+    for (const field of PROFILE_PRIVACY_FIELDS) {
+      if (submittedForm[field] !== baseline.value?.[field]) {
+        payload[field] = submittedForm[field]
+      }
     }
     try {
       const localeApplied = options.setLocale
@@ -131,12 +151,20 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
         isError.value = true
         return
       }
-      await options.updateSettings(payload)
+      const response = await options.updateSettings(payload)
       if (!isCurrentSave()) return
 
       options.setTheme(payload.theme)
       rememberUserTimeZone(payload.timezone)
-      baseline.value = { ...payload }
+      const savedForm = { ...submittedForm }
+      for (const field of PROFILE_PRIVACY_FIELDS) {
+        savedForm[field] = response?.data?.[field] ?? submittedForm[field]
+        // Keep edits made while saving, but reflect authoritative untouched values.
+        if (form[field] === submittedForm[field]) {
+          form[field] = savedForm[field]
+        }
+      }
+      baseline.value = savedForm
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {
       if (!isCurrentSave()) return

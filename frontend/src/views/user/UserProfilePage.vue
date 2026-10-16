@@ -20,6 +20,7 @@ import { formatDate } from '@/utils/date'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderCommentContentHtml } from '@/features/comments/commentContent'
 import type { SanitizedHtml } from '@/utils/sanitize'
+import { isProfileSectionPrivate } from '@/features/user/profile/profilePrivacy'
 import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 import { buildPostDetailPath, encodePathSegment } from '@/utils/urlPath'
 
@@ -49,10 +50,22 @@ const tabs = computed(() => [
 ])
 
 const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useUserProfile(userId)
-const { data: badges, isLoading: badgesLoading, isError: badgesError, refetch: refetchBadges } = useUserBadges(userId)
-const { data: postsData, isLoading: postsLoading, isError: postsError, refetch: refetchPosts } = usePublicProfilePosts(userId, postParams)
-const { data: commentsData, isLoading: commentsLoading, isError: commentsError, refetch: refetchComments } = usePublicProfileComments(userId, commentParams)
+const overviewEnabled = computed(() => !!profile.value?.canViewOverview && activeTab.value === 'overview')
+const postsEnabled = computed(() => !!profile.value?.canViewPosts && activeTab.value === 'posts')
+const commentsEnabled = computed(() => !!profile.value?.canViewComments && activeTab.value === 'comments')
+const { data: badges, isLoading: badgesLoading, isError: badgesError, error: badgesFailure, refetch: refetchBadges } = useUserBadges(userId, overviewEnabled)
+const { data: postsData, isLoading: postsLoading, isError: postsError, error: postsFailure, refetch: refetchPosts } = usePublicProfilePosts(userId, postParams, postsEnabled)
+const { data: commentsData, isLoading: commentsLoading, isError: commentsError, error: commentsFailure, refetch: refetchComments } = usePublicProfileComments(userId, commentParams, commentsEnabled)
 const { mutateAsync: updateRepresentativeBadge, isPending: isUpdatingRepresentativeBadge } = useUpdateRepresentativeBadge()
+const canViewOverview = computed(() => !!profile.value?.canViewOverview && !isProfileSectionPrivate(badgesFailure.value))
+const canViewPosts = computed(() => !!profile.value?.canViewPosts && !isProfileSectionPrivate(postsFailure.value))
+const canViewComments = computed(() => !!profile.value?.canViewComments && !isProfileSectionPrivate(commentsFailure.value))
+const activeSectionPrivate = computed(() => activeTab.value === 'overview'
+  ? !canViewOverview.value
+  : activeTab.value === 'posts' ? !canViewPosts.value : !canViewComments.value)
+const activeSectionPublic = computed(() => activeTab.value === 'overview'
+  ? profile.value?.profileOverviewPublic
+  : activeTab.value === 'posts' ? profile.value?.profilePostsPublic : profile.value?.profileCommentsPublic)
 const acquiredBadges = computed(() => (badges.value || []).filter((badge) => badge.acquired))
 const isOwnProfile = computed(() => String(authStore.user?.userId || '') === userId.value)
 
@@ -65,7 +78,15 @@ const seoDescription = computed(() => {
   if (!profile.value) {
     return t('user.publicProfile.overviewDescription')
   }
-  return `${profile.value.displayName} · ${t('user.publicProfile.postCount')} ${profile.value.postCount} · ${t('user.publicProfile.commentCount')} ${profile.value.commentCount}`
+  const parts = [profile.value.displayName]
+  // Sharing metadata must also respect configured privacy when the owner views it.
+  if (canViewPosts.value && profile.value.profilePostsPublic && profile.value.postCount != null) {
+    parts.push(`${t('user.publicProfile.postCount')} ${profile.value.postCount}`)
+  }
+  if (canViewComments.value && profile.value.profileCommentsPublic && profile.value.commentCount != null) {
+    parts.push(`${t('user.publicProfile.commentCount')} ${profile.value.commentCount}`)
+  }
+  return parts.join(' · ')
 })
 
 useHead({
@@ -129,7 +150,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
           />
           <div class="min-w-0">
             <h1 class="truncate text-xl font-semibold nv-title">{{ profile.displayName }}</h1>
-            <p class="mt-1 text-sm nv-text-subtle">
+            <p v-if="canViewOverview && profile.createdAt" class="mt-1 text-sm nv-text-subtle">
               {{ t('user.profile.joined') }}: {{ profile.createdAt ? formatDate(profile.createdAt) : '-' }}
             </p>
           </div>
@@ -141,13 +162,13 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
             />
           </div>
         </div>
-        <div class="mt-5 grid grid-cols-2 gap-3 sm:max-w-sm">
-          <div class="rounded-md bg-[var(--nv-surface-2)] p-3">
+        <div v-if="canViewPosts || canViewComments" class="mt-5 grid grid-cols-2 gap-3 sm:max-w-sm">
+          <div v-if="canViewPosts && profile.postCount != null" class="rounded-md bg-[var(--nv-surface-2)] p-3">
             <FileText class="mb-2 h-4 w-4 nv-text-subtle" />
             <p class="text-xs nv-text-subtle">{{ t('user.publicProfile.postCount') }}</p>
             <p class="text-lg font-semibold nv-title">{{ profile.postCount }}</p>
           </div>
-          <div class="rounded-md bg-[var(--nv-surface-2)] p-3">
+          <div v-if="canViewComments && profile.commentCount != null" class="rounded-md bg-[var(--nv-surface-2)] p-3">
             <MessageSquare class="mb-2 h-4 w-4 nv-text-subtle" />
             <p class="text-xs nv-text-subtle">{{ t('user.publicProfile.commentCount') }}</p>
             <p class="text-lg font-semibold nv-title">{{ profile.commentCount }}</p>
@@ -162,7 +183,13 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
         variant="joined"
       />
 
-      <section v-if="activeTab === 'overview'" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-6">
+      <p v-if="isOwnProfile && activeSectionPublic === false" class="text-sm nv-text-subtle" role="status">
+        {{ t('user.publicProfile.privateToOthers') }}
+      </p>
+      <section v-if="activeSectionPrivate" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-8 text-center text-sm nv-text-subtle">
+        {{ t('user.publicProfile.privateSection') }}
+      </section>
+      <section v-else-if="activeTab === 'overview'" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-6">
         <User class="mb-3 h-5 w-5 nv-text-subtle" />
         <p class="text-sm nv-text-subtle">{{ t('user.publicProfile.overviewDescription') }}</p>
         <div class="mt-6 border-t border-[var(--nv-line)] pt-5">
@@ -267,7 +294,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
             </div>
           </li>
         </ul>
-        <div v-if="commentsData && commentsData.totalPages > 1" class="border-t border-[var(--nv-line)] p-4">
+        <div v-if="!commentsError && commentsData && commentsData.totalPages > 1" class="border-t border-[var(--nv-line)] p-4">
           <Pagination :current-page="commentPage" :total-pages="commentsData.totalPages" @page-change="commentPage = $event" />
         </div>
       </section>

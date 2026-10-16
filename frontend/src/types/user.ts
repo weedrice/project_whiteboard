@@ -40,9 +40,15 @@ export interface PublicUserProfile {
     userId: number
     displayName: string
     profileImageUrl?: string
-    createdAt: string
-    postCount: number
-    commentCount: number
+    createdAt: string | null
+    postCount: number | null
+    commentCount: number | null
+    profileOverviewPublic: boolean
+    profilePostsPublic: boolean
+    profileCommentsPublic: boolean
+    canViewOverview: boolean
+    canViewPosts: boolean
+    canViewComments: boolean
     representativeBadge?: BadgeCompact | null
 }
 
@@ -68,6 +74,9 @@ export interface UserSettings {
     timezone: string
     hideNsfw: boolean
     pushEnabled: boolean
+    profileOverviewPublic?: boolean
+    profilePostsPublic?: boolean
+    profileCommentsPublic?: boolean
     onboardingCompletedAt?: string | null
 }
 
@@ -76,6 +85,9 @@ export interface UserSettingsUpdatePayload {
     language?: UserSettings['language']
     timezone?: string
     hideNsfw?: boolean
+    profileOverviewPublic?: boolean
+    profilePostsPublic?: boolean
+    profileCommentsPublic?: boolean
 }
 
 export interface UpdateProfileResponse {

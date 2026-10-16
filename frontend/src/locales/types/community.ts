@@ -727,6 +727,8 @@ export interface UserMessages {
     agentEmailVerificationRequired: string
   }
   publicProfile: {
+    privateSection: string
+    privateToOthers: string
     tabs: string
     overview: string
     posts: string
@@ -908,6 +910,14 @@ export interface UserMessages {
     timezone: string
     timezoneAuto: string
     timezoneHelp: string
+    profilePrivacy: string
+    profilePrivacyHelp: string
+    profileOverviewPublic: string
+    profileOverviewHelp: string
+    profilePostsPublic: string
+    profilePostsHelp: string
+    profileCommentsPublic: string
+    profileCommentsHelp: string
     light: string
     dark: string
     notifications: string

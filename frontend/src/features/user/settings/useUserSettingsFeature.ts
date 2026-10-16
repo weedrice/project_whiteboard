@@ -25,6 +25,7 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
   const {
     queryClient,
     authKey,
+    authStore,
     captureMutationSession,
     isCurrentMutation,
   } = context
@@ -69,6 +70,16 @@ export function useUserSettingsFeature(context: UserFeatureContext) {
     onSuccess: (_data, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
       queryClient.invalidateQueries({ queryKey: authKey(userSettingsQueryKey) })
+      if (_variables.profileOverviewPublic !== undefined
+        || _variables.profilePostsPublic !== undefined
+        || _variables.profileCommentsPublic !== undefined) {
+        const userId = authStore.user?.userId
+        if (userId != null) {
+          // The profile prefix includes every public post/comment page.
+          queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(userId)) })
+          queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.badgesRoot) })
+        }
+      }
     },
   })
 

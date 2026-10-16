@@ -116,29 +116,31 @@ export function useUserProfileFeature(context: UserFeatureContext) {
   const usePublicProfilePosts = (
     userId: Ref<string | number>,
     params: Ref<UserQueryPaginationParams>,
+    enabled?: Ref<boolean>,
   ) => useApiPageQuery({
     queryKey: computed(() => userQueryKeys.publicPosts(userId.value, params.value)),
     request: (queryContext) => callWithOptionalQuerySignal(
       queryContext,
-      () => userApi.getPublicUserPosts(userId.value, params.value),
-      (config) => userApi.getPublicUserPosts(userId.value, params.value, config),
+      () => userApi.getPublicUserPosts(userId.value, params.value, { skipGlobalErrorHandler: true }),
+      (config) => userApi.getPublicUserPosts(userId.value, params.value, { ...config, skipGlobalErrorHandler: true }),
     ),
-    enabled: computed(() => !!userId.value),
-    meta: AUTH_SCOPED_QUERY_META,
+    enabled: computed(() => !!userId.value && (enabled?.value ?? true)),
+    meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
   })
 
   const usePublicProfileComments = (
     userId: Ref<string | number>,
     params: Ref<UserQueryPaginationParams>,
+    enabled?: Ref<boolean>,
   ) => useApiPageQuery({
     queryKey: computed(() => userQueryKeys.publicComments(userId.value, params.value)),
     request: (queryContext) => callWithOptionalQuerySignal(
       queryContext,
-      () => userApi.getPublicUserComments(userId.value, params.value),
-      (config) => userApi.getPublicUserComments(userId.value, params.value, config),
+      () => userApi.getPublicUserComments(userId.value, params.value, { skipGlobalErrorHandler: true }),
+      (config) => userApi.getPublicUserComments(userId.value, params.value, { ...config, skipGlobalErrorHandler: true }),
     ),
-    enabled: computed(() => !!userId.value),
-    meta: AUTH_SCOPED_QUERY_META,
+    enabled: computed(() => !!userId.value && (enabled?.value ?? true)),
+    meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
   })
 
   return {

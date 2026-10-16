@@ -52,6 +52,8 @@ export const user: UserMessages = {
     agentEmailVerificationRequired: '이메일 인증 완료 후 에이전트 코드를 등록할 수 있습니다.',
   },
   publicProfile: {
+    privateSection: '사용자가 비공개로 설정한 정보입니다.',
+    privateToOthers: '다른 사람에게 비공개',
     tabs: '공개 프로필 탭',
     overview: '개요',
     posts: '작성 글',
@@ -261,6 +263,15 @@ export const user: UserMessages = {
     empty: '최근 읽은 글이 없습니다.',
   },
   settings: {
+    profilePrivacy: '프로필 공개 범위',
+    profilePrivacyHelp: '프로필에서 모아보는 활동 정보의 공개 여부를 설정합니다. 게시판에 작성한 글과 댓글은 계속 공개됩니다.',
+    profileOverviewPublic: '개요 공개',
+    profileOverviewHelp: '가입일과 획득한 뱃지 목록을 공개합니다. 선택한 대표 뱃지는 이 설정과 관계없이 표시됩니다.',
+    profilePostsPublic: '작성 글 공개',
+    profilePostsHelp: '프로필의 작성 글 목록과 글 수를 공개합니다.',
+    profileCommentsPublic: '작성 댓글 공개',
+    profileCommentsHelp: '프로필의 작성 댓글 목록과 댓글 수를 공개합니다.',
+
     leaveConfirm: '저장하지 않은 설정 변경사항이 있습니다. 페이지를 나가시겠습니까?',
     title: '설정',
     sectionNavigation: '설정 섹션',
