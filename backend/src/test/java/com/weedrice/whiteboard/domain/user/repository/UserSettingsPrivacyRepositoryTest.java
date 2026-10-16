@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -13,6 +14,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 @DataJpaTest
 @Import(QuerydslConfig.class)
@@ -54,7 +56,9 @@ class UserSettingsPrivacyRepositoryTest {
         assertThat(projection.getTheme()).isNull();
         assertThat(repository.findById(user.getUserId())).isEmpty();
         UserSettingsResponse response = new UserSettingsService(
-                repository, null, null, null, java.time.Clock.systemUTC()).getSettings(user.getUserId());
+                repository, null, null, mock(GlobalConfigService.class), java.time.Clock.systemUTC())
+                .getSettings(user.getUserId());
+        assertThat(response.isProfilePrivacyEnabled()).isFalse();
         assertThat(response.isProfileOverviewPublic()).isTrue();
         assertThat(response.isProfilePostsPublic()).isTrue();
         assertThat(response.isProfileCommentsPublic()).isTrue();

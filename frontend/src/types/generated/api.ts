@@ -6280,6 +6280,7 @@ export interface components {
             profileCommentsPublic?: boolean;
             profileOverviewPublic?: boolean;
             profilePostsPublic?: boolean;
+            profilePrivacyEnabled?: boolean;
             pushEnabled?: boolean;
             theme?: string;
             timezone?: string;

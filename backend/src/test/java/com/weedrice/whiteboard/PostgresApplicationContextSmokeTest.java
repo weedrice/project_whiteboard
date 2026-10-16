@@ -225,6 +225,9 @@ class PostgresApplicationContextSmokeTest {
                         .target(MigrationVersion.fromVersion("100"))
                         .load().migrate();
                 isolated.update(legacyInsert, 10002L);
+                assertEquals("N", isolated.queryForObject(
+                        "SELECT config_value FROM global_configs WHERE config_key = 'PROFILE_PRIVACY_ENABLED'",
+                        String.class));
 
                 for (Long userId : List.of(10001L, 10002L)) {
                     assertEquals(Map.of(
@@ -254,105 +257,175 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void profilePrivacySettingsRoundTripUsesYnAndPreservesOmittedFlags() {
-        User user = createPrivacyUser("settings");
-        var defaults = userSettingsService.getSettings(user.getUserId());
-        assertTrue(defaults.isProfileOverviewPublic());
-        assertTrue(defaults.isProfilePostsPublic());
-        assertTrue(defaults.isProfileCommentsPublic());
-        assertTrue(userProfileService.getUserProfile(user.getUserId(), null).isCanViewOverview());
+        setProfilePrivacyEnabledForTest("Y");
+        try {
+            User user = createPrivacyUser("settings");
+            var defaults = userSettingsService.getSettings(user.getUserId());
+            assertTrue(defaults.isProfilePrivacyEnabled());
+            assertTrue(defaults.isProfileOverviewPublic());
+            assertTrue(defaults.isProfilePostsPublic());
+            assertTrue(defaults.isProfileCommentsPublic());
+            assertTrue(userProfileService.getUserProfile(user.getUserId(), null).isCanViewOverview());
 
-        userSettingsService.updateSettings(user.getUserId(), "DARK", "en", "UTC", false,
-                false, true, false);
-        assertEquals(Map.of("profile_overview_public", "N", "profile_posts_public", "Y",
-                        "profile_comments_public", "N"), jdbcTemplate.queryForMap("""
-                SELECT profile_overview_public, profile_posts_public, profile_comments_public
-                FROM user_settings WHERE user_id = ?
-                """, user.getUserId()));
-        var persisted = userSettingsService.getSettings(user.getUserId());
-        assertFalse(persisted.isProfileOverviewPublic());
-        assertTrue(persisted.isProfilePostsPublic());
-        assertFalse(persisted.isProfileCommentsPublic());
+            userSettingsService.updateSettings(user.getUserId(), "DARK", "en", "UTC", false,
+                    false, true, false);
+            assertEquals(Map.of("profile_overview_public", "N", "profile_posts_public", "Y",
+                            "profile_comments_public", "N"), jdbcTemplate.queryForMap("""
+                    SELECT profile_overview_public, profile_posts_public, profile_comments_public
+                    FROM user_settings WHERE user_id = ?
+                    """, user.getUserId()));
+            var persisted = userSettingsService.getSettings(user.getUserId());
+            assertFalse(persisted.isProfileOverviewPublic());
+            assertTrue(persisted.isProfilePostsPublic());
+            assertFalse(persisted.isProfileCommentsPublic());
 
-        userSettingsService.updateSettings(user.getUserId(), null, null, null, null,
-                null, false, null);
-        var partial = userSettingsService.getSettings(user.getUserId());
-        assertFalse(partial.isProfileOverviewPublic());
-        assertFalse(partial.isProfilePostsPublic());
-        assertFalse(partial.isProfileCommentsPublic());
-        assertEquals("DARK", partial.getTheme());
-        assertEquals("en", partial.getLanguage());
-        assertEquals("UTC", partial.getTimezone());
-        assertFalse(partial.isHideNsfw());
+            userSettingsService.updateSettings(user.getUserId(), null, null, null, null,
+                    null, false, null);
+            var partial = userSettingsService.getSettings(user.getUserId());
+            assertFalse(partial.isProfileOverviewPublic());
+            assertFalse(partial.isProfilePostsPublic());
+            assertFalse(partial.isProfileCommentsPublic());
+            assertEquals("DARK", partial.getTheme());
+            assertEquals("en", partial.getLanguage());
+            assertEquals("UTC", partial.getTimezone());
+            assertFalse(partial.isHideNsfw());
 
-        userSettingsService.updateSettings(user.getUserId(), "LIGHT", null, null, null);
-        var legacy = userSettingsService.getSettings(user.getUserId());
-        assertFalse(legacy.isProfileOverviewPublic());
-        assertFalse(legacy.isProfilePostsPublic());
-        assertFalse(legacy.isProfileCommentsPublic());
-        assertEquals("LIGHT", legacy.getTheme());
+            userSettingsService.updateSettings(user.getUserId(), "LIGHT", null, null, null);
+            var legacy = userSettingsService.getSettings(user.getUserId());
+            assertFalse(legacy.isProfileOverviewPublic());
+            assertFalse(legacy.isProfilePostsPublic());
+            assertFalse(legacy.isProfileCommentsPublic());
+            assertEquals("LIGHT", legacy.getTheme());
+        } finally {
+            setProfilePrivacyEnabledForTest("N");
+        }
     }
 
     @Test
     void profilePrivacyEnforcesEveryCombinationForOwnersMembersAndAnonymousReaders() {
-        User owner = createPrivacyUser("owner");
-        User member = createPrivacyUser("member");
-        Board board = boardRepository.saveAndFlush(Board.builder()
-                .boardName("Profile Privacy").boardUrl("privacy-" + uniqueSuffix()).creator(owner).build());
-        Post post = postRepository.saveAndFlush(Post.builder()
-                .title("Privacy post").contents("Public board content").user(owner).board(board).build());
-        Comment comment = commentRepository.saveAndFlush(Comment.builder()
-                .post(post).user(owner).depth(0).content("Privacy comment").build());
-        var badge = badgeRepository.findAllByOrderBySortOrderAscBadgeCodeAsc().stream().findFirst().orElseThrow();
-        userBadgeRepository.saveAndFlush(UserBadge.builder()
-                .user(owner).badge(badge).acquiredAt(LocalDateTime.now(clock)).build());
-        var pageable = PageRequest.of(0, 10);
+        setProfilePrivacyEnabledForTest("Y");
+        try {
+            User owner = createPrivacyUser("owner");
+            User member = createPrivacyUser("member");
+            Board board = boardRepository.saveAndFlush(Board.builder()
+                    .boardName("Profile Privacy " + uniqueSuffix()).boardUrl("privacy-" + uniqueSuffix()).creator(owner).build());
+            Post post = postRepository.saveAndFlush(Post.builder()
+                    .title("Privacy post").contents("Public board content").user(owner).board(board).build());
+            Comment comment = commentRepository.saveAndFlush(Comment.builder()
+                    .post(post).user(owner).depth(0).content("Privacy comment").build());
+            var badge = badgeRepository.findAllByOrderBySortOrderAscBadgeCodeAsc().stream().findFirst().orElseThrow();
+            userBadgeRepository.saveAndFlush(UserBadge.builder()
+                    .user(owner).badge(badge).acquiredAt(LocalDateTime.now(clock)).build());
+            var pageable = PageRequest.of(0, 10);
 
-        for (int mask = 0; mask < 8; mask++) {
-            boolean overviewPublic = (mask & 1) != 0;
-            boolean postsPublic = (mask & 2) != 0;
-            boolean commentsPublic = (mask & 4) != 0;
-            userSettingsService.updateSettings(owner.getUserId(), null, null, null, null,
-                    overviewPublic, postsPublic, commentsPublic);
-            for (Long viewerId : new Long[]{null, member.getUserId(), owner.getUserId()}) {
-                boolean isOwner = owner.getUserId().equals(viewerId);
-                boolean overviewVisible = isOwner || overviewPublic;
-                boolean postsVisible = isOwner || postsPublic;
-                boolean commentsVisible = isOwner || commentsPublic;
-                var profile = userProfileService.getUserProfile(owner.getUserId(), viewerId);
-                assertEquals(overviewPublic, profile.isProfileOverviewPublic());
-                assertEquals(postsPublic, profile.isProfilePostsPublic());
-                assertEquals(commentsPublic, profile.isProfileCommentsPublic());
-                assertEquals(overviewVisible, profile.isCanViewOverview());
-                assertEquals(postsVisible, profile.isCanViewPosts());
-                assertEquals(commentsVisible, profile.isCanViewComments());
-                assertEquals(postsVisible ? Long.valueOf(1) : null, profile.getPostCount());
-                assertEquals(commentsVisible ? Long.valueOf(1) : null, profile.getCommentCount());
-                if (overviewVisible) {
-                    assertNotNull(profile.getCreatedAt());
-                    assertTrue(badgeService.getUserBadges(owner.getUserId(), viewerId).stream()
-                            .anyMatch(value -> value.getBadgeCode().equals(badge.getBadgeCode()) && value.isAcquired()));
-                } else {
-                    assertNull(profile.getCreatedAt());
-                    assertPrivateProfileSection(() -> badgeService.getUserBadges(owner.getUserId(), viewerId));
-                }
-                if (postsVisible) {
-                    var posts = postListReadService.getPublicProfilePosts(owner.getUserId(), viewerId, pageable);
-                    assertEquals(1L, posts.getTotalElements());
-                    assertEquals(post.getPostId(), posts.getContent().getFirst().getPostId());
-                } else {
-                    assertPrivateProfileSection(() -> postListReadService.getPublicProfilePosts(
-                            owner.getUserId(), viewerId, pageable));
-                }
-                if (commentsVisible) {
-                    var comments = commentQueryService.getPublicProfileComments(owner.getUserId(), viewerId, pageable);
-                    assertEquals(1L, comments.getTotalElements());
-                    assertEquals(comment.getCommentId(), comments.getContent().getFirst().getCommentId());
-                } else {
-                    assertPrivateProfileSection(() -> commentQueryService.getPublicProfileComments(
-                            owner.getUserId(), viewerId, pageable));
+            for (int mask = 0; mask < 8; mask++) {
+                boolean overviewPublic = (mask & 1) != 0;
+                boolean postsPublic = (mask & 2) != 0;
+                boolean commentsPublic = (mask & 4) != 0;
+                userSettingsService.updateSettings(owner.getUserId(), null, null, null, null,
+                        overviewPublic, postsPublic, commentsPublic);
+                for (Long viewerId : new Long[]{null, member.getUserId(), owner.getUserId()}) {
+                    boolean isOwner = owner.getUserId().equals(viewerId);
+                    boolean overviewVisible = isOwner || overviewPublic;
+                    boolean postsVisible = isOwner || postsPublic;
+                    boolean commentsVisible = isOwner || commentsPublic;
+                    var profile = userProfileService.getUserProfile(owner.getUserId(), viewerId);
+                    assertEquals(overviewPublic, profile.isProfileOverviewPublic());
+                    assertEquals(postsPublic, profile.isProfilePostsPublic());
+                    assertEquals(commentsPublic, profile.isProfileCommentsPublic());
+                    assertEquals(overviewVisible, profile.isCanViewOverview());
+                    assertEquals(postsVisible, profile.isCanViewPosts());
+                    assertEquals(commentsVisible, profile.isCanViewComments());
+                    assertEquals(postsVisible ? Long.valueOf(1) : null, profile.getPostCount());
+                    assertEquals(commentsVisible ? Long.valueOf(1) : null, profile.getCommentCount());
+                    if (overviewVisible) {
+                        assertNotNull(profile.getCreatedAt());
+                        assertTrue(badgeService.getUserBadges(owner.getUserId(), viewerId).stream()
+                                .anyMatch(value -> value.getBadgeCode().equals(badge.getBadgeCode()) && value.isAcquired()));
+                    } else {
+                        assertNull(profile.getCreatedAt());
+                        assertPrivateProfileSection(() -> badgeService.getUserBadges(owner.getUserId(), viewerId));
+                    }
+                    if (postsVisible) {
+                        var posts = postListReadService.getPublicProfilePosts(owner.getUserId(), viewerId, pageable);
+                        assertEquals(1L, posts.getTotalElements());
+                        assertEquals(post.getPostId(), posts.getContent().getFirst().getPostId());
+                    } else {
+                        assertPrivateProfileSection(() -> postListReadService.getPublicProfilePosts(
+                                owner.getUserId(), viewerId, pageable));
+                    }
+                    if (commentsVisible) {
+                        var comments = commentQueryService.getPublicProfileComments(owner.getUserId(), viewerId, pageable);
+                        assertEquals(1L, comments.getTotalElements());
+                        assertEquals(comment.getCommentId(), comments.getContent().getFirst().getCommentId());
+                    } else {
+                        assertPrivateProfileSection(() -> commentQueryService.getPublicProfileComments(
+                                owner.getUserId(), viewerId, pageable));
+                    }
                 }
             }
+        } finally {
+            setProfilePrivacyEnabledForTest("N");
         }
+    }
+
+    @Test
+    void profilePrivacyActivationBlocksWritesWithoutReopeningStoredPrivateSections() {
+        User owner = createPrivacyUser("activation");
+        User visitor = createPrivacyUser("gate-reader");
+        try {
+            var initial = userSettingsService.getSettings(owner.getUserId());
+            assertFalse(initial.isProfilePrivacyEnabled());
+            assertEquals("N", jdbcTemplate.queryForObject(
+                    "SELECT config_value FROM global_configs WHERE config_key = 'PROFILE_PRIVACY_ENABLED'",
+                    String.class));
+            userSettingsService.updateSettings(owner.getUserId(), "DARK", null, null, null);
+            assertEquals(ErrorCode.PROFILE_PRIVACY_UNAVAILABLE, assertThrows(BusinessException.class,
+                    () -> userSettingsService.updateSettings(owner.getUserId(), "LIGHT", null, null, null,
+                            false, null, null)).getErrorCode());
+            assertEquals("DARK", userSettingsService.getSettings(owner.getUserId()).getTheme());
+
+            setProfilePrivacyEnabledForTest("Y");
+            userSettingsService.updateSettings(owner.getUserId(), null, null, null, null,
+                    false, false, false);
+            for (String gateValue : List.of("N", "invalid")) {
+                setProfilePrivacyEnabledForTest(gateValue);
+                assertStoredPrivacyRemainsProtected(owner.getUserId(), visitor.getUserId());
+            }
+            jdbcTemplate.update("DELETE FROM global_configs WHERE config_key = 'PROFILE_PRIVACY_ENABLED'");
+            assertStoredPrivacyRemainsProtected(owner.getUserId(), visitor.getUserId());
+        } finally {
+            // Restore only this disposable test fixture; the admin API forbids reverting activation.
+            jdbcTemplate.update("""
+                    INSERT INTO global_configs (config_key, config_value, created_at, modified_at)
+                    VALUES ('PROFILE_PRIVACY_ENABLED', 'N', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (config_key) DO UPDATE SET config_value = 'N'
+                    """);
+        }
+    }
+
+    private void assertStoredPrivacyRemainsProtected(Long ownerId, Long visitorId) {
+        assertFalse(userSettingsService.getSettings(ownerId).isProfilePrivacyEnabled());
+        for (Long viewerId : new Long[]{null, visitorId}) {
+            var profile = userProfileService.getUserProfile(ownerId, viewerId);
+            assertFalse(profile.isCanViewOverview());
+            assertFalse(profile.isCanViewPosts());
+            assertFalse(profile.isCanViewComments());
+            assertNull(profile.getCreatedAt());
+            assertNull(profile.getPostCount());
+            assertNull(profile.getCommentCount());
+            assertPrivateProfileSection(() -> badgeService.getUserBadges(ownerId, viewerId));
+            assertPrivateProfileSection(() -> postListReadService.getPublicProfilePosts(
+                    ownerId, viewerId, PageRequest.of(0, 10)));
+            assertPrivateProfileSection(() -> commentQueryService.getPublicProfileComments(
+                    ownerId, viewerId, PageRequest.of(0, 10)));
+        }
+        assertTrue(userProfileService.getUserProfile(ownerId, ownerId).isCanViewOverview());
+    }
+
+    private void setProfilePrivacyEnabledForTest(String value) {
+        assertEquals(1, jdbcTemplate.update(
+                "UPDATE global_configs SET config_value = ? WHERE config_key = 'PROFILE_PRIVACY_ENABLED'", value));
     }
 
     private User createPrivacyUser(String purpose) {

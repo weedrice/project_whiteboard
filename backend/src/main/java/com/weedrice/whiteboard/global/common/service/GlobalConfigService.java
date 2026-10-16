@@ -44,6 +44,7 @@ public class GlobalConfigService {
     public static final String INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY =
             "INQUIRY_NOTIFICATION_TYPE_ENABLED";
     public static final String INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY = "INQUIRY_LEGACY_WRITE_ENABLED";
+    public static final String PROFILE_PRIVACY_ENABLED_CONFIG_KEY = "PROFILE_PRIVACY_ENABLED";
     public static final int MAX_POINT_CONFIG_VALUE = 1_000_000;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MIN = 1;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MAX = 100;
@@ -57,9 +58,10 @@ public class GlobalConfigService {
     private static final List<String> INQUIRY_PRIORITY_THRESHOLD_KEYS = List.of(
             INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY,
             INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY);
-    private static final Set<String> REQUIRED_INQUIRY_CONFIG_KEYS = Set.of(
+    private static final Set<String> REQUIRED_COMPATIBILITY_CONFIG_KEYS = Set.of(
             INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY,
-            INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY);
+            INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY,
+            PROFILE_PRIVACY_ENABLED_CONFIG_KEY);
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
@@ -87,6 +89,15 @@ public class GlobalConfigService {
 
     public boolean isInquiryNotificationTypeEnabled() {
         String value = getConfigFresh(INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY);
+        return value != null && "Y".equalsIgnoreCase(value.trim());
+    }
+
+    /**
+     * Gates changes to privacy preferences until every rollback target enforces them.
+     * Existing preferences must always be enforced, regardless of this activation flag.
+     */
+    public boolean isProfilePrivacyEnabled() {
+        String value = getConfigFresh(PROFILE_PRIVACY_ENABLED_CONFIG_KEY);
         return value != null && "Y".equalsIgnoreCase(value.trim());
     }
 
@@ -162,7 +173,7 @@ public class GlobalConfigService {
         validateConfigValue(input.key(), input.value());
         validateInquiryPriorityThresholdRelationship(input.key(), input.value());
         GlobalConfig config = findConfigForUpdate(input.key());
-        validateInquiryNotificationTypeTransition(input.key(), config.getConfigValue(), input.value());
+        validateOneWayActivationTransition(input.key(), config.getConfigValue(), input.value());
 
         config.setConfigValue(input.value());
         if (description != null) {
@@ -175,7 +186,8 @@ public class GlobalConfigService {
     }
 
     private GlobalConfig findConfigForUpdate(String key) {
-        if (INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)) {
+        if (INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)
+                || PROFILE_PRIVACY_ENABLED_CONFIG_KEY.equals(key)) {
             return globalConfigRepository.findAllByKeysForUpdate(List.of(key)).stream()
                     .findFirst()
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
@@ -188,7 +200,7 @@ public class GlobalConfigService {
     public void deleteConfig(Long actorUserId, String key) {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         String normalizedKey = TextInputNormalizer.normalizeRequired(key, MAX_CONFIG_KEY_LENGTH);
-        if (REQUIRED_INQUIRY_CONFIG_KEYS.contains(normalizedKey)) {
+        if (REQUIRED_COMPATIBILITY_CONFIG_KEYS.contains(normalizedKey)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         if (!globalConfigRepository.existsById(normalizedKey)) {
@@ -276,7 +288,8 @@ public class GlobalConfigService {
             return;
         }
         if (INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY.equals(key)
-                || INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)) {
+                || INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)
+                || PROFILE_PRIVACY_ENABLED_CONFIG_KEY.equals(key)) {
             if (!"Y".equalsIgnoreCase(value) && !"N".equalsIgnoreCase(value)) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
@@ -288,9 +301,10 @@ public class GlobalConfigService {
         validateIntegerRange(value, 0, MAX_POINT_CONFIG_VALUE);
     }
 
-    private void validateInquiryNotificationTypeTransition(String key, String currentValue, String proposedValue) {
-        if (INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)
-                && "Y".equalsIgnoreCase(currentValue)
+    private void validateOneWayActivationTransition(String key, String currentValue, String proposedValue) {
+        if ((INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY.equals(key)
+                || PROFILE_PRIVACY_ENABLED_CONFIG_KEY.equals(key))
+                && currentValue != null && "Y".equalsIgnoreCase(currentValue.trim())
                 && !"Y".equalsIgnoreCase(proposedValue)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

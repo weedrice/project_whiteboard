@@ -283,7 +283,7 @@
 
 - `user_settings.profile_overview_public`, `profile_posts_public`, `profile_comments_public`은 각각 `VARCHAR(1) NOT NULL DEFAULT 'Y'`이다. Java `Boolean`은 기존 `BooleanToYNConverter`로 변환한다.
 - 기존 행과 이전 애플리케이션의 컬럼 생략 INSERT는 공개(`Y`)를 유지한다. 신규 테이블·인덱스는 추가하지 않는다.
-- 기존 마이그레이션은 변경하지 않으며 새 컬럼 추가는 expand 단계이다. 이전 JAR는 새 비공개 설정을 적용하지 않으므로 기능 활성화 후 롤백하면 활동 정보가 다시 공개될 수 있다.
+- V100은 `PROFILE_PRIVACY_ENABLED=N`도 등록한다. 지원 코드 배포와 비공개 설정 저장 활성화를 분리하며, 이전 JAR를 포함한 모든 롤백 대상이 비공개 조회 제한을 지원할 때만 관리자가 `Y`로 전환한다. 활성화 전에는 공개 필드를 명시한 저장을 거부하고, 저장된 비공개 값의 조회 제한은 항상 유지한다. 관리 API는 재비활성화와 키 삭제를 금지한다. 절차는 [단계적 활성화 가이드](../docs/ops/profile-privacy-rollout.md)를 따른다.
 
 ## 운영 주의
 

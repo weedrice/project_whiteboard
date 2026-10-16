@@ -215,6 +215,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 프로필 공개 범위 설정(적용):
 
 - `GET/PUT /api/v1/users/me/settings`는 Boolean `profileOverviewPublic`, `profilePostsPublic`, `profileCommentsPublic`을 제공한다. 기존·신규 계정과 설정 레코드 없는 계정의 기본값은 모두 `true`이며 수정 요청에서 생략한 값은 유지한다.
+- 내 환경설정 응답의 `profilePrivacyEnabled`가 `true`일 때만 공개 범위를 수정할 수 있다. `PROFILE_PRIVACY_ENABLED`의 기본값은 `N`이며 누락/잘못된 값도 비활성으로 처리한다. 비활성 상태에서 공개 필드를 하나라도 명시하면 HTTP 403(`U013`, `PROFILE_PRIVACY_UNAVAILABLE`)으로 요청 전체를 거부한다. 필드를 생략한 일반 설정 저장은 허용한다. 활성화는 [운영 절차](../docs/ops/profile-privacy-rollout.md)에 따라 구버전 롤백 기간 종료 후 수행하며, 이미 저장된 비공개 값의 조회 제한은 활성화 여부와 무관하다.
 - `GET /api/v1/users/{userId}`는 위 설정값과 현재 방문자의 `canViewOverview`, `canViewPosts`, `canViewComments`를 제공한다. 본인은 비공개 항목도 확인할 수 있다. 개요를 볼 수 없으면 `createdAt`, 글·댓글을 볼 수 없으면 해당 `postCount`·`commentCount`가 `null`이다.
 - 비공개 영역의 `/users/{userId}/posts`, `/comments`, `/badges` 직접 조회는 본인 이외 방문자에게 HTTP 403(`U012`, `PROFILE_SECTION_PRIVATE`)으로 거부한다. 배지는 개요 공개 여부를 따른다. `/users/me/*` 조회와 게시판 원문·검색 접근, 대표 배지 표시는 기존 규칙을 유지한다. 프로필 활동 모아보기 제한이며 공개 원문의 검색·작성자 검색을 차단하는 설정은 아니다. 차단·탈퇴·콘텐츠 접근 제한은 공개 여부로 완화되지 않는다.
 

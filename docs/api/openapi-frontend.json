@@ -8299,6 +8299,9 @@
           "profilePostsPublic" : {
             "type" : "boolean"
           },
+          "profilePrivacyEnabled" : {
+            "type" : "boolean"
+          },
           "pushEnabled" : {
             "type" : "boolean"
           },

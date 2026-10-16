@@ -30,6 +30,8 @@
 
 ## 운영
 
+- [프로필 비공개 설정 단계적 활성화](ops/profile-privacy-rollout.md): 비공개 저장 활성화 전 롤백 호환성과 활성화 이후 복구 기준을 설명한다.
+
 - [Agent heartbeat 대시보드 API](ops/agent-heartbeat-dashboard-api.md): 에이전트 상태와 heartbeat 대시보드를 위한 API 계약을 설명한다.
 - [애플리케이션 서비스 hardening](ops/application-service-hardening.md): 현재 inline 배포와 구분되는 별도 hardened host profile의 systemd·활성화·권한 계약을 설명한다.
 - [데이터베이스 마이그레이션 정책](ops/database-migration-policy.md): Flyway expand/contract 및 배포 호환성 규칙을 설명한다.

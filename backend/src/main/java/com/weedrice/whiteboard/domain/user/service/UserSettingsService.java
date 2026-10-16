@@ -73,6 +73,10 @@ public class UserSettingsService {
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw, Boolean profileOverviewPublic, Boolean profilePostsPublic,
                         Boolean profileCommentsPublic) {
+                if ((profileOverviewPublic != null || profilePostsPublic != null || profileCommentsPublic != null)
+                                && !globalConfigService.isProfilePrivacyEnabled()) {
+                        throw new BusinessException(ErrorCode.PROFILE_PRIVACY_UNAVAILABLE);
+                }
                 String normalizedTheme = normalizeTheme(theme);
                 String normalizedLanguage = normalizeLanguage(language);
                 String normalizedTimezone = normalizeTimezone(timezone);
@@ -204,7 +208,8 @@ public class UserSettingsService {
                                 settings.getOnboardingCompletedAt(),
                                 !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
                                 !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
-                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()));
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()),
+                                globalConfigService.isProfilePrivacyEnabled());
         }
 
         private UserSettingsResponse defaultSettingsResponse() {
@@ -214,7 +219,7 @@ public class UserSettingsService {
                                 UserSettingsDefaults.TIMEZONE,
                                 UserSettingsDefaults.HIDE_NSFW,
                                 UserSettingsDefaults.PUSH_ENABLED,
-                                null);
+                                null, true, true, true, globalConfigService.isProfilePrivacyEnabled());
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {
@@ -227,7 +232,8 @@ public class UserSettingsService {
                                 settings.getOnboardingCompletedAt(),
                                 !Boolean.FALSE.equals(settings.getProfileOverviewPublic()),
                                 !Boolean.FALSE.equals(settings.getProfilePostsPublic()),
-                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()));
+                                !Boolean.FALSE.equals(settings.getProfileCommentsPublic()),
+                                globalConfigService.isProfilePrivacyEnabled());
         }
 
         private String normalizeTheme(String theme) {

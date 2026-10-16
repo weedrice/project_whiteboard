@@ -621,11 +621,12 @@ class GlobalConfigServiceTest {
     }
 
     @Test
-    @DisplayName("문의 전환 플래그는 삭제할 수 없다")
-    void deleteConfig_requiredInquiryConfig_rejectsDeletion() {
+    @DisplayName("호환성 전환 플래그는 삭제할 수 없다")
+    void deleteConfig_requiredCompatibilityConfig_rejectsDeletion() {
         List<String> requiredKeys = List.of(
                 GlobalConfigService.INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY,
-                GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY);
+                GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY,
+                GlobalConfigService.PROFILE_PRIVACY_ENABLED_CONFIG_KEY);
 
         for (String requiredKey : requiredKeys) {
             assertThatThrownBy(() -> globalConfigService.deleteConfig(ACTOR_USER_ID, requiredKey))
@@ -647,6 +648,47 @@ class GlobalConfigServiceTest {
         globalConfigService.deleteConfig(ACTOR_USER_ID, key);
 
         verify(globalConfigRepository).deleteById(key);
+    }
+
+    @Test
+    void profilePrivacyRequiresFreshExplicitActivation() {
+        String key = GlobalConfigService.PROFILE_PRIVACY_ENABLED_CONFIG_KEY;
+        when(globalConfigRepository.findById(key)).thenReturn(Optional.empty());
+        assertThat(globalConfigService.isProfilePrivacyEnabled()).isFalse();
+        for (String value : List.of("N", "", "true", "invalid")) {
+            when(globalConfigRepository.findById(key)).thenReturn(Optional.of(new GlobalConfig(key, value, null)));
+            assertThat(globalConfigService.isProfilePrivacyEnabled()).isFalse();
+        }
+        when(globalConfigRepository.findById(key)).thenReturn(Optional.of(new GlobalConfig(key, "Y", null)));
+        assertThat(globalConfigService.isProfilePrivacyEnabled()).isTrue();
+        verifyNoInteractions(cacheManager);
+    }
+
+    @Test
+    void profilePrivacyActivationIsLockedAndCannotBeReversed() {
+        String key = GlobalConfigService.PROFILE_PRIVACY_ENABLED_CONFIG_KEY;
+        GlobalConfig config = new GlobalConfig(key, "N", "rollback gate");
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(key))).thenReturn(List.of(config));
+        when(globalConfigRepository.save(any(GlobalConfig.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(globalConfigService.updateConfig(ACTOR_USER_ID, key, "Y", null).getValue()).isEqualTo("Y");
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, key, "N", null))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThat(config.getConfigValue()).isEqualTo("Y");
+        verify(globalConfigRepository, org.mockito.Mockito.times(2)).findAllByKeysForUpdate(List.of(key));
+        verify(globalConfigRepository, never()).findById(key);
+        verify(globalConfigRepository).save(config);
+    }
+
+    @Test
+    void profilePrivacyRejectsInvalidValuesOnCreateAndUpdate() {
+        String key = GlobalConfigService.PROFILE_PRIVACY_ENABLED_CONFIG_KEY;
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, key, "true", null))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, key, "false", null))
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        verifyNoInteractions(globalConfigRepository);
     }
 
     @Test
