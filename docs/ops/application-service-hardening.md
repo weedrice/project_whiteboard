@@ -6,6 +6,12 @@ This document defines a separately tested hardened host profile. The current pro
 
 Do not treat tracked scripts or passing fixtures as proof that this profile is installed on a host. Adopting it requires one coordinated, reviewed rollout that updates the reusable workflows, provisions and verifies every installed entrypoint, migrates the frontend web root to the managed symlink layout, establishes secured state files, validates rollback and contract-recovery behavior, and updates `.github/workflows/README.md`. Until that adoption is complete, use the workflow README as the source of truth for current production deployment behavior.
 
+## Current Inline Failure Diagnosis
+
+The current inline backend workflow records the activation phase and original exit code before recovery, together with only `ActiveState`, `SubState`, `Result`, `ExecMainCode`, `ExecMainStatus`, `NRestarts`, and `MainPID` from systemd. Diagnostic lookup failure does not prevent recovery or replace the original failure. No journal, environment, or unit contents are published to Actions. These diagnostics do not require adopting the hardened profile or its diagnostic directory.
+
+A `health_unavailable` readiness failure means the final probe could not obtain a successful management health response within the existing 45-probe budget; `runtime_identity_unverified` means the last healthy probe could not verify the requested running commit. Neither proves the underlying application exception. An authorized operator must inspect the service's startup journal/application logs on the host for the failed interval and share only sanitized findings. The values recorded before recovery distinguish the failed startup from the stopped state produced by recovery. After a contract start attempt, verify schema compatibility and select an explicit recovery path before restarting or replacing the JAR; rerunning CI alone does not establish that recovery is safe. See the [workflow guide](../../.github/workflows/README.md) for the active recovery and independent readback contract.
+
 ## Hardened Profile Provisioning
 
 Under this profile, the Spring Boot process must not run as the interactive SSH deployment account. Provision a dedicated non-login account before installing `deploy/systemd/app.service`:

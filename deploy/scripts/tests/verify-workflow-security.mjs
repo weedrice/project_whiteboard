@@ -301,6 +301,20 @@ for (const workflowPath of [
 // when independent public readback fails before an activation output is emitted.
 const backendActivation = backend.jobs.deploy.steps.find((step) => step.id === 'activate').with.script
 const backendReadback = backend.jobs.deploy.steps.find((step) => step.id === 'reconcile').with.script
+for (const id of ['activate', 'reconcile']) {
+  assert(backend.jobs.deploy.steps.find((step) => step.id === id).with.capture_stdout === false,
+    'backend SSH failures must not leave an unterminated captured stdout output')
+}
+const backendActivationResult = backend.jobs.deploy.steps.find((step) => step.id === 'activation-result')
+assert(backendActivationResult.env.RECONCILIATION_OUTCOME === '${{ steps.reconcile.outcome }}'
+  && backendActivationResult.run.includes('test "$RECONCILIATION_OUTCOME" = success'),
+  'backend activation output must require successful independent readback')
+assert(backendReadback.includes('sha256sum --strict --check SHA256SUMS'), 'backend readback must recheck staged integrity')
+for (const identity of ['commit_sha=$EXPECTED_SHA', 'run_id=${{ github.run_id }}',
+  'run_number=${{ github.run_number }}', 'run_attempt=${{ inputs.release_metadata_attempt }}']) {
+  assert(backendReadback.includes(`grep -Fqx -- "${identity}" "$STAGING_DIR/RELEASE_METADATA"`),
+    `backend readback must verify ${identity}`)
+}
 assert(!backendActivation.includes('systemctl stop app || true'), 'backend must not ignore a failed stop')
 assert(backendActivation.includes('systemctl show app --property=MainPID --value'), 'backend must verify process exit before replacement')
 assert(backendActivation.includes('${HEALTH_URL%/health}/info') && backendReadback.includes('http://127.0.0.1:8081/actuator/info'),

@@ -25,6 +25,10 @@ contract migration도 검증을 통과하면 일반 backend 변경과 동일하�
 
 Contract migration 여부는 release metadata와 envelope에 서명된다. 새 contract release의 서비스 시작을 시도한 뒤 실패하면 이전 JAR의 schema 호환성을 증명할 수 없으므로 자동 rollback하지 않는다. 서비스는 중지되며 운영자가 DB 복구 또는 contract-compatible artifact를 명시적으로 선택해야 한다.
 
+Backend activation 실패 시 복구 전에 실패 단계(`stop`, `replace`, `start`, `readiness`, `integrity`)와 종료 코드를 기록하고, systemd의 `ActiveState`, `SubState`, `Result`, `ExecMainCode`, `ExecMainStatus`, `NRestarts`, `MainPID`만 조회한다. 이 진단이 실패해도 원래 실패 상태와 복구 절차는 유지한다. readiness는 기존 45회·2초 간격과 HTTP 요청당 5초 제한을 유지하며 health 미응답과 실행 SHA 미확인을 구분한다. 기동 예외의 확정에는 별도 호스트 로그 검토가 필요하며 journal·환경 변수·unit 원문은 CI 로그에 출력하지 않는다.
+
+Backend SSH activation·readback은 `capture_stdout: false`로 실행한다. 고정된 SSH Action은 출력 수집 중 원격 명령이 실패하면 EOF 구분자를 닫지 못하므로, 독립 readback의 종료 상태로 성공을 판정한다. readback은 staging checksum·metadata의 commit/run identity·설치된 JAR digest·서비스 활성 상태·health·실행 SHA를 모두 검증하며 metadata의 attempt는 현재 재실행 번호가 아닌 producer의 `release_metadata_attempt`와 비교한다. runner는 readback `outcome`이 `success`일 때만 `activated_sha`를 출력하고, activation 자체의 실패를 성공으로 바꾸지 않는다.
+
 배포 workflow는 GitHub runner에서 checksum, commit metadata와 attestation을 검증하고 EC2의 실행별 `/tmp` staging 경로로 전송한다. EC2에서도 checksum을 다시 확인한 뒤 기존 서비스 경로에 반영하며, 임시 staging 경로는 성공 여부와 관계없이 정리한다.
 
 backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.

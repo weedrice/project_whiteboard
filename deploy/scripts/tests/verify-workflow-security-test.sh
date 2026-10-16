@@ -144,4 +144,24 @@ if node "$validator" "$fixture"; then
   exit 1
 fi
 
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i '0,/capture_stdout: false/s//capture_stdout: true/' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected backend stdout capture on a failing SSH command to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i 's/steps.reconcile.outcome/steps.reconcile.conclusion/g' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected backend output using conclusion instead of raw readback outcome to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
+sed -i '/grep -Fqx -- "run_attempt=\${{ inputs.release_metadata_attempt }}"/d' "$fixture/.github/workflows/deploy-backend.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected backend readback without producer attempt verification to fail" >&2
+  exit 1
+fi
+
 echo "Workflow AST negative fixtures passed"
