@@ -177,10 +177,40 @@ test('logging out clears owner-only profile activity before returning through br
     .toEqual(previousActivityRequests)
 })
 
+test('normal settings save while profile privacy activation is disabled', async ({ page }) => {
+  await installMockApi(page, { authenticated: true })
+  let settings = { ...mockSettings, theme: 'LIGHT', profilePrivacyEnabled: false, ...privateSettings }
+  const writes: Record<string, unknown>[] = []
+  await page.route('**/api/v1/users/me/settings', (route) => {
+    if (route.request().method() === 'PUT') {
+      const payload = route.request().postDataJSON()
+      writes.push(payload)
+      settings = { ...settings, ...payload }
+    }
+    return fulfillJson(route, settings)
+  })
+  await page.goto('/mypage/settings')
+  const save = page.getByRole('button', { name: '설정 저장', exact: true })
+  await expect(save).toBeVisible()
+  for (const name of ['개요 공개', '작성 글 공개', '작성 댓글 공개']) {
+    await expect(page.getByRole('checkbox', { name, exact: true })).toHaveCount(0)
+  }
+  await page.getByRole('combobox', { name: '테마', exact: true }).selectOption('DARK')
+  await save.click()
+  await expect(save).toBeDisabled()
+  expect(writes).toHaveLength(1)
+  expect(writes[0]).toMatchObject({ theme: 'DARK' })
+  for (const field of ['profilePrivacyEnabled', 'profileOverviewPublic', 'profilePostsPublic', 'profileCommentsPublic']) {
+    expect(writes[0]).not.toHaveProperty(field)
+  }
+  expect(settings).toMatchObject(privateSettings)
+})
+
 test('profile privacy settings save independently and survive a reload', async ({ page }) => {
   await installMockApi(page, { authenticated: true })
   let settings = {
     ...mockSettings,
+    profilePrivacyEnabled: true,
     profileOverviewPublic: true,
     profilePostsPublic: true,
     profileCommentsPublic: true,
@@ -224,6 +254,7 @@ test('saving an unrelated setting does not republish privacy changed by another 
   await installMockApi(page, { authenticated: true })
   let settings = {
     ...mockSettings,
+    profilePrivacyEnabled: true,
     theme: 'LIGHT',
     profileOverviewPublic: true,
     profilePostsPublic: true,

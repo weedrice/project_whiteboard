@@ -57,6 +57,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const message = ref('')
   const isError = ref(false)
   const baseline = ref<UserSettingsForm | null>(null)
+  const profilePrivacyEnabled = computed(() => options.settingsData.value?.profilePrivacyEnabled === true)
   const isDirty = computed(() => (
     baseline.value !== null
     && (
@@ -64,9 +65,11 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       || form.language !== baseline.value.language
       || form.timezone !== baseline.value.timezone
       || form.hideNsfw !== baseline.value.hideNsfw
-      || form.profileOverviewPublic !== baseline.value.profileOverviewPublic
-      || form.profilePostsPublic !== baseline.value.profilePostsPublic
-      || form.profileCommentsPublic !== baseline.value.profileCommentsPublic
+      || (profilePrivacyEnabled.value && (
+        form.profileOverviewPublic !== baseline.value.profileOverviewPublic
+        || form.profilePostsPublic !== baseline.value.profilePostsPublic
+        || form.profileCommentsPublic !== baseline.value.profileCommentsPublic
+      ))
     )
   ))
   const canSave = computed(() => isDirty.value && !options.isSaving.value)
@@ -135,12 +138,6 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       timezone: form.timezone,
       hideNsfw: form.hideNsfw
     }
-    // Unrelated settings saves must not restore stale privacy values from another tab/device.
-    for (const field of PROFILE_PRIVACY_FIELDS) {
-      if (submittedForm[field] !== baseline.value?.[field]) {
-        payload[field] = submittedForm[field]
-      }
-    }
     try {
       const localeApplied = options.setLocale
         ? await options.setLocale(payload.language, isCurrentSave)
@@ -151,6 +148,14 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
         isError.value = true
         return
       }
+      // Recheck availability after locale loading; unrelated saves must not restore stale privacy.
+      if (profilePrivacyEnabled.value) {
+        for (const field of PROFILE_PRIVACY_FIELDS) {
+          if (submittedForm[field] !== baseline.value?.[field]) {
+            payload[field] = submittedForm[field]
+          }
+        }
+      }
       const response = await options.updateSettings(payload)
       if (!isCurrentSave()) return
 
@@ -158,7 +163,8 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       rememberUserTimeZone(payload.timezone)
       const savedForm = { ...submittedForm }
       for (const field of PROFILE_PRIVACY_FIELDS) {
-        savedForm[field] = response?.data?.[field] ?? submittedForm[field]
+        savedForm[field] = response?.data?.[field]
+          ?? payload[field] ?? baseline.value?.[field] ?? submittedForm[field]
         // Keep edits made while saving, but reflect authoritative untouched values.
         if (form[field] === submittedForm[field]) {
           form[field] = savedForm[field]
@@ -217,6 +223,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     isDirty,
     isError,
     message,
+    profilePrivacyEnabled,
     save
   }
 }

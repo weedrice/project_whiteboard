@@ -45,6 +45,7 @@ const {
   isDirty,
   isError: saveIsError,
   message,
+  profilePrivacyEnabled,
   save,
 } = useUserSettingsForm({
   settingsData,
@@ -123,7 +124,7 @@ watch(
           </p>
         </div>
       </div>
-      <fieldset class="mt-6 border-t border-[var(--nv-line)] pt-5" aria-describedby="profile-privacy-help">
+      <fieldset v-if="profilePrivacyEnabled" class="mt-6 border-t border-[var(--nv-line)] pt-5" aria-describedby="profile-privacy-help">
         <legend class="text-base font-medium nv-title">{{ t('user.settings.profilePrivacy') }}</legend>
         <p id="profile-privacy-help" class="mb-3 text-sm nv-text-subtle">{{ t('user.settings.profilePrivacyHelp') }}</p>
         <BaseCheckbox v-model="form.profileOverviewPublic" :label="t('user.settings.profileOverviewPublic')" :description="t('user.settings.profileOverviewHelp')" />

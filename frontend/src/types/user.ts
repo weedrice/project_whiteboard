@@ -74,6 +74,7 @@ export interface UserSettings {
     timezone: string
     hideNsfw: boolean
     pushEnabled: boolean
+    profilePrivacyEnabled?: boolean
     profileOverviewPublic?: boolean
     profilePostsPublic?: boolean
     profileCommentsPublic?: boolean
