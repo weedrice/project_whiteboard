@@ -1,5 +1,17 @@
 package com.weedrice.whiteboard;
 
+import com.weedrice.whiteboard.domain.badge.entity.UserBadge;
+import com.weedrice.whiteboard.domain.badge.repository.BadgeRepository;
+import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
+import com.weedrice.whiteboard.domain.badge.service.BadgeService;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentQueryService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
+import com.weedrice.whiteboard.domain.user.service.UserProfileService;
+import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.data.domain.PageRequest;
 import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
@@ -69,6 +81,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -146,12 +160,211 @@ class PostgresApplicationContextSmokeTest {
     private Flyway flyway;
 
     @Autowired
+    private UserSettingsService userSettingsService;
+
+    @Autowired
+    private UserProfileService userProfileService;
+
+    @Autowired
+    private PostListReadService postListReadService;
+
+    @Autowired
+    private CommentQueryService commentQueryService;
+
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private BadgeService badgeService;
+
+    @Autowired
+    private BadgeRepository badgeRepository;
+
+    @Autowired
+    private UserBadgeRepository userBadgeRepository;
+
+    @Autowired
     private Clock clock;
 
     @Test
     void contextLoadsWithPostgresMigrations() {
         assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
                 .isTransactionalLock());
+    }
+
+    @Test
+    void profilePrivacyMigrationPreservesExistingSettingsAndLegacyInsertDefaults() throws Exception {
+        String schema = "profile_privacy_migration_" + UUID.randomUUID().toString().replace("-", "");
+        jdbcTemplate.execute("CREATE SCHEMA " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                postgresFlyway(schema, connection)
+                        .target(MigrationVersion.fromVersion("99"))
+                        .load().migrate();
+                connection.setSchema(schema);
+                JdbcTemplate isolated = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+                isolated.update("""
+                        INSERT INTO users
+                            (user_id, created_at, modified_at, display_name, email, is_email_verified,
+                             is_super_admin, login_id, password, status)
+                        VALUES
+                            (10001, NOW(), NOW(), 'Privacy Existing', 'privacy-existing@example.com', 'Y',
+                             'N', 'privacy-existing', 'encoded', 'ACTIVE'),
+                            (10002, NOW(), NOW(), 'Privacy Legacy', 'privacy-legacy@example.com', 'Y',
+                             'N', 'privacy-legacy', 'encoded', 'ACTIVE')
+                        """);
+                String legacyInsert = """
+                        INSERT INTO user_settings
+                            (user_id, created_at, modified_at, theme, language, timezone, hide_nsfw, push_enabled)
+                        VALUES (?, NOW(), NOW(), 'DARK', 'en', 'UTC', 'N', 'Y')
+                        """;
+                isolated.update(legacyInsert, 10001L);
+
+                postgresFlyway(schema, connection)
+                        .target(MigrationVersion.fromVersion("100"))
+                        .load().migrate();
+                isolated.update(legacyInsert, 10002L);
+
+                for (Long userId : List.of(10001L, 10002L)) {
+                    assertEquals(Map.of(
+                                    "profile_overview_public", "Y", "profile_posts_public", "Y",
+                                    "profile_comments_public", "Y", "theme", "DARK", "language", "en",
+                                    "timezone", "UTC", "hide_nsfw", "N", "push_enabled", "Y"),
+                            isolated.queryForMap("""
+                                    SELECT profile_overview_public, profile_posts_public, profile_comments_public,
+                                           theme, language, timezone, hide_nsfw, push_enabled
+                                    FROM user_settings WHERE user_id = ?
+                                    """, userId));
+                }
+                assertEquals(3, isolated.queryForObject("""
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = ? AND table_name = 'user_settings'
+                          AND column_name IN ('profile_overview_public', 'profile_posts_public', 'profile_comments_public')
+                          AND is_nullable = 'NO' AND character_maximum_length = 1
+                        """, Integer.class, schema));
+            } finally {
+                discardTemporaryTables(connection);
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void profilePrivacySettingsRoundTripUsesYnAndPreservesOmittedFlags() {
+        User user = createPrivacyUser("settings");
+        var defaults = userSettingsService.getSettings(user.getUserId());
+        assertTrue(defaults.isProfileOverviewPublic());
+        assertTrue(defaults.isProfilePostsPublic());
+        assertTrue(defaults.isProfileCommentsPublic());
+        assertTrue(userProfileService.getUserProfile(user.getUserId(), null).isCanViewOverview());
+
+        userSettingsService.updateSettings(user.getUserId(), "DARK", "en", "UTC", false,
+                false, true, false);
+        assertEquals(Map.of("profile_overview_public", "N", "profile_posts_public", "Y",
+                        "profile_comments_public", "N"), jdbcTemplate.queryForMap("""
+                SELECT profile_overview_public, profile_posts_public, profile_comments_public
+                FROM user_settings WHERE user_id = ?
+                """, user.getUserId()));
+        var persisted = userSettingsService.getSettings(user.getUserId());
+        assertFalse(persisted.isProfileOverviewPublic());
+        assertTrue(persisted.isProfilePostsPublic());
+        assertFalse(persisted.isProfileCommentsPublic());
+
+        userSettingsService.updateSettings(user.getUserId(), null, null, null, null,
+                null, false, null);
+        var partial = userSettingsService.getSettings(user.getUserId());
+        assertFalse(partial.isProfileOverviewPublic());
+        assertFalse(partial.isProfilePostsPublic());
+        assertFalse(partial.isProfileCommentsPublic());
+        assertEquals("DARK", partial.getTheme());
+        assertEquals("en", partial.getLanguage());
+        assertEquals("UTC", partial.getTimezone());
+        assertFalse(partial.isHideNsfw());
+
+        userSettingsService.updateSettings(user.getUserId(), "LIGHT", null, null, null);
+        var legacy = userSettingsService.getSettings(user.getUserId());
+        assertFalse(legacy.isProfileOverviewPublic());
+        assertFalse(legacy.isProfilePostsPublic());
+        assertFalse(legacy.isProfileCommentsPublic());
+        assertEquals("LIGHT", legacy.getTheme());
+    }
+
+    @Test
+    void profilePrivacyEnforcesEveryCombinationForOwnersMembersAndAnonymousReaders() {
+        User owner = createPrivacyUser("owner");
+        User member = createPrivacyUser("member");
+        Board board = boardRepository.saveAndFlush(Board.builder()
+                .boardName("Profile Privacy").boardUrl("privacy-" + uniqueSuffix()).creator(owner).build());
+        Post post = postRepository.saveAndFlush(Post.builder()
+                .title("Privacy post").contents("Public board content").user(owner).board(board).build());
+        Comment comment = commentRepository.saveAndFlush(Comment.builder()
+                .post(post).user(owner).depth(0).content("Privacy comment").build());
+        var badge = badgeRepository.findAllByOrderBySortOrderAscBadgeCodeAsc().stream().findFirst().orElseThrow();
+        userBadgeRepository.saveAndFlush(UserBadge.builder()
+                .user(owner).badge(badge).acquiredAt(LocalDateTime.now(clock)).build());
+        var pageable = PageRequest.of(0, 10);
+
+        for (int mask = 0; mask < 8; mask++) {
+            boolean overviewPublic = (mask & 1) != 0;
+            boolean postsPublic = (mask & 2) != 0;
+            boolean commentsPublic = (mask & 4) != 0;
+            userSettingsService.updateSettings(owner.getUserId(), null, null, null, null,
+                    overviewPublic, postsPublic, commentsPublic);
+            for (Long viewerId : new Long[]{null, member.getUserId(), owner.getUserId()}) {
+                boolean isOwner = owner.getUserId().equals(viewerId);
+                boolean overviewVisible = isOwner || overviewPublic;
+                boolean postsVisible = isOwner || postsPublic;
+                boolean commentsVisible = isOwner || commentsPublic;
+                var profile = userProfileService.getUserProfile(owner.getUserId(), viewerId);
+                assertEquals(overviewPublic, profile.isProfileOverviewPublic());
+                assertEquals(postsPublic, profile.isProfilePostsPublic());
+                assertEquals(commentsPublic, profile.isProfileCommentsPublic());
+                assertEquals(overviewVisible, profile.isCanViewOverview());
+                assertEquals(postsVisible, profile.isCanViewPosts());
+                assertEquals(commentsVisible, profile.isCanViewComments());
+                assertEquals(postsVisible ? Long.valueOf(1) : null, profile.getPostCount());
+                assertEquals(commentsVisible ? Long.valueOf(1) : null, profile.getCommentCount());
+                if (overviewVisible) {
+                    assertNotNull(profile.getCreatedAt());
+                    assertTrue(badgeService.getUserBadges(owner.getUserId(), viewerId).stream()
+                            .anyMatch(value -> value.getBadgeCode().equals(badge.getBadgeCode()) && value.isAcquired()));
+                } else {
+                    assertNull(profile.getCreatedAt());
+                    assertPrivateProfileSection(() -> badgeService.getUserBadges(owner.getUserId(), viewerId));
+                }
+                if (postsVisible) {
+                    var posts = postListReadService.getPublicProfilePosts(owner.getUserId(), viewerId, pageable);
+                    assertEquals(1L, posts.getTotalElements());
+                    assertEquals(post.getPostId(), posts.getContent().getFirst().getPostId());
+                } else {
+                    assertPrivateProfileSection(() -> postListReadService.getPublicProfilePosts(
+                            owner.getUserId(), viewerId, pageable));
+                }
+                if (commentsVisible) {
+                    var comments = commentQueryService.getPublicProfileComments(owner.getUserId(), viewerId, pageable);
+                    assertEquals(1L, comments.getTotalElements());
+                    assertEquals(comment.getCommentId(), comments.getContent().getFirst().getCommentId());
+                } else {
+                    assertPrivateProfileSection(() -> commentQueryService.getPublicProfileComments(
+                            owner.getUserId(), viewerId, pageable));
+                }
+            }
+        }
+    }
+
+    private User createPrivacyUser(String purpose) {
+        String loginId = "privacy-" + purpose + "-" + uniqueSuffix();
+        return userRepository.saveAndFlush(User.builder()
+                .loginId(loginId).email(loginId + "@example.com").password("encoded")
+                .displayName("Privacy " + purpose).build());
+    }
+
+    private void assertPrivateProfileSection(org.junit.jupiter.api.function.Executable action) {
+        assertEquals(ErrorCode.PROFILE_SECTION_PRIVATE,
+                assertThrows(BusinessException.class, action).getErrorCode());
     }
 
     @Test
