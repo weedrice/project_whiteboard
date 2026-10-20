@@ -1,5 +1,6 @@
-import { computed, ref, unref, type MaybeRefOrGetter } from 'vue'
+import { computed, onBeforeUnmount, ref, unref, type MaybeRefOrGetter } from 'vue'
 import type { Router } from 'vue-router'
+import { useEventListener } from '@/composables/useEventListener'
 
 interface CodeCopyLabels {
   copy: string
@@ -32,16 +33,55 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   const lightboxIndex = ref(0)
   const openedImages = ref<RichContentLightboxImage[]>([])
   const lightboxImages = computed(() => !articleRef.value || resolveBoolean(options.isDisabled) ? [] : openedImages.value)
+  const pendingImages = new Set<HTMLImageElement>()
+  let imageFrame: number | null = null
+
+  function prepareImageForInteraction(image: HTMLImageElement, index: number) {
+    if (image.dataset.imageState && image.dataset.imageState !== 'loaded') {
+      image.tabIndex = -1
+      image.removeAttribute('role')
+      image.removeAttribute('aria-haspopup')
+      return
+    }
+    if (image.tabIndex === -1) image.removeAttribute('tabindex')
+    if (!image.hasAttribute('tabindex')) image.tabIndex = 0
+    if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
+    image.setAttribute('aria-haspopup', 'dialog')
+    image.setAttribute('aria-label', options.getImageOpenLabel(image.alt.trim(), index))
+  }
+
+  function cancelImagePreparation() {
+    if (imageFrame !== null) window.cancelAnimationFrame(imageFrame)
+    imageFrame = null
+    pendingImages.clear()
+  }
 
   function prepareImagesForInteraction() {
+    cancelImagePreparation()
     if (!articleRef.value || resolveBoolean(options.isDisabled)) return
-    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((image, index) => {
-      if (!image.hasAttribute('tabindex')) image.tabIndex = 0
-      if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
-      image.setAttribute('aria-haspopup', 'dialog')
-      image.setAttribute('aria-label', options.getImageOpenLabel(image.alt.trim(), index))
+    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach(prepareImageForInteraction)
+  }
+
+  function scheduleImagePreparation(event: Event) {
+    const image = event.target
+    if (!(image instanceof HTMLImageElement) || !image.matches('.nv-rich-content img')
+      || !articleRef.value?.contains(image) || resolveBoolean(options.isDisabled)) return
+    pendingImages.add(image)
+    if (imageFrame !== null) return
+    imageFrame = window.requestAnimationFrame(() => {
+      imageFrame = null
+      const images = new Set(pendingImages)
+      pendingImages.clear()
+      if (!articleRef.value || resolveBoolean(options.isDisabled)) return
+      // Enumerate once per frame to retain label indices after content changes.
+      articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((candidate, index) => {
+        if (images.has(candidate)) prepareImageForInteraction(candidate, index)
+      })
     })
   }
+
+  useEventListener(articleRef, 'imagestatechange', scheduleImagePreparation)
+  onBeforeUnmount(cancelImagePreparation)
 
   function navigateToMention(target: EventTarget | null): boolean {
     const mention = (target as HTMLElement | null)?.closest?.('[data-mention-user-id]')
@@ -87,7 +127,8 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     if (!(image instanceof HTMLImageElement)) return false
 
     const images = Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? [])
-      .filter((candidate) => Boolean(candidate.currentSrc || candidate.src))
+      .filter((candidate) => Boolean(candidate.currentSrc || candidate.src)
+        && (!candidate.dataset.imageState || candidate.dataset.imageState === 'loaded'))
     const index = images.indexOf(image)
     if (index < 0) return false
 
