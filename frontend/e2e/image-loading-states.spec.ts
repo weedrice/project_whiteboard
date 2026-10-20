@@ -1,6 +1,86 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type FrameLocator, type Page } from '@playwright/test'
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#16a34a"/></svg>'
+
+async function expectSandboxContentScrollable(page: Page, frame: FrameLocator) {
+  await expect(frame.locator('html')).toHaveCSS('overflow-y', 'auto')
+  await expect(frame.locator('body')).toHaveCSS('overflow-y', 'auto')
+  const overflow = await frame.locator('body').evaluate((body) => {
+    const root = body.ownerDocument.documentElement
+    return Math.max(root.scrollHeight - root.clientHeight, body.scrollHeight - body.clientHeight)
+  })
+  expect(overflow).toBeGreaterThan(0)
+  const bounds = (await page.locator('#sandbox-bridge-frame').boundingBox())!
+  await page.mouse.move(bounds.x + 80, bounds.y + 80)
+  await page.mouse.wheel(0, 800)
+  await expect.poll(() => frame.locator('body').evaluate((body) =>
+    Math.max(body.scrollTop, body.ownerDocument.documentElement.scrollTop),
+  )).toBeGreaterThan(0)
+}
+
+test('a blocked sandbox bridge restores decoded images with a single fallback navigation', async ({ page }) => {
+  await page.route('**/sandbox-height-bridge.js*', (route) => route.abort())
+  await page.goto('/e2e/fixtures/image-states.html?sandboxBridge', { waitUntil: 'domcontentloaded' })
+  const frame = page.frameLocator('#sandbox-bridge-frame')
+  const image = frame.getByAltText('Sandbox bridge recovery image')
+  await expect(page.locator('#sandbox-load-count')).toHaveText('2')
+  await expect(frame.getByText('Sandbox bridge recovery content')).toBeVisible()
+  await expect(image).not.toHaveAttribute('data-image-state')
+  await expect(image).not.toHaveAttribute('aria-busy')
+  await expect(image).toHaveCSS('content', 'normal')
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(320)
+  await expectSandboxContentScrollable(page, frame)
+  const fallbackSource = await page.locator('#sandbox-bridge-frame').getAttribute('srcdoc')
+  // Observe another full watchdog interval to reject repeated fallback reloads.
+  await page.waitForTimeout(1250)
+  await expect(page.locator('#sandbox-load-count')).toHaveText('2')
+  await expect(page.locator('#sandbox-bridge-frame')).toHaveAttribute('srcdoc', fallbackSource!)
+})
+
+for (const delayed of [false, true]) {
+  test(`a ${delayed ? 'delayed' : 'successful'} sandbox bridge retains its original document`, async ({ page }) => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let bridgeRequested!: () => void
+    const requested = new Promise<void>((resolve) => { bridgeRequested = resolve })
+    if (delayed) {
+      await page.route('**/sandbox-height-bridge.js*', async (route) => {
+        bridgeRequested()
+        await gate
+        await route.continue()
+      })
+    }
+    try {
+      await page.goto('/e2e/fixtures/image-states.html?sandboxBridge', { waitUntil: 'domcontentloaded' })
+      const iframe = page.locator('#sandbox-bridge-frame')
+      const frame = page.frameLocator('#sandbox-bridge-frame')
+      const image = frame.getByAltText('Sandbox bridge recovery image')
+      await expect(iframe).toHaveCount(1)
+      const originalSource = await iframe.getAttribute('srcdoc')
+      if (delayed) {
+        await requested
+        await expect(image).toHaveAttribute('data-image-state', 'loading')
+        // Network delay before iframe load must not consume the watchdog grace period.
+        await page.waitForTimeout(1250)
+        await expect(page.locator('#sandbox-load-count')).toHaveText('0')
+        await expect(iframe).toHaveAttribute('srcdoc', originalSource!)
+        release()
+      }
+      await expect(image).toHaveAttribute('data-image-state', 'loaded')
+      await expect(image).not.toHaveAttribute('aria-busy')
+      await expect(image).toHaveCSS('content', 'normal')
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(320)
+      await expect(frame.getByText('Sandbox bridge recovery content')).toBeVisible()
+      await expect(page.locator('#sandbox-load-count')).toHaveText('1')
+      await expectSandboxContentScrollable(page, frame)
+      await page.waitForTimeout(1250)
+      await expect(page.locator('#sandbox-load-count')).toHaveText('1')
+      await expect(iframe).toHaveAttribute('srcdoc', originalSource!)
+    } finally {
+      release()
+    }
+  })
+}
 
 test('the lightbox next button loads an offscreen lazy image without scrolling the article', async ({ page, browserName }) => {
   let requestedLazyImage = false

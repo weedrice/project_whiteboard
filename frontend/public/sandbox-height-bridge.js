@@ -179,6 +179,12 @@
     }
     intervalId = window.setInterval(scheduleHeight, 500)
     scheduleHeight()
+    // Readiness must not depend on a nonzero height or an animation frame.
+    parent.postMessage({
+      type: 'noviis-post-html-ready',
+      channel: 'noviis-post-html-sandbox',
+      id: frameId,
+    }, '*')
   }
 
   function cleanup() {

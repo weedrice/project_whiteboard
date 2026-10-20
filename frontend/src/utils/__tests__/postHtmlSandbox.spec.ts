@@ -417,6 +417,26 @@ describe('postHtmlSandbox', () => {
         expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
     })
 
+    it('keeps the static fallback sanitized without hiding native images or retrying the bridge', () => {
+        const source = buildSandboxedPostHtmlSource(
+            '<img src="/photo.png" width="320" height="160" onerror="bad()"><script>bad()</script>',
+            'frame-static', '', { staticFallback: true },
+        )
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        expect(doc.querySelector('img')?.getAttribute('src')).toBe('/photo.png')
+        expect(doc.querySelector('img')?.hasAttribute('data-image-state')).toBe(false)
+        expect(doc.querySelector('img')?.hasAttribute('aria-busy')).toBe(false)
+        expect(doc.querySelector('img')?.hasAttribute('onerror')).toBe(false)
+        expect(doc.querySelector('script')).toBeNull()
+        for (const root of [doc.documentElement, doc.body]) {
+            expect(root.style.getPropertyValue('overflow-y')).toBe('auto')
+            expect(root.style.getPropertyPriority('overflow-y')).toBe('important')
+        }
+        expect(source).not.toContain('content: var(--nv-image-placeholder')
+        expect(source).toContain("default-src 'none'")
+        expect(source).toContain('overflow-y: auto !important')
+    })
+
     it('escapes localized error text without allowing additional bridge attributes', () => {
         const source = buildSandboxedPostHtmlSource('<img src="/photo.png">', 'frame-1', '" onload="bad()')
         const doc = new DOMParser().parseFromString(source, 'text/html')

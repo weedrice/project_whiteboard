@@ -853,9 +853,11 @@ function findRawTextElementEnd(content: string, openingToken: HtmlTagToken): num
     return match ? match.index + match[0].length : content.length
 }
 
-export function buildSandboxedPostHtmlSource(content: string, frameId: string, imageErrorLabel = ''): string {
+export function buildSandboxedPostHtmlSource(
+    content: string, frameId: string, imageErrorLabel = '', options: { staticFallback?: boolean } = {},
+): string {
     const applicationOrigin = getSandboxApplicationOrigin()
-    const documentParts = normalizeSandboxedPostDocument(content)
+    const documentParts = normalizeSandboxedPostDocument(content, !options.staticFallback)
     return [
         '<!doctype html>',
         `<html${documentParts.htmlAttributes}>`,
@@ -871,12 +873,12 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string, i
         documentParts.headHtml,
         '<style data-noviis-sandbox-guard>',
         getSandboxGuardCss(),
-        IMAGE_STATE_CSS,
+        options.staticFallback ? '' : IMAGE_STATE_CSS,
         '</style>',
         '</head>',
         `<body${documentParts.bodyAttributes}>`,
         documentParts.bodyHtml,
-        getHeightBridgeElement(frameId, applicationOrigin, imageErrorLabel),
+        options.staticFallback ? '' : getHeightBridgeElement(frameId, applicationOrigin, imageErrorLabel),
         '</body>',
         '</html>',
     ].join('')
@@ -908,7 +910,7 @@ function getSandboxApplicationOrigin(): string {
     return 'https://noviis.kr'
 }
 
-function normalizeSandboxedPostDocument(content: string): {
+function normalizeSandboxedPostDocument(content: string, prepareImages: boolean): {
     htmlAttributes: string
     headHtml: string
     bodyAttributes: string
@@ -928,7 +930,15 @@ function normalizeSandboxedPostDocument(content: string): {
             }
         })
     })
-    doc.querySelectorAll('img').forEach(prepareImagePresentation)
+    if (prepareImages) doc.querySelectorAll('img').forEach(prepareImagePresentation)
+    else {
+        // Without the bridge, keep long fallback documents scrollable even
+        // when author styles use a more specific overflow rule.
+        for (const root of [doc.documentElement, doc.body]) {
+            root.style.setProperty('overflow-x', 'hidden', 'important')
+            root.style.setProperty('overflow-y', 'auto', 'important')
+        }
+    }
 
     const headHtml = Array.from(doc.head.children)
         .filter((element) => element.tagName === 'STYLE' || element.tagName === 'LINK')
