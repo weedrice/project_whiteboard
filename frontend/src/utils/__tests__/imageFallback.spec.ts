@@ -27,4 +27,18 @@ describe('imageFallback', () => {
 
         expect(image.getAttribute('src')).toBe(DEFAULT_EMOTICON_IMAGE_URL)
     })
+
+    it('allows a new source on the same element to fall back once again', () => {
+        const image = document.createElement('img')
+        image.src = '/first.png'
+        const event = new Event('error')
+        Object.defineProperty(event, 'target', { value: image })
+        applyImageFallback(event)
+        image.src = '/second.png'
+        applyImageFallback(event)
+        expect(image.getAttribute('src')).toBe(DEFAULT_EMOTICON_IMAGE_URL)
+        const setAttribute = image.src
+        applyImageFallback(event)
+        expect(image.src).toBe(setAttribute)
+    })
 })

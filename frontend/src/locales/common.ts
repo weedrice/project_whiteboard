@@ -5,6 +5,7 @@ export const common: CommonMessages = {
   advertisement: '광고',
   appName: '노비스',
   loading: '로딩 중...',
+  imageLoadError: '이미지를 불러올 수 없습니다.',
   noData: '데이터가 없습니다.',
   loadMore: '더 보기',
   add: '추가',
