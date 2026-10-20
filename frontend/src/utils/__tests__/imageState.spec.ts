@@ -346,3 +346,137 @@ describe('loading animation visibility', () => {
     expect(image.hasAttribute('data-image-offscreen')).toBe(false)
   })
 })
+
+function mockErrorResizeObserver() {
+  const instances: ErrorResizeObserver[] = []
+  class ErrorResizeObserver {
+    observe = vi.fn()
+    unobserve = vi.fn()
+    disconnect = vi.fn()
+    constructor(private callback: ResizeObserverCallback) { instances.push(this) }
+    emit(...targets: HTMLImageElement[]) {
+      this.callback(targets.map((target): ResizeObserverEntry => ({
+        target, contentRect: target.getBoundingClientRect(),
+        borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [],
+      })), this as unknown as ResizeObserver)
+    }
+  }
+  vi.stubGlobal('ResizeObserver', ErrorResizeObserver)
+  return { instances, ErrorResizeObserver }
+}
+
+describe('error presentation resizing', () => {
+  it('updates hidden, expanded and compact failures only when their size threshold changes', () => {
+    const frame = controlErrorFrames()
+    const { instances } = mockErrorResizeObserver()
+    const { image } = setup('/missing.png', true)
+    let width = 0
+    let height = 0
+    Object.defineProperties(image, {
+      clientWidth: { get: () => width }, clientHeight: { get: () => height },
+    })
+    frame.flush()
+    const writes = vi.spyOn(image.style, 'setProperty')
+    const observer = instances[0]!
+    expect(image.style.getPropertyValue('--nv-image-error-symbol')).toBe('')
+    width = 400
+    height = 200
+    observer.emit(image)
+    frame.flush()
+    expect(decodeURIComponent(image.style.getPropertyValue('--nv-image-error-symbol'))).toContain('Unable to load image.')
+    writes.mockClear()
+    width = 300
+    height = 100
+    observer.emit(image)
+    frame.flush()
+    expect(writes).not.toHaveBeenCalled()
+    width = 179
+    observer.emit(image)
+    frame.flush()
+    expect(image.style.getPropertyValue('--nv-image-error-symbol')).toBe('')
+    expect(image.style.getPropertyValue('--nv-image-error-symbol-dark')).toBe('')
+    expect(image.style.getPropertyValue('--nv-image-error-size')).toBe('')
+    width = 180
+    height = 79
+    observer.emit(image)
+    frame.flush()
+    expect(image.style.getPropertyValue('--nv-image-error-symbol')).toBe('')
+    height = 80
+    observer.emit(image)
+    frame.flush()
+    expect(image.style.getPropertyValue('--nv-image-error-symbol-dark')).not.toBe('')
+  })
+
+  it('shares resize observations, batches geometry and releases recovered or destroyed images', () => {
+    const frame = controlErrorFrames()
+    const { instances } = mockErrorResizeObserver()
+    const entries = [setup('/first.png', true), setup('/second.png', true)]
+    const operations: string[] = []
+    let width = 0
+    entries.forEach(({ image }) => {
+      Object.defineProperties(image, {
+        clientWidth: { get: () => { operations.push('read'); return width } },
+        clientHeight: { get: () => { operations.push('read'); return 200 } },
+      })
+      const set = image.style.setProperty.bind(image.style)
+      vi.spyOn(image.style, 'setProperty').mockImplementation((name, value, priority) => {
+        if (name === '--nv-image-error-symbol') operations.push('write')
+        set(name, value, priority)
+      })
+    })
+    frame.flush()
+    operations.length = 0
+    width = 400
+    const observer = instances[0]!
+    expect(instances).toHaveLength(1)
+    observer.emit(...entries.map(({ image }) => image))
+    expect(frame.frames.size).toBe(1)
+    expect(operations).toEqual([])
+    frame.flush()
+    expect(operations).toEqual(['read', 'read', 'read', 'read', 'write', 'write'])
+    observer.emit(...entries.map(({ image }) => image))
+    Object.defineProperty(entries[0]!.image, 'naturalWidth', { value: 400 })
+    entries[0]!.image.dispatchEvent(new Event('load'))
+    entries[1]!.controller.destroy()
+    expect(observer.unobserve).toHaveBeenCalledTimes(2)
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    expect(frame.frames.size).toBe(0)
+    observer.emit(...entries.map(({ image }) => image))
+    expect(frame.frames.size).toBe(0)
+  })
+
+  it('uses the image owner document observer and ignores a queued resize after source replacement', () => {
+    const parentFrame = controlErrorFrames()
+    const { instances, ErrorResizeObserver } = mockErrorResizeObserver()
+    const iframe = document.createElement('iframe')
+    document.body.append(iframe)
+    const frames: FrameRequestCallback[] = []
+    Object.defineProperties(iframe.contentWindow!, {
+      ResizeObserver: { configurable: true, value: ErrorResizeObserver },
+      requestAnimationFrame: { configurable: true, value: (callback: FrameRequestCallback) => frames.push(callback) },
+      cancelAnimationFrame: { configurable: true, value: vi.fn() },
+    })
+    const image = iframe.contentDocument!.createElement('img')
+    image.src = '/missing.png'
+    let width = 400
+    Object.defineProperties(image, {
+      complete: { value: true }, naturalWidth: { value: 0 },
+      clientWidth: { get: () => width }, clientHeight: { value: 200 },
+    })
+    iframe.contentDocument!.body.append(image)
+    const controller = createImageStateController(image, () => 'Failure')
+    expect(parentFrame.frames.size).toBe(0)
+    frames.shift()!(0)
+    const writes = vi.spyOn(image.style, 'setProperty')
+    const removals = vi.spyOn(image.style, 'removeProperty')
+    width = 20
+    instances[0]!.emit(image)
+    image.src = '/replacement.png'
+    frames.shift()!(0)
+    expect(writes).not.toHaveBeenCalled()
+    expect(removals).not.toHaveBeenCalled()
+    controller.destroy()
+    expect(instances[0]!.disconnect).toHaveBeenCalledOnce()
+    iframe.remove()
+  })
+})
