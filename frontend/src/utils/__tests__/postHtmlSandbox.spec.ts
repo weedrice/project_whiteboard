@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { IMAGE_STATE_CSS } from '../imageStatePresentation'
 import {
     buildSandboxedPostHtmlSource,
     containsSandboxedPostHtml,
@@ -432,7 +433,7 @@ describe('postHtmlSandbox', () => {
             expect(root.style.getPropertyValue('overflow-y')).toBe('auto')
             expect(root.style.getPropertyPriority('overflow-y')).toBe('important')
         }
-        expect(source).not.toContain('content: var(--nv-image-placeholder')
+        expect(source).not.toContain(IMAGE_STATE_CSS)
         expect(source).toContain("default-src 'none'")
         expect(source).toContain('overflow-y: auto !important')
     })
