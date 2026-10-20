@@ -168,6 +168,7 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
 
   return {
     imageTransform,
+    clampImageOffset,
     imageScale,
     zoomBy,
     panBy,

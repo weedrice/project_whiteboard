@@ -10,7 +10,16 @@ import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
-  images: Array<{ src: string, alt: string, width?: number, height?: number }>
+  images: Array<{
+    src: string
+    alt: string
+    width?: number
+    height?: number
+    id?: string
+    pending?: boolean
+    failed?: boolean
+    requestLoad?: (retry?: boolean) => void
+  }>
   initialIndex?: number
   title?: string
 }>(), {
@@ -37,8 +46,10 @@ const closeButton = ref<HTMLButtonElement | null>(null)
 
 const hasMultipleImages = computed(() => props.images.length > 1)
 const currentImage = computed(() => props.images[currentIndex.value] ?? null)
+const imagePending = computed(() => Boolean(currentImage.value?.pending
+  || (currentImage.value?.requestLoad && !currentImage.value.src && !currentImage.value.failed)))
 const counterLabel = computed(() => `${currentIndex.value + 1} / ${props.images.length}`)
-const imageKey = computed(() => JSON.stringify([currentIndex.value, currentImage.value?.src, retryRevision.value]))
+const imageKey = computed(() => JSON.stringify([currentIndex.value, currentImage.value?.id, currentImage.value?.src, retryRevision.value]))
 const imageSizeStyle = computed(() => {
   const { width, height } = currentImage.value ?? {}
   if (!width || !height || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return undefined
@@ -57,6 +68,8 @@ function onImageStateChange(event: Event) {
   if (!props.isOpen || image.dataset.viewerKey !== imageKey.value) return
   const state = image.dataset.imageState
   if (state !== 'loading' && state !== 'loaded' && state !== 'error') return
+  // A directive initializes before applying its explicit API pending/failed options.
+  if (currentImage.value?.failed ? state !== 'error' : imagePending.value && state !== 'loading') return
   imageState.value = state
   if (state !== 'loading') {
     const restoreFocus = state === 'loaded' && document.activeElement === retryButton.value
@@ -75,6 +88,7 @@ function retryImage() {
   retrying.value = true
   imageState.value = 'loading'
   retryRevision.value += 1
+  currentImage.value?.requestLoad?.(true)
 }
 function clampIndex(index: number) {
   if (props.images.length === 0) return 0
@@ -105,6 +119,7 @@ const {
   imageScale,
   zoomBy,
   panBy,
+  clampImageOffset,
   resetImageTransform,
   handleImagePointerDown,
   handleImagePointerMove,
@@ -165,7 +180,7 @@ watch(() => props.initialIndex, (index) => {
   }
 })
 
-watch([() => props.isOpen, currentIndex, () => currentImage.value?.src], () => {
+watch([() => props.isOpen, currentIndex, () => currentImage.value?.id ?? currentImage.value?.src], () => {
   const restoreFocus = document.activeElement === retryButton.value
   resetImageTransform()
   imageState.value = 'loading'
@@ -176,6 +191,30 @@ watch([() => props.isOpen, currentIndex, () => currentImage.value?.src], () => {
     })
   }
 }, { flush: 'sync' })
+
+watch([() => props.isOpen, currentIndex, () => currentImage.value?.id ?? currentImage.value?.src], () => {
+  if (props.isOpen) currentImage.value?.requestLoad?.()
+}, { immediate: true })
+
+watch([imageRef, () => props.isOpen], ([image, open], _, onCleanup) => {
+  if (!image || !open) return
+  let frame: number | null = null
+  const updateBounds = () => {
+    if (frame !== null) return
+    frame = window.requestAnimationFrame(() => {
+      frame = null
+      if (props.isOpen && imageRef.value === image) clampImageOffset(image)
+    })
+  }
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateBounds)
+  observer?.observe(image)
+  window.addEventListener('resize', updateBounds)
+  onCleanup(() => {
+    observer?.disconnect()
+    window.removeEventListener('resize', updateBounds)
+    if (frame !== null) window.cancelAnimationFrame(frame)
+  })
+}, { flush: 'post' })
 
 useEventListener(() => document, 'keydown', handleKeydown)
 
@@ -216,12 +255,12 @@ useEventListener(() => document, 'keydown', handleKeydown)
           <ChevronLeft class="h-6 w-6" aria-hidden="true" />
         </button>
 
-        <img v-image-state
+        <img v-image-state="{ pending: imagePending, failed: currentImage.failed }"
           ref="imageRef"
           v-if="currentImage"
           :key="imageKey"
           :data-viewer-key="imageKey"
-          :src="currentImage.src"
+          :src="currentImage.src || undefined"
           :alt="currentImage.alt || title"
           :width="imageSizeStyle ? currentImage.width : undefined"
           :height="imageSizeStyle ? currentImage.height : undefined"

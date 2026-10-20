@@ -204,6 +204,115 @@ describe('ImageLightbox', () => {
     }
   })
 
+  it('requests authenticated entries on selection and keeps retry focus across blob replacement', async () => {
+    const requestLoad = vi.fn((retry?: boolean) => {
+      if (retry) entries.value = [{ ...first, failed: false, pending: true }, second]
+    })
+    const nextRequest = vi.fn()
+    const first = { id: 'protected:1', src: '', alt: 'Protected', failed: true, requestLoad }
+    const second = { id: 'protected:2', src: '', alt: 'Next', pending: true, requestLoad: nextRequest }
+    const entries = ref([first, second])
+    const host = defineComponent({
+      setup: () => () => h(ImageLightbox, { isOpen: true, images: entries.value }),
+    })
+    const wrapper = mount(host, {
+      attachTo: document.body,
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    const currentImage = () => document.querySelector<HTMLImageElement>('.lightbox-image')!
+    try {
+      await flushPromises()
+      expect(requestLoad).toHaveBeenCalledExactlyOnceWith()
+      expect(nextRequest).not.toHaveBeenCalled()
+      expect(currentImage().hasAttribute('src')).toBe(false)
+      const retry = Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'common.imageRetry')!
+      retry.focus()
+      retry.click()
+      await nextTick()
+      expect(requestLoad).toHaveBeenLastCalledWith(true)
+      expect(currentImage().dataset.imageState).toBe('loading')
+      expect(document.activeElement).toBe(retry)
+      retry.click()
+      expect(requestLoad).toHaveBeenCalledTimes(2)
+      entries.value = [{ ...first, src: 'blob:loaded', failed: false, pending: false }, second]
+      await nextTick()
+      expect(document.activeElement).toBe(retry)
+      Object.defineProperties(currentImage(), {
+        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
+      })
+      currentImage().dispatchEvent(new Event('load'))
+      await nextTick()
+      await nextTick()
+      expect(document.activeElement).toBe(document.querySelector('[aria-label="common.close"]'))
+      document.querySelector<HTMLButtonElement>('[aria-label="common.next"]')!.click()
+      await nextTick()
+      expect(nextRequest).toHaveBeenCalledExactlyOnceWith()
+      expect(currentImage().hasAttribute('src')).toBe(false)
+      expect(currentImage().dataset.imageState).toBe('loading')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('observes image bounds and removes pending resize work on close', async () => {
+    let observedResize: (() => void) | undefined
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { observedResize = callback }
+      observe = observe
+      disconnect = disconnect
+    })
+    let animation: FrameRequestCallback | undefined
+    const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animation = callback
+      return 987
+    })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+    const wrapper = mount(ImageLightbox, {
+      attachTo: document.body,
+      props: { isOpen: true, images: [{ src: '/resize.png', alt: 'Resize' }] },
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    try {
+      await nextTick()
+      const image = document.querySelector<HTMLImageElement>('.lightbox-image')!
+      Object.defineProperties(image, {
+        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
+        clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 300 },
+      })
+      image.dispatchEvent(new Event('load'))
+      await nextTick()
+      const zoom = document.querySelector<HTMLButtonElement>('[aria-label="common.imageZoomIn"]')!
+      for (let index = 0; index < 6; index += 1) zoom.click()
+      await nextTick()
+      for (let index = 0; index < 30; index += 1) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }))
+      }
+      await nextTick()
+      expect(observe).toHaveBeenCalledWith(image)
+      Object.defineProperty(image, 'clientWidth', { value: 200 })
+      observedResize!()
+      window.dispatchEvent(new Event('resize'))
+      expect(request).toHaveBeenCalledOnce()
+      animation!(0)
+      await nextTick()
+      expect(image.style.transform).toBe('translate3d(48px, 0px, 0) scale(4)')
+      window.dispatchEvent(new Event('resize'))
+      await wrapper.setProps({ isOpen: false })
+      expect(disconnect).toHaveBeenCalledOnce()
+      expect(cancel).toHaveBeenCalledWith(987)
+      request.mockClear()
+      window.dispatchEvent(new Event('resize'))
+      expect(request).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      request.mockRestore()
+      cancel.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('ignores arrow keys while another dialog is on top', async () => {
     const lightbox = mount(ImageLightbox, {
       attachTo: document.body,

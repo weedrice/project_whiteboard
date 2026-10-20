@@ -5,7 +5,7 @@ function setup() {
   const close = vi.fn()
   const go = vi.fn()
   const image = document.createElement('img')
-  Object.defineProperties(image, { clientWidth: { value: 600 }, clientHeight: { value: 400 } })
+  Object.defineProperties(image, { clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 400 } })
   const pointer = (id: number, x: number, y = 100) => ({
     pointerId: id, clientX: x, clientY: y, currentTarget: image, preventDefault: vi.fn(),
   } as unknown as PointerEvent)
@@ -52,6 +52,15 @@ describe('useLightboxGestures', () => {
     expect(g.imageTransform.value.transform).toContain('translate3d(10px, 0px, 0)')
     g.handleImagePointerUp(g.pointer(2, 310))
     expect(g.go).not.toHaveBeenCalled()
+  })
+
+  it('reclamps after image dimensions change without losing the current zoom', () => {
+    const g = setup()
+    g.zoomBy(3, g.image)
+    g.panBy(10000, 10000, g.image)
+    Object.defineProperties(g.image, { clientWidth: { value: 200 }, clientHeight: { value: 100 } })
+    g.clampImageOffset(g.image)
+    expect(g.imageTransform.value.transform).toBe('translate3d(48px, 48px, 0) scale(4)')
   })
 
   it('bounds keyboard zoom and pan and clears gestures on reset', () => {
