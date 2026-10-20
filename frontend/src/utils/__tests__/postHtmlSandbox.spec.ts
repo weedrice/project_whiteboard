@@ -400,6 +400,30 @@ describe('postHtmlSandbox', () => {
         })
     })
 
+    it('prepares images before their first paint without modifying the persisted source', () => {
+        const html = '<img src="/photo.png" width="640" height="480" alt="Original" onerror="bad()">'
+        const source = buildSandboxedPostHtmlSource(html, 'frame-1', '이미지를 불러올 수 없습니다')
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        const image = doc.querySelector('img')!
+
+        expect(image.getAttribute('data-image-state')).toBe('loading')
+        expect(image.getAttribute('aria-busy')).toBe('true')
+        expect(image.style.getPropertyValue('--nv-image-placeholder')).toContain('640')
+        expect(image.style.getPropertyValue('--nv-image-placeholder')).toContain('480')
+        expect(image.getAttribute('src')).toBe('/photo.png')
+        expect(image.getAttribute('alt')).toBe('Original')
+        expect(image.hasAttribute('onerror')).toBe(false)
+        expect(doc.querySelector('script')?.getAttribute('data-image-error-label')).toBe('이미지를 불러올 수 없습니다')
+        expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+    })
+
+    it('escapes localized error text without allowing additional bridge attributes', () => {
+        const source = buildSandboxedPostHtmlSource('<img src="/photo.png">', 'frame-1', '" onload="bad()')
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        expect(doc.querySelector('script')?.getAttribute('data-image-error-label')).toBe('" onload="bad()')
+        expect(doc.querySelector('script')?.hasAttribute('onload')).toBe(false)
+    })
+
     it('normalizes full html documents without nesting their document shell', () => {
         const source = buildSandboxedPostHtmlSource(
             '<!doctype html><html lang="ko" class="theme-dark"><head><meta name="viewport" content="width=320"><title>Card</title><style>.card{display:grid}</style></head><body class="document" style="padding: 1rem"><main class="card">Hello</main></body></html>',
