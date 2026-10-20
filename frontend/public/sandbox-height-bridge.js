@@ -9,11 +9,15 @@
   var imageRecords = new WeakMap()
   var heightFrame = null
   var disposed = true
+  var loadingObserver = null
+  var loadingImages = new Set()
 
   if (!frameId) return
 
   function setImageState(image, state) {
     image.setAttribute('data-image-state', state)
+    if (state === 'loading') observeLoadingImage(image)
+    else stopLoadingImage(image)
     if (state === 'loading') image.setAttribute('aria-busy', 'true')
     else image.removeAttribute('aria-busy')
     var record = imageRecords.get(image)
@@ -23,6 +27,40 @@
       if (record.label === null) image.removeAttribute('aria-label')
       else image.setAttribute('aria-label', record.label)
     }
+  }
+
+  function observeLoadingImage(image) {
+    if (disposed || !loadingObserver || loadingImages.has(image)) return
+    loadingImages.add(image)
+    image.setAttribute('data-image-offscreen', '')
+    loadingObserver.observe(image)
+  }
+
+  function stopLoadingImage(image) {
+    if (loadingImages.delete(image) && loadingObserver) loadingObserver.unobserve(image)
+    image.removeAttribute('data-image-offscreen')
+  }
+
+  function releaseRemovedImages(root) {
+    if (root.nodeType !== 1) return
+    var images = root.tagName === 'IMG' ? [root] : root.querySelectorAll('img')
+    for (var index = 0; index < images.length; index += 1) {
+      if (!document.body.contains(images[index])) stopLoadingImage(images[index])
+    }
+  }
+
+  function startLoadingObserver() {
+    if (typeof IntersectionObserver !== 'function') return
+    var observer = new IntersectionObserver(function (entries) {
+      if (disposed || loadingObserver !== observer) return
+      entries.forEach(function (entry) {
+        var image = entry.target
+        if (!loadingImages.has(image) || image.getAttribute('data-image-state') !== 'loading') return
+        if (entry.isIntersecting) image.removeAttribute('data-image-offscreen')
+        else image.setAttribute('data-image-offscreen', '')
+      })
+    }, { rootMargin: '200px 0px' })
+    loadingObserver = observer
   }
 
   function settleImage(image) {
@@ -149,6 +187,7 @@
   var imageObserver = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
       if (mutation.type === 'childList') {
+        mutation.removedNodes.forEach(releaseRemovedImages)
         mutation.addedNodes.forEach(watchImages)
       } else if (mutation.target.tagName === 'IMG') {
         watchImage(mutation.target)
@@ -166,6 +205,7 @@
     lastHeight = 0
     window.addEventListener('load', scheduleHeight)
     window.addEventListener('resize', scheduleHeight)
+    startLoadingObserver()
     watchImages(document.body)
     imageObserver.observe(document.body, {
       subtree: true,
@@ -189,6 +229,12 @@
 
   function cleanup() {
     disposed = true
+    if (loadingObserver) {
+      loadingObserver.disconnect()
+      loadingObserver = null
+    }
+    loadingImages.forEach(function (image) { image.setAttribute('data-image-offscreen', '') })
+    loadingImages.clear()
     if (heightFrame !== null) {
       window.cancelAnimationFrame(heightFrame)
       heightFrame = null

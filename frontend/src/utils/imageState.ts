@@ -1,4 +1,4 @@
-import { installImageStateStyles, prepareImageError, prepareImagePresentation } from '@/utils/imageStatePresentation'
+import { installImageStateStyles, observeLoadingImage, prepareImageError, prepareImagePresentation } from '@/utils/imageStatePresentation'
 
 export interface ImageStateOptions {
   pending?: boolean
@@ -14,6 +14,7 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
   let originalTitle = image.getAttribute('title')
   let errorLabelApplied = false
   let cancelErrorPresentation: (() => void) | null = null
+  let stopLoadingObservation: (() => void) | null = null
 
   function signature() {
     return ['src', 'srcset', 'sizes'].map((name) => image.getAttribute(name) ?? '').join('\n')
@@ -36,6 +37,11 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
     const changed = image.dataset.imageState !== state
     if (state !== 'error') restoreLabels()
     image.dataset.imageState = state
+    if (state === 'loading') stopLoadingObservation ??= observeLoadingImage(image)
+    else {
+      stopLoadingObservation?.()
+      stopLoadingObservation = null
+    }
     if (state === 'loading') image.setAttribute('aria-busy', 'true')
     else image.removeAttribute('aria-busy')
     if (state === 'error') {
@@ -92,6 +98,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
     refresh,
     fail: () => { options = { ...options, pending: false, failed: true }; setState('error') },
     destroy: () => {
+      stopLoadingObservation?.()
+      stopLoadingObservation = null
       cancelErrorPresentation?.()
       cancelErrorPresentation = null
       restoreLabels()

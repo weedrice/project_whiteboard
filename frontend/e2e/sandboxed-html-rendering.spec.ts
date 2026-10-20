@@ -410,3 +410,61 @@ test('sandbox srcdoc resumes height and image observation after repeated BFCache
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   }
 })
+
+
+test('loading skeletons pause offscreen and resume after scrolling and cached-page returns', async ({ page }) => {
+  let release!: () => void
+  const responseReady = new Promise<void>((resolve) => { release = resolve })
+  await page.route('https://cdn.noviis.kr/pending-visibility.svg', async (route) => {
+    await responseReady
+    await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"/>' })
+  })
+  const sandbox = await loadSandbox(page, `
+    <img id="top" src="https://cdn.noviis.kr/pending-visibility.svg" width="320" height="180">
+    <div style="height:4000px"></div>
+    <img id="bottom" src="https://cdn.noviis.kr/pending-visibility.svg" width="320" height="180">
+  `, 800, 500)
+  const top = sandbox.locator('#top')
+  const bottom = sandbox.locator('#bottom')
+  try {
+    await expect(top).toHaveAttribute('data-image-state', 'loading')
+    await expect(top).not.toHaveAttribute('data-image-offscreen')
+    await expect(top).toHaveCSS('animation-play-state', 'running')
+    await expect(bottom).toHaveAttribute('data-image-offscreen', '')
+    await expect(bottom).toHaveCSS('animation-play-state', 'paused')
+    await bottom.scrollIntoViewIfNeeded()
+    await expect(bottom).not.toHaveAttribute('data-image-offscreen')
+    await expect(bottom).toHaveCSS('animation-play-state', 'running')
+    await expect(top).toHaveAttribute('data-image-offscreen', '')
+    for (let index = 0; index < 2; index += 1) {
+      await bottom.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })))
+      await expect(bottom).toHaveCSS('animation-play-state', 'paused')
+      await bottom.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })))
+      await expect(bottom).toHaveCSS('animation-play-state', 'running')
+    }
+    const detachedMarker = await top.evaluate(async (element) => {
+      element.remove()
+      await Promise.resolve()
+      return element.hasAttribute('data-image-offscreen')
+    })
+    expect(detachedMarker).toBe(false)
+  } finally {
+    release()
+  }
+  await expect(bottom).toHaveAttribute('data-image-state', 'loaded')
+  await expect(bottom).not.toHaveAttribute('data-image-offscreen')
+})
+
+test('sandbox error symbols follow system theme changes and explicit dark documents', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  const sandbox = await loadSandbox(page, '<img id="error" src="data:image/png,invalid" width="32" height="32">', 800, 500)
+  const image = sandbox.locator('#error')
+  await expect(image).toHaveAttribute('data-image-state', 'error')
+  const background = () => image.evaluate((element) => decodeURIComponent(getComputedStyle(element).backgroundImage))
+  await expect.poll(background).toContain('#3a3a3a')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expect.poll(background).toContain('#c8c7c2')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await image.evaluate(() => document.documentElement.classList.add('dark'))
+  await expect.poll(background).toContain('#c8c7c2')
+})

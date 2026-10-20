@@ -1,5 +1,12 @@
 const transparentImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'/%3E\")"
-const errorImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.5' d='M5 3h14v18H5zM8 15l3-3 5 5M15 7v4m0 2v1'/%3E%3C/svg%3E\")"
+// Keep these SVG colors aligned with the light/dark --nv-ink-soft tokens.
+const errorColors = { light: '#3a3a3a', dark: '#c8c7c2' }
+function errorIcon(color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="${color}" stroke-width="1.5" d="M5 3h14v18H5zM8 15l3-3 5 5M15 7v4m0 2v1"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+const errorImage = errorIcon(errorColors.light)
+const darkErrorImage = errorIcon(errorColors.dark)
 
 // Shared by Vue images, sanitized HTML and the isolated HTML iframe.
 export const IMAGE_STATE_CSS = `
@@ -14,12 +21,23 @@ img[data-image-state="loading"] {
   animation: nv-image-loading 1.5s ease-in-out infinite;
   cursor: progress;
 }
+img[data-image-state="loading"][data-image-offscreen] {
+  animation-play-state: paused;
+}
 img[data-image-state="error"] {
   background-image: var(--nv-image-error-symbol, ${errorImage});
   background-position: center;
   background-repeat: no-repeat;
   background-size: var(--nv-image-error-size, min(60%, 36px));
   cursor: default;
+}
+.dark img[data-image-state="error"] {
+  background-image: var(--nv-image-error-symbol-dark, ${darkErrorImage});
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-nv-image-theme="manual"]) img[data-image-state="error"] {
+    background-image: var(--nv-image-error-symbol-dark, ${darkErrorImage});
+  }
 }
 @keyframes nv-image-loading {
   from { background-position: 100% 0; }
@@ -32,10 +50,53 @@ img[data-image-state="error"] {
 
 export function installImageStateStyles(document: Document): void {
   if (document.querySelector('style[data-nv-image-states]')) return
+  // App themes follow the root class; isolated HTML follows its system media query.
+  document.documentElement.setAttribute('data-nv-image-theme', 'manual')
   const style = document.createElement('style')
   style.setAttribute('data-nv-image-states', '')
   style.textContent = IMAGE_STATE_CSS
   document.head.append(style)
+}
+
+interface ImageVisibilityObserver {
+  observer: IntersectionObserver
+  images: Set<HTMLImageElement>
+}
+
+const imageVisibilityObservers = new WeakMap<Document, ImageVisibilityObserver>()
+
+export function observeLoadingImage(image: HTMLImageElement): () => void {
+  const document = image.ownerDocument
+  const view = document.defaultView
+  if (!view?.IntersectionObserver) return () => undefined
+  let shared = imageVisibilityObservers.get(document)
+  if (!shared) {
+    const images = new Set<HTMLImageElement>()
+    const observer = new view.IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const target = entry.target as HTMLImageElement
+        if (!images.has(target) || target.dataset.imageState !== 'loading') return
+        if (entry.isIntersecting) target.removeAttribute('data-image-offscreen')
+        else target.setAttribute('data-image-offscreen', '')
+      })
+    }, { rootMargin: '200px 0px' })
+    shared = { observer, images }
+    imageVisibilityObservers.set(document, shared)
+  }
+  const registration = shared
+  registration.images.add(image)
+  // Start paused, including detached beforeMount nodes, until visibility is known.
+  image.setAttribute('data-image-offscreen', '')
+  registration.observer.observe(image)
+  return () => {
+    registration.images.delete(image)
+    registration.observer.unobserve(image)
+    image.removeAttribute('data-image-offscreen')
+    if (registration.images.size === 0) {
+      registration.observer.disconnect()
+      if (imageVisibilityObservers.get(document) === registration) imageVisibilityObservers.delete(document)
+    }
+  }
 }
 
 export function prepareImagePresentation(image: HTMLImageElement): void {
@@ -72,13 +133,16 @@ function imageErrorSource(image: HTMLImageElement): string {
 function applyImageError(image: HTMLImageElement, label: string, showLabel: boolean): void {
   if (!showLabel) return
   const text = label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64"><path fill="none" stroke="#888" stroke-width="1.5" d="M133 4h14v24h-14zM136 22l3-3 5 5M143 8v5m0 2v1"/><text x="140" y="54" text-anchor="middle" fill="#888" font-family="sans-serif" font-size="14">${text}</text></svg>`
-  image.style.setProperty('--nv-image-error-symbol', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`)
+  for (const [suffix, color] of [['', errorColors.light], ['-dark', errorColors.dark]]) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64"><path fill="none" stroke="${color}" stroke-width="1.5" d="M133 4h14v24h-14zM136 22l3-3 5 5M143 8v5m0 2v1"/><text x="140" y="54" text-anchor="middle" fill="${color}" font-family="sans-serif" font-size="14">${text}</text></svg>`
+    image.style.setProperty(`--nv-image-error-symbol${suffix}`, `url("data:image/svg+xml,${encodeURIComponent(svg)}")`)
+  }
   image.style.setProperty('--nv-image-error-size', 'min(90%, 280px) auto')
 }
 
 export function prepareImageError(image: HTMLImageElement, label: string): () => void {
   image.style.removeProperty('--nv-image-error-symbol')
+  image.style.removeProperty('--nv-image-error-symbol-dark')
   image.style.removeProperty('--nv-image-error-size')
   const document = image.ownerDocument
   const view = document.defaultView

@@ -18,6 +18,7 @@ function setup(src = '/image.png', complete = false, naturalWidth = 0) {
 afterEach(() => {
   cleanup.splice(0).forEach((dispose) => dispose())
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('image presentation lifecycle', () => {
@@ -155,6 +156,8 @@ describe('batched error presentation', () => {
     frame.flush()
     expect(operations).toEqual([...Array<string>(1000).fill('read'), ...Array<string>(500).fill('write')])
     expect(decodeURIComponent(images[0]!.style.getPropertyValue('--nv-image-error-symbol'))).toContain('Unable to load image.')
+    expect(decodeURIComponent(images[0]!.style.getPropertyValue('--nv-image-error-symbol'))).toContain('#3a3a3a')
+    expect(decodeURIComponent(images[0]!.style.getPropertyValue('--nv-image-error-symbol-dark'))).toContain('#c8c7c2')
   })
 
   it('cancels errors on recovery or disposal and does not decorate a new source or removed image', async () => {
@@ -210,6 +213,7 @@ describe('batched error presentation', () => {
     controller.refresh()
     frame.flush()
     expect(image.style.getPropertyValue('--nv-image-error-symbol')).toBe('')
+    expect(image.style.getPropertyValue('--nv-image-error-symbol-dark')).toBe('')
     expect(image.style.getPropertyValue('--nv-image-error-size')).toBe('')
     expect(image.getAttribute('aria-label')).toBe('Updated failure')
   })
@@ -235,5 +239,110 @@ describe('batched error presentation', () => {
     controller.destroy()
     expect(cancel).toHaveBeenCalledExactlyOnceWith(42)
     iframe.remove()
+  })
+})
+
+
+function mockVisibilityObserver() {
+  const instances: VisibilityObserver[] = []
+  class VisibilityObserver {
+    observe = vi.fn()
+    unobserve = vi.fn()
+    disconnect = vi.fn()
+    constructor(private callback: IntersectionObserverCallback) { instances.push(this) }
+    emit(target: HTMLImageElement, isIntersecting: boolean) {
+      const rect = target.getBoundingClientRect()
+      this.callback([{
+        target, isIntersecting, intersectionRatio: isIntersecting ? 1 : 0,
+        boundingClientRect: rect, intersectionRect: rect, rootBounds: null, time: 0,
+      }], this as unknown as IntersectionObserver)
+    }
+  }
+  vi.stubGlobal('IntersectionObserver', VisibilityObserver)
+  return { instances, VisibilityObserver }
+}
+
+describe('loading animation visibility', () => {
+  it('shares an observer, resumes detached images when visible, and stops observing settled images', () => {
+    const { instances } = mockVisibilityObserver()
+    const image = document.createElement('img')
+    image.src = '/pending.png'
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: false },
+      naturalWidth: { configurable: true, value: 0 },
+    })
+    const controller = createImageStateController(image, () => 'Failure')
+    cleanup.push(() => { controller.destroy(); image.remove() })
+    expect(image.hasAttribute('data-image-offscreen')).toBe(true)
+    document.body.append(image)
+    const second = setup('/other-pending.png')
+    expect(instances).toHaveLength(1)
+    const observer = instances[0]!
+    expect(observer.observe).toHaveBeenCalledTimes(2)
+    controller.refresh()
+    expect(observer.observe).toHaveBeenCalledTimes(2)
+    observer.emit(image, true)
+    expect(image.hasAttribute('data-image-offscreen')).toBe(false)
+    observer.emit(image, false)
+    expect(image.hasAttribute('data-image-offscreen')).toBe(true)
+    Object.defineProperty(image, 'complete', { value: true })
+    Object.defineProperty(image, 'naturalWidth', { value: 320 })
+    image.dispatchEvent(new Event('load'))
+    expect(image.dataset.imageState).toBe('loaded')
+    expect(observer.unobserve).toHaveBeenCalledWith(image)
+    expect(image.hasAttribute('data-image-offscreen')).toBe(false)
+    expect(observer.disconnect).not.toHaveBeenCalled()
+    second.controller.destroy()
+    expect(observer.disconnect).toHaveBeenCalledOnce()
+    observer.emit(second.image, false)
+    expect(second.image.hasAttribute('data-image-offscreen')).toBe(false)
+  })
+
+  it('cleans up failed images and observes a later loading source again', async () => {
+    const { instances } = mockVisibilityObserver()
+    const { image, controller } = setup('/first.png')
+    image.dispatchEvent(new Event('error'))
+    await Promise.resolve()
+    expect(image.dataset.imageState).toBe('error')
+    expect(instances[0]!.disconnect).toHaveBeenCalledOnce()
+    expect(image.hasAttribute('data-image-offscreen')).toBe(false)
+    image.src = '/replacement.png'
+    await Promise.resolve()
+    expect(image.dataset.imageState).toBe('loading')
+    expect(instances).toHaveLength(2)
+    expect(image.hasAttribute('data-image-offscreen')).toBe(true)
+    controller.destroy()
+    expect(instances[1]!.disconnect).toHaveBeenCalledOnce()
+    expect(image.hasAttribute('data-image-offscreen')).toBe(false)
+  })
+
+  it('keeps visibility observations in each image owner document', () => {
+    const { instances, VisibilityObserver } = mockVisibilityObserver()
+    setup('/parent.png')
+    const iframe = document.createElement('iframe')
+    document.body.append(iframe)
+    const childConstructor = vi.fn(function (callback: IntersectionObserverCallback) {
+      return new VisibilityObserver(callback)
+    })
+    Object.defineProperty(iframe.contentWindow!, 'IntersectionObserver', { configurable: true, value: childConstructor })
+    const image = iframe.contentDocument!.createElement('img')
+    image.src = '/child.png'
+    Object.defineProperty(image, 'complete', { value: false })
+    iframe.contentDocument!.body.append(image)
+    const controller = createImageStateController(image, () => 'Failure')
+    expect(childConstructor).toHaveBeenCalledOnce()
+    expect(instances).toHaveLength(2)
+    expect(instances[1]!.observe).toHaveBeenCalledWith(image)
+    controller.destroy()
+    expect(instances[1]!.disconnect).toHaveBeenCalledOnce()
+    expect(instances[0]!.disconnect).not.toHaveBeenCalled()
+    iframe.remove()
+  })
+
+  it('leaves animation available when IntersectionObserver is unsupported', () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    const { image } = setup()
+    expect(image.dataset.imageState).toBe('loading')
+    expect(image.hasAttribute('data-image-offscreen')).toBe(false)
   })
 })
