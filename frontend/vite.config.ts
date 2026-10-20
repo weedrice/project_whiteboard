@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
                         'index.html',
                         'offline.html',
                         'assets/{index,components,HomeFeed,EmptyState,PullToRefresh}-*.css',
-                        'js/{index,HomeFeed,auth,authenticatedFile,authSessionIntent,BaseButton,BaseSegmentedControl,BaseSkeleton,BaseSpinner,comment,date,EmptyState,emoticon,fileUrl,imageFallback,keyboard,logger,message,notification,postHtmlSandbox,PullToRefresh,postViewModel,rolldown-runtime,sanitize,SanitizedHtmlView,theme,useAttendance,useEventListener,useFocusTrap,useNotification,vendor-vue,vendor-query,vendor-i18n,vendor-http,vendor-icons,vendor-core}-*.js',
+                        'js/{index,HomeFeed,auth,authenticatedFile,authSessionIntent,BaseButton,BaseSegmentedControl,BaseSkeleton,BaseSpinner,comment,date,EmptyState,emoticon,fileUrl,imageFallback,imageState,imageStatePresentation,keyboard,logger,message,notification,postHtmlSandbox,PullToRefresh,postViewModel,rolldown-runtime,sanitize,SanitizedHtmlView,theme,useAttendance,useEventListener,useFocusTrap,useNotification,vendor-vue,vendor-query,vendor-i18n,vendor-http,vendor-icons,vendor-core}-*.js',
                     ],
                 },
             }),

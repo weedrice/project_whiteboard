@@ -5,6 +5,7 @@ export const commonEn: CommonMessages = {
   advertisement: 'Advertisement',
   appName: 'Noviis',
   loading: 'Loading...',
+  imageLoadError: 'Unable to load image.',
   noData: 'No data.',
   loadMore: 'Load more',
   add: 'Add',
