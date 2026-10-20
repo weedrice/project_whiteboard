@@ -22,6 +22,20 @@
       const fixture = defineComponent({
         setup() {
           const mode = new URLSearchParams(location.search)
+          if (mode.has('imageAccessibility')) {
+            const source = ref('/image-test/accessibility-missing.svg')
+            const image = (attrs) => withDirectives(h('img', {
+              src: source.value, width: 80, height: 40, ...attrs,
+            }), [[vImageState]])
+            return () => h('main', [
+              h('span', { id: 'image-reference' }, 'Reference label'),
+              h('a', { id: 'decorative-link', href: '/board' }, [image({ alt: '' }), 'Board name']),
+              h('a', { id: 'alt-link', href: '/guide' }, [image({ alt: 'Read the guide' })]),
+              h('a', { id: 'label-link', href: '/report' }, [image({ alt: '', 'aria-label': 'Download report' })]),
+              h('a', { id: 'reference-link', href: '/reference' }, [image({ alt: '', 'aria-labelledby': 'image-reference' })]),
+              h('button', { onClick: () => { source.value = '/image-test/accessibility-recovered.svg' } }, 'Recover images'),
+            ])
+          }
           if (mode.has('inquiryRetry')) {
             return () => h(AuthenticatedInquiryImage, {
               attachment: { fileId: 765, url: '/api/v1/files/765', originalName: 'Retry inquiry image', fileSize: 100, mimeType: 'image/svg+xml' },

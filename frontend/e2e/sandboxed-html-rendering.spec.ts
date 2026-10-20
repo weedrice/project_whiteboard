@@ -188,7 +188,7 @@ test('images show a placeholder during download, then reveal the image and settl
   await expect(image).not.toHaveAttribute('aria-busy')
   expect(await image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBe(640)
   await expect(sandbox.locator('#missing')).toHaveAttribute('data-image-state', 'error')
-  await expect(sandbox.locator('#missing')).toHaveAttribute('aria-label', '이미지를 불러올 수 없습니다')
+  await expect(sandbox.locator('#missing')).toHaveAttribute('aria-label', 'Missing — 이미지를 불러올 수 없습니다')
   await expect(sandbox.locator('#missing')).not.toHaveAttribute('aria-busy')
 })
 
@@ -467,4 +467,34 @@ test('sandbox error symbols follow system theme changes and explicit dark docume
   await page.emulateMedia({ colorScheme: 'light' })
   await image.evaluate(() => document.documentElement.classList.add('dark'))
   await expect.poll(background).toContain('#c8c7c2')
+})
+
+test('sandbox image failures keep link purpose, decorative semantics and label references', async ({ page }) => {
+  await page.route('https://cdn.noviis.kr/accessibility-missing.svg', (route) => route.fulfill({ status: 404, body: '' }))
+  const sandbox = await loadSandbox(page,
+    '<span id="reference">Reference label</span>'
+    + '<a id="decorative" href="https://noviis.kr/board"><img src="https://cdn.noviis.kr/accessibility-missing.svg" alt="">Board name</a>'
+    + '<a id="described" href="https://noviis.kr/guide"><img src="https://cdn.noviis.kr/accessibility-missing.svg" alt="Read the guide"></a>'
+    + '<a id="explicit" href="https://noviis.kr/report"><img src="https://cdn.noviis.kr/accessibility-missing.svg" alt="" aria-label="Download report" title="Original tooltip"></a>'
+    + '<a id="referenced" href="https://noviis.kr/reference"><img src="https://cdn.noviis.kr/accessibility-missing.svg" alt="" aria-labelledby="reference"></a>',
+    800, 400)
+  const error = '이미지를 불러올 수 없습니다'
+  await expect(sandbox.locator('#decorative img')).toHaveAttribute('data-image-state', 'error')
+  await expect(sandbox.locator('#decorative')).toHaveAccessibleName('Board name')
+  expect(await sandbox.locator('#decorative').ariaSnapshot()).not.toContain('img')
+  await expect(sandbox.locator('#described')).toHaveAccessibleName('Read the guide — ' + error)
+  await expect(sandbox.locator('#explicit')).toHaveAccessibleName('Download report — ' + error)
+  await expect(sandbox.locator('#referenced')).toHaveAccessibleName('Reference label')
+  await expect(sandbox.locator('#referenced img')).toHaveAccessibleDescription(error)
+  await sandbox.locator('img').evaluateAll((images) => images.forEach((image) => {
+    ;(image as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="40"/%3E'
+  }))
+  await expect(sandbox.locator('#decorative img')).toHaveAttribute('data-image-state', 'loaded')
+  await expect(sandbox.locator('#decorative')).toHaveAccessibleName('Board name')
+  expect(await sandbox.locator('#decorative').ariaSnapshot()).not.toContain('img')
+  await expect(sandbox.locator('#described')).toHaveAccessibleName('Read the guide')
+  await expect(sandbox.locator('#explicit')).toHaveAccessibleName('Download report')
+  await expect(sandbox.locator('#explicit img')).toHaveAttribute('title', 'Original tooltip')
+  await expect(sandbox.locator('#referenced')).toHaveAccessibleName('Reference label')
+  await expect(sandbox.locator('#referenced img')).not.toHaveAttribute('title')
 })

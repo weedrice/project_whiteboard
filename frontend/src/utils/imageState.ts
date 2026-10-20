@@ -51,8 +51,19 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
       }
       const label = errorLabel()
       cancelErrorPresentation = prepareImageError(image, label)
-      image.setAttribute('aria-label', [image.alt, label].filter(Boolean).join(' — '))
-      image.setAttribute('title', label)
+      const labelledBy = image.getAttribute('aria-labelledby')?.trim()
+      const explicitLabel = originalLabel?.trim()
+      const decorative = image.getAttribute('alt') === '' && !explicitLabel && !labelledBy
+      if (decorative || labelledBy) {
+        if (originalLabel === null) image.removeAttribute('aria-label')
+        else image.setAttribute('aria-label', originalLabel)
+      } else {
+        image.setAttribute('aria-label', [explicitLabel || image.alt, label].filter(Boolean).join(' — '))
+      }
+      if (decorative) {
+        if (originalTitle === null) image.removeAttribute('title')
+        else image.setAttribute('title', originalTitle)
+      } else image.setAttribute('title', label)
       errorLabelApplied = true
     }
     if (changed) image.dispatchEvent(new Event('imagestatechange', { bubbles: true }))

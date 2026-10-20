@@ -480,3 +480,52 @@ describe('error presentation resizing', () => {
     iframe.remove()
   })
 })
+
+describe('error image accessibility', () => {
+  it.each([
+    { name: 'decorative', alt: '', ariaLabel: null, labelledBy: null, decorative: true },
+    { name: 'alt description', alt: 'Read the guide', ariaLabel: null, labelledBy: null, decorative: false },
+    { name: 'explicit label', alt: '', ariaLabel: 'Download report', labelledBy: null, decorative: false },
+    { name: 'explicit label over alt', alt: 'Thumbnail', ariaLabel: 'Download report', labelledBy: null, decorative: false },
+    { name: 'label reference', alt: '', ariaLabel: null, labelledBy: 'image-description', decorative: false },
+    { name: 'label reference over label', alt: 'Thumbnail', ariaLabel: 'Fallback label', labelledBy: 'image-description', decorative: false },
+  ])('preserves $name through errors, language changes and recovery', ({ alt, ariaLabel, labelledBy, decorative }) => {
+    const image = document.createElement('img')
+    image.src = '/missing.png'
+    image.alt = alt
+    image.title = 'Original tooltip'
+    if (ariaLabel !== null) image.setAttribute('aria-label', ariaLabel)
+    if (labelledBy !== null) image.setAttribute('aria-labelledby', labelledBy)
+    Object.defineProperties(image, {
+      complete: { value: true }, naturalWidth: { configurable: true, value: 0 },
+    })
+    document.body.append(image)
+    let label = '이미지를 불러올 수 없습니다.'
+    const controller = createImageStateController(image, () => label)
+    cleanup.push(() => { controller.destroy(); image.remove() })
+    for (const translation of ['이미지를 불러올 수 없습니다.', 'Unable to load image.']) {
+      label = translation
+      controller.refreshErrorLabel()
+      expect(image.getAttribute('aria-label')).toBe(decorative || labelledBy ? ariaLabel : (ariaLabel || alt) + ' — ' + translation)
+      expect(image.title).toBe(decorative ? 'Original tooltip' : translation)
+      expect(image.getAttribute('aria-labelledby')).toBe(labelledBy)
+    }
+    Object.defineProperty(image, 'naturalWidth', { value: 400 })
+    controller.refresh()
+    expect(image.dataset.imageState).toBe('loaded')
+    expect(image.getAttribute('aria-label')).toBe(ariaLabel)
+    expect(image.title).toBe('Original tooltip')
+    expect(image.getAttribute('aria-labelledby')).toBe(labelledBy)
+  })
+
+  it('does not introduce an accessible label or tooltip on an unlabeled decorative failure', () => {
+    const image = document.createElement('img')
+    image.alt = ''
+    document.body.append(image)
+    const controller = createImageStateController(image, () => 'Unable to load image.')
+    cleanup.push(() => { controller.destroy(); image.remove() })
+    expect(image.dataset.imageState).toBe('error')
+    expect(image.hasAttribute('aria-label')).toBe(false)
+    expect(image.hasAttribute('title')).toBe(false)
+  })
+})

@@ -21,11 +21,17 @@
     if (state === 'loading') image.setAttribute('aria-busy', 'true')
     else image.removeAttribute('aria-busy')
     var record = imageRecords.get(image)
-    if (state === 'error' && imageErrorLabel) {
-      image.setAttribute('aria-label', imageErrorLabel)
+    var labelledBy = (image.getAttribute('aria-labelledby') || '').trim()
+    var explicitLabel = record && record.label ? record.label.trim() : ''
+    var decorative = image.getAttribute('alt') === '' && !explicitLabel && !labelledBy
+    if (state === 'error' && imageErrorLabel && !decorative) {
+      if (!labelledBy) image.setAttribute('aria-label', [explicitLabel || image.alt, imageErrorLabel].filter(Boolean).join(' — '))
+      image.setAttribute('title', imageErrorLabel)
     } else if (record) {
       if (record.label === null) image.removeAttribute('aria-label')
       else image.setAttribute('aria-label', record.label)
+      if (record.title === null) image.removeAttribute('title')
+      else image.setAttribute('title', record.title)
     }
   }
 
@@ -71,7 +77,7 @@
 
   function watchImage(image) {
     if (!imageRecords.has(image)) {
-      imageRecords.set(image, { label: image.getAttribute('aria-label') })
+      imageRecords.set(image, { label: image.getAttribute('aria-label'), title: image.getAttribute('title') })
       image.addEventListener('load', function () { settleImage(image) })
       image.addEventListener('error', function () {
         setImageState(image, 'error')
