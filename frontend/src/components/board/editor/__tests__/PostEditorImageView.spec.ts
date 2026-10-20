@@ -35,10 +35,12 @@ describe('PostEditorImageView', () => {
 
   function mountImageView(
     alignment = 'inline',
-    attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src', string | null>> = {},
+    attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src' | 'caption', string | null>> = {},
     attachTo?: HTMLElement,
   ) {
     const editorRoot = document.createElement('div')
+    editorRoot.tabIndex = 0
+    if (attachTo) attachTo.append(editorRoot)
     Object.defineProperty(editorRoot, 'clientWidth', {
       configurable: true,
       value: 800,
@@ -48,7 +50,10 @@ describe('PostEditorImageView', () => {
     const wrapper = mount(PostEditorImageView, {
       attachTo,
       props: {
-        editor: { view: { dom: editorRoot }, commands: { setNodeSelection } },
+        editor: {
+          view: { dom: editorRoot, focus: () => editorRoot.focus({ preventScroll: true }) },
+          commands: { setNodeSelection },
+        },
         node: {
           attrs: {
             src: 'https://cdn.noviis.kr/files/1',
@@ -84,7 +89,7 @@ describe('PostEditorImageView', () => {
     mocks.get.mockRejectedValueOnce(new Error('offline'))
     const pending = createDeferred<{ data: Blob }>()
     mocks.get.mockReturnValueOnce(pending.promise)
-    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' }, document.body)
+    const { wrapper, updateAttributes, setNodeSelection, editorRoot } = mountImageView('inline', { src: '/api/v1/files/42' }, document.body)
     await flushPromises()
     const button = retryButton(wrapper)
     ;(button.element as HTMLButtonElement).focus()
@@ -109,10 +114,32 @@ describe('PostEditorImageView', () => {
     })
     await wrapper.get('img').trigger('load')
     expect(retryButton(wrapper)).toBeUndefined()
-    expect(document.activeElement).toBe(ownsFocus ? wrapper.get('img').element : otherButton)
+    expect(document.activeElement).toBe(ownsFocus ? editorRoot : otherButton)
+    expect(setNodeSelection.mock.calls).toEqual(ownsFocus ? [[1]] : [])
+    expect(wrapper.get('img').attributes('tabindex')).toBeUndefined()
     otherButton.remove()
     expect(updateAttributes).not.toHaveBeenCalled()
     expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
+    wrapper.unmount()
+    editorRoot.remove()
+  })
+
+  it('keeps exactly one caption and controls when image sources and selection change', async () => {
+    const { wrapper } = mountImageView('right', { caption: 'Original caption' })
+    for (const src of ['blob:replacement', 'https://cdn.noviis.kr/files/1', 'blob:second-replacement']) {
+      await wrapper.setProps({ selected: false })
+      await wrapper.setProps({
+        node: { attrs: { ...wrapper.props('node').attrs, src } },
+      } as never)
+      expect(wrapper.findAll('.post-editor-image-caption')).toHaveLength(1)
+      expect(wrapper.get('.post-editor-image-caption').text()).toBe('Original caption')
+      expect(wrapper.find('.post-editor-image-controls').exists()).toBe(false)
+      expect(wrapper.findAll('img')).toHaveLength(1)
+      expect(wrapper.get('img').attributes('src')).toBe(src)
+      await wrapper.setProps({ selected: true })
+      expect(wrapper.findAll('.post-editor-image-controls')).toHaveLength(1)
+      expect(wrapper.findAll('.post-editor-image-resize-handle')).toHaveLength(1)
+    }
     wrapper.unmount()
   })
 

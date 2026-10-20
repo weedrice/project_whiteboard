@@ -154,36 +154,93 @@ for (const width of [390, 1280]) {
     await expect(image).toHaveAttribute('alt', 'Original alt')
     await expect(editor.locator('.post-editor-image-caption')).toHaveText('Original caption')
   })
+
+  for (const source of ['/api/v1/files/99', 'https://cdn.noviis.kr/retry.png']) {
+    test(`image retry restores editor selection and Delete for ${source} at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 })
+      await installMockApi(page, {
+        postContents: `<p><img src="${source}" width="240" alt="Retry image" data-caption="Original caption"></p><p>Keep this text</p>`,
+      })
+      let requests = 0
+      let release!: () => void
+      const gate = new Promise<void>(resolve => { release = resolve })
+      await page.route(source.startsWith('/') ? `**${source}` : source, async route => {
+        // Parsing the initial editor HTML can request the protected URL natively
+        // before the node view downloads it through the authenticated API.
+        if (source.startsWith('/') && route.request().resourceType() === 'image') {
+          await route.fulfill({ status: 403, body: 'authentication required' })
+          return
+        }
+        requests += 1
+        if (requests === 1) {
+          await route.fulfill({ status: 503, body: 'temporary failure' })
+          return
+        }
+        await gate
+        await route.fulfill({ contentType: 'image/png', body: png })
+      })
+      try {
+        await login(page)
+        await page.goto('/board/general/post/1/edit')
+        const editor = page.locator('.ProseMirror')
+        const image = editor.locator('.post-editor-image-node > img')
+        await expect(image).toHaveAttribute('data-image-state', 'error')
+        await page.getByRole('button', { name: '이미지 다시 불러오기', exact: true }).focus()
+        await page.keyboard.press('Enter')
+        const retry = page.getByRole('button', { name: '이미지를 다시 불러오는 중', exact: true })
+        await expect(retry).toHaveAttribute('aria-disabled', 'true')
+        await expect(retry).toBeFocused()
+        await page.keyboard.press('Enter')
+        await expect.poll(() => requests).toBe(2)
+        release()
+        await expect(image).toHaveAttribute('data-image-state', 'loaded')
+        await expect(editor).toBeFocused()
+        await expect(editor.locator('.post-editor-image-node')).toHaveClass(/ProseMirror-selectednode/)
+        await expect(editor.locator('.post-editor-image-caption')).toHaveText('Original caption')
+        await expect(page.getByRole('button', { name: '실행 취소', exact: true })).toBeDisabled()
+        expect(requests).toBe(2)
+        await page.keyboard.press('Delete')
+        await expect(image).toHaveCount(0)
+        await expect(editor).toContainText('Keep this text')
+      } finally {
+        release()
+      }
+    })
+  }
 }
 
-test('discards a replacement upload if its target image is deleted before completion', async ({ page }) => {
-  await installMockApi(page, { postContents: '<p><img src="https://cdn.noviis.kr/old.png" width="240" alt="Original"></p><p>Keep this text</p>' })
-  await page.route('https://cdn.noviis.kr/**', route => route.fulfill({ contentType: 'image/png', body: png }))
-  let finishUpload!: () => void
-  const uploadGate = new Promise<void>(resolve => { finishUpload = resolve })
-  await page.route('**/api/v1/files/upload', async route => {
-    await uploadGate
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { fileId: 99, fileUrl: '/api/v1/files/99' } }) })
+for (const width of [390, 1280]) {
+  test(`discards a replacement upload if its target image is deleted before completion at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await installMockApi(page, { postContents: '<p><img src="https://cdn.noviis.kr/old.png" width="240" alt="Original"></p><p>Keep this text</p>' })
+    await page.route('https://cdn.noviis.kr/**', route => route.fulfill({ contentType: 'image/png', body: png }))
+    let finishUpload!: () => void
+    const uploadGate = new Promise<void>(resolve => { finishUpload = resolve })
+    await page.route('**/api/v1/files/upload', async route => {
+      await uploadGate
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { fileId: 99, fileUrl: '/api/v1/files/99' } }) })
+    })
+    const discarded: number[] = []
+    await page.route('**/api/v1/files/uploads/discard', route => {
+      discarded.push(...route.request().postDataJSON().fileIds)
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { discardedCount: 1 } }) })
+    })
+    await login(page)
+    await page.goto('/board/general/post/1/edit')
+    const editor = page.locator('.ProseMirror')
+    const image = editor.locator('.post-editor-image-node > img')
+    await image.click()
+    const chooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: '이미지 교체', exact: true }).click()
+    await (await chooser).setFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: png })
+    await expect(page.getByRole('button', { name: '교체 중…', exact: true })).toBeDisabled()
+    await image.click()
+    await expect(editor).toBeFocused()
+    await page.keyboard.press('Delete')
+    await expect(image).toHaveCount(0)
+    finishUpload()
+    await expect.poll(() => discarded).toContain(99)
+    await expect(editor).toContainText('Keep this text')
+    await expect(image).toHaveCount(0)
   })
-  const discarded: number[] = []
-  await page.route('**/api/v1/files/uploads/discard', route => {
-    discarded.push(...route.request().postDataJSON().fileIds)
-    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { discardedCount: 1 } }) })
-  })
-  await login(page)
-  await page.goto('/board/general/post/1/edit')
-  const editor = page.locator('.ProseMirror')
-  const image = editor.locator('.post-editor-image-node > img')
-  await image.click()
-  const chooser = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: '이미지 교체', exact: true }).click()
-  await (await chooser).setFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: png })
-  await expect(page.getByRole('button', { name: '교체 중…', exact: true })).toBeDisabled()
-  await image.click()
-  await page.keyboard.press('Delete')
-  await expect(image).toHaveCount(0)
-  finishUpload()
-  await expect.poll(() => discarded).toContain(99)
-  await expect(editor).toContainText('Keep this text')
-  await expect(image).toHaveCount(0)
-})
+}

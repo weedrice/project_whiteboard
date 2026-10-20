@@ -133,7 +133,11 @@ function handleImageResult(event: Event) {
     : event.type === 'load' && image.naturalWidth > 0 ? 'loaded' : image.dataset.imageState
   if (state !== 'loaded' && state !== 'error') return
   if (state === 'loaded' && imageRetrying.value && retryButtonRef.value?.$el === document.activeElement) {
-    image.focus({ preventScroll: true })
+    const position = props.getPos()
+    if (!props.editor.isDestroyed && typeof position === 'number') {
+      props.editor.commands.setNodeSelection(position)
+      props.editor.view.focus()
+    }
   }
   imageFailed.value = state === 'error'
   imageRetrying.value = false
@@ -509,8 +513,7 @@ onBeforeUnmount(() => {
     :style="wrapperStyle"
   >
     <img
-      tabindex="-1"
-      :key="imageGeneration"
+      :key="`image-${imageGeneration}`"
       v-image-state="{ pending: imagePending, failed: imageFailed }"
       :data-request-generation="imageGeneration"
       :src="displayedImageSource"
