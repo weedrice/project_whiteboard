@@ -69,6 +69,29 @@ test('lightbox keyboard controls zoom, pan, reset, and preserve gallery navigati
   await expect(image).toHaveAttribute('style', /scale\(1\)/)
 })
 
+test('a rotated zoomed gallery image stays in view at the same zoom', async ({ page }) => {
+  const largeImage = '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1200"><rect width="100%" height="100%" fill="green"/></svg>'
+  await page.route('**/image-test/**', (route) => route.fulfill({ contentType: 'image/svg+xml', body: largeImage }))
+  await page.setViewportSize({ width: 740, height: 390 })
+  await page.goto('/e2e/fixtures/image-states.html?gallery')
+  await expect(page.locator('#gallery-first')).toHaveAttribute('data-image-state', 'loaded')
+  await page.locator('#gallery-first').click()
+  const image = page.getByRole('dialog').locator('img')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  for (let index = 0; index < 6; index += 1) await page.getByRole('button', { name: '이미지 확대', exact: true }).click()
+  for (let index = 0; index < 30; index += 1) await page.keyboard.press('ArrowLeft')
+  await page.setViewportSize({ width: 390, height: 740 })
+  await expect.poll(async () => {
+    const bounds = (await image.boundingBox())!
+    return bounds.x < 390 && bounds.x + bounds.width > 0
+  }).toBe(true)
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+  // Image-only layout changes must also re-clamp, without a window resize event.
+  await image.evaluate((element) => { element.style.width = '200px' })
+  await expect.poll(async () => (await image.boundingBox())!.x).toBeLessThan(50)
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+})
+
 test('lightbox controls remain distinct over a light failure image without overlapping retry', async ({ page }) => {
   await page.route('**/image-test/**', (route) => route.fulfill({ status: 503, body: 'failed' }))
   await page.setViewportSize({ width: 390, height: 740 })
@@ -216,10 +239,13 @@ async function expectSandboxContentScrollable(page: Page, frame: FrameLocator) {
   expect(overflow).toBeGreaterThan(0)
   const bounds = (await page.locator('#sandbox-bridge-frame').boundingBox())!
   await page.mouse.move(bounds.x + 80, bounds.y + 80)
-  await page.mouse.wheel(0, 800)
-  await expect.poll(() => frame.locator('body').evaluate((body) =>
-    Math.max(body.scrollTop, body.ownerDocument.documentElement.scrollTop),
-  )).toBeGreaterThan(0)
+  await expect.poll(async () => {
+    // The iframe can finish resizing between load and the first native wheel input.
+    await page.mouse.wheel(0, 800)
+    return frame.locator('body').evaluate((body) =>
+      Math.max(body.scrollTop, body.ownerDocument.documentElement.scrollTop),
+    )
+  }).toBeGreaterThan(0)
 }
 
 test('a blocked sandbox bridge restores decoded images with a single fallback navigation', async ({ page }) => {
@@ -376,6 +402,36 @@ test('delayed images preserve sizes, finish on native load, and handle replaceme
   await expect.poll(errorBackground).toContain('#3a3a3a')
   if (testInfo.project.name === 'chromium') {
     await page.screenshot({ path: testInfo.outputPath('failure.png'), animations: 'disabled' })
+  }
+})
+
+test('a hidden failed image updates its error label when shown and resized', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/image-test/**', async (route) => {
+    await gate
+    await route.fulfill({ status: 503, body: 'failed' })
+  })
+  await page.route('**/api/v1/files/**', (route) => route.abort())
+  try {
+    await page.goto('/e2e/fixtures/image-states.html', { waitUntil: 'domcontentloaded' })
+    const image = page.locator('#photo')
+    await expect(image).toHaveAttribute('data-image-state', 'loading')
+    await image.evaluate((element) => { element.style.display = 'none' })
+    release()
+    await expect(image).toHaveAttribute('data-image-state', 'error')
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const errorSymbol = () => image.evaluate((element) => element.style.getPropertyValue('--nv-image-error-symbol'))
+    expect(await errorSymbol()).toBe('')
+    await image.evaluate((element) => { element.style.cssText = 'display:block;width:400px;height:200px' })
+    await expect.poll(errorSymbol).not.toBe('')
+    await image.evaluate((element) => { element.style.width = '100px'; element.style.height = '50px' })
+    await expect.poll(errorSymbol).toBe('')
+    expect(await image.evaluate((element) => element.style.getPropertyValue('--nv-image-error-symbol-dark'))).toBe('')
+    await image.evaluate((element) => { element.style.width = '400px'; element.style.height = '200px' })
+    await expect.poll(errorSymbol).not.toBe('')
+  } finally {
+    release()
   }
 })
 

@@ -101,17 +101,15 @@
             photo('lazy', 'display:block;margin-top:1600px;width:200px;height:100px', { loading: 'lazy' }),
             h(SanitizedHtmlView, {
               id: 'protected',
-              html: '<img src="/api/v1/files/123" alt="Protected photo" width="320" height="160">',
+              html: '<img src="/api/v1/files/123" loading="eager" alt="Protected photo" width="320" height="160">',
             }),
           ])
         },
       })
       const app = createApp(fixture).use(i18n)
-      if (new URLSearchParams(location.search).has('inquiryRetry')) {
-        const pinia = createPinia()
-        app.use(pinia)
-        configureApiStoreResolvers({ resolveAuthStore: () => useAuthStore(pinia) })
-      }
+      const pinia = createPinia()
+      app.use(pinia)
+      configureApiStoreResolvers({ resolveAuthStore: () => useAuthStore(pinia) })
       app.mount('#app')
     </script>
   </body>

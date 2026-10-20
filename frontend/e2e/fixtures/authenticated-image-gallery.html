@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>.nv-rich-content > img { display: block; } .nv-rich-content > img:nth-of-type(2) { margin-top: 12000px; }</style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, defineComponent, h, nextTick, onMounted, onUpdated, ref } from 'vue'
+      import { createPinia } from 'pinia'
+      import { configureApiStoreResolvers } from '../../src/api'
+      import { useAuthStore } from '../../src/stores/auth'
+      import { configureAuthQueryScope, notifyAuthSessionBoundary } from '../../src/queryAuthScope'
+      import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
+      import ImageLightbox from '../../src/components/common/ui/ImageLightbox.vue'
+      import { useRichContentInteractions } from '../../src/features/board/posts/detail/useRichContentInteractions'
+      import { sanitizeQuillHtml } from '../../src/utils/sanitize'
+      import i18n from '../../src/i18n'
+      import '../../src/style.css'
+      import '../../src/styles/foundation.css'
+      import '../../src/styles/components.css'
+      const pinia = createPinia()
+      const auth = useAuthStore(pinia)
+      auth.sessionGeneration = 1
+      auth.user = { userId: 10 }
+      configureAuthQueryScope(() => auth.sessionGeneration, () => auth.user?.userId ?? null)
+      configureApiStoreResolvers({ resolveAuthStore: () => auth })
+      const created = []
+      const revoked = []
+      const createUrl = URL.createObjectURL.bind(URL)
+      const revokeUrl = URL.revokeObjectURL.bind(URL)
+      URL.createObjectURL = (blob) => { const url = createUrl(blob); created.push(url); return url }
+      URL.revokeObjectURL = (url) => { revoked.push(url); revokeUrl(url) }
+      const fixture = defineComponent({
+        setup() {
+          const linked = new URLSearchParams(location.search).has('linked')
+          const image = (index) => '<img src="/api/v1/files/' + (9000 + index) + '" alt="Protected ' + index + '" width="400" height="200">'
+          const content = ref(sanitizeQuillHtml(linked
+            ? '<a href="/linked-destination" target="_blank" rel="noopener">' + image(1) + '</a>'
+            : Array.from({ length: 21 }, (_, index) => image(index + 1)).join('')))
+          const interactions = useRichContentInteractions({
+            isDisabled: false,
+            router: { push() {} },
+            getCodeCopyLabels: () => ({ copy: 'Copy', copied: 'Copied', failed: 'Failed' }),
+            getImageOpenLabel: (alt) => alt,
+          })
+          const prepare = () => { void nextTick(interactions.prepareImagesForInteraction) }
+          onMounted(prepare)
+          onUpdated(prepare)
+          window.authGalleryFixture = {
+            created, revoked,
+            switchSession() {
+              auth.sessionGeneration += 1
+              auth.user = { userId: 20 }
+              notifyAuthSessionBoundary(auth.sessionGeneration)
+            },
+            replaceContent() { content.value = sanitizeQuillHtml('<p>Replacement content</p>') },
+          }
+          return () => h('main', [
+            h('article', {
+              ref: interactions.articleRef,
+              onClick: interactions.handleContentClick,
+              onKeydown: interactions.handleContentKeydown,
+            }, [h(SanitizedHtmlView, { class: 'nv-rich-content', html: content.value })]),
+            h(ImageLightbox, {
+              isOpen: interactions.lightboxOpen.value,
+              images: interactions.lightboxImages.value,
+              initialIndex: interactions.lightboxIndex.value,
+              onClose: () => { interactions.lightboxOpen.value = false },
+              'onUpdate:index': (index) => { interactions.lightboxIndex.value = index },
+            }),
+          ])
+        },
+      })
+      createApp(fixture).use(pinia).use(i18n).mount('#app')
+    </script>
+  </body>
+</html>
