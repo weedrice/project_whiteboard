@@ -7,9 +7,27 @@ import { createDeferred } from '@/test/async'
 const get = vi.hoisted(() => vi.fn())
 vi.mock('@/api', () => ({ default: { get } }))
 const cleanups: Array<() => void> = []
+let notifyIntersection: (images: HTMLImageElement[], isIntersecting: boolean) => void
+
+function intersectionEntry(image: HTMLImageElement, isIntersecting: boolean): IntersectionObserverEntry {
+  return {
+    target: image, isIntersecting, intersectionRatio: isIntersecting ? 1 : 0, time: 0,
+    boundingClientRect: image.getBoundingClientRect(), intersectionRect: image.getBoundingClientRect(), rootBounds: null,
+  }
+}
 
 beforeEach(() => {
   get.mockReset()
+  vi.stubGlobal('IntersectionObserver', class {
+    constructor(callback: IntersectionObserverCallback) {
+      notifyIntersection = (images, isIntersecting) => callback(
+        images.map(image => intersectionEntry(image, isIntersecting)), {} as IntersectionObserver,
+      )
+    }
+    observe = vi.fn()
+    unobserve = vi.fn()
+    disconnect = vi.fn()
+  })
   configureAuthQueryScope(() => 0)
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:protected')
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
@@ -34,10 +52,40 @@ function setup(paths: string[], visibleCount = paths.length, configure?: (images
   const state = vi.fn()
   const loader = createAuthenticatedImageLoader(root, state)
   cleanups.push(loader.destroy)
+  if (visibleCount > 0) notifyIntersection(images.slice(0, visibleCount), true)
   return { root, images, state, loader }
 }
 
 describe('authenticated image downloads', () => {
+  it('waits for visibility in a collapsed details body even when its bounds overlap the viewport', async () => {
+    get.mockResolvedValue({ data: new Blob(['image']) })
+    const { root, images } = setup(['/files/1'], 0, images => {
+      const image = images[0]!
+      const details = document.createElement('details')
+      details.innerHTML = '<summary>Photos</summary><div data-details-content></div>'
+      image.parentElement!.append(details)
+      details.querySelector('div')!.append(image)
+      vi.mocked(image.getBoundingClientRect).mockReturnValue(new DOMRect(0, 50, 400, 200))
+    })
+    notifyIntersection(images, false)
+    await flushPromises()
+    expect(get).not.toHaveBeenCalled()
+    expect(getAuthenticatedImageResource(images[0]!)!.pending).toBe(true)
+    root.querySelector('details')!.open = true
+    notifyIntersection(images, true)
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(images[0]!.src).toBe('blob:protected')
+  })
+
+  it('loads without a visibility observer in unsupported environments', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    get.mockResolvedValue({ data: new Blob(['image']) })
+    setup(['/files/1'], 0)
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
   it('defers offscreen images when the browser defaults the loading property to eager', async () => {
     get.mockResolvedValue({ data: new Blob(['image']) })
     const { images } = setup(['/files/1'], 0, images => {

@@ -23,6 +23,23 @@ describe('SanitizedHtmlView', () => {
 
   beforeEach(() => {
     mocks.get.mockReset()
+    // jsdom has no layout; model the default fixture images entering the viewport.
+    vi.stubGlobal('IntersectionObserver', class {
+      private observed = new Set<Element>()
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe = (target: Element) => {
+        this.observed.add(target)
+        queueMicrotask(() => {
+          if (!this.observed.has(target)) return
+          this.callback([{
+            target, isIntersecting: true, intersectionRatio: 1, time: 0,
+            boundingClientRect: target.getBoundingClientRect(), intersectionRect: target.getBoundingClientRect(), rootBounds: null,
+          }], this as unknown as IntersectionObserver)
+        })
+      }
+      unobserve = (target: Element) => { this.observed.delete(target) }
+      disconnect = () => { this.observed.clear() }
+    })
     createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
     revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
     anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
@@ -32,6 +49,7 @@ describe('SanitizedHtmlView', () => {
     createObjectUrlSpy.mockRestore()
     revokeObjectUrlSpy.mockRestore()
     anchorClickSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 
 

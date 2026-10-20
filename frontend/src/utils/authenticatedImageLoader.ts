@@ -137,11 +137,8 @@ export function createAuthenticatedImageLoader(
   for (const job of jobs.values()) {
     for (const image of job.nodes) {
       observer?.observe(image)
-      const bounds = image.getBoundingClientRect()
-      const view = image.ownerDocument.defaultView
-      const nearViewport = bounds.top <= (view?.innerHeight ?? 0) + VIEWPORT_MARGIN
-        && bounds.bottom >= -VIEWPORT_MARGIN
-      if (!observer || image.getAttribute('loading') === 'eager' || nearViewport) enqueue(job, false)
+      // Bounds alone include clipped and collapsed content; let the observer decide visibility.
+      if (!observer || image.getAttribute('loading') === 'eager') enqueue(job, false)
     }
   }
 

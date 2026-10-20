@@ -63,8 +63,13 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     return Boolean(image.closest('a[href], a[data-authenticated-file-href]'))
   }
 
+  function canOpenImage(image: HTMLImageElement) {
+    if (image.dataset.imageState && !['loaded', 'error'].includes(image.dataset.imageState)) return false
+    return Boolean(getAuthenticatedImageResource(image) || image.currentSrc || image.getAttribute('src')?.trim())
+  }
+
   function prepareImageForInteraction(image: HTMLImageElement, index: number) {
-    if (isLinkedImage(image) || (image.dataset.imageState && image.dataset.imageState !== 'loaded')) {
+    if (isLinkedImage(image) || !canOpenImage(image)) {
       if (isLinkedImage(image)) image.removeAttribute('tabindex')
       else image.tabIndex = -1
       image.removeAttribute('role')
@@ -78,6 +83,8 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     if (!image.hasAttribute('tabindex')) image.tabIndex = 0
     if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
     image.setAttribute('aria-haspopup', 'dialog')
+    // Keep the original description and failure announcement supplied by the image controller.
+    if (image.dataset.imageState === 'error' && image.hasAttribute('aria-label')) return
     const label = options.getImageOpenLabel(image.alt.trim(), index)
     interactionLabels.set(image, label)
     image.setAttribute('aria-label', label)
@@ -90,7 +97,6 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   }
 
   function galleryCandidates(images: HTMLImageElement[]) {
-    const existing = new Set(lightboxOpen.value ? openedElements : [])
     return images.flatMap(element => {
       if (isLinkedImage(element)) return []
       const resource = getAuthenticatedImageResource(element)
@@ -98,7 +104,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
       const src = resource
         ? resource.src || (resource.failed ? nativeSrc : '')
         : element.currentSrc || nativeSrc
-      if (!resource && (!src || (element.dataset.imageState === 'error' && !existing.has(element)))) return []
+      if (!resource && !src) return []
       const image: RichContentLightboxImage = { src, alt: element.alt.trim(), ...imageDimensions(element) }
       if (resource) {
         const cached = loadCallbacks.get(element)
@@ -224,7 +230,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     const image = (target as HTMLElement | null)?.closest?.('img')
     if (!(image instanceof HTMLImageElement)) return false
     if (isLinkedImage(image)) return false
-    if (image.dataset.imageState && image.dataset.imageState !== 'loaded') return false
+    if (!canOpenImage(image)) return false
 
     const images = galleryCandidates(Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? []))
     const index = images.findIndex((candidate) => candidate.element === image)

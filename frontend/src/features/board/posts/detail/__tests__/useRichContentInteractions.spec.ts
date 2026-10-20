@@ -71,9 +71,14 @@ function setup(html: string) {
 }
 
 describe('useRichContentInteractions', () => {
-  it.each(['href="#target"', 'data-authenticated-file-href="/files/17"'])(
-    'respects linked images (%s) without adding a second tab stop or opening the gallery', (attributes) => {
-      const state = setup(`<a ${attributes}><img src="/linked.png" tabindex="0" role="button" aria-haspopup="dialog"></a><img src="/standalone.png">`)
+  it.each([
+    ['href="#target"', 'loaded'],
+    ['data-authenticated-file-href="/files/17"', 'loaded'],
+    ['href="#target"', 'error'],
+    ['data-authenticated-file-href="/files/17"', 'error'],
+  ])(
+    'respects linked images (%s, %s) without adding a second tab stop or opening the gallery', (attributes, imageState) => {
+      const state = setup(`<a ${attributes}><img src="/linked.png" data-image-state="${imageState}" tabindex="0" role="button" aria-haspopup="dialog"></a><img src="/standalone.png">`)
       state.prepareImagesForInteraction()
       const [linked, standalone] = Array.from(state.article.querySelectorAll('img'))
       expect(linked!.hasAttribute('tabindex')).toBe(false)
@@ -92,7 +97,7 @@ describe('useRichContentInteractions', () => {
     },
   )
 
-  it('keeps a selected native image after failure but omits it on the next gallery opening', () => {
+  it('keeps failed native images available on subsequent gallery openings', () => {
     const state = setupMounted('<img src="/ready.png" data-image-state="loaded"><img src="/slow.png" data-image-state="loading">')
     const images = state.article.querySelectorAll('img')
     images[0]!.click()
@@ -105,7 +110,48 @@ describe('useRichContentInteractions', () => {
     expect(state.lightboxImages.value).toHaveLength(2)
     state.lightboxOpen.value = false
     images[0]!.click()
-    expect(state.lightboxImages.value).toHaveLength(1)
+    expect(state.lightboxImages.value).toHaveLength(2)
+  })
+
+  it.each(['Enter', ' '])('opens a sole failed native image through %s without losing its error description', (key) => {
+    const state = setup('<img src="/failed.png" alt="Photo" data-image-state="error" aria-label="Photo — Failed">')
+    state.prepareImagesForInteraction()
+    const image = state.article.querySelector('img')!
+    expect(image.tabIndex).toBe(0)
+    expect(image.getAttribute('role')).toBe('button')
+    expect(image.getAttribute('aria-label')).toBe('Photo — Failed')
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    image.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(state.lightboxOpen.value).toBe(true)
+    expect(state.lightboxImages.value).toEqual([{ src: image.src, alt: 'Photo' }])
+  })
+
+  it('opens and retries a sole failed authenticated image without a native source', async () => {
+    get.mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValue({ data: new Blob(['retry']) })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:recovered')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    const state = setupMounted('<img data-authenticated-file-src="/files/42" alt="Protected" data-image-state="loading">')
+    const loader = createAuthenticatedImageLoader(state.article, (image, status) => {
+      image.dataset.imageState = status
+    })
+    cleanup.push(loader.destroy)
+    const image = state.article.querySelector('img')!
+    // Request explicitly to keep this unit independent of IntersectionObserver delivery.
+    const resource = (await import('@/utils/authenticatedImageLoader')).getAuthenticatedImageResource(image)!
+    resource.requestLoad()
+    await flushPromises()
+    state.flushFrame()
+    expect(image.dataset.imageState).toBe('error')
+    expect(image.tabIndex).toBe(0)
+    image.click()
+    expect(state.lightboxOpen.value).toBe(true)
+    expect(state.lightboxImages.value[0]).toMatchObject({ src: '', failed: true })
+    state.lightboxImages.value[0]!.requestLoad!(true)
+    await flushPromises()
+    state.flushFrame()
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(state.lightboxImages.value[0]).toMatchObject({ src: 'blob:recovered', failed: false })
   })
 
   it('updates pending authenticated gallery entries without losing selection and invalidates old callbacks', async () => {
@@ -196,8 +242,8 @@ describe('useRichContentInteractions', () => {
     changedImage.setAttribute('aria-label', 'Failed')
     changedImage.dispatchEvent(new Event('imagestatechange', { bubbles: true }))
     state.flushFrame()
-    expect(changedImage.tabIndex).toBe(-1)
-    expect(changedImage.hasAttribute('role')).toBe(false)
+    expect(changedImage.tabIndex).toBe(0)
+    expect(changedImage.getAttribute('role')).toBe('button')
     expect(changedImage.getAttribute('aria-label')).toBe('Failed')
     expect(state.getImageOpenLabel).not.toHaveBeenCalled()
 
@@ -246,29 +292,33 @@ describe('useRichContentInteractions', () => {
     expect(images[0]!.tabIndex).toBe(-1)
     expect(images[1]!.getAttribute('aria-label')).toBe('Failed')
     images[0]!.click()
-    images[1]!.click()
     expect(state.lightboxOpen.value).toBe(false)
+    images[1]!.click()
+    expect(state.lightboxOpen.value).toBe(true)
+    expect(state.lightboxIndex.value).toBe(1)
     images[2]!.click()
     expect(state.lightboxImages.value.map((image) => image.src)).toEqual([
       images[0]!.src,
+      images[1]!.src,
       images[2]!.src,
     ])
-    expect(state.lightboxIndex.value).toBe(1)
+    expect(state.lightboxIndex.value).toBe(2)
     images[0]!.dataset.imageState = 'loaded'
     state.prepareImagesForInteraction()
     expect(images[0]!.tabIndex).toBe(0)
   })
 
-  it('uses currentSrc and skips failed or empty sources without changing the clicked index', () => {
+  it('uses currentSrc and skips empty sources while keeping failed images retryable', () => {
     const state = setup('<img src="" data-image-state="loading"><img src="   "><img data-image-state="loading"><img src="/failed.png" data-image-state="error"><img src="/fallback.png" data-image-state="loading" alt="responsive"><img src="/ready.png" data-image-state="loaded" alt="ready">')
     const images = state.article.querySelectorAll('img')
     Object.defineProperty(images[4]!, 'currentSrc', { value: 'https://images.example/responsive-large.png' })
     images[5]!.click()
     expect(state.lightboxImages.value).toEqual([
+      { src: images[3]!.src, alt: '' },
       { src: 'https://images.example/responsive-large.png', alt: 'responsive' },
       { src: images[5]!.src, alt: 'ready' },
     ])
-    expect(state.lightboxIndex.value).toBe(1)
+    expect(state.lightboxIndex.value).toBe(2)
   })
 
   it.each(['Enter', ' '])('does not open pending images through the %s key', (key) => {

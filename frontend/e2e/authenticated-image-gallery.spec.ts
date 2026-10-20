@@ -101,6 +101,77 @@ test('retries a failed selected protected image once and keeps the gallery posit
   }
 })
 
+for (const kind of ['authenticated', 'native'] as const) {
+  for (const activation of ['click', 'keyboard'] as const) {
+    test(`opens a sole failed ${kind} image by ${activation} and retries successfully`, async ({ page }) => {
+      let attempts = 0
+      const retry = gate()
+      const protectedRequests = trackNativeFileRequests(page)
+      const failedAttempts = kind === 'native' ? 2 : 1
+      await page.route(kind === 'native' ? '**/image-test/single-native.svg' : '**/api/v1/files/9001', async (route) => {
+        attempts += 1
+        if (attempts <= failedAttempts) await route.fulfill({ status: 503, body: 'temporarily unavailable' })
+        else {
+          await retry.promise
+          await route.fulfill({ contentType: 'image/svg+xml', body: svg })
+        }
+      })
+      try {
+        await page.goto(fixture + '?single' + (kind === 'native' ? '&native' : ''), { waitUntil: 'domcontentloaded' })
+        const original = page.locator('article img')
+        await expect(original).toHaveAttribute('data-image-state', 'error')
+        await expect(original).toHaveAttribute('tabindex', '0')
+        await expect(original).toHaveAttribute('role', 'button')
+        if (activation === 'click') await original.click()
+        else {
+          await page.keyboard.press('Tab')
+          await expect(original).toBeFocused()
+          await page.keyboard.press('Enter')
+        }
+        const current = page.getByRole('dialog').locator('img')
+        await expect(current).toHaveAttribute('data-image-state', 'error')
+        await expect(page.getByRole('status')).toContainText('전체 1개 중 1번째')
+        await page.getByRole('button', { name: '이미지 다시 불러오기', exact: true }).focus()
+        await page.keyboard.press('Enter')
+        const pending = page.getByRole('button', { name: '이미지를 다시 불러오는 중', exact: true })
+        await expect(pending).toBeFocused()
+        await expect(pending).toHaveAttribute('aria-disabled', 'true')
+        await page.keyboard.press('Enter')
+        await expect.poll(() => attempts).toBe(failedAttempts + 1)
+        retry.release()
+        await expect(current).toHaveAttribute('data-image-state', 'loaded')
+        await expect(page.getByRole('button', { name: '닫기', exact: true })).toBeFocused()
+        if (kind === 'authenticated') expect(protectedRequests).toEqual([])
+        await page.keyboard.press('Escape')
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+        await expect(original).toBeFocused()
+        expect(attempts).toBe(failedAttempts + 1)
+      } finally {
+        retry.release()
+      }
+    })
+  }
+}
+
+test('defers protected images inside collapsed details until the user expands them', async ({ page }) => {
+  const requests: string[] = []
+  await page.route('**/api/v1/files/*', async (route) => {
+    requests.push(route.request().url())
+    await route.fulfill({ contentType: 'image/svg+xml', body: svg })
+  })
+  await page.goto(fixture + '?collapsed', { waitUntil: 'domcontentloaded' })
+  const first = page.locator('article img').first()
+  await expect(page.locator('article img')).toHaveCount(21)
+  await expect(first).toHaveAttribute('data-image-state', 'loading')
+  await expect(first).toBeHidden()
+  await flushBrowserFrames(page)
+  expect(requests).toEqual([])
+  await page.getByText('Collapsed photos', { exact: true }).click()
+  await expect(first).toHaveAttribute('data-image-state', 'loaded')
+  expect(requests).toHaveLength(1)
+  expect(requests[0]).toMatch(/9001$/)
+})
+
 test('linked protected images preserve new-tab click and keyboard navigation without opening the gallery', async ({ page, context }) => {
   await page.route('**/api/v1/files/*', (route) => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
   await context.route('**/linked-destination', (route) => route.fulfill({ contentType: 'text/html', body: '<p>Linked destination</p>' }))

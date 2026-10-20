@@ -2,7 +2,7 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>.nv-rich-content > img { display: block; } .nv-rich-content > img:nth-of-type(2) { margin-top: 12000px; }</style>
+    <style>.nv-rich-content img { display: block; } .nv-rich-content img:nth-of-type(2) { margin-top: 12000px; }</style>
   </head>
   <body>
     <div id="app"></div>
@@ -34,11 +34,13 @@
       URL.revokeObjectURL = (url) => { revoked.push(url); revokeUrl(url) }
       const fixture = defineComponent({
         setup() {
-          const linked = new URLSearchParams(location.search).has('linked')
-          const image = (index) => '<img src="/api/v1/files/' + (9000 + index) + '" alt="Protected ' + index + '" width="400" height="200">'
-          const content = ref(sanitizeQuillHtml(linked
+          const parameters = new URLSearchParams(location.search)
+          const image = (index) => '<img src="' + (parameters.has('native') ? '/image-test/single-native.svg' : '/api/v1/files/' + (9000 + index)) + '" alt="Protected ' + index + '" width="400" height="200">'
+          let html = parameters.has('linked')
             ? '<a href="/linked-destination" target="_blank" rel="noopener">' + image(1) + '</a>'
-            : Array.from({ length: 21 }, (_, index) => image(index + 1)).join('')))
+            : Array.from({ length: parameters.has('single') ? 1 : 21 }, (_, index) => image(index + 1)).join('')
+          if (parameters.has('collapsed')) html = '<details><summary>Collapsed photos</summary><div data-details-content>' + html + '</div></details>'
+          const content = ref(sanitizeQuillHtml(html))
           const interactions = useRichContentInteractions({
             isDisabled: false,
             router: { push() {} },
