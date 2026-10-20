@@ -6,6 +6,8 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { AlignCenter, AlignLeft, AlignRight, Undo2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
+import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
 import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import { resolveLegacyPostEditorImageCssWidth } from '@/utils/postEditorImageLayout'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -61,53 +63,96 @@ const measuredContainerWidth = ref<number | null>(null)
 const authenticatedImageUrl = ref<string | null>(null)
 const imagePending = ref(false)
 const imageFailed = ref(false)
+const imageRetrying = ref(false)
+const imageGeneration = ref(0)
+const retryButtonRef = ref<InstanceType<typeof BaseButton> | null>(null)
 const imageSource = computed(() => String(props.node.attrs.src ?? ''))
 const imageRequestPath = computed(() => resolveAuthenticatedFileRequestPath(imageSource.value))
 const displayedImageSource = computed(() => imageRequestPath.value
   ? authenticatedImageUrl.value ?? undefined
   : imageSource.value || undefined)
 let imageController: AbortController | null = null
+let imageScope: AuthSessionScope | null = null
+let imageDisposed = false
 
 function releaseAuthenticatedImage() {
+  imageGeneration.value += 1
   imageController?.abort()
   imageController = null
+  imageScope?.cancel()
+  imageScope?.dispose()
+  imageScope = null
   if (authenticatedImageUrl.value) URL.revokeObjectURL(authenticatedImageUrl.value)
   authenticatedImageUrl.value = null
   imagePending.value = false
   imageFailed.value = false
+  imageRetrying.value = false
 }
 
-async function loadAuthenticatedImage() {
+async function loadAuthenticatedImage(isRetry = false) {
   releaseAuthenticatedImage()
+  imageRetrying.value = isRetry
   const path = imageRequestPath.value
   if (!path) return
   imagePending.value = true
+  const scope = createAuthSessionScope(useAuthStore())
+  imageScope = scope
   const controller = new AbortController()
   imageController = controller
   try {
     const { default: api } = await import('@/api')
-    if (controller.signal.aborted) return
-    const response = await api.get<Blob>(path, {
+    if (controller.signal.aborted || !scope.isCurrent()) return
+    const response = await api.get<Blob>(path, scope.withRequestConfig({
       responseType: 'blob',
       signal: controller.signal,
       skipGlobalErrorHandler: true,
-    })
-    if (!controller.signal.aborted) {
+    }))
+    if (!controller.signal.aborted && scope.isCurrent()) {
       authenticatedImageUrl.value = URL.createObjectURL(response.data)
     }
   } catch {
-    if (!controller.signal.aborted) imageFailed.value = true
+    if (!controller.signal.aborted && scope.isCurrent()) imageFailed.value = true
   } finally {
+    scope.dispose()
+    if (imageScope === scope) imageScope = null
     if (imageController === controller) {
       imageController = null
       imagePending.value = false
+      if (imageFailed.value) imageRetrying.value = false
     }
   }
 }
 
-watch(imageSource, loadAuthenticatedImage, { immediate: true, flush: 'sync' })
+function handleImageResult(event: Event) {
+  const image = event.target
+  if (!(image instanceof HTMLImageElement)
+    || image.dataset.requestGeneration !== String(imageGeneration.value)
+    || imagePending.value || !displayedImageSource.value
+    || image.getAttribute('src') !== displayedImageSource.value) return
+  const state = event.type === 'error' ? 'error'
+    : event.type === 'load' && image.naturalWidth > 0 ? 'loaded' : image.dataset.imageState
+  if (state !== 'loaded' && state !== 'error') return
+  if (state === 'loaded' && imageRetrying.value && retryButtonRef.value?.$el === document.activeElement) {
+    image.focus({ preventScroll: true })
+  }
+  imageFailed.value = state === 'error'
+  imageRetrying.value = false
+}
+
+function retryImage() {
+  if (imagePending.value || imageRetrying.value || !imageFailed.value) return
+  void loadAuthenticatedImage(true)
+}
+
+watch(imageSource, () => { void loadAuthenticatedImage() }, { immediate: true, flush: 'sync' })
 const stopImageSessionBoundary = subscribeAuthSessionBoundary(() => {
-  void loadAuthenticatedImage()
+  releaseAuthenticatedImage()
+  const generation = imageGeneration.value
+  // Capture the new session after the boundary notification finishes; scopes
+  // registered during the notification would be cancelled by that same event.
+  void nextTick(() => {
+    if (!imageDisposed && imageGeneration.value === generation) void loadAuthenticatedImage()
+  })
 })
 
 let removeResizeListeners: (() => void) | null = null
@@ -445,6 +490,7 @@ watch([imageAlignment, wrapperStyle], () => {
 })
 
 onBeforeUnmount(() => {
+  imageDisposed = true
   stopImageSessionBoundary()
   releaseAuthenticatedImage()
   stopControlPositioning()
@@ -462,7 +508,11 @@ onBeforeUnmount(() => {
     ]"
     :style="wrapperStyle"
   >
-    <img v-image-state="{ pending: imagePending, failed: imageFailed }"
+    <img
+      tabindex="-1"
+      :key="imageGeneration"
+      v-image-state="{ pending: imagePending, failed: imageFailed }"
+      :data-request-generation="imageGeneration"
       :src="displayedImageSource"
       :alt="props.node.attrs.alt ?? ''"
       :title="props.node.attrs.title ?? undefined"
@@ -471,7 +521,22 @@ onBeforeUnmount(() => {
       :class="imageAlignment === 'inline' ? undefined : `tiptap-image-align-${imageAlignment}`"
       data-drag-handle
       @click.stop="selectImage"
+      @load="handleImageResult"
+      @error="handleImageResult"
+      @imagestatechange="handleImageResult"
     >
+    <span v-if="imageFailed || imageRetrying" contenteditable="false" class="block py-2" @mousedown.prevent.stop @click.stop>
+      <BaseButton
+        ref="retryButtonRef"
+        size="sm"
+        variant="secondary"
+        :aria-disabled="imageRetrying || undefined"
+        :aria-busy="imageRetrying || undefined"
+        @click="retryImage"
+      >
+        {{ imageRetrying ? t('common.imageRetrying') : t('common.imageRetry') }}
+      </BaseButton>
+    </span>
     <span v-if="props.node.attrs.caption" class="post-editor-image-caption" contenteditable="false" @click.stop="selectImage">{{ props.node.attrs.caption }}</span>
 
     <span

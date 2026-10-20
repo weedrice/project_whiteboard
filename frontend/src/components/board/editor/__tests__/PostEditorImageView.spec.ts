@@ -1,8 +1,11 @@
 import { Editor } from '@tiptap/core'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
 import { createPostEditorExtensions } from '../postEditorExtensions'
 import PostEditorImageView from '../PostEditorImageView.vue'
 
@@ -17,6 +20,7 @@ describe('PostEditorImageView', () => {
   let editor: Editor | null = null
 
   beforeEach(() => {
+    setActivePinia(createPinia())
     mocks.get.mockReset()
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authenticated')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
@@ -32,6 +36,7 @@ describe('PostEditorImageView', () => {
   function mountImageView(
     alignment = 'inline',
     attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src', string | null>> = {},
+    attachTo?: HTMLElement,
   ) {
     const editorRoot = document.createElement('div')
     Object.defineProperty(editorRoot, 'clientWidth', {
@@ -41,6 +46,7 @@ describe('PostEditorImageView', () => {
     const updateAttributes = vi.fn()
     const setNodeSelection = vi.fn()
     const wrapper = mount(PostEditorImageView, {
+      attachTo,
       props: {
         editor: { view: { dom: editorRoot }, commands: { setNodeSelection } },
         node: {
@@ -69,6 +75,105 @@ describe('PostEditorImageView', () => {
 
     return { wrapper, updateAttributes, setNodeSelection, editorRoot }
   }
+
+  function retryButton(wrapper: ReturnType<typeof mountImageView>['wrapper']) {
+    return wrapper.findAll('button').find((button) => button.text().includes('common.imageRetry'))!
+  }
+
+  it.each([true, false])('retries a protected download once and respects focus ownership (%s)', async (ownsFocus) => {
+    mocks.get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(pending.promise)
+    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' }, document.body)
+    await flushPromises()
+    const button = retryButton(wrapper)
+    ;(button.element as HTMLButtonElement).focus()
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(mocks.get.mock.calls[1]![1].expectedSession).toEqual({
+      sessionGeneration: useAuthStore().sessionGeneration, userId: null,
+    })
+    expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+    expect(retryButton(wrapper).attributes('disabled')).toBeUndefined()
+    const otherButton = document.createElement('button')
+    document.body.append(otherButton)
+    if (!ownsFocus) otherButton.focus()
+    pending.resolve({ data: new Blob(['image']) })
+    await flushPromises()
+    expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+    Object.defineProperties(wrapper.get('img').element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await wrapper.get('img').trigger('load')
+    expect(retryButton(wrapper)).toBeUndefined()
+    expect(document.activeElement).toBe(ownsFocus ? wrapper.get('img').element : otherButton)
+    otherButton.remove()
+    expect(updateAttributes).not.toHaveBeenCalled()
+    expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
+    wrapper.unmount()
+  })
+
+  it.each(['blob:local-upload', 'https://cdn.noviis.kr/files/1'])(
+    'retries a failed native %s without changing its URL or the document', async (src) => {
+      const { wrapper, updateAttributes, setNodeSelection } = mountImageView('inline', { src })
+      const oldImage = wrapper.get('img')
+      await oldImage.trigger('error')
+      await retryButton(wrapper).trigger('click')
+      expect(wrapper.get('img').element).not.toBe(oldImage.element)
+      expect(wrapper.get('img').attributes('src')).toBe(src)
+      await oldImage.trigger('error')
+      expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+      await wrapper.get('img').trigger('error')
+      expect(retryButton(wrapper).attributes('aria-disabled')).toBeUndefined()
+      expect(updateAttributes).not.toHaveBeenCalled()
+      expect(setNodeSelection).not.toHaveBeenCalled()
+      expect(mocks.get).not.toHaveBeenCalled()
+      wrapper.unmount()
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    },
+  )
+
+  it('releases a failed decoded blob before requesting a replacement', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    vi.mocked(URL.createObjectURL).mockReturnValueOnce('blob:broken').mockReturnValueOnce('blob:fixed')
+    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    await wrapper.get('img').trigger('error')
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:broken')
+    expect(wrapper.get('img').attributes('src')).toBe('blob:fixed')
+    expect(updateAttributes).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fixed')
+  })
+
+  it.each(['source', 'session', 'unmount'])('discards a protected retry after %s changes', async (change) => {
+    mocks.get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(pending.promise)
+    mocks.get.mockRejectedValueOnce(new Error('still offline'))
+    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    const config = mocks.get.mock.calls[1]![1]
+    if (change === 'source') await wrapper.setProps({ node: { attrs: { src: '/api/v1/files/43' } } } as never)
+    if (change === 'session') {
+      useAuthStore().sessionGeneration += 1
+      notifyAuthSessionBoundary(useAuthStore().sessionGeneration)
+    }
+    if (change === 'unmount') wrapper.unmount()
+    expect(config.signal.aborted).toBe(true)
+    pending.resolve({ data: new Blob(['old retry']) })
+    await flushPromises()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(updateAttributes).not.toHaveBeenCalled()
+    if (change !== 'unmount') wrapper.unmount()
+  })
 
   it('restores protected images through authenticated blobs without changing saved node attributes', async () => {
     mocks.get.mockResolvedValue({ data: new Blob(['image']) })
