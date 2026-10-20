@@ -2,6 +2,43 @@ import { expect, test } from '@playwright/test'
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#16a34a"/></svg>'
 
+test('the lightbox next button loads an offscreen lazy image without scrolling the article', async ({ page, browserName }) => {
+  let requestedLazyImage = false
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/image-test/gallery-first.svg', (route) => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
+  await page.route('**/image-test/gallery-lazy.svg', async (route) => {
+    requestedLazyImage = true
+    await gate
+    await route.fulfill({ contentType: 'image/svg+xml', body: svg })
+  })
+  try {
+    await page.goto('/e2e/fixtures/image-states.html?gallery', { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('#gallery-first')).toHaveAttribute('data-image-state', 'loaded')
+    await expect(page.locator('#gallery-lazy')).toHaveAttribute('data-image-state', 'loading')
+    expect((await page.locator('#gallery-lazy').boundingBox())!.y).toBeGreaterThan(page.viewportSize()!.height)
+    // WebKit may prefetch an offscreen lazy image; Chromium waits for the viewer.
+    if (browserName === 'chromium') expect(requestedLazyImage).toBe(false)
+
+    await page.locator('#gallery-first').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText('1 / 2')
+    await dialog.getByRole('button', { name: '다음', exact: true }).click()
+    await expect(dialog.locator('img')).toHaveAttribute('alt', 'gallery-lazy')
+    await expect(dialog.locator('img')).toHaveAttribute('data-image-state', 'loading')
+    await expect.poll(() => requestedLazyImage).toBe(true)
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
+
+    release()
+    await expect(dialog.locator('img')).toHaveAttribute('data-image-state', 'loaded')
+    expect(await dialog.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(400)
+    await expect(dialog).toContainText('2 / 2')
+  } finally {
+    release()
+  }
+})
+
 test('delayed images preserve sizes, finish on native load, and handle replacement failure', async ({ page }, testInfo) => {
   let release!: () => void
   const gate = new Promise<void>((resolve) => { release = resolve })

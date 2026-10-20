@@ -4,9 +4,11 @@
   <body>
     <div id="app"></div>
     <script type="module">
-      import { createApp, defineComponent, h, ref, withDirectives } from 'vue'
+      import { createApp, defineComponent, h, onMounted, ref, withDirectives } from 'vue'
       import { vImageState } from '../../src/directives/imageState'
       import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
+      import ImageLightbox from '../../src/components/common/ui/ImageLightbox.vue'
+      import { useRichContentInteractions } from '../../src/features/board/posts/detail/useRichContentInteractions'
       import i18n from '../../src/i18n'
       import '../../src/style.css'
       import '../../src/styles/foundation.css'
@@ -14,6 +16,37 @@
       if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark')
       const fixture = defineComponent({
         setup() {
+          if (new URLSearchParams(location.search).has('gallery')) {
+            const interactions = useRichContentInteractions({
+              isDisabled: false,
+              router: { push() {} },
+              getCodeCopyLabels: () => ({ copy: 'Copy', copied: 'Copied', failed: 'Failed' }),
+              getImageOpenLabel: (alt) => alt,
+            })
+            onMounted(interactions.prepareImagesForInteraction)
+            const galleryPhoto = (id, attrs = {}) => withDirectives(h('img', {
+              id, src: `/image-test/${id}.svg`, alt: id,
+              width: 400, height: 200, style: 'display:block', ...attrs,
+            }), [[vImageState]])
+            return () => h('main', [
+              h('article', {
+                ref: interactions.articleRef,
+                onClick: interactions.handleContentClick,
+                onKeydown: interactions.handleContentKeydown,
+              }, [
+                h('div', { class: 'nv-rich-content' }, [
+                  galleryPhoto('gallery-first'),
+                  galleryPhoto('gallery-lazy', { loading: 'lazy', style: 'display:block;margin-top:12000px' }),
+                ]),
+              ]),
+              h(ImageLightbox, {
+                isOpen: interactions.lightboxOpen.value,
+                images: interactions.lightboxImages.value,
+                initialIndex: interactions.lightboxIndex.value,
+                onClose: () => { interactions.lightboxOpen.value = false },
+              }),
+            ])
+          }
           const source = ref('/image-test/slow.svg')
           const photo = (id, style, attrs = {}) => withDirectives(h('img', {
             id, src: source.value, alt: id, style, ...attrs,

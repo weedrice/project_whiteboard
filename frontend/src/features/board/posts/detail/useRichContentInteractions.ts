@@ -125,16 +125,21 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   function openImageLightbox(target: EventTarget | null): boolean {
     const image = (target as HTMLElement | null)?.closest?.('img')
     if (!(image instanceof HTMLImageElement)) return false
+    if (image.dataset.imageState && image.dataset.imageState !== 'loaded') return false
 
     const images = Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? [])
-      .filter((candidate) => Boolean(candidate.currentSrc || candidate.src)
-        && (!candidate.dataset.imageState || candidate.dataset.imageState === 'loaded'))
-    const index = images.indexOf(image)
+      .map((candidate) => ({
+        element: candidate,
+        src: candidate.currentSrc || (candidate.getAttribute('src')?.trim() ? candidate.src : ''),
+        alt: candidate.alt.trim(),
+      }))
+      .filter((candidate) => Boolean(candidate.src) && candidate.element.dataset.imageState !== 'error')
+    const index = images.findIndex((candidate) => candidate.element === image)
     if (index < 0) return false
 
     openedImages.value = images.map((candidate) => ({
-      src: candidate.currentSrc || candidate.src,
-      alt: candidate.alt.trim(),
+      src: candidate.src,
+      alt: candidate.alt,
     }))
     image.focus({ preventScroll: true })
     lightboxIndex.value = index

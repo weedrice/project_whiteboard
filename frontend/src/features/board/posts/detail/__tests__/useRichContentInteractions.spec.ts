@@ -127,7 +127,7 @@ describe('useRichContentInteractions', () => {
     expect(state.getImageOpenLabel).toHaveBeenCalledTimes(1)
   })
 
-  it('excludes pending and failed images from focus and the lightbox', () => {
+  it('keeps pending images in the gallery while preventing them from opening it directly', () => {
     const state = setup('<img src="/pending.png" data-image-state="loading"><img src="/failed.png" data-image-state="error" aria-label="Failed"><img src="/ready.png" data-image-state="loaded">')
     state.prepareImagesForInteraction()
     const images = state.article.querySelectorAll('img')
@@ -137,10 +137,34 @@ describe('useRichContentInteractions', () => {
     images[1]!.click()
     expect(state.lightboxOpen.value).toBe(false)
     images[2]!.click()
-    expect(state.lightboxImages.value).toHaveLength(1)
+    expect(state.lightboxImages.value.map((image) => image.src)).toEqual([
+      images[0]!.src,
+      images[2]!.src,
+    ])
+    expect(state.lightboxIndex.value).toBe(1)
     images[0]!.dataset.imageState = 'loaded'
     state.prepareImagesForInteraction()
     expect(images[0]!.tabIndex).toBe(0)
+  })
+
+  it('uses currentSrc and skips failed or empty sources without changing the clicked index', () => {
+    const state = setup('<img src="" data-image-state="loading"><img src="   "><img data-image-state="loading"><img src="/failed.png" data-image-state="error"><img src="/fallback.png" data-image-state="loading" alt="responsive"><img src="/ready.png" data-image-state="loaded" alt="ready">')
+    const images = state.article.querySelectorAll('img')
+    Object.defineProperty(images[4]!, 'currentSrc', { value: 'https://images.example/responsive-large.png' })
+    images[5]!.click()
+    expect(state.lightboxImages.value).toEqual([
+      { src: 'https://images.example/responsive-large.png', alt: 'responsive' },
+      { src: images[5]!.src, alt: 'ready' },
+    ])
+    expect(state.lightboxIndex.value).toBe(1)
+  })
+
+  it.each(['Enter', ' '])('does not open pending images through the %s key', (key) => {
+    const state = setup('<img src="/pending.png" data-image-state="loading">')
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    state.article.querySelector('img')!.dispatchEvent(event)
+    expect(state.lightboxOpen.value).toBe(false)
+    expect(event.defaultPrevented).toBe(false)
   })
   it('opens an authenticated image hydrated after the initial lightbox render', () => {
     const state = setup('<img alt="protected" data-authenticated-file-src="/files/42">')
