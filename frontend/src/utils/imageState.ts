@@ -13,6 +13,7 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
   let originalLabel = image.getAttribute('aria-label')
   let originalTitle = image.getAttribute('title')
   let errorLabelApplied = false
+  let cancelErrorPresentation: (() => void) | null = null
 
   function signature() {
     return ['src', 'srcset', 'sizes'].map((name) => image.getAttribute(name) ?? '').join('\n')
@@ -30,6 +31,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
 
   function setState(state: 'loading' | 'loaded' | 'error') {
     if (disposed) return
+    cancelErrorPresentation?.()
+    cancelErrorPresentation = null
     const changed = image.dataset.imageState !== state
     if (state !== 'error') restoreLabels()
     image.dataset.imageState = state
@@ -41,7 +44,7 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
         originalTitle = image.getAttribute('title')
       }
       const label = errorLabel()
-      prepareImageError(image, label)
+      cancelErrorPresentation = prepareImageError(image, label)
       image.setAttribute('aria-label', [image.alt, label].filter(Boolean).join(' — '))
       image.setAttribute('title', label)
       errorLabelApplied = true
@@ -89,6 +92,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
     refresh,
     fail: () => { options = { ...options, pending: false, failed: true }; setState('error') },
     destroy: () => {
+      cancelErrorPresentation?.()
+      cancelErrorPresentation = null
       restoreLabels()
       disposed = true
       observer.disconnect()
