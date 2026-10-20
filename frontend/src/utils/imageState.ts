@@ -96,6 +96,7 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
 
   return {
     refresh,
+    refreshErrorLabel: () => { if (image.dataset.imageState === 'error') setState('error') },
     fail: () => { options = { ...options, pending: false, failed: true }; setState('error') },
     destroy: () => {
       stopLoadingObservation?.()

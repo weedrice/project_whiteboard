@@ -224,6 +224,10 @@ function followAuthenticatedFileLink(
   link.click()
 }
 
+watch(() => t('common.imageLoadError'), () => {
+  imageControllers.forEach((controller) => controller.refreshErrorLabel())
+})
+
 watch(renderedHtml, () => {
   void hydrateAuthenticatedFiles()
 }, { flush: 'post' })

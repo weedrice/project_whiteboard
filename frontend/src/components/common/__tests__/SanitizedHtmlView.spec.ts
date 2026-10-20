@@ -6,6 +6,7 @@ import { asSanitizedHtml } from '@/utils/sanitize'
 import { createDeferred } from '@/test/async'
 import { renderCommentContentHtml } from '@/features/comments/commentContent'
 import { DEFAULT_EMOTICON_IMAGE_URL } from '@/utils/imageFallback'
+import i18n, { setAppLocale } from '@/i18n'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -31,6 +32,61 @@ describe('SanitizedHtmlView', () => {
     createObjectUrlSpy.mockRestore()
     revokeObjectUrlSpy.mockRestore()
     anchorClickSpy.mockRestore()
+  })
+
+
+  it('updates existing error labels on locale changes without replacing images or retrying downloads', async () => {
+    await setAppLocale('ko')
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockRejectedValueOnce(new Error('forbidden')).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(SanitizedHtmlView, {
+      attachTo: document.body,
+      props: { html: asSanitizedHtml(
+        '<img alt="protected" src="/api/v1/files/27">'
+        + '<img alt="native" src="https://cdn.noviis.kr/missing.png">'
+        + '<img alt="pending" src="/api/v1/files/28">'
+        + '<img alt="loaded" src="https://cdn.noviis.kr/loaded.png">',
+      ) },
+    })
+    try {
+      const images = wrapper.findAll('img')
+      const elements = images.map((image) => image.element)
+      elements.slice(0, 2).forEach((image) => Object.defineProperties(image, {
+        clientWidth: { value: 400 }, clientHeight: { value: 200 },
+      }))
+      await flushPromises()
+      await images[1]!.trigger('error')
+      Object.defineProperties(elements[3]!, { complete: { value: true }, naturalWidth: { value: 400 } })
+      await images[3]!.trigger('load')
+      await flushPromises()
+      const korean = i18n.global.t('common.imageLoadError')
+      await vi.waitFor(() => expect(decodeURIComponent(elements[0]!.style.getPropertyValue('--nv-image-error-symbol'))).toContain(korean))
+      expect(elements.map((image) => image.dataset.imageState)).toEqual(['error', 'error', 'loading', 'loaded'])
+      const sources = elements.map((image) => image.getAttribute('src'))
+      const stateChange = vi.fn()
+      wrapper.element.addEventListener('imagestatechange', stateChange)
+      await setAppLocale('en')
+      await flushPromises()
+      const english = i18n.global.t('common.imageLoadError')
+      expect(english).not.toBe(korean)
+      await vi.waitFor(() => elements.slice(0, 2).forEach((image) => {
+        expect(image.title).toBe(english)
+        expect(image.getAttribute('aria-label')).toBe(image.alt + ' — ' + english)
+        for (const suffix of ['', '-dark']) {
+          expect(decodeURIComponent(image.style.getPropertyValue('--nv-image-error-symbol' + suffix))).toContain(english)
+        }
+      }))
+      expect(wrapper.findAll('img').map((image) => image.element)).toEqual(elements)
+      expect(elements.map((image) => image.getAttribute('src'))).toEqual(sources)
+      expect(elements.map((image) => image.dataset.imageState)).toEqual(['error', 'error', 'loading', 'loaded'])
+      expect(elements.slice(2).map((image) => image.getAttribute('aria-label'))).toEqual([null, null])
+      expect(mocks.get).toHaveBeenCalledTimes(2)
+      expect(stateChange).not.toHaveBeenCalled()
+      expect(createObjectUrlSpy).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      await setAppLocale('ko')
+    }
   })
 
   it('loads local protected images through the authenticated API client', async () => {
