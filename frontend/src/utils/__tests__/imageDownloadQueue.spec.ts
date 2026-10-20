@@ -1,10 +1,10 @@
 import { flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createDeferred } from '@/test/async'
-import { createInquiryImageQueue } from '../inquiryImageQueue'
+import { createImageDownloadQueue } from '../imageDownloadQueue'
 
 function setupRequests() {
-  const queue = createInquiryImageQueue()
+  const queue = createImageDownloadQueue()
   const responses = Array.from({ length: 7 }, () => createDeferred<number>())
   const controllers = Array.from({ length: 7 }, () => new AbortController())
   const started: number[] = []
@@ -21,7 +21,7 @@ function setupRequests() {
   return { responses, controllers, started, settled, maxActive: () => maxActive }
 }
 
-describe('inquiry image download queue', () => {
+describe('image download queue', () => {
   it('starts a retry before existing waiters while retaining the four-request limit', async () => {
     const batch = setupRequests()
     await flushPromises()
@@ -62,7 +62,7 @@ describe('inquiry image download queue', () => {
   })
 
   it.each(['rejection', 'synchronous throw'])('returns the transport slot after a task %s', async (failure) => {
-    const queue = createInquiryImageQueue()
+    const queue = createImageDownloadQueue()
     const error = new Error('download failed')
     const failedTask = vi.fn(() => {
       if (failure === 'synchronous throw') throw error

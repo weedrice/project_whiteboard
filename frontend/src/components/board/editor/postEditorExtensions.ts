@@ -23,6 +23,8 @@ import { PostEditorSearch } from '@/features/board/posts/editor/postEditorSearch
 import PostEditorImageView from '@/components/board/editor/PostEditorImageView.vue'
 import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
+import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
+import { prepareImagePresentation } from '@/utils/imageStatePresentation'
 import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
 import type { MentionCandidate } from '@/types'
 import { postEditorBlocks } from './postEditorBlocks'
@@ -96,7 +98,21 @@ const EditorImage = Image.extend({
   },
 
   addNodeView() {
-    return VueNodeViewRenderer(PostEditorImageView)
+    const render = VueNodeViewRenderer(PostEditorImageView)
+    return (props) => {
+      const view = render(props)
+      if (view.dom || !resolveAuthenticatedFileRequestPath(props.node.attrs.src)) return view
+      // Before EditorContent mounts, Vue returns no DOM and ProseMirror otherwise
+      // renders the saved src directly. Keep private URLs out of that temporary view.
+      const image = document.createElement('img')
+      image.alt = String(props.node.attrs.alt ?? '')
+      for (const name of ['width', 'height']) {
+        const value = props.node.attrs[name]
+        if (value != null) image.setAttribute(name, String(value))
+      }
+      prepareImagePresentation(image)
+      return { dom: image }
+    }
   },
 })
 

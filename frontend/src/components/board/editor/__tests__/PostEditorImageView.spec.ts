@@ -6,6 +6,7 @@ import { nextTick } from 'vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { useAuthStore } from '@/stores/auth'
 import { createDeferred } from '@/test/async'
+import { getPostEditorHtml } from '@/features/board/posts/editor/usePostEditorInstance'
 import { createPostEditorExtensions } from '../postEditorExtensions'
 import PostEditorImageView from '../PostEditorImageView.vue'
 
@@ -22,6 +23,7 @@ describe('PostEditorImageView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     mocks.get.mockReset()
+    controlVisibility(true)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authenticated')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
   })
@@ -33,10 +35,33 @@ describe('PostEditorImageView', () => {
     vi.restoreAllMocks()
   })
 
+  function controlVisibility(automatic = false) {
+    const callbacks = new Map<Element, Set<() => void>>()
+    vi.stubGlobal('IntersectionObserver', class {
+      private observed = new Set<Element>()
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe = (target: Element) => {
+        this.observed.add(target)
+        const notify = () => this.callback([{
+          target, isIntersecting: true, intersectionRatio: 1, time: 0,
+          boundingClientRect: target.getBoundingClientRect(), intersectionRect: target.getBoundingClientRect(), rootBounds: null,
+        }], this as unknown as IntersectionObserver)
+        const listeners = callbacks.get(target) ?? new Set<() => void>()
+        listeners.add(notify)
+        callbacks.set(target, listeners)
+        if (automatic) queueMicrotask(() => { if (this.observed.has(target)) notify() })
+      }
+      unobserve = (target: Element) => { this.observed.delete(target) }
+      disconnect = () => { this.observed.clear() }
+    })
+    return (target: Element) => callbacks.get(target)?.forEach(notify => notify())
+  }
+
   function mountImageView(
     alignment = 'inline',
     attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src' | 'caption', string | null>> = {},
     attachTo?: HTMLElement,
+    sharedEditor?: Editor,
   ) {
     const editorRoot = document.createElement('div')
     editorRoot.tabIndex = 0
@@ -50,7 +75,7 @@ describe('PostEditorImageView', () => {
     const wrapper = mount(PostEditorImageView, {
       attachTo,
       props: {
-        editor: {
+        editor: sharedEditor ?? {
           view: { dom: editorRoot, focus: () => editorRoot.focus({ preventScroll: true }) },
           commands: { setNodeSelection },
         },
@@ -84,6 +109,115 @@ describe('PostEditorImageView', () => {
   function retryButton(wrapper: ReturnType<typeof mountImageView>['wrapper']) {
     return wrapper.findAll('button').find((button) => button.text().includes('common.imageRetry'))!
   }
+
+  it('keeps private sources out of the temporary node view while preserving serialized attributes', () => {
+    const src = '/api/v1/files/42?size=large&signature=preserved'
+    editor = new Editor({
+      extensions: createPostEditorExtensions(),
+      content: '<p><img src="' + src + '" alt="Protected" width="400" height="200" data-caption="Caption"></p>',
+    })
+    const image = editor.view.dom.querySelector('img')!
+    expect(image.getAttribute('src')).toBeNull()
+    expect(image.dataset.imageState).toBe('loading')
+    expect(image.getAttribute('width')).toBe('400')
+    const html = getPostEditorHtml(editor)
+    const template = document.createElement('template')
+    template.innerHTML = html
+    expect(template.content.querySelector('img')?.getAttribute('src')).toBe(src)
+    expect(template.content.querySelector('img')?.getAttribute('data-caption')).toBe('Caption')
+    expect(html).not.toContain('data-image-state')
+    expect(html).toBe(editor.getHTML())
+  })
+
+  it('waits for visibility and ignores observations belonging to a replaced image source', async () => {
+    const enter = controlVisibility()
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/41' })
+    await flushPromises()
+    const oldImage = wrapper.get('img').element
+    expect(mocks.get).not.toHaveBeenCalled()
+    expect(oldImage.dataset.imageState).toBe('loading')
+    await wrapper.setProps({ node: { attrs: { ...wrapper.props('node').attrs, src: '/api/v1/files/42' } } } as never)
+    await flushPromises()
+    enter(oldImage)
+    await flushPromises()
+    expect(mocks.get).not.toHaveBeenCalled()
+    enter(wrapper.get('img').element)
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledExactlyOnceWith('/files/42', expect.objectContaining({ expectedSession: {
+      sessionGeneration: useAuthStore().sessionGeneration, userId: null,
+    } }))
+    wrapper.unmount()
+  })
+
+  it('shares four slots per editor and removes deleted images from the waiting queue', async () => {
+    const enter = controlVisibility()
+    const responses = Array.from({ length: 7 }, () => createDeferred<{ data: Blob }>())
+    mocks.get.mockImplementation((path: string) => responses[Number(path.split('/').at(-1)) - 40]!.promise)
+    const first = mountImageView('inline', { src: '/api/v1/files/40' })
+    const views = [first, ...Array.from({ length: 6 }, (_, index) =>
+      mountImageView('inline', { src: '/api/v1/files/' + (41 + index) }, undefined, first.wrapper.props('editor')))]
+    await flushPromises()
+    for (const { wrapper } of views) {
+      enter(wrapper.get('img').element)
+      await flushPromises()
+    }
+    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43']))
+    views[4]!.wrapper.unmount()
+    first.wrapper.unmount()
+    expect(mocks.get.mock.calls[0]![1].signal.aborted).toBe(true)
+    responses[0]!.resolve({ data: new Blob(['deleted']) })
+    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43', '/files/45']))
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    views.filter((_, index) => index !== 0 && index !== 4).forEach(({ wrapper }) => wrapper.unmount())
+    responses.forEach(response => response.resolve({ data: new Blob(['late']) }))
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(5)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('keeps different editors independent and cancels an old session while images wait for slots or visibility', async () => {
+    const enter = controlVisibility()
+    const response = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValue(response.promise)
+    const first = mountImageView('inline', { src: '/api/v1/files/40' })
+    const views = [first, ...Array.from({ length: 5 }, (_, index) =>
+      mountImageView('inline', { src: '/api/v1/files/' + (41 + index) }, undefined, first.wrapper.props('editor')))]
+    const independent = mountImageView('inline', { src: '/api/v1/files/50' })
+    await flushPromises()
+    const oldImages = views.map(({ wrapper }) => wrapper.get('img').element)
+    for (const image of oldImages.slice(0, 5)) { enter(image); await flushPromises() }
+    enter(independent.wrapper.get('img').element)
+    await flushPromises()
+    expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43', '/files/50'])
+    useAuthStore().sessionGeneration += 1
+    notifyAuthSessionBoundary(useAuthStore().sessionGeneration)
+    await flushPromises()
+    expect(mocks.get.mock.calls.every(([, config]) => config.signal.aborted)).toBe(true)
+    oldImages.forEach(enter)
+    response.resolve({ data: new Blob(['old session']) })
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(5)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    views.forEach(({ wrapper }) => wrapper.unmount())
+    independent.wrapper.unmount()
+  })
+
+  it('retries a failed visible image without waiting for another visibility notification', async () => {
+    const enter = controlVisibility()
+    mocks.get.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    enter(wrapper.get('img').element)
+    await flushPromises()
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+    wrapper.unmount()
+  })
 
   it.each([true, false])('retries a protected download once and respects focus ownership (%s)', async (ownsFocus) => {
     mocks.get.mockRejectedValueOnce(new Error('offline'))

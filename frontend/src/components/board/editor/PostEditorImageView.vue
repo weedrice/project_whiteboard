@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { vImageState } from '@/directives/imageState'
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
+import { getPostEditorImageQueue } from '@/features/board/posts/editor/postEditorImageQueue'
 import { postEditorImageReplacementKey } from '@/features/board/posts/editor/usePostEditorImageReplacement'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { AlignCenter, AlignLeft, AlignRight, Undo2 } from 'lucide-vue-next'
@@ -65,6 +66,9 @@ const imagePending = ref(false)
 const imageFailed = ref(false)
 const imageRetrying = ref(false)
 const imageGeneration = ref(0)
+const imageRef = ref<HTMLImageElement | null>(null)
+const imageQueue = getPostEditorImageQueue(props.editor)
+let imageVisibilityObserver: IntersectionObserver | null = null
 const retryButtonRef = ref<InstanceType<typeof BaseButton> | null>(null)
 const imageSource = computed(() => String(props.node.attrs.src ?? ''))
 const imageRequestPath = computed(() => resolveAuthenticatedFileRequestPath(imageSource.value))
@@ -77,6 +81,8 @@ let imageDisposed = false
 
 function releaseAuthenticatedImage() {
   imageGeneration.value += 1
+  imageVisibilityObserver?.disconnect()
+  imageVisibilityObserver = null
   imageController?.abort()
   imageController = null
   imageScope?.cancel()
@@ -99,14 +105,38 @@ async function loadAuthenticatedImage(isRetry = false) {
   imageScope = scope
   const controller = new AbortController()
   imageController = controller
-  try {
-    const { default: api } = await import('@/api')
+  if (!isRetry && props.node.attrs.loading !== 'eager') {
+    await nextTick()
     if (controller.signal.aborted || !scope.isCurrent()) return
-    const response = await api.get<Blob>(path, scope.withRequestConfig({
-      responseType: 'blob',
-      signal: controller.signal,
-      skipGlobalErrorHandler: true,
-    }))
+    const image = imageRef.value
+    const Observer = image?.ownerDocument.defaultView?.IntersectionObserver
+    if (image && Observer) {
+      const observer = new Observer((entries) => {
+        if (imageVisibilityObserver !== observer || !entries.some(entry => entry.isIntersecting)) return
+        observer.disconnect()
+        imageVisibilityObserver = null
+        void downloadAuthenticatedImage(path, scope, controller, false)
+      }, { rootMargin: '600px' })
+      imageVisibilityObserver = observer
+      observer.observe(image)
+      return
+    }
+  }
+  await downloadAuthenticatedImage(path, scope, controller, isRetry)
+}
+
+async function downloadAuthenticatedImage(path: string, scope: AuthSessionScope, controller: AbortController, priority: boolean) {
+  try {
+    const response = await imageQueue.run(async () => {
+      scope.assertCurrent()
+      const { default: api } = await import('@/api')
+      scope.assertCurrent()
+      return api.get<Blob>(path, scope.withRequestConfig({
+        responseType: 'blob',
+        signal: controller.signal,
+        skipGlobalErrorHandler: true,
+      }))
+    }, scope.requestConfig.signal, priority)
     if (!controller.signal.aborted && scope.isCurrent()) {
       authenticatedImageUrl.value = URL.createObjectURL(response.data)
     }
@@ -513,6 +543,7 @@ onBeforeUnmount(() => {
     :style="wrapperStyle"
   >
     <img
+      ref="imageRef"
       :key="`image-${imageGeneration}`"
       v-image-state="{ pending: imagePending, failed: imageFailed }"
       :data-request-generation="imageGeneration"

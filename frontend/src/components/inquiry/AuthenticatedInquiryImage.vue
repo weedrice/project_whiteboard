@@ -9,12 +9,13 @@ import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import { useAuthStore } from '@/stores/auth'
 import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
-import { createInquiryImageQueue, inquiryImageQueueKey } from './inquiryImageQueue'
+import { createImageDownloadQueue } from '@/utils/imageDownloadQueue'
+import { inquiryImageQueueKey } from './inquiryImageQueue'
 
 const props = defineProps<{ attachment: InquiryAttachment }>()
 const authStore = useAuthStore()
 const { t } = useI18n()
-const queue = inject(inquiryImageQueueKey, null) ?? createInquiryImageQueue()
+const queue = inject(inquiryImageQueueKey, null) ?? createImageDownloadQueue()
 const containerRef = ref<HTMLElement | null>(null)
 const objectUrl = ref<string | null>(null)
 const pending = ref(false)

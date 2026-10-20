@@ -4,11 +4,12 @@ import type { InquiryMessage } from '@/types/inquiry'
 import { formatDateTimeOrDash } from '@/utils/date'
 import AuthenticatedInquiryImage from '@/components/inquiry/AuthenticatedInquiryImage.vue'
 import { useI18n } from 'vue-i18n'
-import { createInquiryImageQueue, inquiryImageQueueKey } from './inquiryImageQueue'
+import { createImageDownloadQueue } from '@/utils/imageDownloadQueue'
+import { inquiryImageQueueKey } from './inquiryImageQueue'
 
 defineProps<{ messages: InquiryMessage[]; admin?: boolean }>()
 const { t } = useI18n()
-provide(inquiryImageQueueKey, createInquiryImageQueue())
+provide(inquiryImageQueueKey, createImageDownloadQueue())
 
 function typeLabel(type: InquiryMessage['messageType']) {
   return t(`inquiry.timeline.${type}`)
