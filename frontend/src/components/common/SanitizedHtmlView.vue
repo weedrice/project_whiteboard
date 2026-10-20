@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import {
   resolveAuthenticatedFileDisposition,
   resolveAuthenticatedFileRequestPath,
   type AuthenticatedFileDisposition,
 } from '@/utils/authenticatedFile'
-import { applyImageFallback } from '@/utils/imageFallback'
+import { applyImageFallback, DEFAULT_EMOTICON_IMAGE_URL } from '@/utils/imageFallback'
 import { asSanitizedHtml, type SanitizedHtml } from '@/utils/sanitize'
+import { createImageStateController } from '@/utils/imageState'
+import { installImageStateStyles, prepareImagePresentation } from '@/utils/imageStatePresentation'
 
 const props = withDefaults(defineProps<{
   html: SanitizedHtml
@@ -19,6 +22,9 @@ const props = withDefaults(defineProps<{
 })
 
 const element = ref<HTMLElement | null>(null)
+const { t } = useI18n()
+if (typeof document !== 'undefined') installImageStateStyles(document)
+const imageControllers = new Map<HTMLImageElement, ReturnType<typeof createImageStateController>>()
 const AUTHENTICATED_FILE_SRC_ATTRIBUTE = 'data-authenticated-file-src'
 const AUTHENTICATED_FILE_HREF_ATTRIBUTE = 'data-authenticated-file-href'
 interface AuthenticatedLinkObject extends AuthenticatedFileDisposition {
@@ -35,7 +41,8 @@ const renderedHtml = computed(() => {
   if (typeof DOMParser === 'undefined') return props.html
 
   const document = new DOMParser().parseFromString(props.html, 'text/html')
-  document.querySelectorAll<HTMLImageElement>('img[src]').forEach((image) => {
+  document.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+    prepareImagePresentation(image)
     const src = image.getAttribute('src')
     const requestPath = resolveAuthenticatedFileRequestPath(src)
     if (!requestPath) return
@@ -59,6 +66,14 @@ const renderedHtml = computed(() => {
 
 function releaseAuthenticatedFiles() {
   hydrationGeneration += 1
+  imageControllers.forEach((controller) => controller.destroy())
+  imageControllers.clear()
+  element.value?.querySelectorAll<HTMLImageElement>(`img[${AUTHENTICATED_FILE_SRC_ATTRIBUTE}]`).forEach((image) => {
+    prepareImagePresentation(image)
+    image.removeAttribute('src')
+    image.removeAttribute('srcset')
+    delete image.dataset.fallbackApplied
+  })
   activeController?.abort()
   activeController = null
   linkControllers.forEach((controller) => controller.abort())
@@ -76,6 +91,9 @@ async function hydrateAuthenticatedFiles() {
   if (generation !== hydrationGeneration) return
   const root = element.value
   if (!root) return
+  root.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+    imageControllers.set(image, createImageStateController(image, () => t('common.imageLoadError')))
+  })
 
   const controller = new AbortController()
   activeController = controller
@@ -114,14 +132,27 @@ async function hydrateAuthenticatedFiles() {
       objectUrls.add(objectUrl)
       currentNodes.forEach((node) => { node.src = objectUrl })
     } catch {
-      if (controller.signal.aborted || generation !== hydrationGeneration || !props.useImageFallback) return
+      if (controller.signal.aborted || generation !== hydrationGeneration) return
       nodes.forEach((node) => {
-        if (root.contains(node)) node.src = '/images/default-emoticon.png'
+        if (!root.contains(node)) return
+        if (shouldUseEmoticonFallback(node)) node.src = DEFAULT_EMOTICON_IMAGE_URL
+        else imageControllers.get(node)?.fail()
       })
     }
   }))
 
   if (activeController === controller) activeController = null
+}
+
+function shouldUseEmoticonFallback(image: HTMLImageElement): boolean {
+  return props.useImageFallback && image.matches('.ql-emoticon, .comment-emoticon, .comment-emoticon-list')
+}
+
+function handleImageError(event: Event) {
+  const image = event.target
+  if (image instanceof HTMLImageElement && shouldUseEmoticonFallback(image)) {
+    applyImageFallback(event)
+  }
 }
 
 async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
@@ -222,6 +253,6 @@ defineExpose({
     :innerHTML="renderedHtml"
     @click="activateAuthenticatedFile"
     @keydown.enter="activateAuthenticatedFile"
-    @error.capture="useImageFallback ? applyImageFallback($event) : undefined"
+    @error.capture="handleImageError"
   />
 </template>

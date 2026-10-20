@@ -5,8 +5,51 @@
   var frameId = script ? script.getAttribute('data-frame-id') : ''
   var lastHeight = 0
   var responsiveStackAttribute = 'data-noviis-responsive-stack'
+  var imageErrorLabel = script ? script.getAttribute('data-image-error-label') : ''
+  var imageRecords = new WeakMap()
+  var heightFrame = null
+  var disposed = false
 
   if (!frameId) return
+
+  function setImageState(image, state) {
+    image.setAttribute('data-image-state', state)
+    if (state === 'loading') image.setAttribute('aria-busy', 'true')
+    else image.removeAttribute('aria-busy')
+    var record = imageRecords.get(image)
+    if (state === 'error' && imageErrorLabel) {
+      image.setAttribute('aria-label', imageErrorLabel)
+    } else if (record) {
+      if (record.label === null) image.removeAttribute('aria-label')
+      else image.setAttribute('aria-label', record.label)
+    }
+  }
+
+  function settleImage(image) {
+    if (!image.complete) return
+    setImageState(image, image.naturalWidth > 0 ? 'loaded' : 'error')
+    scheduleHeight()
+  }
+
+  function watchImage(image) {
+    if (!imageRecords.has(image)) {
+      imageRecords.set(image, { label: image.getAttribute('aria-label') })
+      image.addEventListener('load', function () { settleImage(image) })
+      image.addEventListener('error', function () {
+        setImageState(image, 'error')
+        scheduleHeight()
+      })
+    }
+    setImageState(image, 'loading')
+    settleImage(image)
+  }
+
+  function watchImages(root) {
+    if (root.nodeType !== 1) return
+    if (root.tagName === 'IMG') watchImage(root)
+    var images = root.querySelectorAll('img')
+    for (var index = 0; index < images.length; index += 1) watchImage(images[index])
+  }
 
   function enforceScrollableDocument() {
     var roots = [document.documentElement, document.body]
@@ -95,16 +138,50 @@
     }, '*')
   }
 
-  window.addEventListener('load', postHeight)
-  window.addEventListener('resize', postHeight)
+  function scheduleHeight() {
+    if (disposed || heightFrame !== null) return
+    heightFrame = window.requestAnimationFrame(function () {
+      heightFrame = null
+      if (!disposed) postHeight()
+    })
+  }
+
+  window.addEventListener('load', scheduleHeight)
+  window.addEventListener('resize', scheduleHeight)
+  watchImages(document.body)
+  var imageObserver = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach(watchImages)
+      } else if (mutation.target.tagName === 'IMG') {
+        watchImage(mutation.target)
+      } else if (mutation.target.tagName === 'SOURCE' && mutation.target.parentElement) {
+        watchImages(mutation.target.parentElement)
+      }
+    })
+  })
+  imageObserver.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['src', 'srcset', 'sizes'],
+  })
   var resizeObserver = null
   if (typeof ResizeObserver === 'function') {
-    resizeObserver = new ResizeObserver(postHeight)
+    resizeObserver = new ResizeObserver(scheduleHeight)
     resizeObserver.observe(document.body)
   }
-  var intervalId = window.setInterval(postHeight, 500)
+  var intervalId = window.setInterval(scheduleHeight, 500)
 
   function cleanup() {
+    disposed = true
+    if (heightFrame !== null) {
+      window.cancelAnimationFrame(heightFrame)
+      heightFrame = null
+    }
+    window.removeEventListener('load', scheduleHeight)
+    window.removeEventListener('resize', scheduleHeight)
+    imageObserver.disconnect()
     if (intervalId !== null) {
       window.clearInterval(intervalId)
       intervalId = null
@@ -117,5 +194,5 @@
 
   window.addEventListener('pagehide', cleanup, { once: true })
   window.addEventListener('beforeunload', cleanup, { once: true })
-  postHeight()
+  scheduleHeight()
 }())

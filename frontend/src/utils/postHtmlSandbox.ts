@@ -1,4 +1,5 @@
 import { isSafePostEditorImageWidth } from '@/utils/postEditorImageLayout'
+import { IMAGE_STATE_CSS, prepareImagePresentation } from '@/utils/imageStatePresentation'
 
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
@@ -852,7 +853,7 @@ function findRawTextElementEnd(content: string, openingToken: HtmlTagToken): num
     return match ? match.index + match[0].length : content.length
 }
 
-export function buildSandboxedPostHtmlSource(content: string, frameId: string): string {
+export function buildSandboxedPostHtmlSource(content: string, frameId: string, imageErrorLabel = ''): string {
     const applicationOrigin = getSandboxApplicationOrigin()
     const documentParts = normalizeSandboxedPostDocument(content)
     return [
@@ -870,11 +871,12 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string): 
         documentParts.headHtml,
         '<style data-noviis-sandbox-guard>',
         getSandboxGuardCss(),
+        IMAGE_STATE_CSS,
         '</style>',
         '</head>',
         `<body${documentParts.bodyAttributes}>`,
         documentParts.bodyHtml,
-        getHeightBridgeElement(frameId, applicationOrigin),
+        getHeightBridgeElement(frameId, applicationOrigin, imageErrorLabel),
         '</body>',
         '</html>',
     ].join('')
@@ -926,6 +928,7 @@ function normalizeSandboxedPostDocument(content: string): {
             }
         })
     })
+    doc.querySelectorAll('img').forEach(prepareImagePresentation)
 
     const headHtml = Array.from(doc.head.children)
         .filter((element) => element.tagName === 'STYLE' || element.tagName === 'LINK')
@@ -1037,8 +1040,9 @@ body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1
 `
 }
 
-function getHeightBridgeElement(frameId: string, applicationOrigin: string): string {
+function getHeightBridgeElement(frameId: string, applicationOrigin: string, imageErrorLabel: string): string {
     const bridgeVersion = typeof __COMMIT_HASH__ === 'undefined' ? 'runtime' : __COMMIT_HASH__
     const bridgeUrl = `${applicationOrigin}/sandbox-height-bridge.js?v=${encodeURIComponent(bridgeVersion)}`
-    return `<script src="${escapeSandboxAttribute(bridgeUrl)}" data-frame-id="${escapeSandboxAttribute(frameId)}"></script>`
+    const labelAttribute = imageErrorLabel ? ` data-image-error-label="${escapeSandboxAttribute(imageErrorLabel)}"` : ''
+    return `<script src="${escapeSandboxAttribute(bridgeUrl)}" data-frame-id="${escapeSandboxAttribute(frameId)}"${labelAttribute}></script>`
 }

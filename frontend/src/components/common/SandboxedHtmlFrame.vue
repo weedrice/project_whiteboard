@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { buildSandboxedPostHtmlSource } from '@/utils/postHtmlSandbox'
 
 const props = withDefaults(defineProps<{
@@ -13,9 +14,10 @@ const props = withDefaults(defineProps<{
 })
 
 const frame = ref<HTMLIFrameElement | null>(null)
+const { t } = useI18n()
 const frameId = `post-html-${useId()}`
 const height = ref(props.minHeight)
-const srcdoc = computed(() => buildSandboxedPostHtmlSource(props.html, frameId))
+const srcdoc = computed(() => buildSandboxedPostHtmlSource(props.html, frameId, t('common.imageLoadError')))
 
 watch(
   () => [props.html, props.minHeight] as const,
