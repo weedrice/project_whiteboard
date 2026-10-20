@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { chromium, expect, test, type Browser, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { buildSync } from 'esbuild'
 import { fileURLToPath } from 'node:url'
 
@@ -53,15 +54,13 @@ test('author overflow styles cannot hide content beyond the iframe height', asyn
     <main style="height:5000px">Long content</main>
   `, 800, 4000)
 
+  await expect(sandbox.locator('html')).toHaveCSS('overflow-y', 'auto')
+  await expect(sandbox.locator('body')).toHaveCSS('overflow-y', 'auto')
   const metrics = await sandbox.locator('html').evaluate((root) => ({
-    rootOverflowY: getComputedStyle(root).overflowY,
-    bodyOverflowY: getComputedStyle(document.body).overflowY,
     scrollHeight: root.scrollHeight,
     clientHeight: root.clientHeight,
   }))
 
-  expect(metrics.rootOverflowY).toBe('auto')
-  expect(metrics.bodyOverflowY).toBe('auto')
   expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
 })
 
@@ -241,6 +240,18 @@ test('height scans are batched for cached images and event bursts, and cancelled
       return id
     }
     window.cancelAnimationFrame = (id) => { frames.delete(id) }
+    const activeIntervals = new Set<number>()
+    const nativeSetInterval = window.setInterval.bind(window)
+    const nativeClearInterval = window.clearInterval.bind(window)
+    window.setInterval = (handler, timeout) => {
+      const id = nativeSetInterval(handler, timeout)
+      activeIntervals.add(id)
+      return id
+    }
+    window.clearInterval = (id) => {
+      if (id !== undefined) activeIntervals.delete(id)
+      nativeClearInterval(id)
+    }
     let scans = 0
     const measureBody = document.body.getBoundingClientRect.bind(document.body)
     document.body.getBoundingClientRect = () => {
@@ -280,7 +291,21 @@ test('height scans are batched for cached images and event bursts, and cancelled
     window.dispatchEvent(new Event('resize'))
     window.dispatchEvent(new Event('load'))
     flushFrame()
-    return { loadedImages, startup, firstFrame, burst, burstFrame, beforeCleanup, afterCleanup: snapshot() }
+    const afterCleanup = snapshot()
+    const stoppedIntervals = activeIntervals.size
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+    const resumed = { ...snapshot(), intervals: activeIntervals.size }
+    flushFrame()
+    window.dispatchEvent(new Event('resize'))
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }))
+    flushFrame()
+    const stoppedAgain = { ...snapshot(), intervals: activeIntervals.size }
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+    flushFrame()
+    const resumedAgain = { ...snapshot(), intervals: activeIntervals.size }
+    window.dispatchEvent(new Event('pagehide'))
+    return { loadedImages, startup, firstFrame, burst, burstFrame, beforeCleanup, afterCleanup, stoppedIntervals, resumed, stoppedAgain, resumedAgain }
   }, await heightBridgeSource)
 
   expect(result.loadedImages).toBe(150)
@@ -290,4 +315,98 @@ test('height scans are batched for cached images and event bursts, and cancelled
   expect(result.burstFrame).toEqual({ scans: 2, queuedFrames: 0 })
   expect(result.beforeCleanup).toEqual({ scans: 2, queuedFrames: 1 })
   expect(result.afterCleanup).toEqual({ scans: 2, queuedFrames: 0 })
+  expect(result.stoppedIntervals).toBe(0)
+  expect(result.resumed).toEqual({ scans: 2, queuedFrames: 1, intervals: 1 })
+  expect(result.stoppedAgain).toEqual({ scans: 3, queuedFrames: 0, intervals: 0 })
+  expect(result.resumedAgain).toEqual({ scans: 4, queuedFrames: 0, intervals: 1 })
+})
+
+test('sandbox srcdoc resumes height and image observation after repeated BFCache returns', async () => {
+  const bridge = await heightBridgeSource
+  const image = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2220%22 height=%2220%22/%3E'
+  const frame = `
+    <style>body{margin:0}#content{height:1200px}@media(max-width:500px){#content{height:2400px}}</style>
+    <div id="content">Responsive content</div>
+    <script src="/bridge.js" data-frame-id="bfcache"></script>
+    <script>
+      addEventListener('message', function (event) {
+        if (event.data === 'grow') document.querySelector('#content').style.height = '1800px';
+        if (event.data === 'image') {
+          var image = document.createElement('img');
+          image.src = '${image}';
+          image.style.position = 'absolute';
+          image.style.top = '0';
+          document.body.append(image);
+          image.decode().then(function () {
+            requestAnimationFrame(function () {
+              parent.postMessage({ imageState: image.dataset.imageState }, '*');
+            });
+          });
+        }
+      });
+    </script>`
+  const srcdoc = frame.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  const server = createServer((request, response) => {
+    response.setHeader('Content-Type', request.url === '/bridge.js' ? 'application/javascript' : 'text/html')
+    if (request.url === '/bridge.js') {
+      response.end(bridge)
+    } else if (request.url === '/away') {
+      response.end('<h1>Another page</h1>')
+    } else {
+      response.end(`
+        <a id="leave" href="/away">Leave</a>
+        <button id="grow" onclick="document.querySelector('iframe').contentWindow.postMessage('grow','*')">Grow</button>
+        <button id="image" onclick="document.querySelector('iframe').contentWindow.postMessage('image','*')">Image</button>
+        <iframe srcdoc="${srcdoc}" sandbox="allow-scripts" style="display:block;width:100%;height:240px;border:0"></iframe>
+        <script>
+          var restores = 0;
+          addEventListener('pageshow', function (event) {
+            if (event.persisted) document.body.dataset.restores = String(++restores);
+          });
+          addEventListener('message', function (event) {
+            var frame = document.querySelector('iframe');
+            if (event.source !== frame.contentWindow) return;
+            if (event.data.id === 'bfcache') frame.style.height = event.data.height + 'px';
+            if (event.data.imageState) document.body.dataset.imageState = event.data.imageState;
+          });
+        </script>`)
+    }
+  })
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  // Headless shell and Playwright's default flag disable BFCache. Use the full
+  // installed Chromium, with actual HTTP navigation rather than intercepted routes.
+  let browser: Browser | undefined
+  try {
+    browser = await chromium.launch({
+      channel: 'chromium',
+      headless: true,
+      ignoreDefaultArgs: ['--disable-back-forward-cache'],
+    })
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('Expected a local HTTP port')
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+    await page.goto(`http://127.0.0.1:${address.port}/post`)
+    const frameHeight = () => page.locator('iframe').evaluate((element) => element.clientHeight)
+    await expect.poll(frameHeight).toBe(1200)
+    for (const [index, width] of [400, 1000].entries()) {
+      await page.locator('#leave').click()
+      await page.waitForURL('**/away')
+      // BFCache restoration does not emit another load event.
+      await page.evaluate(() => history.back())
+      await expect(page.locator('body')).toHaveAttribute('data-restores', String(index + 1))
+      await page.setViewportSize({ width, height: 800 })
+      await expect.poll(frameHeight).toBe(width === 400 ? 2400 : 1200)
+    }
+    // A content-only change also needs a restored observer/height poller.
+    await page.locator('#grow').click()
+    await expect.poll(frameHeight).toBe(1800)
+    await page.locator('#image').click()
+    await expect(page.locator('body')).toHaveAttribute('data-image-state', 'loaded')
+  } finally {
+    await browser?.close()
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+  }
 })

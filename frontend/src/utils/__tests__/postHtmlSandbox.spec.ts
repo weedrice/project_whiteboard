@@ -467,17 +467,6 @@ describe('postHtmlSandbox', () => {
         expect(heightBridgeSource).toContain('hasOverflowingDescendant(grid)')
     })
 
-    it('cleans up sandbox height polling when the frame unloads', () => {
-        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
-
-        expect(source).toContain('sandbox-height-bridge.js')
-        expect(heightBridgeSource).toContain('window.setInterval(postHeight, 500)')
-        expect(heightBridgeSource).toContain("channel: 'noviis-post-html-sandbox'")
-        expect(heightBridgeSource).toContain('window.clearInterval(intervalId)')
-        expect(heightBridgeSource).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
-        expect(heightBridgeSource).toContain('resizeObserver.disconnect()')
-    })
-
     it('measures content independently from the current iframe viewport height', () => {
         expect(heightBridgeSource).toContain("var descendants = body.querySelectorAll('*')")
         expect(heightBridgeSource).toContain('var fixedSubtree = new WeakSet()')

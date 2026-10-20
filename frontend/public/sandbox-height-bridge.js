@@ -8,7 +8,7 @@
   var imageErrorLabel = script ? script.getAttribute('data-image-error-label') : ''
   var imageRecords = new WeakMap()
   var heightFrame = null
-  var disposed = false
+  var disposed = true
 
   if (!frameId) return
 
@@ -146,9 +146,6 @@
     })
   }
 
-  window.addEventListener('load', scheduleHeight)
-  window.addEventListener('resize', scheduleHeight)
-  watchImages(document.body)
   var imageObserver = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
       if (mutation.type === 'childList') {
@@ -160,18 +157,29 @@
       }
     })
   })
-  imageObserver.observe(document.body, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['src', 'srcset', 'sizes'],
-  })
   var resizeObserver = null
-  if (typeof ResizeObserver === 'function') {
-    resizeObserver = new ResizeObserver(scheduleHeight)
-    resizeObserver.observe(document.body)
+  var intervalId = null
+
+  function resume() {
+    if (!disposed) return
+    disposed = false
+    lastHeight = 0
+    window.addEventListener('load', scheduleHeight)
+    window.addEventListener('resize', scheduleHeight)
+    watchImages(document.body)
+    imageObserver.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['src', 'srcset', 'sizes'],
+    })
+    if (typeof ResizeObserver === 'function') {
+      resizeObserver = new ResizeObserver(scheduleHeight)
+      resizeObserver.observe(document.body)
+    }
+    intervalId = window.setInterval(scheduleHeight, 500)
+    scheduleHeight()
   }
-  var intervalId = window.setInterval(scheduleHeight, 500)
 
   function cleanup() {
     disposed = true
@@ -192,7 +200,11 @@
     }
   }
 
-  window.addEventListener('pagehide', cleanup, { once: true })
-  window.addEventListener('beforeunload', cleanup, { once: true })
-  scheduleHeight()
+  // A cached document returns without rerunning this script. Pause only once
+  // navigation commits, then restore observers and listeners on every return.
+  window.addEventListener('pagehide', cleanup)
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) resume()
+  })
+  resume()
 }())
