@@ -124,8 +124,71 @@ describe('useRichContentInteractions', () => {
     image.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
     expect(state.lightboxOpen.value).toBe(true)
-    expect(state.lightboxImages.value).toEqual([{ src: image.src, alt: 'Photo' }])
+    expect(state.lightboxImages.value).toEqual([{ src: image.src, alt: 'Photo', onLoaded: expect.any(Function) }])
   })
+
+  it('retries the original native URL after gallery recovery and lets its own load determine success', () => {
+    const state = setupMounted('<img src="/image.png?signature=unchanged" data-image-state="error">')
+    const image = state.article.querySelector('img')!
+    image.click()
+    const callback = state.lightboxImages.value[0]!.onLoaded!
+    state.prepareImagesForInteraction()
+    expect(state.lightboxImages.value[0]!.onLoaded).toBe(callback)
+    const setAttribute = vi.spyOn(image, 'setAttribute')
+    callback()
+    expect(setAttribute).toHaveBeenCalledExactlyOnceWith('src', '/image.png?signature=unchanged')
+    expect(image.dataset.imageState).toBe('error')
+    image.dataset.imageState = 'loaded'
+    callback()
+    expect(setAttribute).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a recovering original pending until its own native load completes', async () => {
+    const state = setupMounted('<img src="/image.png" alt="Photo">')
+    const image = state.article.querySelector('img')!
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 0 },
+    })
+    const controller = createImageStateController(image, () => 'Failed')
+    cleanup.push(controller.destroy)
+    state.prepareImagesForInteraction()
+    image.click()
+    const callback = state.lightboxImages.value[0]!.onLoaded!
+    Object.defineProperty(image, 'complete', { configurable: true, value: false })
+    callback()
+    await flushPromises()
+    expect(image.dataset.imageState).toBe('loading')
+    expect(image.getAttribute('aria-busy')).toBe('true')
+    expect(image.naturalWidth).toBe(0)
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 400 },
+    })
+    image.dispatchEvent(new Event('load'))
+    expect(image.dataset.imageState).toBe('loaded')
+    expect(image.hasAttribute('aria-busy')).toBe(false)
+  })
+
+  it.each(['source', 'srcset', 'sizes', 'content', 'session', 'closed', 'reopened', 'disabled'])(
+    'ignores native gallery recovery after %s changes', (boundary) => {
+      const state = setupMounted('<img src="/image.png?signature=unchanged" data-image-state="error">')
+      const image = state.article.querySelector('img')!
+      image.click()
+      const callback = state.lightboxImages.value[0]!.onLoaded!
+      if (boundary === 'source') image.src = '/replacement.png'
+      if (boundary === 'srcset') image.srcset = '/replacement.png 2x'
+      if (boundary === 'sizes') image.sizes = '50vw'
+      if (boundary === 'content') image.remove()
+      if (boundary === 'session') state.article.dispatchEvent(new Event('authenticatedimagesreset'))
+      if (boundary === 'closed' || boundary === 'reopened') state.lightboxOpen.value = false
+      if (boundary === 'reopened') image.click()
+      if (boundary === 'disabled') state.isDisabled.value = true
+      const setAttribute = vi.spyOn(image, 'setAttribute')
+      callback()
+      expect(setAttribute).not.toHaveBeenCalled()
+    },
+  )
 
   it('opens and retries a sole failed authenticated image without a native source', async () => {
     get.mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValue({ data: new Blob(['retry']) })
@@ -314,7 +377,7 @@ describe('useRichContentInteractions', () => {
     Object.defineProperty(images[4]!, 'currentSrc', { value: 'https://images.example/responsive-large.png' })
     images[5]!.click()
     expect(state.lightboxImages.value).toEqual([
-      { src: images[3]!.src, alt: '' },
+      { src: images[3]!.src, alt: '', onLoaded: expect.any(Function) },
       { src: 'https://images.example/responsive-large.png', alt: 'responsive' },
       { src: images[5]!.src, alt: 'ready' },
     ])

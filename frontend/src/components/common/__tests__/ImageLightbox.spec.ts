@@ -44,9 +44,10 @@ describe('ImageLightbox', () => {
   })
 
   it('retries the same URL once, preserves retry focus, and ignores stale events after navigation or close', async () => {
+    const onLoaded = vi.fn()
     const wrapper = mount(ImageLightbox, {
       attachTo: document.body,
-      props: { isOpen: true, images: [{ src: '/retry.png?signature=original', alt: 'First' }, { src: '/next.png', alt: 'Next' }] },
+      props: { isOpen: true, images: [{ src: '/retry.png?signature=original', alt: 'First', onLoaded }, { src: '/next.png', alt: 'Next', onLoaded }] },
       global: { mocks: { $t: (key: string) => key } },
     })
     const currentImage = () => document.querySelector<HTMLImageElement>('.lightbox-image')!
@@ -74,7 +75,7 @@ describe('ImageLightbox', () => {
       await nextTick()
       await nextTick()
       expect(status()).toBe('common.imageViewerLoading:2/2')
-      attempt.dataset.imageState = 'error'
+      attempt.dataset.imageState = 'loaded'
       attempt.dispatchEvent(new Event('imagestatechange'))
       await nextTick()
       expect(status()).toBe('common.imageViewerLoading:2/2')
@@ -86,15 +87,17 @@ describe('ImageLightbox', () => {
       nextImage.dispatchEvent(new Event('imagestatechange'))
       await wrapper.setProps({ isOpen: true })
       expect(status()).toBe('common.imageViewerLoading:1/2')
+      expect(onLoaded).not.toHaveBeenCalled()
     } finally {
       wrapper.unmount()
     }
   })
 
   it('moves retry focus to the close control after a successful retry', async () => {
+    const onLoaded = vi.fn()
     const wrapper = mount(ImageLightbox, {
       attachTo: document.body,
-      props: { isOpen: true, images: [{ src: '/retry.png', alt: 'Retry' }] },
+      props: { isOpen: true, images: [{ src: '/retry.png', alt: 'Retry', onLoaded }] },
       global: { mocks: { $t: (key: string) => key } },
     })
     try {
@@ -117,6 +120,7 @@ describe('ImageLightbox', () => {
       expect(document.querySelector('[role="status"]')!.textContent).toBe('common.imageViewerLoaded:1/1')
       expect(document.activeElement).toBe(document.querySelector('[aria-label="common.close"]'))
       expect(document.body.textContent).not.toContain('common.imageRetry')
+      expect(onLoaded).toHaveBeenCalledTimes(1)
     } finally {
       wrapper.unmount()
     }

@@ -140,6 +140,9 @@ for (const kind of ['authenticated', 'native'] as const) {
         await expect.poll(() => attempts).toBe(failedAttempts + 1)
         retry.release()
         await expect(current).toHaveAttribute('data-image-state', 'loaded')
+        await expect(original).toHaveAttribute('data-image-state', 'loaded')
+        await expect.poll(() => original.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(400)
+        await expect(original).not.toHaveAttribute('aria-label', /불러올 수 없습니다/)
         await expect(page.getByRole('button', { name: '닫기', exact: true })).toBeFocused()
         if (kind === 'authenticated') expect(protectedRequests).toEqual([])
         await page.keyboard.press('Escape')
@@ -151,6 +154,48 @@ for (const kind of ['authenticated', 'native'] as const) {
       }
     })
   }
+}
+
+for (const boundary of ['source', 'content'] as const) {
+  test(`ignores native gallery recovery after the original ${boundary} changes`, async ({ page }) => {
+    const delayed = gate()
+    const completed = gate()
+    let attempts = 0
+    await page.route('**/image-test/single-native.svg', async route => {
+      attempts += 1
+      if (attempts <= 2) return route.fulfill({ status: 503, body: 'temporarily unavailable' })
+      await delayed.promise
+      try {
+        await route.fulfill({ contentType: 'image/svg+xml', body: svg })
+      } finally {
+        completed.release()
+      }
+    })
+    await page.route('**/image-test/replacement.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
+    try {
+      await page.goto(fixture + '?single&native')
+      const original = page.locator('article img')
+      await expect(original).toHaveAttribute('data-image-state', 'error')
+      await original.click()
+      await expect(page.getByRole('dialog').locator('img')).toHaveAttribute('data-image-state', 'error')
+      await page.getByRole('button', { name: '이미지 다시 불러오기', exact: true }).click()
+      await expect.poll(() => attempts).toBe(3)
+      await page.evaluate(kind => {
+        if (kind === 'source') document.querySelector<HTMLImageElement>('article img')!.src = '/image-test/replacement.svg'
+        else (window as unknown as { authGalleryFixture: { replaceContent: () => void } }).authGalleryFixture.replaceContent()
+      }, boundary)
+      if (boundary === 'source') await expect(original).toHaveAttribute('data-image-state', 'loaded')
+      else await expect(page.getByRole('dialog')).toHaveCount(0)
+      delayed.release()
+      await completed.promise
+      await flushBrowserFrames(page)
+      expect(attempts).toBe(3)
+      if (boundary === 'source') await expect(original).toHaveAttribute('src', '/image-test/replacement.svg')
+      else await expect(page.locator('article img')).toHaveCount(0)
+    } finally {
+      delayed.release()
+    }
+  })
 }
 
 test('defers protected images inside collapsed details until the user expands them', async ({ page }) => {

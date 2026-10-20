@@ -29,6 +29,7 @@ export interface RichContentLightboxImage {
   pending?: boolean
   failed?: boolean
   requestLoad?: (retry?: boolean) => void
+  onLoaded?: () => void
 }
 
 function imageDimensions(image: HTMLImageElement): { width?: number; height?: number } {
@@ -56,6 +57,8 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   const pendingImages = new Set<HTMLImageElement>()
   const interactionLabels = new WeakMap<HTMLImageElement, string>()
   const loadCallbacks = new WeakMap<HTMLImageElement, { id: string; requestLoad: (retry?: boolean) => void }>()
+  const nativeRecoveryCallbacks = new WeakMap<HTMLImageElement, { signature: string; src: string; generation: number; onLoaded: () => void }>()
+  let galleryGeneration = 0
   let openedElements: HTMLImageElement[] = []
   let imageFrame: number | null = null
 
@@ -91,9 +94,36 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   }
 
   function closeGallery() {
+    galleryGeneration += 1
     lightboxOpen.value = false
     if (openedImages.value.length > 0) openedImages.value = []
     openedElements = []
+  }
+
+  function nativeSourceSignature(image: HTMLImageElement) {
+    return JSON.stringify(['src', 'srcset', 'sizes'].map(name => image.getAttribute(name)))
+  }
+
+  function nativeRecovery(image: HTMLImageElement, src: string) {
+    const signature = nativeSourceSignature(image)
+    const generation = galleryGeneration
+    const cached = nativeRecoveryCallbacks.get(image)
+    if (cached?.signature === signature && cached.src === src && cached.generation === generation) return cached.onLoaded
+    const onLoaded = () => {
+      if (!lightboxOpen.value || generation !== galleryGeneration || resolveBoolean(options.isDisabled)
+        || !articleRef.value?.contains(image) || !openedElements.includes(image)
+        || getAuthenticatedImageResource(image) || nativeSourceSignature(image) !== signature
+        || (image.currentSrc || image.src) !== src || image.dataset.imageState !== 'error') return
+      // Retry the actual original element without changing signed URLs or asserting a synthetic load.
+      const attribute = image.getAttribute('srcset')?.trim() ? 'srcset' : 'src'
+      const value = image.getAttribute(attribute)
+      if (value) {
+        image.removeAttribute(attribute)
+        image.setAttribute(attribute, value)
+      }
+    }
+    nativeRecoveryCallbacks.set(image, { signature, src, generation, onLoaded })
+    return onLoaded
   }
 
   function galleryCandidates(images: HTMLImageElement[]) {
@@ -106,6 +136,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
         : element.currentSrc || nativeSrc
       if (!resource && !src) return []
       const image: RichContentLightboxImage = { src, alt: element.alt.trim(), ...imageDimensions(element) }
+      if (!resource && element.dataset.imageState === 'error') image.onLoaded = nativeRecovery(element, src)
       if (resource) {
         const cached = loadCallbacks.get(element)
         let requestLoad = cached?.id === resource.id ? cached.requestLoad : undefined
@@ -232,6 +263,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     if (isLinkedImage(image)) return false
     if (!canOpenImage(image)) return false
 
+    galleryGeneration += 1
     const images = galleryCandidates(Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? []))
     const index = images.findIndex((candidate) => candidate.element === image)
     if (index < 0) return false

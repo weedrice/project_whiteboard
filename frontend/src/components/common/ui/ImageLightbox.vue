@@ -19,6 +19,7 @@ const props = withDefaults(defineProps<{
     pending?: boolean
     failed?: boolean
     requestLoad?: (retry?: boolean) => void
+    onLoaded?: () => void
   }>
   initialIndex?: number
   title?: string
@@ -71,6 +72,7 @@ function onImageStateChange(event: Event) {
   // A directive initializes before applying its explicit API pending/failed options.
   if (currentImage.value?.failed ? state !== 'error' : imagePending.value && state !== 'loading') return
   imageState.value = state
+  if (state === 'loaded') currentImage.value?.onLoaded?.()
   if (state !== 'loading') {
     const restoreFocus = state === 'loaded' && document.activeElement === retryButton.value
     retrying.value = false
