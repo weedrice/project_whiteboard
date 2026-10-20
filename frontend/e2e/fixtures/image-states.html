@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, defineComponent, h, ref, withDirectives } from 'vue'
+      import { vImageState } from '../../src/directives/imageState'
+      import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
+      import i18n from '../../src/i18n'
+      import '../../src/style.css'
+      import '../../src/styles/foundation.css'
+      import '../../src/styles/components.css'
+      if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark')
+      const fixture = defineComponent({
+        setup() {
+          const source = ref('/image-test/slow.svg')
+          const photo = (id, style, attrs = {}) => withDirectives(h('img', {
+            id, src: source.value, alt: id, style, ...attrs,
+          }), [[vImageState]])
+          return () => h('main', [
+            h('button', { id: 'replace', onClick: () => { source.value = '/image-test/replacement.svg' } }, 'Replace'),
+            photo('photo', 'display:block;max-width:100%;height:auto', { width: 400, height: 200 }),
+            photo('avatar', 'width:32px;height:32px;border-radius:50%;object-fit:cover'),
+            photo('emoticon', 'width:24px;height:24px;display:inline-block'),
+            photo('logo', 'width:auto;height:32px', { width: 200, height: 50 }),
+            h(SanitizedHtmlView, {
+              id: 'rich',
+              class: 'nv-rich-content',
+              html: '<p>Inline <img class="ql-emoticon" src="/image-test/slow.svg" alt="Emoticon"> text</p><img src="/image-test/slow.svg" alt="Unsized">',
+            }),
+            photo('lazy', 'display:block;margin-top:1600px;width:200px;height:100px', { loading: 'lazy' }),
+            h(SanitizedHtmlView, {
+              id: 'protected',
+              html: '<img src="/api/v1/files/123" alt="Protected photo" width="320" height="160">',
+            }),
+          ])
+        },
+      })
+      createApp(fixture).use(i18n).mount('#app')
+    </script>
+  </body>
+</html>
