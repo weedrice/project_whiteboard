@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['image-loading-states.spec.ts', 'authenticated-image-gallery.spec.ts'],
+  testMatch: ['image-loading-states.spec.ts', 'authenticated-image-gallery.spec.ts', 'inquiry-image-loading.spec.ts'],
   workers: 1,
   retries: 0,
   reporter: 'list',

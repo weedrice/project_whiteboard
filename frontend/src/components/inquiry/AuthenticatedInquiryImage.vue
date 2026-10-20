@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { vImageState } from '@/directives/imageState'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -9,10 +9,13 @@ import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import { useAuthStore } from '@/stores/auth'
 import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
+import { createInquiryImageQueue, inquiryImageQueueKey } from './inquiryImageQueue'
 
 const props = defineProps<{ attachment: InquiryAttachment }>()
 const authStore = useAuthStore()
 const { t } = useI18n()
+const queue = inject(inquiryImageQueueKey, null) ?? createInquiryImageQueue()
+const containerRef = ref<HTMLElement | null>(null)
 const objectUrl = ref<string | null>(null)
 const pending = ref(false)
 const failed = ref(false)
@@ -20,13 +23,13 @@ const retrying = ref(false)
 const imageGeneration = ref(0)
 const imageLinkRef = ref<HTMLAnchorElement | null>(null)
 const retryButtonRef = ref<InstanceType<typeof BaseButton> | null>(null)
-let controller: AbortController | null = null
 let activeScope: AuthSessionScope | null = null
+let visibilityObserver: IntersectionObserver | null = null
 
 function release() {
   imageGeneration.value += 1
-  controller?.abort()
-  controller = null
+  visibilityObserver?.disconnect()
+  visibilityObserver = null
   activeScope?.cancel()
   activeScope?.dispose()
   activeScope = null
@@ -46,22 +49,45 @@ async function load(isRetry = false) {
   retrying.value = isRetry
   const scope = createAuthSessionScope(authStore)
   activeScope = scope
-  const current = new AbortController()
-  controller = current
+  const generation = imageGeneration.value
+  // Capture ownership before waiting for the DOM, visibility, or a transport slot.
+  if (!isRetry) {
+    await nextTick()
+    if (!scope.isCurrent() || generation !== imageGeneration.value) return
+    const container = containerRef.value
+    if (!container) return
+    const Observer = container.ownerDocument.defaultView?.IntersectionObserver
+    if (Observer) {
+      const observer = new Observer((entries) => {
+        if (visibilityObserver !== observer || !entries.some(entry => entry.isIntersecting)) return
+        observer.disconnect()
+        visibilityObserver = null
+        void download(path, scope, generation, false)
+      }, { rootMargin: '600px' })
+      visibilityObserver = observer
+      observer.observe(container)
+      return
+    }
+  }
+  await download(path, scope, generation, isRetry)
+}
+
+async function download(path: string, scope: AuthSessionScope, generation: number, priority: boolean) {
   try {
-    const response = await api.get<Blob>(path, scope.withRequestConfig({
-      responseType: 'blob',
-      signal: current.signal,
-      skipGlobalErrorHandler: true,
-    }))
-    if (!current.signal.aborted && scope.isCurrent()) objectUrl.value = URL.createObjectURL(response.data)
+    const response = await queue.run(() => {
+      scope.assertCurrent()
+      return api.get<Blob>(path, scope.withRequestConfig({
+        responseType: 'blob',
+        skipGlobalErrorHandler: true,
+      }))
+    }, scope.requestConfig.signal, priority)
+    if (scope.isCurrent() && generation === imageGeneration.value) objectUrl.value = URL.createObjectURL(response.data)
   } catch {
-    if (!current.signal.aborted && scope.isCurrent()) failed.value = true
+    if (scope.isCurrent() && generation === imageGeneration.value) failed.value = true
   } finally {
     scope.dispose()
     if (activeScope === scope) activeScope = null
-    if (controller === current) {
-      controller = null
+    if (generation === imageGeneration.value) {
       pending.value = false
       if (failed.value) retrying.value = false
     }
@@ -94,7 +120,7 @@ onBeforeUnmount(release)
 </script>
 
 <template>
-  <div class="space-y-2">
+  <div ref="containerRef" class="space-y-2">
     <a ref="imageLinkRef" :href="failed ? undefined : objectUrl ?? undefined" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border nv-border">
       <img
         :key="imageGeneration"

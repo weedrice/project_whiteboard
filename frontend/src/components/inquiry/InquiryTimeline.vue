@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { provide } from 'vue'
 import type { InquiryMessage } from '@/types/inquiry'
 import { formatDateTimeOrDash } from '@/utils/date'
 import AuthenticatedInquiryImage from '@/components/inquiry/AuthenticatedInquiryImage.vue'
 import { useI18n } from 'vue-i18n'
+import { createInquiryImageQueue, inquiryImageQueueKey } from './inquiryImageQueue'
 
 defineProps<{ messages: InquiryMessage[]; admin?: boolean }>()
 const { t } = useI18n()
+provide(inquiryImageQueueKey, createInquiryImageQueue())
 
 function typeLabel(type: InquiryMessage['messageType']) {
   return t(`inquiry.timeline.${type}`)
