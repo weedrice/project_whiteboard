@@ -156,6 +156,79 @@ describe('ImageLightbox', () => {
     wrapper.unmount()
   })
 
+  it('keeps zoom controls focused, pans with arrows, and resets on navigation or source replacement', async () => {
+    const wrapper = mount(ImageLightbox, {
+      attachTo: document.body,
+      props: { isOpen: true, images: [{ src: '/one.png', alt: 'First' }, { src: '/two.png', alt: 'Second' }] },
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    const button = (key: string) => document.querySelector<HTMLButtonElement>(`[aria-label="common.${key}"]`)!
+    const currentImage = () => document.querySelector<HTMLImageElement>('.lightbox-image')!
+    const load = async () => {
+      Object.defineProperties(currentImage(), {
+        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
+        clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 300 },
+      })
+      currentImage().dispatchEvent(new Event('load'))
+      await nextTick()
+    }
+    try {
+      await nextTick()
+      button('imageZoomIn').click()
+      await nextTick()
+      expect(currentImage().style.transform).toContain('scale(1)')
+      await load()
+      button('imageZoomIn').focus()
+      button('imageZoomIn').click()
+      await nextTick()
+      expect(document.activeElement).toBe(button('imageZoomIn'))
+      expect(currentImage().style.transform).toContain('scale(1.5)')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      await nextTick()
+      expect(currentImage().style.transform).toContain('translate3d(-48px, 0px, 0)')
+      expect(wrapper.emitted('update:index')).toBeUndefined()
+      button('imageZoomOut').click()
+      await nextTick()
+      expect(currentImage().style.transform).toBe('translate3d(0px, 0px, 0) scale(1)')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      await nextTick()
+      expect(currentImage().alt).toBe('Second')
+      await load()
+      button('imageZoomIn').click()
+      await nextTick()
+      await wrapper.setProps({ images: [{ src: '/one.png', alt: 'First' }, { src: '/changed.png', alt: 'Changed' }] })
+      expect(currentImage().style.transform).toBe('translate3d(0px, 0px, 0) scale(1)')
+      expect(button('imageZoomIn').getAttribute('aria-disabled')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('ignores arrow keys while another dialog is on top', async () => {
+    const lightbox = mount(ImageLightbox, {
+      attachTo: document.body,
+      props: { isOpen: true, images: [{ src: '/one.png', alt: 'First' }, { src: '/two.png', alt: 'Second' }] },
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    const modal = mount(BaseModal, {
+      attachTo: document.body,
+      props: { isOpen: true, title: 'Top dialog' },
+      global: { mocks: { $t: (key: string) => key }, stubs: { BaseButton: BaseButtonStub } },
+    })
+    try {
+      await nextTick()
+      await nextTick()
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      expect(lightbox.emitted('update:index')).toBeUndefined()
+      await modal.setProps({ isOpen: false })
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      expect(lightbox.emitted('update:index')).toEqual([[1]])
+    } finally {
+      modal.unmount()
+      lightbox.unmount()
+    }
+  })
+
   it.each([true, false])('closes only the image viewer on Escape (initially open: %s)', async (initiallyOpen) => {
     const isOpen = ref(initiallyOpen)
     const goToList = vi.fn()

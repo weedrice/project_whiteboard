@@ -34,6 +34,105 @@ for (const shape of ['portrait', 'landscape']) {
   })
 }
 
+test('lightbox keyboard controls zoom, pan, reset, and preserve gallery navigation', async ({ page }) => {
+  await page.route('**/image-test/**', (route) => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
+  await page.setViewportSize({ width: 390, height: 740 })
+  await page.goto('/e2e/fixtures/image-states.html?lightboxStates=landscape')
+  const image = page.getByRole('dialog').locator('img')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  const zoomIn = page.getByRole('button', { name: '이미지 확대', exact: true })
+  const zoomOut = page.getByRole('button', { name: '이미지 축소', exact: true })
+  const reset = page.getByRole('button', { name: '원래 크기', exact: true })
+  await zoomIn.focus()
+  await page.keyboard.press('Enter')
+  await expect(zoomIn).toBeFocused()
+  await expect(image).toHaveAttribute('style', /scale\(1\.5\)/)
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowDown')
+  await expect(image).toHaveAttribute('style', /translate3d\(-48px, -48px, 0px\)/)
+  await expect(image).toHaveAttribute('alt', 'Viewer image')
+  await reset.focus()
+  await page.keyboard.press('Enter')
+  await expect(reset).toBeFocused()
+  await expect(image).toHaveAttribute('style', /translate3d\(0px, 0px, 0px\) scale\(1\)/)
+  await page.keyboard.press('ArrowRight')
+  await expect(image).toHaveAttribute('alt', 'Other viewer image')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  for (let index = 0; index < 6; index += 1) await zoomIn.click()
+  await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+  await zoomOut.focus()
+  await page.keyboard.press('Enter')
+  await expect(image).toHaveAttribute('style', /scale\(3\.5\)/)
+  await page.getByRole('button', { name: '다음', exact: true }).click()
+  await expect(image).toHaveAttribute('alt', 'Viewer image')
+  await expect(image).toHaveAttribute('style', /scale\(1\)/)
+})
+
+test('lightbox controls remain distinct over a light failure image without overlapping retry', async ({ page }) => {
+  await page.route('**/image-test/**', (route) => route.fulfill({ status: 503, body: 'failed' }))
+  await page.setViewportSize({ width: 390, height: 740 })
+  await page.goto('/e2e/fixtures/image-states.html?lightboxStates=landscape')
+  await expect(page.getByRole('dialog').locator('img')).toHaveAttribute('data-image-state', 'error')
+  const contrast = await page.getByRole('button', { name: '이전', exact: true }).evaluate((button) => {
+    const image = document.querySelector('.lightbox-image')!
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d')!
+    context.fillStyle = getComputedStyle(image).backgroundColor
+    context.fillRect(0, 0, 1, 1)
+    context.fillStyle = getComputedStyle(button).backgroundColor
+    context.fillRect(0, 0, 1, 1)
+    const background = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+    context.fillStyle = getComputedStyle(button).color
+    context.fillRect(0, 0, 1, 1)
+    const foreground = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+    const luminance = (rgb: number[]) => rgb.map((value) => {
+      const color = value / 255
+      return color <= 0.04045 ? color / 12.92 : ((color + 0.055) / 1.055) ** 2.4
+    }).reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index]!, 0)
+    return (luminance(foreground) + 0.05) / (luminance(background) + 0.05)
+  })
+  expect(contrast).toBeGreaterThanOrEqual(3)
+  const retryBounds = (await page.getByRole('button', { name: '이미지 다시 불러오기', exact: true }).boundingBox())!
+  const zoomIn = page.getByRole('button', { name: '이미지 확대', exact: true })
+  const zoomBounds = (await zoomIn.boundingBox())!
+  expect(retryBounds.y + retryBounds.height).toBeLessThan(zoomBounds.y)
+  await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
+})
+
+test('cancelled drags and native pinches never trigger lightbox navigation', async ({ page, browserName }) => {
+  await page.route('**/image-test/**', (route) => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
+  await page.setViewportSize({ width: 390, height: 740 })
+  await page.goto('/e2e/fixtures/image-states.html?lightboxStates=landscape')
+  const image = page.getByRole('dialog').locator('img')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  const bounds = (await image.boundingBox())!
+  const y = bounds.y + bounds.height / 2
+  await image.evaluate((element) => element.addEventListener('pointerdown', (event) => {
+    element.setAttribute('data-test-pointer-id', String((event as PointerEvent).pointerId))
+  }, { once: true }))
+  await page.mouse.move(100, y)
+  await page.mouse.down()
+  await page.mouse.move(200, y)
+  await image.dispatchEvent('pointercancel', { pointerId: Number(await image.getAttribute('data-test-pointer-id')), clientX: 200, clientY: y })
+  await page.mouse.up()
+  await expect(image).toHaveAttribute('alt', 'Viewer image')
+  if (browserName === 'chromium') {
+    const session = await page.context().newCDPSession(page)
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 100, y, id: 1 }, { x: 280, y, id: 2 }] })
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 190, y, id: 1 }, { x: 200, y, id: 2 }] })
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await expect(image).toHaveAttribute('alt', 'Viewer image')
+    await session.detach()
+  }
+  await page.mouse.move(200, y)
+  await page.mouse.down()
+  await page.mouse.move(100, y)
+  await page.mouse.up()
+  await expect(image).toHaveAttribute('alt', 'Other viewer image')
+})
+
 test('the lightbox retries a failed URL without cache busting and keeps keyboard focus', async ({ page }) => {
   const requests: string[] = []
   let release!: () => void
