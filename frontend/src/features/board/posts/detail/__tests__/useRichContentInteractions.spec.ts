@@ -61,6 +61,20 @@ function setup(html: string) {
 }
 
 describe('useRichContentInteractions', () => {
+  it('carries natural or explicit dimensions into the gallery and omits unknown or invalid sizes', () => {
+    const state = setup('<img src="/natural.png" width="20" height="10"><img src="/portrait.png" width="300" height="600" data-image-state="loading"><img src="/unknown.png"><img src="/invalid.png" width="-10" height="20">')
+    const images = state.article.querySelectorAll('img')
+    Object.defineProperties(images[0]!, {
+      naturalWidth: { value: 800 },
+      naturalHeight: { value: 400 },
+    })
+    images[0]!.click()
+    expect(state.lightboxImages.value[0]).toMatchObject({ width: 800, height: 400 })
+    expect(state.lightboxImages.value[1]).toMatchObject({ width: 300, height: 600 })
+    expect(state.lightboxImages.value[2]).not.toHaveProperty('width')
+    expect(state.lightboxImages.value[3]).not.toHaveProperty('width')
+  })
+
   it('batches cached image completion and updates only changed images with their current indices', () => {
     const state = setupMounted('<img src="/cached.svg" alt="Photo">'.repeat(500))
     const images = state.article.querySelectorAll('img')

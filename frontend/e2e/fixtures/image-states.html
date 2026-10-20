@@ -5,10 +5,14 @@
     <div id="app"></div>
     <script type="module">
       import { createApp, defineComponent, h, onMounted, ref, withDirectives } from 'vue'
+      import { createPinia } from 'pinia'
+      import { configureApiStoreResolvers } from '../../src/api'
+      import { useAuthStore } from '../../src/stores/auth'
       import { vImageState } from '../../src/directives/imageState'
       import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
       import SandboxedHtmlFrame from '../../src/components/common/SandboxedHtmlFrame.vue'
       import ImageLightbox from '../../src/components/common/ui/ImageLightbox.vue'
+      import AuthenticatedInquiryImage from '../../src/components/inquiry/AuthenticatedInquiryImage.vue'
       import { useRichContentInteractions } from '../../src/features/board/posts/detail/useRichContentInteractions'
       import i18n from '../../src/i18n'
       import '../../src/style.css'
@@ -17,6 +21,22 @@
       if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark')
       const fixture = defineComponent({
         setup() {
+          const mode = new URLSearchParams(location.search)
+          if (mode.has('inquiryRetry')) {
+            return () => h(AuthenticatedInquiryImage, {
+              attachment: { fileId: 765, url: '/api/v1/files/765', originalName: 'Retry inquiry image', fileSize: 100, mimeType: 'image/svg+xml' },
+            })
+          }
+          if (mode.has('lightboxStates')) {
+            const shape = mode.get('lightboxStates')
+            const portrait = shape === 'portrait'
+            const isOpen = ref(true)
+            const images = [
+              { src: `/image-test/lightbox-${shape}.svg?signature=preserved`, alt: 'Viewer image', width: portrait ? 300 : 600, height: portrait ? 600 : 300 },
+              { src: '/image-test/lightbox-other.svg', alt: 'Other viewer image', width: 300, height: 600 },
+            ]
+            return () => h(ImageLightbox, { isOpen: isOpen.value, images, onClose: () => { isOpen.value = false } })
+          }
           if (new URLSearchParams(location.search).has('sandboxBridge')) {
             const loads = ref(0)
             const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"><rect width="320" height="160" fill="#16a34a"/></svg>')
@@ -86,7 +106,13 @@
           ])
         },
       })
-      createApp(fixture).use(i18n).mount('#app')
+      const app = createApp(fixture).use(i18n)
+      if (new URLSearchParams(location.search).has('inquiryRetry')) {
+        const pinia = createPinia()
+        app.use(pinia)
+        configureApiStoreResolvers({ resolveAuthStore: () => useAuthStore(pinia) })
+      }
+      app.mount('#app')
     </script>
   </body>
 </html>

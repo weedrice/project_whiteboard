@@ -18,6 +18,17 @@ interface UseRichContentInteractionsOptions {
 export interface RichContentLightboxImage {
   src: string
   alt: string
+  width?: number
+  height?: number
+}
+
+function imageDimensions(image: HTMLImageElement): { width?: number; height?: number } {
+  const hasNaturalSize = image.naturalWidth > 0 && image.naturalHeight > 0
+  const width = hasNaturalSize ? image.naturalWidth : Number(image.getAttribute('width'))
+  const height = hasNaturalSize ? image.naturalHeight : Number(image.getAttribute('height'))
+  return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+    ? { width, height }
+    : {}
 }
 
 function resolveBoolean(value: MaybeRefOrGetter<boolean>): boolean {
@@ -132,6 +143,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
         element: candidate,
         src: candidate.currentSrc || (candidate.getAttribute('src')?.trim() ? candidate.src : ''),
         alt: candidate.alt.trim(),
+        dimensions: imageDimensions(candidate),
       }))
       .filter((candidate) => Boolean(candidate.src) && candidate.element.dataset.imageState !== 'error')
     const index = images.findIndex((candidate) => candidate.element === image)
@@ -140,6 +152,7 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     openedImages.value = images.map((candidate) => ({
       src: candidate.src,
       alt: candidate.alt,
+      ...candidate.dimensions,
     }))
     image.focus({ preventScroll: true })
     lightboxIndex.value = index
