@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
@@ -135,8 +136,8 @@ const goToNotificationsPage = async () => {
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div class="flex min-w-0 items-center gap-3">
           <router-link to="/" class="flex min-h-11 shrink-0 items-center gap-2 rounded-md nv-focus-ring" :aria-label="t('layout.a11y.homeLink', { appName: t('common.appName') })">
-            <img :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" class="h-8 w-8 rounded md:hidden" />
-            <img :src="logoSrc" :alt="$t('common.appName')" class="hidden h-8 w-auto shrink-0 object-contain md:block" />
+            <img v-image-state :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" width="32" height="32" class="h-8 w-8 rounded md:hidden" />
+            <img v-image-state :src="logoSrc" :alt="$t('common.appName')" width="1239" height="419" class="hidden h-8 w-auto shrink-0 object-contain md:block" />
             <span class="text-lg font-semibold tracking-[-0.04em] text-[var(--nv-ink)] md:hidden">{{ $t('common.appName') }}</span>
           </router-link>
 

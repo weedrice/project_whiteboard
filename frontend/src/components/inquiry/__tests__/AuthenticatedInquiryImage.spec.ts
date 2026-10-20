@@ -31,10 +31,26 @@ describe('AuthenticatedInquiryImage session ownership', () => {
     expect(config.signal.aborted).toBe(true)
     pending.resolve({ data: new Blob(['old response']) })
     await flushPromises()
-    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
     expect(revoke).toHaveBeenCalledWith('blob:private')
     expect(create).toHaveBeenCalledTimes(1)
     create.mockRestore()
     revoke.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('shows loading during the request, then reports a download failure', async () => {
+    const pending = createDeferred<{ data: Blob }>()
+    get.mockReturnValueOnce(pending.promise)
+    const wrapper = mount(AuthenticatedInquiryImage, {
+      props: { attachment: { fileId: 1, url: '/api/v1/files/1', originalName: 'private.png', fileSize: 5, mimeType: 'image/png' } },
+    })
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    pending.reject(new Error('unavailable'))
+    await flushPromises()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
+    expect(wrapper.get('a').attributes('href')).toBeUndefined()
+    wrapper.unmount()
   })
 })

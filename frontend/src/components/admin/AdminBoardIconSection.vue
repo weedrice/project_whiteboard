@@ -5,7 +5,7 @@
     </p>
     <div class="flex items-start gap-4">
       <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border nv-border nv-surface-muted flex items-center justify-center">
-        <img
+        <img v-image-state
           v-if="iconUrl"
           :src="iconUrl"
           alt=""
@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import type { ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'

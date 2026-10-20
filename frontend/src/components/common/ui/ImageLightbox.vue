@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, ref, toRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -61,6 +62,15 @@ const {
   handleImagePointerUp,
   toggleZoom,
 } = useLightboxGestures({ close, go })
+
+function isImageReady(event: Event) {
+  return (event.currentTarget as HTMLImageElement).dataset.imageState === 'loaded'
+}
+
+function handleZoom(event: Event) {
+  if (!isImageReady(event)) return
+  toggleZoom()
+}
 
 function handleKeydown(event: KeyboardEvent) {
   if (!props.isOpen) return
@@ -126,15 +136,15 @@ useEventListener(() => document, 'keydown', handleKeydown)
           <ChevronLeft class="h-6 w-6" aria-hidden="true" />
         </button>
 
-        <img
+        <img v-image-state
           v-if="currentImage"
           :src="currentImage.src"
           :alt="currentImage.alt || title"
           class="lightbox-image max-w-full touch-none select-none rounded-md object-contain shadow-2xl transition-transform duration-150"
           :style="imageTransform"
           draggable="false"
-          @dblclick="toggleZoom"
-          @pointerdown="handleImagePointerDown"
+          @dblclick="handleZoom"
+          @pointerdown="isImageReady($event) && handleImagePointerDown($event)"
           @pointermove="handleImagePointerMove"
           @pointerup="handleImagePointerUp"
           @pointercancel="handleImagePointerUp"

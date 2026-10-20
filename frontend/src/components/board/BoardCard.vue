@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { Users, User } from 'lucide-vue-next'
 import type { BoardListItem, BoardSearchItem } from '@/types'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
@@ -23,7 +24,7 @@ withDefaults(defineProps<{
     <template v-if="variant === 'compact'">
       <div
         class="flex-shrink-0 h-10 w-10 rounded bg-[var(--nv-accent-bg)] flex items-center justify-center text-[var(--nv-accent)] font-bold overflow-hidden border nv-border">
-        <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" loading="lazy" decoding="async"
+        <img v-image-state v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" loading="lazy" decoding="async"
           class="h-full w-full object-contain bg-[var(--nv-surface)]" alt="" @error="handleImageError($event)" />
         <span v-else class="text-sm">{{ board.boardName.substring(0, 1) }}</span>
       </div>
@@ -36,7 +37,7 @@ withDefaults(defineProps<{
     <div v-else class="p-6">
       <div class="flex items-center">
         <div class="flex-shrink-0 h-12 w-12 rounded-md nv-avatar-fallback flex items-center justify-center text-xl font-bold overflow-hidden border">
-          <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" loading="lazy" decoding="async" class="h-full w-full object-contain nv-surface-muted" alt=""
+          <img v-image-state v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" loading="lazy" decoding="async" class="h-full w-full object-contain nv-surface-muted" alt=""
             @error="handleImageError($event)" />
           <span v-else>{{ board.boardName.substring(0, 1) }}</span>
         </div>

@@ -8,7 +8,7 @@
           :aria-label="$t('user.profile.choosePhoto')"
           @click="fileInputRef?.click()"
         >
-          <img
+          <img v-image-state
             v-if="profileImageDisplayUrl"
             class="h-full w-full object-contain nv-surface-muted"
             :src="profileImageDisplayUrl"
@@ -61,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, ref } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'

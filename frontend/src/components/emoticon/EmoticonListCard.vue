@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { useI18n } from 'vue-i18n'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { formatInteger } from '@/utils/numberFormat'
@@ -30,7 +31,7 @@ const { t } = useI18n()
       {{ rank }}
     </span>
     <span class="block aspect-square nv-surface-muted">
-      <img
+      <img v-image-state
         :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
         :alt="emoticon.name"
         loading="lazy"

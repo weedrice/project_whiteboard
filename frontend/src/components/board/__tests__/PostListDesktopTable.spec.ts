@@ -166,7 +166,7 @@ describe('PostListDesktopTable', () => {
     })
 
     await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
-    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('data-image-state')).toBe('loading')
 
     await vi.waitFor(() => {
       expect(mocks.get).toHaveBeenCalledWith('/files/55/variants/thumbnail', expect.objectContaining({
@@ -186,6 +186,19 @@ describe('PostListDesktopTable', () => {
 
     wrapper.unmount()
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+  })
+
+  it('keeps a failed thumbnail placeholder visible until the pointer leaves', async () => {
+    mocks.get.mockRejectedValueOnce(new Error('unavailable'))
+    const wrapper = mountTable({
+      posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })],
+    })
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('data-image-state')).toBe('error')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('clears cached thumbnails and aborts pending requests at an auth session boundary', async () => {
