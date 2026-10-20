@@ -1,14 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import type { Router } from 'vue-router'
 import { createImageStateController } from '@/utils/imageState'
 import { useRichContentInteractions } from '../useRichContentInteractions'
+import { createAuthenticatedImageLoader } from '@/utils/authenticatedImageLoader'
+import { createDeferred } from '@/test/async'
+
+const get = vi.hoisted(() => vi.fn())
+vi.mock('@/api', () => ({ default: { get } }))
 
 const cleanup: Array<() => void> = []
 afterEach(() => {
   cleanup.splice(0).reverse().forEach((dispose) => dispose())
   vi.restoreAllMocks()
+  get.mockReset()
 })
 
 function setupMounted(html: string) {
@@ -30,7 +36,11 @@ function setupMounted(html: string) {
         getCodeCopyLabels: () => ({ copy: 'Copy', copied: 'Copied', failed: 'Failed' }),
         getImageOpenLabel,
       })
-      return () => h('article', { ref: interactions.articleRef }, [
+      return () => h('article', {
+        ref: interactions.articleRef,
+        onClick: interactions.handleContentClick,
+        onKeydown: interactions.handleContentKeydown,
+      }, [
         h('div', { class: 'nv-rich-content', innerHTML: html }),
       ])
     },
@@ -61,6 +71,94 @@ function setup(html: string) {
 }
 
 describe('useRichContentInteractions', () => {
+  it.each(['href="#target"', 'data-authenticated-file-href="/files/17"'])(
+    'respects linked images (%s) without adding a second tab stop or opening the gallery', (attributes) => {
+      const state = setup(`<a ${attributes}><img src="/linked.png" tabindex="0" role="button" aria-haspopup="dialog"></a><img src="/standalone.png">`)
+      state.prepareImagesForInteraction()
+      const [linked, standalone] = Array.from(state.article.querySelectorAll('img'))
+      expect(linked!.hasAttribute('tabindex')).toBe(false)
+      expect(linked!.hasAttribute('role')).toBe(false)
+      expect(linked!.hasAttribute('aria-haspopup')).toBe(false)
+      const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+      linked!.dispatchEvent(click)
+      expect(click.defaultPrevented).toBe(false)
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      linked!.dispatchEvent(enter)
+      expect(enter.defaultPrevented).toBe(false)
+      expect(state.lightboxOpen.value).toBe(false)
+      standalone!.click()
+      expect(state.lightboxImages.value).toHaveLength(1)
+      expect(state.lightboxImages.value[0]!.src).toBe(standalone!.src)
+    },
+  )
+
+  it('keeps a selected native image after failure but omits it on the next gallery opening', () => {
+    const state = setupMounted('<img src="/ready.png" data-image-state="loaded"><img src="/slow.png" data-image-state="loading">')
+    const images = state.article.querySelectorAll('img')
+    images[0]!.click()
+    state.lightboxIndex.value = 1
+    images[1]!.dataset.imageState = 'error'
+    images[1]!.dispatchEvent(new Event('imagestatechange', { bubbles: true }))
+    state.flushFrame()
+    expect(state.lightboxOpen.value).toBe(true)
+    expect(state.lightboxIndex.value).toBe(1)
+    expect(state.lightboxImages.value).toHaveLength(2)
+    state.lightboxOpen.value = false
+    images[0]!.click()
+    expect(state.lightboxImages.value).toHaveLength(1)
+  })
+
+  it('updates pending authenticated gallery entries without losing selection and invalidates old callbacks', async () => {
+    const response = createDeferred<{ data: Blob }>()
+    get.mockReturnValueOnce(response.promise).mockResolvedValue({ data: new Blob(['retry']) })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:gallery')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    const state = setupMounted('<img src="/ready.png" data-image-state="loaded"><img data-authenticated-file-src="/files/42" data-image-state="loading" width="400" height="200">')
+    const images = state.article.querySelectorAll('img')
+    vi.spyOn(images[1]!, 'getBoundingClientRect').mockReturnValue({ top: 12000, bottom: 12200 } as DOMRect)
+    const loader = createAuthenticatedImageLoader(state.article, (image, status) => {
+      image.dataset.imageState = status === 'loaded' ? 'loading' : status
+    })
+    cleanup.push(loader.destroy)
+    images[0]!.click()
+    expect(state.lightboxImages.value).toHaveLength(2)
+    const pending = state.lightboxImages.value[1]!
+    expect(pending).toMatchObject({ src: '', pending: true, failed: false, width: 400, height: 200 })
+    state.lightboxIndex.value = 1
+    pending.requestLoad!()
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+    response.resolve({ data: new Blob(['image']) })
+    await flushPromises()
+    state.flushFrame()
+    expect(state.lightboxIndex.value).toBe(1)
+    expect(state.lightboxImages.value[1]).toMatchObject({ id: pending.id, src: 'blob:gallery', pending: false })
+    const unchanged = state.lightboxImages.value
+    state.prepareImagesForInteraction()
+    expect(state.lightboxImages.value).toBe(unchanged)
+    images[1]!.dataset.imageState = 'error'
+    images[1]!.dispatchEvent(new Event('imagestatechange', { bubbles: true }))
+    state.flushFrame()
+    expect(state.lightboxImages.value[1]!.failed).toBe(true)
+    pending.requestLoad!(true)
+    expect(state.lightboxImages.value[1]).toMatchObject({ src: '', pending: true, failed: false })
+    await flushPromises()
+    loader.destroy()
+    expect(state.lightboxOpen.value).toBe(false)
+    expect(state.lightboxImages.value).toEqual([])
+    pending.requestLoad!(true)
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('closes an open gallery when the selected content is replaced', () => {
+    const state = setupMounted('<img src="/ready.png" data-image-state="loaded">')
+    state.article.querySelector('img')!.click()
+    state.article.querySelector('.nv-rich-content')!.innerHTML = '<img src="/replacement.png">'
+    state.prepareImagesForInteraction()
+    expect(state.lightboxOpen.value).toBe(false)
+    expect(state.lightboxImages.value).toEqual([])
+  })
+
   it('carries natural or explicit dimensions into the gallery and omits unknown or invalid sizes', () => {
     const state = setup('<img src="/natural.png" width="20" height="10"><img src="/portrait.png" width="300" height="600" data-image-state="loading"><img src="/unknown.png"><img src="/invalid.png" width="-10" height="20">')
     const images = state.article.querySelectorAll('img')

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { getCurrentQuerySessionSource } from '@/queryAuthScope'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
+import { createAuthSessionScope } from '@/utils/authSessionScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { AUTHENTICATED_IMAGES_RESET_EVENT, createAuthenticatedImageLoader } from '@/utils/authenticatedImageLoader'
 import {
   resolveAuthenticatedFileDisposition,
   resolveAuthenticatedFileRequestPath,
@@ -31,7 +35,7 @@ interface AuthenticatedLinkObject extends AuthenticatedFileDisposition {
   objectUrl: string
 }
 
-let activeController: AbortController | null = null
+let imageLoader: ReturnType<typeof createAuthenticatedImageLoader> | null = null
 let hydrationGeneration = 0
 const objectUrls = new Set<string>()
 const linkObjectUrls = new Map<HTMLAnchorElement, AuthenticatedLinkObject>()
@@ -66,6 +70,9 @@ const renderedHtml = computed(() => {
 
 function releaseAuthenticatedFiles() {
   hydrationGeneration += 1
+  element.value?.dispatchEvent(new Event(AUTHENTICATED_IMAGES_RESET_EVENT, { bubbles: true }))
+  imageLoader?.destroy()
+  imageLoader = null
   imageControllers.forEach((controller) => controller.destroy())
   imageControllers.clear()
   element.value?.querySelectorAll<HTMLImageElement>(`img[${AUTHENTICATED_FILE_SRC_ATTRIBUTE}]`).forEach((image) => {
@@ -74,8 +81,6 @@ function releaseAuthenticatedFiles() {
     image.removeAttribute('srcset')
     delete image.dataset.fallbackApplied
   })
-  activeController?.abort()
-  activeController = null
   linkControllers.forEach((controller) => controller.abort())
   linkControllers.clear()
   linkObjectUrls.clear()
@@ -86,64 +91,26 @@ function releaseAuthenticatedFiles() {
 async function hydrateAuthenticatedFiles() {
   releaseAuthenticatedFiles()
   const generation = hydrationGeneration
+  const source = getCurrentQuerySessionSource()
+  const intent = captureAuthSessionIntent(source)
   await nextTick()
 
-  if (generation !== hydrationGeneration) return
+  if (generation !== hydrationGeneration || !isAuthSessionIntentCurrent(source, intent)) return
   const root = element.value
   if (!root) return
   root.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
     imageControllers.set(image, createImageStateController(image, () => t('common.imageLoadError')))
   })
 
-  const controller = new AbortController()
-  activeController = controller
-  const images = Array.from(
-    root.querySelectorAll<HTMLImageElement>(`img[${AUTHENTICATED_FILE_SRC_ATTRIBUTE}]`),
-  )
-  if (images.length === 0) {
-    activeController = null
-    return
-  }
-
-  const { default: api } = await import('@/api')
-  if (controller.signal.aborted || generation !== hydrationGeneration) return
-
-  const imagesByPath = new Map<string, HTMLImageElement[]>()
-  images.forEach((node) => {
-    const requestPath = node.getAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE)
-    if (!requestPath) return
-    const matchingImages = imagesByPath.get(requestPath) ?? []
-    matchingImages.push(node)
-    imagesByPath.set(requestPath, matchingImages)
-  })
-
-  await Promise.allSettled(Array.from(imagesByPath, async ([requestPath, nodes]) => {
-    try {
-      const response = await api.get<Blob>(requestPath, {
-        responseType: 'blob',
-        signal: controller.signal,
-        skipGlobalErrorHandler: true,
-      })
-      if (controller.signal.aborted || generation !== hydrationGeneration) return
-      const currentNodes = nodes.filter((node) => root.contains(node))
-      if (currentNodes.length === 0) return
-
-      const objectUrl = URL.createObjectURL(response.data)
-      objectUrls.add(objectUrl)
-      currentNodes.forEach((node) => { node.src = objectUrl })
-    } catch {
-      if (controller.signal.aborted || generation !== hydrationGeneration) return
-      nodes.forEach((node) => {
-        if (!root.contains(node)) return
-        if (shouldUseEmoticonFallback(node)) node.src = DEFAULT_EMOTICON_IMAGE_URL
-        else imageControllers.get(node)?.fail()
-      })
+  imageLoader = createAuthenticatedImageLoader(root, (image, state) => {
+    if (state === 'error' && shouldUseEmoticonFallback(image)) {
+      image.src = DEFAULT_EMOTICON_IMAGE_URL
+      imageControllers.get(image)?.refresh({})
+    } else {
+      imageControllers.get(image)?.refresh({ pending: state === 'loading', failed: state === 'error' })
     }
-  }))
-
-  if (activeController === controller) activeController = null
+  })
 }
-
 function shouldUseEmoticonFallback(image: HTMLImageElement): boolean {
   return props.useImageFallback && image.matches('.ql-emoticon, .comment-emoticon, .comment-emoticon-list')
 }
@@ -177,6 +144,7 @@ async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
   if (!requestPath) return
 
   const generation = hydrationGeneration
+  const scope = createAuthSessionScope(getCurrentQuerySessionSource())
   const controller = new AbortController()
   linkControllers.add(controller)
   link.setAttribute('aria-busy', 'true')
@@ -184,12 +152,13 @@ async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
 
   try {
     const { default: api } = await import('@/api')
-    const response = await api.get<Blob>(requestPath, {
+    if (controller.signal.aborted || !scope.isCurrent()) return
+    const response = await api.get<Blob>(requestPath, scope.withRequestConfig({
       responseType: 'blob',
       signal: controller.signal,
       skipGlobalErrorHandler: true,
-    })
-    if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(link)) return
+    }))
+    if (controller.signal.aborted || !scope.isCurrent() || generation !== hydrationGeneration || !root.contains(link)) return
 
     const objectUrl = URL.createObjectURL(response.data)
     const disposition = resolveAuthenticatedFileDisposition(response.headers?.['content-disposition'])
@@ -198,10 +167,11 @@ async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
     linkObjectUrls.set(link, authenticatedLinkObject)
     followAuthenticatedFileLink(link, authenticatedLinkObject, event)
   } catch {
-    if (!controller.signal.aborted && generation === hydrationGeneration && root.contains(link)) {
+    if (!controller.signal.aborted && scope.isCurrent() && generation === hydrationGeneration && root.contains(link)) {
       link.setAttribute('aria-disabled', 'true')
     }
   } finally {
+    scope.dispose()
     linkControllers.delete(controller)
     if (root.contains(link)) link.removeAttribute('aria-busy')
   }
@@ -236,9 +206,9 @@ onMounted(() => {
   void hydrateAuthenticatedFiles()
 })
 
-const stopSessionBoundary = subscribeAuthSessionBoundary(() => {
+const stopSessionBoundary = useAuthSessionReset(() => {
   void hydrateAuthenticatedFiles()
-})
+}, getCurrentQuerySessionSource())
 
 onBeforeUnmount(() => {
   stopSessionBoundary()

@@ -1,6 +1,11 @@
 import { computed, onBeforeUnmount, ref, unref, type MaybeRefOrGetter } from 'vue'
 import type { Router } from 'vue-router'
 import { useEventListener } from '@/composables/useEventListener'
+import {
+  AUTHENTICATED_IMAGE_CHANGE_EVENT,
+  AUTHENTICATED_IMAGES_RESET_EVENT,
+  getAuthenticatedImageResource,
+} from '@/utils/authenticatedImageLoader'
 
 interface CodeCopyLabels {
   copy: string
@@ -16,10 +21,14 @@ interface UseRichContentInteractionsOptions {
 }
 
 export interface RichContentLightboxImage {
+  id?: string
   src: string
   alt: string
   width?: number
   height?: number
+  pending?: boolean
+  failed?: boolean
+  requestLoad?: (retry?: boolean) => void
 }
 
 function imageDimensions(image: HTMLImageElement): { width?: number; height?: number } {
@@ -45,20 +54,92 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   const openedImages = ref<RichContentLightboxImage[]>([])
   const lightboxImages = computed(() => !articleRef.value || resolveBoolean(options.isDisabled) ? [] : openedImages.value)
   const pendingImages = new Set<HTMLImageElement>()
+  const interactionLabels = new WeakMap<HTMLImageElement, string>()
+  const loadCallbacks = new WeakMap<HTMLImageElement, { id: string; requestLoad: (retry?: boolean) => void }>()
+  let openedElements: HTMLImageElement[] = []
   let imageFrame: number | null = null
 
+  function isLinkedImage(image: HTMLImageElement) {
+    return Boolean(image.closest('a[href], a[data-authenticated-file-href]'))
+  }
+
   function prepareImageForInteraction(image: HTMLImageElement, index: number) {
-    if (image.dataset.imageState && image.dataset.imageState !== 'loaded') {
-      image.tabIndex = -1
+    if (isLinkedImage(image) || (image.dataset.imageState && image.dataset.imageState !== 'loaded')) {
+      if (isLinkedImage(image)) image.removeAttribute('tabindex')
+      else image.tabIndex = -1
       image.removeAttribute('role')
       image.removeAttribute('aria-haspopup')
+      if (isLinkedImage(image) && image.getAttribute('aria-label') === interactionLabels.get(image)) {
+        image.removeAttribute('aria-label')
+      }
       return
     }
     if (image.tabIndex === -1) image.removeAttribute('tabindex')
     if (!image.hasAttribute('tabindex')) image.tabIndex = 0
     if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
     image.setAttribute('aria-haspopup', 'dialog')
-    image.setAttribute('aria-label', options.getImageOpenLabel(image.alt.trim(), index))
+    const label = options.getImageOpenLabel(image.alt.trim(), index)
+    interactionLabels.set(image, label)
+    image.setAttribute('aria-label', label)
+  }
+
+  function closeGallery() {
+    lightboxOpen.value = false
+    if (openedImages.value.length > 0) openedImages.value = []
+    openedElements = []
+  }
+
+  function galleryCandidates(images: HTMLImageElement[]) {
+    const existing = new Set(lightboxOpen.value ? openedElements : [])
+    return images.flatMap(element => {
+      if (isLinkedImage(element)) return []
+      const resource = getAuthenticatedImageResource(element)
+      const nativeSrc = element.getAttribute('src')?.trim() ? element.src : ''
+      const src = resource
+        ? resource.src || (resource.failed ? nativeSrc : '')
+        : element.currentSrc || nativeSrc
+      if (!resource && (!src || (element.dataset.imageState === 'error' && !existing.has(element)))) return []
+      const image: RichContentLightboxImage = { src, alt: element.alt.trim(), ...imageDimensions(element) }
+      if (resource) {
+        const cached = loadCallbacks.get(element)
+        let requestLoad = cached?.id === resource.id ? cached.requestLoad : undefined
+        if (!requestLoad) {
+          requestLoad = (retry = false) => {
+            // A callback retained by an old gallery must never load a new owner's image.
+            if (getAuthenticatedImageResource(element) !== resource || !articleRef.value?.contains(element)) return
+            resource.requestLoad(retry)
+            refreshOpenedImages()
+          }
+          loadCallbacks.set(element, { id: resource.id, requestLoad })
+        }
+        Object.assign(image, {
+          id: resource.id,
+          pending: resource.pending,
+          failed: (resource.failed && !src) || (!resource.pending && element.dataset.imageState === 'error'),
+          requestLoad,
+        })
+      }
+      return [{ element, image }]
+    })
+  }
+
+  function refreshOpenedImages(images?: HTMLImageElement[]) {
+    if (!lightboxOpen.value) return
+    if (!articleRef.value || resolveBoolean(options.isDisabled)) { closeGallery(); return }
+    const selected = openedElements[lightboxIndex.value]
+    const candidates = galleryCandidates(images ?? Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img')))
+    const index = candidates.findIndex(candidate => candidate.element === selected)
+    if (index < 0) { closeGallery(); return }
+    const next = candidates.map(candidate => candidate.image)
+    const changed = next.length !== openedImages.value.length || next.some((image, i) => {
+      const previous = openedImages.value[i]
+      return !previous || (Object.keys(image) as Array<keyof RichContentLightboxImage>)
+        .some(key => image[key] !== previous[key])
+        || Object.keys(image).length !== Object.keys(previous).length
+    })
+    openedElements = candidates.map(candidate => candidate.element)
+    if (changed) openedImages.value = next
+    if (lightboxIndex.value !== index) lightboxIndex.value = index
   }
 
   function cancelImagePreparation() {
@@ -69,8 +150,10 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
 
   function prepareImagesForInteraction() {
     cancelImagePreparation()
-    if (!articleRef.value || resolveBoolean(options.isDisabled)) return
-    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach(prepareImageForInteraction)
+    if (!articleRef.value || resolveBoolean(options.isDisabled)) { closeGallery(); return }
+    const images = Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img'))
+    images.forEach(prepareImageForInteraction)
+    refreshOpenedImages(images)
   }
 
   function scheduleImagePreparation(event: Event) {
@@ -85,13 +168,17 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
       pendingImages.clear()
       if (!articleRef.value || resolveBoolean(options.isDisabled)) return
       // Enumerate once per frame to retain label indices after content changes.
-      articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((candidate, index) => {
+      const candidates = Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img'))
+      candidates.forEach((candidate, index) => {
         if (images.has(candidate)) prepareImageForInteraction(candidate, index)
       })
+      refreshOpenedImages(candidates)
     })
   }
 
   useEventListener(articleRef, 'imagestatechange', scheduleImagePreparation)
+  useEventListener(articleRef, AUTHENTICATED_IMAGE_CHANGE_EVENT, scheduleImagePreparation)
+  useEventListener(articleRef, AUTHENTICATED_IMAGES_RESET_EVENT, closeGallery)
   onBeforeUnmount(cancelImagePreparation)
 
   function navigateToMention(target: EventTarget | null): boolean {
@@ -136,24 +223,15 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   function openImageLightbox(target: EventTarget | null): boolean {
     const image = (target as HTMLElement | null)?.closest?.('img')
     if (!(image instanceof HTMLImageElement)) return false
+    if (isLinkedImage(image)) return false
     if (image.dataset.imageState && image.dataset.imageState !== 'loaded') return false
 
-    const images = Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? [])
-      .map((candidate) => ({
-        element: candidate,
-        src: candidate.currentSrc || (candidate.getAttribute('src')?.trim() ? candidate.src : ''),
-        alt: candidate.alt.trim(),
-        dimensions: imageDimensions(candidate),
-      }))
-      .filter((candidate) => Boolean(candidate.src) && candidate.element.dataset.imageState !== 'error')
+    const images = galleryCandidates(Array.from(articleRef.value?.querySelectorAll<HTMLImageElement>('.nv-rich-content img') ?? []))
     const index = images.findIndex((candidate) => candidate.element === image)
     if (index < 0) return false
 
-    openedImages.value = images.map((candidate) => ({
-      src: candidate.src,
-      alt: candidate.alt,
-      ...candidate.dimensions,
-    }))
+    openedElements = images.map(candidate => candidate.element)
+    openedImages.value = images.map(candidate => candidate.image)
     image.focus({ preventScroll: true })
     lightboxIndex.value = index
     lightboxOpen.value = true
