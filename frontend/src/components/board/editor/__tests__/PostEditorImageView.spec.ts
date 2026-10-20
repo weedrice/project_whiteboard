@@ -77,11 +77,19 @@ describe('PostEditorImageView', () => {
       'data-server-src': '/api/v1/files/42',
     })
     expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
     await flushPromises()
     expect(mocks.get).toHaveBeenCalledWith('/files/42', expect.objectContaining({
       responseType: 'blob', signal: expect.any(AbortSignal), skipGlobalErrorHandler: true,
     }))
     expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    Object.defineProperties(wrapper.get('img').element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await wrapper.get('img').trigger('load')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loaded')
     expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
     expect(wrapper.props('node').attrs['data-server-src']).toBe('/api/v1/files/42')
     expect(updateAttributes).not.toHaveBeenCalled()
@@ -136,6 +144,7 @@ describe('PostEditorImageView', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:authenticated')
     expect(mocks.get).toHaveBeenCalledTimes(2)
     expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
   })
 
   it('discards an earlier session response even when its request resolves after cancellation', async () => {

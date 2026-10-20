@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
 import { postEditorImageReplacementKey } from '@/features/board/posts/editor/usePostEditorImageReplacement'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
@@ -58,6 +59,8 @@ const measuredImageWidthPercent = ref<number | null>(null)
 const measuredContainerWidth = ref<number | null>(null)
 
 const authenticatedImageUrl = ref<string | null>(null)
+const imagePending = ref(false)
+const imageFailed = ref(false)
 const imageSource = computed(() => String(props.node.attrs.src ?? ''))
 const imageRequestPath = computed(() => resolveAuthenticatedFileRequestPath(imageSource.value))
 const displayedImageSource = computed(() => imageRequestPath.value
@@ -70,12 +73,15 @@ function releaseAuthenticatedImage() {
   imageController = null
   if (authenticatedImageUrl.value) URL.revokeObjectURL(authenticatedImageUrl.value)
   authenticatedImageUrl.value = null
+  imagePending.value = false
+  imageFailed.value = false
 }
 
 async function loadAuthenticatedImage() {
   releaseAuthenticatedImage()
   const path = imageRequestPath.value
   if (!path) return
+  imagePending.value = true
   const controller = new AbortController()
   imageController = controller
   try {
@@ -90,9 +96,12 @@ async function loadAuthenticatedImage() {
       authenticatedImageUrl.value = URL.createObjectURL(response.data)
     }
   } catch {
-    // Keep inaccessible images hidden without changing the saved document.
+    if (!controller.signal.aborted) imageFailed.value = true
   } finally {
-    if (imageController === controller) imageController = null
+    if (imageController === controller) {
+      imageController = null
+      imagePending.value = false
+    }
   }
 }
 
@@ -453,7 +462,7 @@ onBeforeUnmount(() => {
     ]"
     :style="wrapperStyle"
   >
-    <img
+    <img v-image-state="{ pending: imagePending, failed: imageFailed }"
       :src="displayedImageSource"
       :alt="props.node.attrs.alt ?? ''"
       :title="props.node.attrs.title ?? undefined"

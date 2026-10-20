@@ -1,17 +1,18 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import api from '@/api'
 import type { InquiryAttachment } from '@/types/inquiry'
 import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
-import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { createAuthSessionScope } from '@/utils/authSessionScope'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 const props = defineProps<{ attachment: InquiryAttachment }>()
-const { t } = useI18n()
 const authStore = useAuthStore()
 const objectUrl = ref<string | null>(null)
+const pending = ref(false)
+const failed = ref(false)
 let controller: AbortController | null = null
 
 function release() {
@@ -19,12 +20,16 @@ function release() {
   controller = null
   if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
   objectUrl.value = null
+  pending.value = false
+  failed.value = true
 }
 
 async function load() {
   release()
   const path = resolveAuthenticatedFileRequestPath(props.attachment.url)
   if (!path) return
+  pending.value = true
+  failed.value = false
   const scope = createAuthSessionScope(authStore)
   const current = new AbortController()
   controller = current
@@ -36,10 +41,13 @@ async function load() {
     }))
     if (!current.signal.aborted && scope.isCurrent()) objectUrl.value = URL.createObjectURL(response.data)
   } catch {
-    // Keep the inaccessible image hidden; the surrounding inquiry remains readable.
+    if (!current.signal.aborted && scope.isCurrent()) failed.value = true
   } finally {
     scope.dispose()
-    if (controller === current) controller = null
+    if (controller === current) {
+      controller = null
+      pending.value = false
+    }
   }
 }
 
@@ -49,8 +57,7 @@ onBeforeUnmount(release)
 </script>
 
 <template>
-  <a v-if="objectUrl" :href="objectUrl" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border nv-border">
-    <img :src="objectUrl" :alt="attachment.originalName" class="aspect-video h-full w-full object-cover" loading="lazy">
+  <a :href="objectUrl ?? undefined" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border nv-border">
+    <img v-image-state="{ pending, failed }" :src="objectUrl ?? undefined" :alt="attachment.originalName" class="aspect-video h-full w-full object-cover" loading="lazy">
   </a>
-  <div v-else class="flex aspect-video items-center justify-center rounded-lg border nv-border text-xs nv-text-muted">{{ t('inquiry.common.image') }}</div>
 </template>

@@ -21,6 +21,40 @@ afterEach(() => {
 })
 
 describe('ImageLightbox', () => {
+  it('only zooms a decoded image and resets when navigating to the next image', async () => {
+    const wrapper = mount(ImageLightbox, {
+      props: {
+        isOpen: true,
+        images: [{ src: '/one.png', alt: 'First' }, { src: '/two.png', alt: 'Second' }],
+      },
+      global: { mocks: { $t: (key: string) => key }, stubs: { Teleport: true } },
+    })
+    let image = wrapper.get('img')
+    image.element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await nextTick()
+    expect(image.attributes('style')).toContain('scale(1)')
+    Object.defineProperties(image.element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await image.trigger('load')
+    expect(image.attributes('data-image-state')).toBe('loaded')
+    image.element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await nextTick()
+    expect(wrapper.get('img').attributes('style')).toContain('scale(2)')
+
+    image = wrapper.get('img')
+    Object.defineProperty(image.element, 'complete', { configurable: true, value: false })
+    await wrapper.get('[aria-label="common.next"]').trigger('click')
+    image = wrapper.get('img')
+    expect(image.attributes('data-image-state')).toBe('loading')
+    expect(image.attributes('style')).toContain('scale(1)')
+    image.element.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    await nextTick()
+    expect(image.attributes('style')).toContain('scale(1)')
+    wrapper.unmount()
+  })
+
   it.each([true, false])('closes only the image viewer on Escape (initially open: %s)', async (initiallyOpen) => {
     const isOpen = ref(initiallyOpen)
     const goToList = vi.fn()

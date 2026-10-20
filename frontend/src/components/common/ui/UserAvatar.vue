@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { vImageState } from '@/directives/imageState'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   imageUrl?: string | null
@@ -15,9 +16,17 @@ const props = withDefaults(defineProps<{
   fallbackClass: 'text-xs font-semibold',
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'image-error', event: Event): void
 }>()
+
+const imageFailed = ref(false)
+watch(() => props.imageUrl, () => { imageFailed.value = false }, { flush: 'sync' })
+
+function handleImageError(event: Event) {
+  imageFailed.value = true
+  emit('image-error', event)
+}
 
 const fallbackInitial = computed(() => {
   const name = props.name?.trim()
@@ -30,14 +39,14 @@ const fallbackInitial = computed(() => {
     class="flex shrink-0 items-center justify-center overflow-hidden rounded-full nv-avatar-fallback"
     :class="sizeClass"
   >
-    <img
-      v-if="imageUrl"
+    <img v-image-state
+      v-if="imageUrl && !imageFailed"
       :src="imageUrl"
       :alt="alt"
       decoding="async"
       class="h-full w-full"
       :class="imageClass"
-      @error="$emit('image-error', $event)"
+      @error="handleImageError"
     />
     <span v-else :class="fallbackClass">{{ fallbackInitial }}</span>
   </div>

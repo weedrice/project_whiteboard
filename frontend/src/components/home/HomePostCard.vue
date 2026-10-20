@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -165,7 +166,7 @@ watch(() => props.post.postId, () => {
         @click="navigateToBoard"
       >
         <div class="flex-shrink-0">
-          <img
+          <img v-image-state
             v-if="post.boardIconUrl"
             :src="getOptimizedBoardIconUrl(post.boardIconUrl)"
             alt=""
@@ -265,7 +266,7 @@ watch(() => props.post.postId, () => {
         :aria-label="hasWholeCardLink ? undefined : post.title"
         @click.stop="navigateLinkedContentToPost"
       >
-        <img
+        <img v-image-state
           :src="getOptimizedPostImageUrl(showFirstImageUrl)"
           alt=""
           class="rounded-[inherit]"

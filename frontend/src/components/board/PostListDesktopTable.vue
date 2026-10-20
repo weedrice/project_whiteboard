@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -59,7 +60,9 @@ const PREVIEW_GAP = 8
 const VIEWPORT_MARGIN = 8
 
 const hoverPreview = ref<{
-  url: string
+  url?: string
+  pending?: boolean
+  failed?: boolean
   left: number
   top: number
 } | null>(null)
@@ -98,6 +101,7 @@ function showImagePreview(event: Event, item: PostSummary) {
   }
 
   const generation = previewGeneration
+  hoverPreview.value = { left, top, pending: true }
   const controller = new AbortController()
   previewController = controller
   void loadAuthenticatedPreview(requestPath, left, top, controller, generation)
@@ -136,7 +140,9 @@ async function loadAuthenticatedPreview(
     previewObjectUrls.set(requestPath, objectUrl)
     hoverPreview.value = { url: objectUrl, left, top }
   } catch {
-    if (!controller.signal.aborted && generation === previewGeneration) hoverPreview.value = null
+    if (!controller.signal.aborted && generation === previewGeneration) {
+      hoverPreview.value = { left, top, failed: true }
+    }
   } finally {
     if (previewController === controller) previewController = null
   }
@@ -283,11 +289,10 @@ onBeforeUnmount(() => {
         }"
         aria-hidden="true"
       >
-        <img
+        <img v-image-state="{ pending: hoverPreview.pending, failed: hoverPreview.failed }"
           :src="hoverPreview.url"
           alt=""
           decoding="async"
-          @error="hideImagePreview"
         />
       </div>
     </Teleport>

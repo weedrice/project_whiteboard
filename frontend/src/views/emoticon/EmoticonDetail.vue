@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
@@ -131,7 +132,7 @@ useHead({
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
             <div class="w-40 h-40 nv-surface-muted rounded-lg overflow-hidden">
-              <img :src="emoticonView.thumbnailSrc" :alt="emoticonView.name" decoding="async"
+              <img v-image-state :src="emoticonView.thumbnailSrc" :alt="emoticonView.name" decoding="async"
                 class="w-full h-full object-contain" @error="applyImageFallback" />
             </div>
           </div>
@@ -190,7 +191,7 @@ useHead({
           class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3">
           <div v-for="image in emoticonView.imageItems" :key="image.imageId"
             class="aspect-square w-full nv-surface-muted rounded-lg overflow-hidden">
-            <img :src="image.src" :alt="image.alt" loading="lazy" decoding="async"
+            <img v-image-state :src="image.src" :alt="image.alt" loading="lazy" decoding="async"
               class="w-full h-full object-contain" @error="applyImageFallback" />
           </div>
         </div>
