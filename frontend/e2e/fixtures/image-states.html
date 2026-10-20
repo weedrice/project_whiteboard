@@ -22,6 +22,18 @@
       const fixture = defineComponent({
         setup() {
           const mode = new URLSearchParams(location.search)
+          if (mode.has('errorContrast')) {
+            const source = ref('/image-test/contrast-missing.svg')
+            const image = (id, width, height) => withDirectives(h('img', {
+              id, src: source.value, alt: 'Unavailable image', width, height,
+              ...(id === 'contrast-large' ? { tabindex: 0, role: 'button' } : {}),
+              style: 'display:block;border-radius:8px;object-fit:cover',
+            }), [[vImageState]])
+            return () => h('main', [
+              image('contrast-large', 400, 200), image('contrast-small', 32, 32),
+              h('button', { onClick: () => { source.value = '/image-test/contrast-recovered.svg' } }, 'Recover contrast images'),
+            ])
+          }
           if (mode.has('imageAccessibility')) {
             const source = ref('/image-test/accessibility-missing.svg')
             const image = (attrs) => withDirectives(h('img', {

@@ -472,3 +472,85 @@ test('failed images preserve decorative roles and author-provided accessible nam
   await expect(page.locator('#reference-link')).toHaveAccessibleName('Reference label')
   await expect(page.locator('#reference-link img')).not.toHaveAttribute('title')
 })
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`forced colors ${colorScheme} keeps error text, small icons and keyboard focus visible against the opposite app theme`, async ({ page, browserName }, testInfo) => {
+    test.skip(browserName !== 'chromium', 'Windows forced colors are verified in Chromium.')
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    await page.emulateMedia({ forcedColors: 'active', colorScheme })
+    await page.route('**/image-test/contrast-missing.svg', (route) => route.fulfill({ status: 404, body: '' }))
+    await page.route('**/image-test/contrast-recovered.svg', async (route) => {
+      await gate
+      await route.fulfill({ contentType: 'image/svg+xml', body: svg })
+    })
+    try {
+      await page.goto('/e2e/fixtures/image-states.html?errorContrast', { waitUntil: 'domcontentloaded' })
+      await page.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), colorScheme === 'light')
+      const large = page.locator('#contrast-large')
+      const small = page.locator('#contrast-small')
+      await expect(large).toHaveAttribute('data-image-state', 'error')
+      await expect(small).toHaveAttribute('data-image-state', 'error')
+      await expect.poll(() => large.evaluate((image) => image.style.getPropertyValue('--nv-image-error-symbol'))).not.toBe('')
+      const foreground = colorScheme === 'light' ? 0 : 255
+      const background = 255 - foreground
+      // Decode browser screenshots with the browser canvas, without image-processing dependencies.
+      const pixels = async (selector: string, filename: string) => {
+        const png = await page.locator(selector).screenshot({ path: testInfo.outputPath(filename) })
+        return page.evaluate(async ({ data, foreground }) => {
+          const bitmap = new Image()
+          bitmap.src = data
+          await bitmap.decode()
+          const canvas = document.createElement('canvas')
+          canvas.width = bitmap.width
+          canvas.height = bitmap.height
+          const context = canvas.getContext('2d')!
+          context.drawImage(bitmap, 0, 0)
+          const pixel = (x: number, y: number) => Array.from(context.getImageData(x, y, 1, 1).data).slice(0, 3)
+          const count = (top: number, bottom: number) => {
+            const rgba = context.getImageData(0, top, bitmap.width, bottom - top).data
+            let result = 0
+            for (let i = 0; i < rgba.length; i += 4) {
+              // Allow antialiased glyph edges, still well above 7:1 against the canvas.
+              if (Math.abs(rgba[i]! - foreground) <= 64 && Math.abs(rgba[i + 1]! - foreground) <= 64 && Math.abs(rgba[i + 2]! - foreground) <= 64) result++
+            }
+            return result
+          }
+          return {
+            icon: bitmap.width > 100 ? count(68, 102) : count(0, bitmap.height),
+            text: bitmap.width > 100 ? count(102, 140) : 0,
+            edge: pixel(Math.floor(bitmap.width / 2), 1),
+            empty: pixel(10, 10),
+          }
+        }, { data: 'data:image/png;base64,' + png.toString('base64'), foreground })
+      }
+      const normal = await pixels('#contrast-large', 'error-large.png')
+      expect(normal.icon).toBeGreaterThan(20)
+      expect(normal.text).toBeGreaterThan(20)
+      expect(normal.empty).toEqual([background, background, background])
+      expect((await pixels('#contrast-small', 'error-small.png')).icon).toBeGreaterThan(5)
+      await page.keyboard.press('Tab')
+      await expect(large).toBeFocused()
+      const focused = await pixels('#contrast-large', 'error-focused.png')
+      expect(focused.edge).toEqual([foreground, foreground, foreground])
+      expect(focused.empty).toEqual([background, background, background])
+      await expect(large).toHaveCSS('border-radius', '8px')
+      await expect(large).toHaveCSS('object-fit', 'cover')
+      // Switching the app theme while forced colors are active cannot select a low-contrast SVG.
+      await page.evaluate(() => document.documentElement.classList.toggle('dark'))
+      expect((await pixels('#contrast-small', 'error-small-theme-change.png')).icon).toBeGreaterThan(5)
+      await page.getByRole('button', { name: 'Recover contrast images' }).click()
+      await expect(large).toHaveAttribute('data-image-state', 'loading')
+      await expect(large).toHaveCSS('mask-image', 'none')
+      release()
+      await expect(large).toHaveAttribute('data-image-state', 'loaded')
+      await expect(small).toHaveAttribute('data-image-state', 'loaded')
+      await expect(large).toHaveCSS('mask-image', 'none')
+      await expect(large).toHaveCSS('forced-color-adjust', 'auto')
+      await expect(large).toHaveCSS('border-radius', '8px')
+      await expect(large).toHaveCSS('object-fit', 'cover')
+    } finally {
+      release()
+    }
+  })
+}

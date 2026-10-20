@@ -39,6 +39,25 @@ img[data-image-state="error"] {
     background-image: var(--nv-image-error-symbol-dark, ${darkErrorImage});
   }
 }
+@media (forced-colors: active) {
+  img[data-image-state="error"] {
+    /* Reuse SVG alpha as a mask; its fixed theme colors must not override OS contrast colors. */
+    forced-color-adjust: none;
+    background-image: none !important;
+    background-color: CanvasText !important;
+    mask-image: var(--nv-image-error-symbol, ${errorImage});
+    mask-mode: alpha;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: var(--nv-image-error-size, min(60%, 36px));
+  }
+  img[data-image-state="error"]:focus-visible {
+    /* An element mask clips outer outlines, so retain a visible inset focus ring. */
+    mask-image: var(--nv-image-error-symbol, ${errorImage}), linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+    mask-size: var(--nv-image-error-size, min(60%, 36px)), 100% 100%, calc(100% - 4px) calc(100% - 4px);
+    mask-composite: add, exclude, add;
+  }
+}
 @keyframes nv-image-loading {
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
