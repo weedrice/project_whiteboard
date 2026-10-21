@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { vImageState } from '@/directives/imageState'
-import { computed, nextTick, ref, toRef, useId, watch } from 'vue'
+import { computed, nextTick, ref, toRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@/composables/useEventListener'
@@ -33,8 +33,6 @@ const emit = defineEmits<{
   (e: 'update:index', value: number): void
 }>()
 
-const controlsHintId = useId()
-const imageRef = ref<HTMLImageElement | null>(null)
 const dialogRef = ref<HTMLElement | null>(null)
 const overlayRef = ref<HTMLElement | null>(null)
 const { t } = useI18n()
@@ -118,10 +116,6 @@ function go(delta: number) {
 
 const {
   imageTransform,
-  imageScale,
-  zoomBy,
-  panBy,
-  clampImageOffset,
   resetImageTransform,
   handleImagePointerDown,
   handleImagePointerMove,
@@ -139,24 +133,9 @@ function handleZoom(event: Event) {
   toggleZoom()
 }
 
-function changeZoom(delta: number) {
-  if (imageState.value === 'loaded') zoomBy(delta, imageRef.value)
-}
-
 function handleKeydown(event: KeyboardEvent) {
   if (!props.isOpen || !isTopDialog.value || event.defaultPrevented || isComposingKeyboardEvent(event)
     || event.altKey || event.ctrlKey || event.metaKey) return
-  if (imageScale.value > 1 && imageState.value === 'loaded') {
-    const movement: Record<string, [number, number]> = {
-      ArrowLeft: [48, 0], ArrowRight: [-48, 0], ArrowUp: [0, 48], ArrowDown: [0, -48],
-    }
-    const delta = movement[event.key]
-    if (delta) {
-      event.preventDefault()
-      panBy(...delta, imageRef.value)
-    }
-    return
-  }
   if (event.key === 'ArrowLeft') {
     event.preventDefault()
     go(-1)
@@ -198,26 +177,6 @@ watch([() => props.isOpen, currentIndex, () => currentImage.value?.id ?? current
   if (props.isOpen) currentImage.value?.requestLoad?.()
 }, { immediate: true })
 
-watch([imageRef, () => props.isOpen], ([image, open], _, onCleanup) => {
-  if (!image || !open) return
-  let frame: number | null = null
-  const updateBounds = () => {
-    if (frame !== null) return
-    frame = window.requestAnimationFrame(() => {
-      frame = null
-      if (props.isOpen && imageRef.value === image) clampImageOffset(image)
-    })
-  }
-  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateBounds)
-  observer?.observe(image)
-  window.addEventListener('resize', updateBounds)
-  onCleanup(() => {
-    observer?.disconnect()
-    window.removeEventListener('resize', updateBounds)
-    if (frame !== null) window.cancelAnimationFrame(frame)
-  })
-}, { flush: 'post' })
-
 useEventListener(() => document, 'keydown', handleKeydown)
 
 </script>
@@ -233,7 +192,6 @@ useEventListener(() => document, 'keydown', handleKeydown)
       :aria-hidden="isTopDialog ? undefined : 'true'"
       :inert="isTopDialog ? undefined : true"
       :aria-label="title"
-      :aria-describedby="controlsHintId"
       @click.self="close"
     >
       <div ref="dialogRef" class="nv-dialog-surface nv-dialog-surface--media relative flex h-full w-full max-w-6xl items-center justify-center">
@@ -258,7 +216,6 @@ useEventListener(() => document, 'keydown', handleKeydown)
         </button>
 
         <img v-image-state="{ pending: imagePending, failed: currentImage.failed }"
-          ref="imageRef"
           v-if="currentImage"
           :key="imageKey"
           :data-viewer-key="imageKey"
@@ -290,30 +247,7 @@ useEventListener(() => document, 'keydown', handleKeydown)
           >
             {{ retrying ? t('common.imageRetrying') : t('common.imageRetry') }}
           </button>
-          <div class="flex items-center gap-1 rounded-full bg-[var(--nv-media-control-bg)] p-1 text-[var(--nv-on-media)]">
-            <button
-              type="button"
-              class="lightbox-zoom-control text-xl"
-              :aria-label="t('common.imageZoomOut')"
-              :aria-disabled="imageState !== 'loaded' || imageScale <= 1 ? 'true' : undefined"
-              @click="changeZoom(-0.5)"
-            >−</button>
-            <button
-              type="button"
-              class="lightbox-zoom-control px-3 text-sm"
-              :aria-disabled="imageState !== 'loaded' || imageScale <= 1 ? 'true' : undefined"
-              @click="imageState === 'loaded' && resetImageTransform()"
-            >{{ t('common.imageZoomReset') }}</button>
-            <button
-              type="button"
-              class="lightbox-zoom-control text-xl"
-              :aria-label="t('common.imageZoomIn')"
-              :aria-disabled="imageState !== 'loaded' || imageScale >= 4 ? 'true' : undefined"
-              @click="changeZoom(0.5)"
-            >+</button>
-          </div>
         </div>
-        <p :id="controlsHintId" class="sr-only">{{ t('common.imageControlsHint') }}</p>
         <span role="status" aria-live="polite" aria-atomic="true" class="sr-only">{{ statusLabel }}</span>
 
         <button
@@ -341,25 +275,5 @@ useEventListener(() => document, 'keydown', handleKeydown)
 .lightbox-image {
   max-height: 88vh;
   max-height: 88dvh;
-}
-.lightbox-zoom-control {
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 9999px;
-  cursor: pointer;
-}
-.lightbox-zoom-control:hover:not([aria-disabled="true"]) {
-  background: color-mix(in srgb, var(--nv-on-media) 12%, transparent);
-}
-.lightbox-zoom-control:active:not([aria-disabled="true"]) {
-  background: color-mix(in srgb, var(--nv-on-media) 20%, transparent);
-}
-.lightbox-zoom-control:focus-visible {
-  outline: 2px solid var(--nv-on-media);
-  outline-offset: 2px;
-}
-.lightbox-zoom-control[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 </style>

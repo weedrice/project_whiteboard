@@ -146,18 +146,6 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     finishPointer(event, true)
   }
 
-  function zoomBy(delta: number, target: HTMLImageElement | null) {
-    imageScale.value = clampScale(imageScale.value + delta)
-    clampImageOffset(target)
-  }
-
-  function panBy(x: number, y: number, target: HTMLImageElement | null) {
-    if (imageScale.value <= 1) return
-    imageOffset.x += x
-    imageOffset.y += y
-    clampImageOffset(target)
-  }
-
   function toggleZoom() {
     if (imageScale.value > 1) {
       resetImageTransform()
@@ -168,10 +156,6 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
 
   return {
     imageTransform,
-    clampImageOffset,
-    imageScale,
-    zoomBy,
-    panBy,
     resetImageTransform,
     handleImagePointerDown,
     handleImagePointerMove,
