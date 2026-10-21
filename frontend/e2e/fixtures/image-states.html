@@ -6,11 +6,13 @@
     <script type="module">
       import { createApp, defineComponent, h, onMounted, ref, withDirectives } from 'vue'
       import { createPinia } from 'pinia'
+      import { RouterLink } from 'vue-router'
       import { configureApiStoreResolvers } from '../../src/api'
       import { useAuthStore } from '../../src/stores/auth'
       import { vImageState } from '../../src/directives/imageState'
       import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
       import SandboxedHtmlFrame from '../../src/components/common/SandboxedHtmlFrame.vue'
+      import PostListDesktopTable from '../../src/components/board/PostListDesktopTable.vue'
       import ImageLightbox from '../../src/components/common/ui/ImageLightbox.vue'
       import AuthenticatedInquiryImage from '../../src/components/inquiry/AuthenticatedInquiryImage.vue'
       import { useRichContentInteractions } from '../../src/features/board/posts/detail/useRichContentInteractions'
@@ -22,6 +24,17 @@
       const fixture = defineComponent({
         setup() {
           const mode = new URLSearchParams(location.search)
+          if (mode.has('hoverRecovery')) {
+            return () => h(PostListDesktopTable, {
+              posts: [{ postId: 1, title: 'Hover recovery', thumbnailUrl: '/api/v1/files/876/variants/thumbnail', createdAt: '2026-01-01', author: { userId: 1, displayName: 'Author' } }],
+              loading: false, columns: [{ key: 'title', label: 'Title' }], activeSortKey: null, activeSortDirection: null,
+              showNoticeBadge: false, showCommentCount: false, showPreviewIndicator: true, showSecretIndicator: false,
+              density: 'default', maxAuthorNameLength: 10, getRowClass: () => '', shouldInterceptInquiry: () => false,
+              hasBoardRouteTarget: () => false, getBoardLinkTarget: () => '/', getTitleTag: () => 'span', getTitleProps: () => ({}),
+              shouldShowInquiryStatus: () => false, hasInteractiveAuthor: () => false, getAuthorName: () => 'Author',
+              getVisibleAuthorName: () => 'Author', isAgentAuthor: () => false, onNavigationClick: () => {},
+            })
+          }
           if (mode.has('errorContrast')) {
             const source = ref('/image-test/contrast-missing.svg')
             const image = (id, width, height) => withDirectives(h('img', {
@@ -135,6 +148,7 @@
       const app = createApp(fixture).use(i18n)
       const pinia = createPinia()
       app.use(pinia)
+      app.component('RouterLink', RouterLink)
       configureApiStoreResolvers({ resolveAuthStore: () => useAuthStore(pinia) })
       app.mount('#app')
     </script>

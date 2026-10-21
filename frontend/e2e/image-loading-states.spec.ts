@@ -554,3 +554,27 @@ for (const colorScheme of ['light', 'dark'] as const) {
     }
   })
 }
+
+test('hover previews recover from undecodable cached blobs on the next hover', async ({ page }) => {
+  let requests = 0
+  await page.route('**/api/v1/files/876/variants/thumbnail', async route => {
+    requests += 1
+    await route.fulfill({ contentType: 'image/svg+xml', body: requests === 1 ? 'invalid image bytes' : svg })
+  })
+  await page.goto('/e2e/fixtures/image-states.html?hoverRecovery')
+  const title = page.locator('.nv-post-title-cell')
+  const image = page.locator('.nv-post-hover-preview img')
+  await title.hover()
+  await expect(image).toHaveAttribute('data-image-state', 'error')
+  expect(requests).toBe(1)
+  await page.mouse.move(0, 500)
+  await expect(image).toHaveCount(0)
+  await title.hover()
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  expect(requests).toBe(2)
+  await page.mouse.move(0, 500)
+  await expect(image).toHaveCount(0)
+  await title.hover()
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  expect(requests).toBe(2)
+})

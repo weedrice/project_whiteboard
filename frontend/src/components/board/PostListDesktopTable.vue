@@ -61,6 +61,7 @@ const VIEWPORT_MARGIN = 8
 
 const hoverPreview = ref<{
   url?: string
+  requestPath?: string
   pending?: boolean
   failed?: boolean
   left: number
@@ -96,7 +97,7 @@ function showImagePreview(event: Event, item: PostSummary) {
 
   const cachedObjectUrl = previewObjectUrls.get(requestPath)
   if (cachedObjectUrl) {
-    hoverPreview.value = { url: cachedObjectUrl, left, top }
+    hoverPreview.value = { url: cachedObjectUrl, requestPath, left, top }
     return
   }
 
@@ -105,6 +106,19 @@ function showImagePreview(event: Event, item: PostSummary) {
   const controller = new AbortController()
   previewController = controller
   void loadAuthenticatedPreview(requestPath, left, top, controller, generation)
+}
+
+function handlePreviewError(event: Event) {
+  const image = event.currentTarget
+  const preview = hoverPreview.value
+  if (!(image instanceof HTMLImageElement) || !preview?.requestPath || !preview.url
+    || image.dataset.previewGeneration !== String(previewGeneration)
+    || image.getAttribute('src') !== preview.url
+    || previewObjectUrls.get(preview.requestPath) !== preview.url) return
+
+  previewObjectUrls.delete(preview.requestPath)
+  URL.revokeObjectURL(preview.url)
+  hoverPreview.value = { left: preview.left, top: preview.top, failed: true }
 }
 
 function hideImagePreview() {
@@ -138,7 +152,7 @@ async function loadAuthenticatedPreview(
 
     const objectUrl = URL.createObjectURL(response.data)
     previewObjectUrls.set(requestPath, objectUrl)
-    hoverPreview.value = { url: objectUrl, left, top }
+    hoverPreview.value = { url: objectUrl, requestPath, left, top }
   } catch {
     if (!controller.signal.aborted && generation === previewGeneration) {
       hoverPreview.value = { left, top, failed: true }
@@ -290,7 +304,10 @@ onBeforeUnmount(() => {
         aria-hidden="true"
       >
         <img v-image-state="{ pending: hoverPreview.pending, failed: hoverPreview.failed }"
+          :key="previewGeneration"
+          :data-preview-generation="previewGeneration"
           :src="hoverPreview.url"
+          @error="handlePreviewError"
           alt=""
           decoding="async"
         />
