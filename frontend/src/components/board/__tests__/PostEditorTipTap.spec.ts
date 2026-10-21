@@ -40,6 +40,10 @@ describe('PostEditorTipTap', () => {
 
         triggerEditorUpdate()
         expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['<p>editor-html</p>'])
+        const serializationDocument = mocks.editor.schema.cached.domSerializer.serializeFragment.mock.calls[0]?.[1].document
+        expect(serializationDocument).toBeInstanceOf(Document)
+        expect(serializationDocument).not.toBe(document)
+        expect(serializationDocument?.defaultView).toBeNull()
 
         await wrapper.setProps({ modelValue: '<p>remote</p>' })
         expect(mocks.editor.commands.setContent).toHaveBeenCalledWith('<p>remote</p>', { emitUpdate: false })
