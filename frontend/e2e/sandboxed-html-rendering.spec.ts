@@ -455,18 +455,44 @@ test('loading skeletons pause offscreen and resume after scrolling and cached-pa
   await expect(bottom).not.toHaveAttribute('data-image-offscreen')
 })
 
-test('sandbox error symbols follow system theme changes and explicit dark documents', async ({ page }) => {
+test('sandbox error symbols and surfaces retain contrast across system and explicit themes', async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: 'light' })
-  const sandbox = await loadSandbox(page, '<img id="error" src="data:image/png,invalid" width="32" height="32">', 800, 500)
+  const loadedImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="green"/></svg>')
+  const sandbox = await loadSandbox(page, '<p id="text">Author content</p>'
+    + '<img id="error" src="data:image/png,invalid" width="32" height="32">'
+    + '<img id="loaded" src="' + loadedImage + '" width="32" height="32">', 800, 500)
   const image = sandbox.locator('#error')
   await expect(image).toHaveAttribute('data-image-state', 'error')
-  const background = () => image.evaluate((element) => decodeURIComponent(getComputedStyle(element).backgroundImage))
-  await expect.poll(background).toContain('#3a3a3a')
+  await expect(sandbox.locator('#loaded')).toHaveAttribute('data-image-state', 'loaded')
+  const symbol = () => image.evaluate((element) => decodeURIComponent(getComputedStyle(element).backgroundImage))
+  const contrast = () => image.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const foreground = decodeURIComponent(style.backgroundImage).match(/stroke="(#[0-9a-f]{6})"/i)![1]!
+    const linear = (value: number) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    const luminance = (channels: number[]) => channels.reduce((sum, value, index) => sum + linear(value / 255) * [0.2126, 0.7152, 0.0722][index]!, 0)
+    const a = luminance(foreground.slice(1).match(/../g)!.map(value => parseInt(value, 16)))
+    const b = luminance(style.backgroundColor.match(/\d+/g)!.slice(0, 3).map(Number))
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+  })
+  await expect.poll(symbol).toContain('#3a3a3a')
+  await expect.poll(contrast).toBeGreaterThan(7)
   await page.emulateMedia({ colorScheme: 'dark' })
-  await expect.poll(background).toContain('#c8c7c2')
+  await expect.poll(symbol).toContain('#c8c7c2')
+  await expect.poll(contrast).toBeGreaterThan(7)
   await page.emulateMedia({ colorScheme: 'light' })
+  const originalTextColor = await sandbox.locator('#text').evaluate(element => getComputedStyle(element).color)
+  const originalLoadedBackground = await sandbox.locator('#loaded').evaluate(element => getComputedStyle(element).backgroundColor)
   await image.evaluate(() => document.documentElement.classList.add('dark'))
-  await expect.poll(background).toContain('#c8c7c2')
+  await expect.poll(symbol).toContain('#c8c7c2')
+  await expect(image).toHaveCSS('background-color', 'rgb(17, 24, 39)')
+  await expect.poll(contrast).toBeGreaterThan(7)
+  await expect(sandbox.locator('#text')).toHaveCSS('color', originalTextColor)
+  await expect(sandbox.locator('#loaded')).toHaveCSS('background-color', originalLoadedBackground)
+  await image.screenshot({ path: testInfo.outputPath('explicit-dark-error.png') })
+  await image.evaluate(() => document.documentElement.classList.remove('dark'))
+  await expect.poll(symbol).toContain('#3a3a3a')
+  await expect(image).toHaveCSS('background-color', 'rgb(243, 244, 246)')
+  await expect.poll(contrast).toBeGreaterThan(7)
 })
 
 test('sandbox image failures keep link purpose, decorative semantics and label references', async ({ page }) => {

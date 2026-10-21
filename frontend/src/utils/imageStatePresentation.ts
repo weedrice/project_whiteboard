@@ -34,6 +34,12 @@ img[data-image-state="error"] {
 .dark img[data-image-state="error"] {
   background-image: var(--nv-image-error-symbol-dark, ${darkErrorImage});
 }
+/* An explicit dark sandbox must pair the light symbol with a dark image surface,
+   even when the document's base tokens still follow a light OS preference. */
+:root.dark:not([data-nv-image-theme="manual"]) img[data-image-state="error"],
+:root:not([data-nv-image-theme="manual"]) .dark img[data-image-state="error"] {
+  background-color: #111827;
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-nv-image-theme="manual"]) img[data-image-state="error"] {
     background-image: var(--nv-image-error-symbol-dark, ${darkErrorImage});
