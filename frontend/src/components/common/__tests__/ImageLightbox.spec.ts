@@ -160,27 +160,49 @@ describe('ImageLightbox', () => {
     wrapper.unmount()
   })
 
-  it('resets double-click zoom when the current source is replaced', async () => {
+  it('keeps zoom controls focused, pans with arrows, and resets on navigation or source replacement', async () => {
     const wrapper = mount(ImageLightbox, {
       attachTo: document.body,
-      props: { isOpen: true, images: [{ src: '/one.png', alt: 'First' }] },
+      props: { isOpen: true, images: [{ src: '/one.png', alt: 'First' }, { src: '/two.png', alt: 'Second' }] },
       global: { mocks: { $t: (key: string) => key } },
     })
+    const button = (key: string) => document.querySelector<HTMLButtonElement>(`[aria-label="common.${key}"]`)!
+    const currentImage = () => document.querySelector<HTMLImageElement>('.lightbox-image')!
+    const load = async () => {
+      Object.defineProperties(currentImage(), {
+        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
+        clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 300 },
+      })
+      currentImage().dispatchEvent(new Event('load'))
+      await nextTick()
+    }
     try {
       await nextTick()
-      const image = document.querySelector<HTMLImageElement>('.lightbox-image')!
-      Object.defineProperties(image, {
-        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
-      })
-      image.dispatchEvent(new Event('load'))
+      button('imageZoomIn').click()
       await nextTick()
-      expect(document.querySelector<HTMLImageElement>('.lightbox-image')!.dataset.imageState).toBe('loaded')
-      image.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      expect(currentImage().style.transform).toContain('scale(1)')
+      await load()
+      button('imageZoomIn').focus()
+      button('imageZoomIn').click()
       await nextTick()
-      expect(document.querySelector<HTMLImageElement>('.lightbox-image')!.style.transform).toContain('scale(2)')
-      await wrapper.setProps({ images: [{ src: '/changed.png', alt: 'Changed' }] })
-      expect(document.querySelector<HTMLImageElement>('.lightbox-image')!.style.transform).toContain('scale(1)')
-      expect(document.querySelector<HTMLImageElement>('.lightbox-image')!.dataset.imageState).toBe('loading')
+      expect(document.activeElement).toBe(button('imageZoomIn'))
+      expect(currentImage().style.transform).toContain('scale(1.5)')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      await nextTick()
+      expect(currentImage().style.transform).toContain('translate3d(-48px, 0px, 0)')
+      expect(wrapper.emitted('update:index')).toBeUndefined()
+      button('imageZoomOut').click()
+      await nextTick()
+      expect(currentImage().style.transform).toBe('translate3d(0px, 0px, 0) scale(1)')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+      await nextTick()
+      expect(currentImage().alt).toBe('Second')
+      await load()
+      button('imageZoomIn').click()
+      await nextTick()
+      await wrapper.setProps({ images: [{ src: '/one.png', alt: 'First' }, { src: '/changed.png', alt: 'Changed' }] })
+      expect(currentImage().style.transform).toBe('translate3d(0px, 0px, 0) scale(1)')
+      expect(button('imageZoomIn').getAttribute('aria-disabled')).toBe('true')
     } finally {
       wrapper.unmount()
     }
@@ -233,6 +255,65 @@ describe('ImageLightbox', () => {
       expect(currentImage().dataset.imageState).toBe('loading')
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  it('observes image bounds and removes pending resize work on close', async () => {
+    let observedResize: (() => void) | undefined
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { observedResize = callback }
+      observe = observe
+      disconnect = disconnect
+    })
+    let animation: FrameRequestCallback | undefined
+    const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animation = callback
+      return 987
+    })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+    const wrapper = mount(ImageLightbox, {
+      attachTo: document.body,
+      props: { isOpen: true, images: [{ src: '/resize.png', alt: 'Resize' }] },
+      global: { mocks: { $t: (key: string) => key } },
+    })
+    try {
+      await nextTick()
+      const image = document.querySelector<HTMLImageElement>('.lightbox-image')!
+      Object.defineProperties(image, {
+        complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 600 },
+        clientWidth: { configurable: true, value: 600 }, clientHeight: { configurable: true, value: 300 },
+      })
+      image.dispatchEvent(new Event('load'))
+      await nextTick()
+      const zoom = document.querySelector<HTMLButtonElement>('[aria-label="common.imageZoomIn"]')!
+      for (let index = 0; index < 6; index += 1) zoom.click()
+      await nextTick()
+      for (let index = 0; index < 30; index += 1) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }))
+      }
+      await nextTick()
+      expect(observe).toHaveBeenCalledWith(image)
+      Object.defineProperty(image, 'clientWidth', { value: 200 })
+      observedResize!()
+      window.dispatchEvent(new Event('resize'))
+      expect(request).toHaveBeenCalledOnce()
+      animation!(0)
+      await nextTick()
+      expect(image.style.transform).toBe('translate3d(48px, 0px, 0) scale(4)')
+      window.dispatchEvent(new Event('resize'))
+      await wrapper.setProps({ isOpen: false })
+      expect(disconnect).toHaveBeenCalledOnce()
+      expect(cancel).toHaveBeenCalledWith(987)
+      request.mockClear()
+      window.dispatchEvent(new Event('resize'))
+      expect(request).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      request.mockRestore()
+      cancel.mockRestore()
+      vi.unstubAllGlobals()
     }
   })
 

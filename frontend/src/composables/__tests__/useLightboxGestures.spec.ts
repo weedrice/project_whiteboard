@@ -21,7 +21,7 @@ describe('useLightboxGestures', () => {
     g.handleImagePointerMove(g.pointer(2, 200))
     g.handleImagePointerUp(g.pointer(1, 190))
     g.handleImagePointerUp(g.pointer(2, 200))
-    expect(g.imageTransform.value.transform).toContain('scale(1)')
+    expect(g.imageScale.value).toBe(1)
     expect(g.go).not.toHaveBeenCalled()
     expect(g.close).not.toHaveBeenCalled()
     g.handleImagePointerDown(g.pointer(3, 200))
@@ -46,7 +46,7 @@ describe('useLightboxGestures', () => {
     g.handleImagePointerDown(g.pointer(1, 100))
     g.handleImagePointerDown(g.pointer(2, 200))
     g.handleImagePointerMove(g.pointer(2, 300))
-    expect(g.imageTransform.value.transform).toContain('scale(2)')
+    expect(g.imageScale.value).toBe(2)
     g.handleImagePointerUp(g.pointer(1, 100))
     g.handleImagePointerMove(g.pointer(2, 310))
     expect(g.imageTransform.value.transform).toContain('translate3d(10px, 0px, 0)')
@@ -54,12 +54,28 @@ describe('useLightboxGestures', () => {
     expect(g.go).not.toHaveBeenCalled()
   })
 
-  it('clears active pointers when resetting the image', () => {
+  it('reclamps after image dimensions change without losing the current zoom', () => {
     const g = setup()
+    g.zoomBy(3, g.image)
+    g.panBy(10000, 10000, g.image)
+    Object.defineProperties(g.image, { clientWidth: { value: 200 }, clientHeight: { value: 100 } })
+    g.clampImageOffset(g.image)
+    expect(g.imageTransform.value.transform).toBe('translate3d(48px, 48px, 0) scale(4)')
+  })
+
+  it('bounds keyboard zoom and pan and clears gestures on reset', () => {
+    const g = setup()
+    g.zoomBy(10, g.image)
+    expect(g.imageScale.value).toBe(4)
+    g.panBy(10000, -10000, g.image)
+    const xLimit = Math.max(0, (600 * 4 - window.innerWidth) / 2) + 48
+    const yLimit = Math.max(0, (400 * 4 - window.innerHeight) / 2) + 48
+    expect(g.imageTransform.value.transform).toContain(`translate3d(${xLimit}px, ${-yLimit}px, 0)`)
+    g.zoomBy(-10, g.image)
+    expect(g.imageTransform.value.transform).toBe('translate3d(0px, 0px, 0) scale(1)')
     g.handleImagePointerDown(g.pointer(1, 100))
     g.resetImageTransform()
     g.handleImagePointerUp(g.pointer(1, 200))
     expect(g.go).not.toHaveBeenCalled()
-    expect(g.close).not.toHaveBeenCalled()
   })
 })

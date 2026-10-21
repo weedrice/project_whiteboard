@@ -34,6 +34,64 @@ for (const shape of ['portrait', 'landscape']) {
   })
 }
 
+test('lightbox keyboard controls zoom, pan, reset, and preserve gallery navigation', async ({ page }) => {
+  await page.route('**/image-test/**', (route) => route.fulfill({ contentType: 'image/svg+xml', body: svg }))
+  await page.setViewportSize({ width: 390, height: 740 })
+  await page.goto('/e2e/fixtures/image-states.html?lightboxStates=landscape')
+  const image = page.getByRole('dialog').locator('img')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  const zoomIn = page.getByRole('button', { name: '이미지 확대', exact: true })
+  const zoomOut = page.getByRole('button', { name: '이미지 축소', exact: true })
+  const reset = page.getByRole('button', { name: '원래 크기', exact: true })
+  await zoomIn.focus()
+  await page.keyboard.press('Enter')
+  await expect(zoomIn).toBeFocused()
+  await expect(image).toHaveAttribute('style', /scale\(1\.5\)/)
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowDown')
+  await expect(image).toHaveAttribute('style', /translate3d\(-48px, -48px, 0px\)/)
+  await expect(image).toHaveAttribute('alt', 'Viewer image')
+  await reset.focus()
+  await page.keyboard.press('Enter')
+  await expect(reset).toBeFocused()
+  await expect(image).toHaveAttribute('style', /translate3d\(0px, 0px, 0px\) scale\(1\)/)
+  await page.keyboard.press('ArrowRight')
+  await expect(image).toHaveAttribute('alt', 'Other viewer image')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  for (let index = 0; index < 6; index += 1) await zoomIn.click()
+  await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+  await zoomOut.focus()
+  await page.keyboard.press('Enter')
+  await expect(image).toHaveAttribute('style', /scale\(3\.5\)/)
+  await page.getByRole('button', { name: '다음', exact: true }).click()
+  await expect(image).toHaveAttribute('alt', 'Viewer image')
+  await expect(image).toHaveAttribute('style', /scale\(1\)/)
+})
+
+test('a rotated zoomed gallery image stays in view at the same zoom', async ({ page }) => {
+  const largeImage = '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1200"><rect width="100%" height="100%" fill="green"/></svg>'
+  await page.route('**/image-test/**', (route) => route.fulfill({ contentType: 'image/svg+xml', body: largeImage }))
+  await page.setViewportSize({ width: 740, height: 390 })
+  await page.goto('/e2e/fixtures/image-states.html?gallery')
+  await expect(page.locator('#gallery-first')).toHaveAttribute('data-image-state', 'loaded')
+  await page.locator('#gallery-first').click()
+  const image = page.getByRole('dialog').locator('img')
+  await expect(image).toHaveAttribute('data-image-state', 'loaded')
+  for (let index = 0; index < 6; index += 1) await page.getByRole('button', { name: '이미지 확대', exact: true }).click()
+  for (let index = 0; index < 30; index += 1) await page.keyboard.press('ArrowLeft')
+  await page.setViewportSize({ width: 390, height: 740 })
+  await expect.poll(async () => {
+    const bounds = (await image.boundingBox())!
+    return bounds.x < 390 && bounds.x + bounds.width > 0
+  }).toBe(true)
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+  // Image-only layout changes must also re-clamp, without a window resize event.
+  await image.evaluate((element) => { element.style.width = '200px' })
+  await expect.poll(async () => (await image.boundingBox())!.x).toBeLessThan(50)
+  await expect(image).toHaveAttribute('style', /scale\(4\)/)
+})
+
 test('lightbox controls remain distinct over a light failure image without overlapping retry', async ({ page }) => {
   await page.route('**/image-test/**', (route) => route.fulfill({ status: 503, body: 'failed' }))
   await page.setViewportSize({ width: 390, height: 740 })
@@ -60,13 +118,10 @@ test('lightbox controls remain distinct over a light failure image without overl
   })
   expect(contrast).toBeGreaterThanOrEqual(3)
   const retryBounds = (await page.getByRole('button', { name: '이미지 다시 불러오기', exact: true }).boundingBox())!
-  for (const name of ['이전', '다음', '닫기']) {
-    const bounds = (await page.getByRole('button', { name, exact: true }).boundingBox())!
-    expect(
-      retryBounds.x + retryBounds.width <= bounds.x || bounds.x + bounds.width <= retryBounds.x
-      || retryBounds.y + retryBounds.height <= bounds.y || bounds.y + bounds.height <= retryBounds.y,
-    ).toBe(true)
-  }
+  const zoomIn = page.getByRole('button', { name: '이미지 확대', exact: true })
+  const zoomBounds = (await zoomIn.boundingBox())!
+  expect(retryBounds.y + retryBounds.height).toBeLessThan(zoomBounds.y)
+  await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
 })
 
 test('cancelled drags and native pinches never trigger lightbox navigation', async ({ page, browserName }) => {

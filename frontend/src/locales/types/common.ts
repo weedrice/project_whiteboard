@@ -86,6 +86,10 @@ export interface CommonMessages {
   imageViewerLoading: string
   imageViewerLoaded: string
   imageViewerError: string
+  imageZoomIn: string
+  imageZoomOut: string
+  imageZoomReset: string
+  imageControlsHint: string
   noData: string
   loadMore: string
   add: string
