@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import type { MentionCandidate } from '@/types'
 
 withDefaults(defineProps<{
@@ -45,7 +46,7 @@ const emit = defineEmits<{
       @pointerdown.prevent
       @click="emit('select', candidate)"
     >
-      <img
+      <img v-image-state
         v-if="candidate.profileImageUrl"
         :src="candidate.profileImageUrl"
         alt=""

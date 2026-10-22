@@ -1,8 +1,12 @@
 import { Editor } from '@tiptap/core'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
+import { createDeferred } from '@/test/async'
+import { getPostEditorHtml } from '@/features/board/posts/editor/usePostEditorInstance'
 import { createPostEditorExtensions } from '../postEditorExtensions'
 import PostEditorImageView from '../PostEditorImageView.vue'
 
@@ -17,7 +21,9 @@ describe('PostEditorImageView', () => {
   let editor: Editor | null = null
 
   beforeEach(() => {
+    setActivePinia(createPinia())
     mocks.get.mockReset()
+    controlVisibility(true)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authenticated')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
   })
@@ -29,11 +35,37 @@ describe('PostEditorImageView', () => {
     vi.restoreAllMocks()
   })
 
+  function controlVisibility(automatic = false) {
+    const callbacks = new Map<Element, Set<() => void>>()
+    vi.stubGlobal('IntersectionObserver', class {
+      private observed = new Set<Element>()
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe = (target: Element) => {
+        this.observed.add(target)
+        const notify = () => this.callback([{
+          target, isIntersecting: true, intersectionRatio: 1, time: 0,
+          boundingClientRect: target.getBoundingClientRect(), intersectionRect: target.getBoundingClientRect(), rootBounds: null,
+        }], this as unknown as IntersectionObserver)
+        const listeners = callbacks.get(target) ?? new Set<() => void>()
+        listeners.add(notify)
+        callbacks.set(target, listeners)
+        if (automatic) queueMicrotask(() => { if (this.observed.has(target)) notify() })
+      }
+      unobserve = (target: Element) => { this.observed.delete(target) }
+      disconnect = () => { this.observed.clear() }
+    })
+    return (target: Element) => callbacks.get(target)?.forEach(notify => notify())
+  }
+
   function mountImageView(
     alignment = 'inline',
-    attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src', string | null>> = {},
+    attrs: Partial<Record<'width' | 'styleWidth' | 'src' | 'data-server-src' | 'caption', string | null>> = {},
+    attachTo?: HTMLElement,
+    sharedEditor?: Editor,
   ) {
     const editorRoot = document.createElement('div')
+    editorRoot.tabIndex = 0
+    if (attachTo) attachTo.append(editorRoot)
     Object.defineProperty(editorRoot, 'clientWidth', {
       configurable: true,
       value: 800,
@@ -41,8 +73,12 @@ describe('PostEditorImageView', () => {
     const updateAttributes = vi.fn()
     const setNodeSelection = vi.fn()
     const wrapper = mount(PostEditorImageView, {
+      attachTo,
       props: {
-        editor: { view: { dom: editorRoot }, commands: { setNodeSelection } },
+        editor: sharedEditor ?? {
+          view: { dom: editorRoot, focus: () => editorRoot.focus({ preventScroll: true }) },
+          commands: { setNodeSelection },
+        },
         node: {
           attrs: {
             src: 'https://cdn.noviis.kr/files/1',
@@ -70,6 +106,236 @@ describe('PostEditorImageView', () => {
     return { wrapper, updateAttributes, setNodeSelection, editorRoot }
   }
 
+  function retryButton(wrapper: ReturnType<typeof mountImageView>['wrapper']) {
+    return wrapper.findAll('button').find((button) => button.text().includes('common.imageRetry'))!
+  }
+
+  it('keeps private sources out of the temporary node view while preserving serialized attributes', () => {
+    const src = '/api/v1/files/42?size=large&signature=preserved'
+    editor = new Editor({
+      extensions: createPostEditorExtensions(),
+      content: '<p><img src="' + src + '" alt="Protected" width="400" height="200" data-caption="Caption"></p>',
+    })
+    const image = editor.view.dom.querySelector('img')!
+    expect(image.getAttribute('src')).toBeNull()
+    expect(image.dataset.imageState).toBe('loading')
+    expect(image.getAttribute('width')).toBe('400')
+    const html = getPostEditorHtml(editor)
+    const template = document.createElement('template')
+    template.innerHTML = html
+    expect(template.content.querySelector('img')?.getAttribute('src')).toBe(src)
+    expect(template.content.querySelector('img')?.getAttribute('data-caption')).toBe('Caption')
+    expect(html).not.toContain('data-image-state')
+    expect(html).toBe(editor.getHTML())
+  })
+
+  it('waits for visibility and ignores observations belonging to a replaced image source', async () => {
+    const enter = controlVisibility()
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/41' })
+    await flushPromises()
+    const oldImage = wrapper.get('img').element
+    expect(mocks.get).not.toHaveBeenCalled()
+    expect(oldImage.dataset.imageState).toBe('loading')
+    await wrapper.setProps({ node: { attrs: { ...wrapper.props('node').attrs, src: '/api/v1/files/42' } } } as never)
+    await flushPromises()
+    enter(oldImage)
+    await flushPromises()
+    expect(mocks.get).not.toHaveBeenCalled()
+    enter(wrapper.get('img').element)
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledExactlyOnceWith('/files/42', expect.objectContaining({ expectedSession: {
+      sessionGeneration: useAuthStore().sessionGeneration, userId: null,
+    } }))
+    wrapper.unmount()
+  })
+
+  it('shares four slots per editor and removes deleted images from the waiting queue', async () => {
+    const enter = controlVisibility()
+    const responses = Array.from({ length: 7 }, () => createDeferred<{ data: Blob }>())
+    mocks.get.mockImplementation((path: string) => responses[Number(path.split('/').at(-1)) - 40]!.promise)
+    const first = mountImageView('inline', { src: '/api/v1/files/40' })
+    const views = [first, ...Array.from({ length: 6 }, (_, index) =>
+      mountImageView('inline', { src: '/api/v1/files/' + (41 + index) }, undefined, first.wrapper.props('editor')))]
+    await flushPromises()
+    for (const { wrapper } of views) {
+      enter(wrapper.get('img').element)
+      await flushPromises()
+    }
+    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43']))
+    views[4]!.wrapper.unmount()
+    first.wrapper.unmount()
+    expect(mocks.get.mock.calls[0]![1].signal.aborted).toBe(true)
+    responses[0]!.resolve({ data: new Blob(['deleted']) })
+    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43', '/files/45']))
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    views.filter((_, index) => index !== 0 && index !== 4).forEach(({ wrapper }) => wrapper.unmount())
+    responses.forEach(response => response.resolve({ data: new Blob(['late']) }))
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(5)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('keeps different editors independent and cancels an old session while images wait for slots or visibility', async () => {
+    const enter = controlVisibility()
+    const response = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValue(response.promise)
+    const first = mountImageView('inline', { src: '/api/v1/files/40' })
+    const views = [first, ...Array.from({ length: 5 }, (_, index) =>
+      mountImageView('inline', { src: '/api/v1/files/' + (41 + index) }, undefined, first.wrapper.props('editor')))]
+    const independent = mountImageView('inline', { src: '/api/v1/files/50' })
+    await flushPromises()
+    const oldImages = views.map(({ wrapper }) => wrapper.get('img').element)
+    for (const image of oldImages.slice(0, 5)) { enter(image); await flushPromises() }
+    enter(independent.wrapper.get('img').element)
+    await flushPromises()
+    expect(mocks.get.mock.calls.map(([path]) => path)).toEqual(['/files/40', '/files/41', '/files/42', '/files/43', '/files/50'])
+    useAuthStore().sessionGeneration += 1
+    notifyAuthSessionBoundary(useAuthStore().sessionGeneration)
+    await flushPromises()
+    expect(mocks.get.mock.calls.every(([, config]) => config.signal.aborted)).toBe(true)
+    oldImages.forEach(enter)
+    response.resolve({ data: new Blob(['old session']) })
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(5)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    views.forEach(({ wrapper }) => wrapper.unmount())
+    independent.wrapper.unmount()
+  })
+
+  it('retries a failed visible image without waiting for another visibility notification', async () => {
+    const enter = controlVisibility()
+    mocks.get.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ data: new Blob(['image']) })
+    const { wrapper } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    enter(wrapper.get('img').element)
+    await flushPromises()
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+    wrapper.unmount()
+  })
+
+  it.each([true, false])('retries a protected download once and respects focus ownership (%s)', async (ownsFocus) => {
+    mocks.get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(pending.promise)
+    const { wrapper, updateAttributes, setNodeSelection, editorRoot } = mountImageView('inline', { src: '/api/v1/files/42' }, document.body)
+    await flushPromises()
+    const button = retryButton(wrapper)
+    ;(button.element as HTMLButtonElement).focus()
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(mocks.get.mock.calls[1]![1].expectedSession).toEqual({
+      sessionGeneration: useAuthStore().sessionGeneration, userId: null,
+    })
+    expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+    expect(retryButton(wrapper).attributes('disabled')).toBeUndefined()
+    const otherButton = document.createElement('button')
+    document.body.append(otherButton)
+    if (!ownsFocus) otherButton.focus()
+    pending.resolve({ data: new Blob(['image']) })
+    await flushPromises()
+    expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+    Object.defineProperties(wrapper.get('img').element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await wrapper.get('img').trigger('load')
+    expect(retryButton(wrapper)).toBeUndefined()
+    expect(document.activeElement).toBe(ownsFocus ? editorRoot : otherButton)
+    expect(setNodeSelection.mock.calls).toEqual(ownsFocus ? [[1]] : [])
+    expect(wrapper.get('img').attributes('tabindex')).toBeUndefined()
+    otherButton.remove()
+    expect(updateAttributes).not.toHaveBeenCalled()
+    expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
+    wrapper.unmount()
+    editorRoot.remove()
+  })
+
+  it('keeps exactly one caption and controls when image sources and selection change', async () => {
+    const { wrapper } = mountImageView('right', { caption: 'Original caption' })
+    for (const src of ['blob:replacement', 'https://cdn.noviis.kr/files/1', 'blob:second-replacement']) {
+      await wrapper.setProps({ selected: false })
+      await wrapper.setProps({
+        node: { attrs: { ...wrapper.props('node').attrs, src } },
+      } as never)
+      expect(wrapper.findAll('.post-editor-image-caption')).toHaveLength(1)
+      expect(wrapper.get('.post-editor-image-caption').text()).toBe('Original caption')
+      expect(wrapper.find('.post-editor-image-controls').exists()).toBe(false)
+      expect(wrapper.findAll('img')).toHaveLength(1)
+      expect(wrapper.get('img').attributes('src')).toBe(src)
+      await wrapper.setProps({ selected: true })
+      expect(wrapper.findAll('.post-editor-image-controls')).toHaveLength(1)
+      expect(wrapper.findAll('.post-editor-image-resize-handle')).toHaveLength(1)
+    }
+    wrapper.unmount()
+  })
+
+  it.each(['blob:local-upload', 'https://cdn.noviis.kr/files/1'])(
+    'retries a failed native %s without changing its URL or the document', async (src) => {
+      const { wrapper, updateAttributes, setNodeSelection } = mountImageView('inline', { src })
+      const oldImage = wrapper.get('img')
+      await oldImage.trigger('error')
+      await retryButton(wrapper).trigger('click')
+      expect(wrapper.get('img').element).not.toBe(oldImage.element)
+      expect(wrapper.get('img').attributes('src')).toBe(src)
+      await oldImage.trigger('error')
+      expect(retryButton(wrapper).attributes('aria-disabled')).toBeDefined()
+      await wrapper.get('img').trigger('error')
+      expect(retryButton(wrapper).attributes('aria-disabled')).toBeUndefined()
+      expect(updateAttributes).not.toHaveBeenCalled()
+      expect(setNodeSelection).not.toHaveBeenCalled()
+      expect(mocks.get).not.toHaveBeenCalled()
+      wrapper.unmount()
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    },
+  )
+
+  it('releases a failed decoded blob before requesting a replacement', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['image']) })
+    vi.mocked(URL.createObjectURL).mockReturnValueOnce('blob:broken').mockReturnValueOnce('blob:fixed')
+    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    await wrapper.get('img').trigger('error')
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:broken')
+    expect(wrapper.get('img').attributes('src')).toBe('blob:fixed')
+    expect(updateAttributes).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fixed')
+  })
+
+  it.each(['source', 'session', 'unmount'])('discards a protected retry after %s changes', async (change) => {
+    mocks.get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(pending.promise)
+    mocks.get.mockRejectedValueOnce(new Error('still offline'))
+    const { wrapper, updateAttributes } = mountImageView('inline', { src: '/api/v1/files/42' })
+    await flushPromises()
+    await retryButton(wrapper).trigger('click')
+    await flushPromises()
+    const config = mocks.get.mock.calls[1]![1]
+    if (change === 'source') await wrapper.setProps({ node: { attrs: { src: '/api/v1/files/43' } } } as never)
+    if (change === 'session') {
+      useAuthStore().sessionGeneration += 1
+      notifyAuthSessionBoundary(useAuthStore().sessionGeneration)
+    }
+    if (change === 'unmount') wrapper.unmount()
+    expect(config.signal.aborted).toBe(true)
+    pending.resolve({ data: new Blob(['old retry']) })
+    await flushPromises()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(updateAttributes).not.toHaveBeenCalled()
+    if (change !== 'unmount') wrapper.unmount()
+  })
+
   it('restores protected images through authenticated blobs without changing saved node attributes', async () => {
     mocks.get.mockResolvedValue({ data: new Blob(['image']) })
     const { wrapper, updateAttributes } = mountImageView('inline', {
@@ -77,11 +343,19 @@ describe('PostEditorImageView', () => {
       'data-server-src': '/api/v1/files/42',
     })
     expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
     await flushPromises()
     expect(mocks.get).toHaveBeenCalledWith('/files/42', expect.objectContaining({
       responseType: 'blob', signal: expect.any(AbortSignal), skipGlobalErrorHandler: true,
     }))
     expect(wrapper.get('img').attributes('src')).toBe('blob:authenticated')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    Object.defineProperties(wrapper.get('img').element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await wrapper.get('img').trigger('load')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loaded')
     expect(wrapper.props('node').attrs.src).toBe('/api/v1/files/42')
     expect(wrapper.props('node').attrs['data-server-src']).toBe('/api/v1/files/42')
     expect(updateAttributes).not.toHaveBeenCalled()
@@ -136,6 +410,7 @@ describe('PostEditorImageView', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:authenticated')
     expect(mocks.get).toHaveBeenCalledTimes(2)
     expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
   })
 
   it('discards an earlier session response even when its request resolves after cancellation', async () => {

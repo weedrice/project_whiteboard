@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { Plus, X } from 'lucide-vue-next'
 
 withDefaults(defineProps<{
@@ -22,7 +23,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="relative min-w-0" :class="{ 'opacity-40': muted }">
-    <img
+    <img v-image-state
       :src="src"
       :alt="alt"
       loading="lazy"

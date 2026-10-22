@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { BoardListItem } from '@/types'
@@ -56,7 +57,7 @@ const { t } = useI18n()
         @mouseenter="emit('highlight', index)"
       >
         <div class="nv-global-search-badge flex-shrink-0 h-8 w-8 rounded flex items-center justify-center font-bold overflow-hidden border">
-          <img
+          <img v-image-state
             v-if="board.iconUrl"
             :src="getOptimizedBoardIconUrl(board.iconUrl)"
             loading="lazy"

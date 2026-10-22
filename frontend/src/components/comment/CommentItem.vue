@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { User as UserIcon, CornerDownRight, Heart } from 'lucide-vue-next'
@@ -275,7 +276,7 @@ onUnmounted(cancelPendingCommentReport)
           v-if="canUseCommentActions && comment.author?.profileImageUrl"
           class="h-8 w-8 overflow-hidden rounded-full sm:h-10 sm:w-10"
         >
-          <img
+          <img v-image-state
             :src="comment.author.profileImageUrl"
             :alt="comment.author.displayName"
             loading="lazy"

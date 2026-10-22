@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      .deferred { margin-top: 12000px; }
+      .inquiry-fixture img { width: 100px; height: 60px; }
+      .inquiry-fixture ol { display: flex; gap: 12px; flex-wrap: wrap; }
+      .inquiry-fixture li { width: 300px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, defineComponent, h, ref } from 'vue'
+      import { createPinia } from 'pinia'
+      import { configureApiStoreResolvers } from '../../src/api'
+      import { useAuthStore } from '../../src/stores/auth'
+      import { configureAuthQueryScope, notifyAuthSessionBoundary } from '../../src/queryAuthScope'
+      import InquiryTimeline from '../../src/components/inquiry/InquiryTimeline.vue'
+      import i18n from '../../src/i18n'
+      import '../../src/style.css'
+      import '../../src/styles/foundation.css'
+      import '../../src/styles/components.css'
+      const pinia = createPinia()
+      const auth = useAuthStore(pinia)
+      auth.sessionGeneration = 1
+      auth.user = { userId: 10 }
+      configureAuthQueryScope(() => auth.sessionGeneration, () => auth.user?.userId ?? null)
+      configureApiStoreResolvers({ resolveAuthStore: () => auth })
+      const messages = Array.from({ length: 3 }, (_, group) => ({
+        messageId: group + 1, authorUserId: 10, authorName: 'Author', messageType: 'USER_MESSAGE',
+        content: 'Inquiry image loading', createdAt: '2026-01-01T00:00:00Z',
+        attachments: Array.from({ length: 4 }, (_, index) => ({
+          fileId: group * 4 + index + 1, url: '/api/v1/files/' + (8001 + group * 4 + index),
+          originalName: 'Attachment ' + (group * 4 + index + 1), fileSize: 100, mimeType: 'image/svg+xml',
+        })),
+      }))
+      const fixture = defineComponent({
+        setup() {
+          const deferred = ref(true)
+          return () => h('main', [
+            h('button', { id: 'reveal', onClick: () => { deferred.value = false } }, 'Reveal images'),
+            h('button', { id: 'session', onClick: () => {
+              auth.sessionGeneration += 1
+              auth.user = { userId: 20 }
+              notifyAuthSessionBoundary(auth.sessionGeneration)
+            } }, 'Switch session'),
+            h('section', { class: ['inquiry-fixture', deferred.value && 'deferred'] }, [
+              h(InquiryTimeline, { messages }),
+            ]),
+          ])
+        },
+      })
+      createApp(fixture).use(pinia).use(i18n).mount('#app')
+    </script>
+  </body>
+</html>

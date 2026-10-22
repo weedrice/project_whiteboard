@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { useI18n } from 'vue-i18n'
 import { ShoppingBag } from 'lucide-vue-next'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
@@ -45,7 +46,7 @@ const {
         :key="purchase.purchaseId"
         class="flex items-center gap-3 px-4 py-4 sm:px-6"
       >
-        <img
+        <img v-image-state
           v-if="purchase.item.imageUrl"
           :src="purchase.item.imageUrl"
           :alt="t('shop.purchases.imageAlt', { name: purchase.item.itemName })"

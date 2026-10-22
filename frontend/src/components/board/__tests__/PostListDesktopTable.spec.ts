@@ -166,7 +166,7 @@ describe('PostListDesktopTable', () => {
     })
 
     await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
-    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('data-image-state')).toBe('loading')
 
     await vi.waitFor(() => {
       expect(mocks.get).toHaveBeenCalledWith('/files/55/variants/thumbnail', expect.objectContaining({
@@ -186,6 +186,68 @@ describe('PostListDesktopTable', () => {
 
     wrapper.unmount()
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+  })
+
+  it('evicts undecodable thumbnails and retries on the next hover while preserving valid cached images', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['thumbnail'], { type: 'image/webp' }) })
+    createObjectUrlSpy.mockReturnValueOnce('blob:broken').mockReturnValueOnce('blob:recovered')
+    const wrapper = mountTable({ posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })] })
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    await wrapper.get('.nv-post-hover-preview img').trigger('error')
+    await flushPromises()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('data-image-state')).toBe('error')
+    expect(revokeObjectUrlSpy).toHaveBeenCalledExactlyOnceWith('blob:broken')
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    const recovered = wrapper.get('.nv-post-hover-preview img')
+    expect(recovered.attributes('src')).toBe('blob:recovered')
+    Object.defineProperties(recovered.element, { complete: { value: true }, naturalWidth: { value: 192 } })
+    await recovered.trigger('load')
+    expect(recovered.attributes('data-image-state')).toBe('loaded')
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:recovered')
+    wrapper.unmount()
+    expect(revokeObjectUrlSpy.mock.calls).toEqual([['blob:broken'], ['blob:recovered']])
+  })
+
+  it('ignores an old image error after reopening a cached thumbnail', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['thumbnail'], { type: 'image/webp' }) })
+    const wrapper = mountTable({ posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })] })
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    const oldImage = wrapper.get('.nv-post-hover-preview img').element
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    oldImage.dispatchEvent(new Event('error'))
+    await flushPromises()
+    expect(revokeObjectUrlSpy).not.toHaveBeenCalled()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:thumbnail')
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('keeps a failed thumbnail placeholder visible until the pointer leaves', async () => {
+    mocks.get.mockRejectedValueOnce(new Error('unavailable'))
+    const wrapper = mountTable({
+      posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })],
+    })
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('data-image-state')).toBe('error')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('clears cached thumbnails and aborts pending requests at an auth session boundary', async () => {

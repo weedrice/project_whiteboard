@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { useI18n } from 'vue-i18n'
 import type { EmoticonImage } from '@/types/emoticon'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
@@ -33,7 +34,7 @@ const { t } = useI18n()
         class="image-btn"
         @click="emit('select', image)"
       >
-        <img
+        <img v-image-state
           :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
           :alt="emoticonName"
           loading="lazy"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { ref } from 'vue'
 import { Upload, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -45,7 +46,7 @@ function openFileInput() {
     />
 
     <div v-if="preview" class="relative inline-block">
-      <img
+      <img v-image-state
         :src="preview"
         :alt="t('emoticon.form.thumbnailPreview')"
         class="w-32 h-32 object-contain nv-surface-muted rounded-lg"

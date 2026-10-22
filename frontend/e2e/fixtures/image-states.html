@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, defineComponent, h, onMounted, ref, withDirectives } from 'vue'
+      import { createPinia } from 'pinia'
+      import { RouterLink } from 'vue-router'
+      import { configureApiStoreResolvers } from '../../src/api'
+      import { useAuthStore } from '../../src/stores/auth'
+      import { vImageState } from '../../src/directives/imageState'
+      import SanitizedHtmlView from '../../src/components/common/SanitizedHtmlView.vue'
+      import SandboxedHtmlFrame from '../../src/components/common/SandboxedHtmlFrame.vue'
+      import PostListDesktopTable from '../../src/components/board/PostListDesktopTable.vue'
+      import ImageLightbox from '../../src/components/common/ui/ImageLightbox.vue'
+      import AuthenticatedInquiryImage from '../../src/components/inquiry/AuthenticatedInquiryImage.vue'
+      import { useRichContentInteractions } from '../../src/features/board/posts/detail/useRichContentInteractions'
+      import i18n from '../../src/i18n'
+      import '../../src/style.css'
+      import '../../src/styles/foundation.css'
+      import '../../src/styles/components.css'
+      if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark')
+      const fixture = defineComponent({
+        setup() {
+          const mode = new URLSearchParams(location.search)
+          if (mode.has('hoverRecovery')) {
+            return () => h(PostListDesktopTable, {
+              posts: [{ postId: 1, title: 'Hover recovery', thumbnailUrl: '/api/v1/files/876/variants/thumbnail', createdAt: '2026-01-01', author: { userId: 1, displayName: 'Author' } }],
+              loading: false, columns: [{ key: 'title', label: 'Title' }], activeSortKey: null, activeSortDirection: null,
+              showNoticeBadge: false, showCommentCount: false, showPreviewIndicator: true, showSecretIndicator: false,
+              density: 'default', maxAuthorNameLength: 10, getRowClass: () => '', shouldInterceptInquiry: () => false,
+              hasBoardRouteTarget: () => false, getBoardLinkTarget: () => '/', getTitleTag: () => 'span', getTitleProps: () => ({}),
+              shouldShowInquiryStatus: () => false, hasInteractiveAuthor: () => false, getAuthorName: () => 'Author',
+              getVisibleAuthorName: () => 'Author', isAgentAuthor: () => false, onNavigationClick: () => {},
+            })
+          }
+          if (mode.has('errorContrast')) {
+            const source = ref('/image-test/contrast-missing.svg')
+            const image = (id, width, height) => withDirectives(h('img', {
+              id, src: source.value, alt: 'Unavailable image', width, height,
+              ...(id === 'contrast-large' ? { tabindex: 0, role: 'button' } : {}),
+              style: 'display:block;border-radius:8px;object-fit:cover',
+            }), [[vImageState]])
+            return () => h('main', [
+              image('contrast-large', 400, 200), image('contrast-small', 32, 32),
+              h('button', { onClick: () => { source.value = '/image-test/contrast-recovered.svg' } }, 'Recover contrast images'),
+            ])
+          }
+          if (mode.has('imageAccessibility')) {
+            const source = ref('/image-test/accessibility-missing.svg')
+            const image = (attrs) => withDirectives(h('img', {
+              src: source.value, width: 80, height: 40, ...attrs,
+            }), [[vImageState]])
+            return () => h('main', [
+              h('span', { id: 'image-reference' }, 'Reference label'),
+              h('a', { id: 'decorative-link', href: '/board' }, [image({ alt: '' }), 'Board name']),
+              h('a', { id: 'alt-link', href: '/guide' }, [image({ alt: 'Read the guide' })]),
+              h('a', { id: 'label-link', href: '/report' }, [image({ alt: '', 'aria-label': 'Download report' })]),
+              h('a', { id: 'reference-link', href: '/reference' }, [image({ alt: '', 'aria-labelledby': 'image-reference' })]),
+              h('button', { onClick: () => { source.value = '/image-test/accessibility-recovered.svg' } }, 'Recover images'),
+            ])
+          }
+          if (mode.has('inquiryRetry')) {
+            return () => h(AuthenticatedInquiryImage, {
+              attachment: { fileId: 765, url: '/api/v1/files/765', originalName: 'Retry inquiry image', fileSize: 100, mimeType: 'image/svg+xml' },
+            })
+          }
+          if (mode.has('lightboxStates')) {
+            const shape = mode.get('lightboxStates')
+            const portrait = shape === 'portrait'
+            const isOpen = ref(true)
+            const images = [
+              { src: `/image-test/lightbox-${shape}.svg?signature=preserved`, alt: 'Viewer image', width: portrait ? 300 : 600, height: portrait ? 600 : 300 },
+              { src: '/image-test/lightbox-other.svg', alt: 'Other viewer image', width: 300, height: 600 },
+            ]
+            return () => h(ImageLightbox, { isOpen: isOpen.value, images, onClose: () => { isOpen.value = false } })
+          }
+          if (new URLSearchParams(location.search).has('sandboxBridge')) {
+            const loads = ref(0)
+            const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"><rect width="320" height="160" fill="#16a34a"/></svg>')
+            const html = `<style>html:root, html body { overflow: hidden !important; height: 100%; margin: 0; }</style><p>Sandbox bridge recovery content</p><img src="${image}" width="320" height="160" alt="Sandbox bridge recovery image"><div style="height:5000px">Sandbox bridge long content</div>`
+            return () => h('main', [
+              h('output', { id: 'sandbox-load-count' }, String(loads.value)),
+              h(SandboxedHtmlFrame, {
+                id: 'sandbox-bridge-frame',
+                title: 'Sandbox bridge recovery frame',
+                html,
+                loading: 'eager',
+                onLoad: () => { loads.value += 1 },
+              }),
+            ])
+          }
+          if (new URLSearchParams(location.search).has('gallery')) {
+            const interactions = useRichContentInteractions({
+              isDisabled: false,
+              router: { push() {} },
+              getCodeCopyLabels: () => ({ copy: 'Copy', copied: 'Copied', failed: 'Failed' }),
+              getImageOpenLabel: (alt) => alt,
+            })
+            onMounted(interactions.prepareImagesForInteraction)
+            const galleryPhoto = (id, attrs = {}) => withDirectives(h('img', {
+              id, src: `/image-test/${id}.svg`, alt: id,
+              width: 400, height: 200, style: 'display:block', ...attrs,
+            }), [[vImageState]])
+            return () => h('main', [
+              h('article', {
+                ref: interactions.articleRef,
+                onClick: interactions.handleContentClick,
+                onKeydown: interactions.handleContentKeydown,
+              }, [
+                h('div', { class: 'nv-rich-content' }, [
+                  galleryPhoto('gallery-first'),
+                  galleryPhoto('gallery-lazy', { loading: 'lazy', style: 'display:block;margin-top:12000px' }),
+                ]),
+              ]),
+              h(ImageLightbox, {
+                isOpen: interactions.lightboxOpen.value,
+                images: interactions.lightboxImages.value,
+                initialIndex: interactions.lightboxIndex.value,
+                onClose: () => { interactions.lightboxOpen.value = false },
+              }),
+            ])
+          }
+          const source = ref('/image-test/slow.svg')
+          const photo = (id, style, attrs = {}) => withDirectives(h('img', {
+            id, src: source.value, alt: id, style, ...attrs,
+          }), [[vImageState]])
+          return () => h('main', [
+            h('button', { id: 'replace', onClick: () => { source.value = '/image-test/replacement.svg' } }, 'Replace'),
+            photo('photo', 'display:block;max-width:100%;height:auto', { width: 400, height: 200 }),
+            photo('avatar', 'width:32px;height:32px;border-radius:50%;object-fit:cover'),
+            photo('emoticon', 'width:24px;height:24px;display:inline-block'),
+            photo('logo', 'width:auto;height:32px', { width: 200, height: 50 }),
+            h(SanitizedHtmlView, {
+              id: 'rich',
+              class: 'nv-rich-content',
+              html: '<p>Inline <img class="ql-emoticon" src="/image-test/slow.svg" alt="Emoticon"> text</p><img src="/image-test/slow.svg" alt="Unsized">',
+            }),
+            photo('lazy', 'display:block;margin-top:1600px;width:200px;height:100px', { loading: 'lazy' }),
+            h(SanitizedHtmlView, {
+              id: 'protected',
+              html: '<img src="/api/v1/files/123" loading="eager" alt="Protected photo" width="320" height="160">',
+            }),
+          ])
+        },
+      })
+      const app = createApp(fixture).use(i18n)
+      const pinia = createPinia()
+      app.use(pinia)
+      app.component('RouterLink', RouterLink)
+      configureApiStoreResolvers({ resolveAuthStore: () => useAuthStore(pinia) })
+      app.mount('#app')
+    </script>
+  </body>
+</html>

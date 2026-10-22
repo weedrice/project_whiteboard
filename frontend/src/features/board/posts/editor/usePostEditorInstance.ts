@@ -1,4 +1,5 @@
 import { watch, type Ref } from 'vue'
+import { DOMSerializer } from '@tiptap/pm/model'
 import { useEditor, type Editor } from '@tiptap/vue-3'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
 import { isRawHtmlBlockNodeSelected } from '@/extensions/tiptap-raw-html-block'
@@ -58,7 +59,7 @@ export function usePostEditorInstance(options: {
             options.onRawHtmlBlockSelectionChange?.(isRawHtmlBlockNodeSelected(instance))
         },
         onUpdate: ({ editor: instance }) => {
-            options.onUpdateHtml(serializePostEditorHtml(instance.getHTML()))
+            options.onUpdateHtml(serializePostEditorHtml(getPostEditorHtml(instance)))
         },
     })
 
@@ -67,7 +68,7 @@ export function usePostEditorInstance(options: {
         (value) => {
             if (!editor.value) return
             const normalizedValue = ensurePostEditorEditableTail(value)
-            const current = editor.value.getHTML()
+            const current = getPostEditorHtml(editor.value)
             if (normalizedValue !== current) {
                 editor.value.commands.setContent(normalizedValue, { emitUpdate: false })
             }
@@ -75,6 +76,16 @@ export function usePostEditorInstance(options: {
     )
 
     return editor
+}
+
+/** Serialize in an inert document so saved private image URLs never become live requests. */
+export function getPostEditorHtml(editor: Pick<Editor, 'schema' | 'state'>): string {
+    const inertDocument = document.implementation.createHTMLDocument()
+    const container = inertDocument.createElement('div')
+    container.append(DOMSerializer.fromSchema(editor.schema).serializeFragment(editor.state.doc.content, {
+        document: inertDocument,
+    }))
+    return container.innerHTML
 }
 
 export function ensurePostEditorEditableTail(content: string | null | undefined): string {

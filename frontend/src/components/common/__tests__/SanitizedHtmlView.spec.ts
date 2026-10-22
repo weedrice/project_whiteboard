@@ -4,6 +4,9 @@ import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { asSanitizedHtml } from '@/utils/sanitize'
 import { createDeferred } from '@/test/async'
+import { renderCommentContentHtml } from '@/features/comments/commentContent'
+import { DEFAULT_EMOTICON_IMAGE_URL } from '@/utils/imageFallback'
+import i18n, { setAppLocale } from '@/i18n'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -20,6 +23,23 @@ describe('SanitizedHtmlView', () => {
 
   beforeEach(() => {
     mocks.get.mockReset()
+    // jsdom has no layout; model the default fixture images entering the viewport.
+    vi.stubGlobal('IntersectionObserver', class {
+      private observed = new Set<Element>()
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe = (target: Element) => {
+        this.observed.add(target)
+        queueMicrotask(() => {
+          if (!this.observed.has(target)) return
+          this.callback([{
+            target, isIntersecting: true, intersectionRatio: 1, time: 0,
+            boundingClientRect: target.getBoundingClientRect(), intersectionRect: target.getBoundingClientRect(), rootBounds: null,
+          }], this as unknown as IntersectionObserver)
+        })
+      }
+      unobserve = (target: Element) => { this.observed.delete(target) }
+      disconnect = () => { this.observed.clear() }
+    })
     createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
     revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
     anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
@@ -29,6 +49,62 @@ describe('SanitizedHtmlView', () => {
     createObjectUrlSpy.mockRestore()
     revokeObjectUrlSpy.mockRestore()
     anchorClickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+
+  it('updates existing error labels on locale changes without replacing images or retrying downloads', async () => {
+    await setAppLocale('ko')
+    const pending = createDeferred<{ data: Blob }>()
+    mocks.get.mockRejectedValueOnce(new Error('forbidden')).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(SanitizedHtmlView, {
+      attachTo: document.body,
+      props: { html: asSanitizedHtml(
+        '<img alt="protected" src="/api/v1/files/27">'
+        + '<img alt="native" src="https://cdn.noviis.kr/missing.png">'
+        + '<img alt="pending" src="/api/v1/files/28">'
+        + '<img alt="loaded" src="https://cdn.noviis.kr/loaded.png">',
+      ) },
+    })
+    try {
+      const images = wrapper.findAll('img')
+      const elements = images.map((image) => image.element)
+      elements.slice(0, 2).forEach((image) => Object.defineProperties(image, {
+        clientWidth: { value: 400 }, clientHeight: { value: 200 },
+      }))
+      await flushPromises()
+      await images[1]!.trigger('error')
+      Object.defineProperties(elements[3]!, { complete: { value: true }, naturalWidth: { value: 400 } })
+      await images[3]!.trigger('load')
+      await flushPromises()
+      const korean = i18n.global.t('common.imageLoadError')
+      await vi.waitFor(() => expect(decodeURIComponent(elements[0]!.style.getPropertyValue('--nv-image-error-symbol'))).toContain(korean))
+      expect(elements.map((image) => image.dataset.imageState)).toEqual(['error', 'error', 'loading', 'loaded'])
+      const sources = elements.map((image) => image.getAttribute('src'))
+      const stateChange = vi.fn()
+      wrapper.element.addEventListener('imagestatechange', stateChange)
+      await setAppLocale('en')
+      await flushPromises()
+      const english = i18n.global.t('common.imageLoadError')
+      expect(english).not.toBe(korean)
+      await vi.waitFor(() => elements.slice(0, 2).forEach((image) => {
+        expect(image.title).toBe(english)
+        expect(image.getAttribute('aria-label')).toBe(image.alt + ' — ' + english)
+        for (const suffix of ['', '-dark']) {
+          expect(decodeURIComponent(image.style.getPropertyValue('--nv-image-error-symbol' + suffix))).toContain(english)
+        }
+      }))
+      expect(wrapper.findAll('img').map((image) => image.element)).toEqual(elements)
+      expect(elements.map((image) => image.getAttribute('src'))).toEqual(sources)
+      expect(elements.map((image) => image.dataset.imageState)).toEqual(['error', 'error', 'loading', 'loaded'])
+      expect(elements.slice(2).map((image) => image.getAttribute('aria-label'))).toEqual([null, null])
+      expect(mocks.get).toHaveBeenCalledTimes(2)
+      expect(stateChange).not.toHaveBeenCalled()
+      expect(createObjectUrlSpy).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      await setAppLocale('ko')
+    }
   })
 
   it('loads local protected images through the authenticated API client', async () => {
@@ -172,7 +248,7 @@ describe('SanitizedHtmlView', () => {
     expect(revokeObjectUrlSpy).toHaveBeenCalledTimes(3)
   })
 
-  it.each([true, false])('preserves fallback policy %s for every image sharing a failed request', async (useImageFallback) => {
+  it.each([true, false])('shows a terminal error for each failed content image (emoticon fallback enabled: %s)', async (useImageFallback) => {
     mocks.get.mockRejectedValue(new Error('forbidden'))
     const wrapper = mount(SanitizedHtmlView, {
       props: {
@@ -183,10 +259,78 @@ describe('SanitizedHtmlView', () => {
 
     await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
     await flushPromises()
-    const expectedSource = useImageFallback ? '/images/default-emoticon.png' : undefined
-    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual([expectedSource, expectedSource])
+    expect(wrapper.findAll('img').map((image) => image.attributes('src'))).toEqual([undefined, undefined])
+    expect(wrapper.findAll('img').map((image) => image.attributes('data-image-state'))).toEqual(['error', 'error'])
     expect(createObjectUrlSpy).not.toHaveBeenCalled()
     wrapper.unmount()
+  })
+
+  it('keeps a skeleton through download until the browser decodes the blob', async () => {
+    const response = createDeferred<{ data: Blob }>()
+    mocks.get.mockReturnValueOnce(response.promise)
+    const wrapper = mount(SanitizedHtmlView, {
+      props: { html: asSanitizedHtml('<img width="640" height="480" src="/api/v1/files/25">') },
+    })
+    const image = wrapper.get('img')
+    expect(image.attributes('data-image-state')).toBe('loading')
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+    response.resolve({ data: new Blob(['image'], { type: 'image/png' }) })
+    await flushPromises()
+    expect(image.attributes('src')).toBe('blob:preview')
+    expect(image.attributes('data-image-state')).toBe('loading')
+    Object.defineProperties(image.element, {
+      complete: { value: true },
+      naturalWidth: { value: 640 },
+    })
+    await image.trigger('load')
+    expect(image.attributes('data-image-state')).toBe('loaded')
+    wrapper.unmount()
+  })
+
+  describe.each(['comment-emoticon', 'comment-emoticon comment-emoticon-list', 'ql-emoticon'])('emoticon fallback: %s', (className) => {
+    const content = (src: string) => className === 'ql-emoticon'
+      ? asSanitizedHtml(`<img class="ql-emoticon" src="${src}">`)
+      : renderCommentContentHtml(`![emoticon](${src})`, className)
+
+    it('uses the default emoticon after an authenticated download fails', async () => {
+      mocks.get.mockRejectedValue(new Error('forbidden'))
+      const wrapper = mount(SanitizedHtmlView, { props: { html: content('/api/v1/files/26') } })
+      await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+      await flushPromises()
+      expect(wrapper.get('img').attributes('src')).toBe(DEFAULT_EMOTICON_IMAGE_URL)
+      expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    })
+
+    it('uses the default emoticon after a native image error and terminates if the fallback fails', async () => {
+      const wrapper = mount(SanitizedHtmlView, { props: { html: content('https://cdn.noviis.kr/missing.png') } })
+      await flushPromises()
+      const image = wrapper.get('img')
+      await image.trigger('error')
+      await flushPromises()
+      expect(image.attributes('src')).toBe(DEFAULT_EMOTICON_IMAGE_URL)
+      expect(image.attributes('data-image-state')).toBe('loading')
+      await image.trigger('error')
+      await flushPromises()
+      expect(image.attributes('src')).toBe(DEFAULT_EMOTICON_IMAGE_URL)
+      expect(image.attributes('data-image-state')).toBe('error')
+    })
+
+    it('respects callers that disable fallback for both failure paths', async () => {
+      mocks.get.mockRejectedValue(new Error('forbidden'))
+      const wrapper = mount(SanitizedHtmlView, {
+        props: { html: content('/api/v1/files/26'), useImageFallback: false },
+      })
+      await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+      await flushPromises()
+      expect(wrapper.get('img').attributes('src')).toBeUndefined()
+      expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
+      await wrapper.setProps({ html: content('https://cdn.noviis.kr/missing.png') })
+      await flushPromises()
+      await wrapper.get('img').trigger('error')
+      await flushPromises()
+      expect(wrapper.get('img').attributes('src')).toBe('https://cdn.noviis.kr/missing.png')
+      expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
+    })
   })
 
   it.each(['content', 'session'])('ignores a shared request resolved after its %s generation changed', async (boundary) => {

@@ -1,7 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AuthenticatedInquiryImage from '../AuthenticatedInquiryImage.vue'
+import InquiryTimeline from '../InquiryTimeline.vue'
+import type { InquiryMessage } from '@/types/inquiry'
 import { useAuthStore } from '@/stores/auth'
 import { createDeferred } from '@/test/async'
 
@@ -12,6 +14,170 @@ describe('AuthenticatedInquiryImage session ownership', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     get.mockReset()
+    vi.stubGlobal('IntersectionObserver', undefined)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  const attachment = { fileId: 1, url: '/api/v1/files/1', originalName: 'private.png', fileSize: 5, mimeType: 'image/png' }
+
+  function controlVisibility() {
+    const observers = new Map<Element, IntersectionObserverCallback>()
+    const disconnect = vi.fn()
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe = (element: Element) => { observers.set(element, this.callback) }
+      unobserve = vi.fn()
+      disconnect = disconnect
+    })
+    const enter = (element: Element) => observers.get(element)?.([{
+      target: element, isIntersecting: true, intersectionRatio: 1, time: 0,
+      boundingClientRect: element.getBoundingClientRect(),
+      intersectionRect: element.getBoundingClientRect(), rootBounds: null,
+    }], {} as IntersectionObserver)
+    return { enter, disconnect }
+  }
+
+  it('waits for visibility after replacement and ignores observer callbacks after unmount', async () => {
+    const visibility = controlVisibility()
+    get.mockResolvedValue({ data: new Blob(['image']) })
+    const wrapper = mount(AuthenticatedInquiryImage, { props: { attachment } })
+    await flushPromises()
+    expect(get).not.toHaveBeenCalled()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    visibility.enter(wrapper.element)
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(visibility.disconnect).toHaveBeenCalled()
+    await wrapper.setProps({ attachment: { ...attachment, url: '/api/v1/files/2' } })
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+    visibility.enter(wrapper.element)
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('shares four active downloads across timeline messages and drops queued requests on unmount', async () => {
+    const visibility = controlVisibility()
+    const pending = Array.from({ length: 12 }, () => createDeferred<{ data: Blob }>())
+    const createUrl = vi.spyOn(URL, 'createObjectURL')
+    get.mockImplementation((path: string) => pending[Number(path.split('/').at(-1)) - 1]!.promise)
+    const messages: InquiryMessage[] = Array.from({ length: 3 }, (_, message) => ({
+      messageId: message + 1, authorUserId: 1, authorName: 'Author',
+      messageType: 'USER_MESSAGE', content: 'Message', createdAt: '2026-01-01T00:00:00Z',
+      attachments: Array.from({ length: 4 }, (_, index) => ({
+        ...attachment, fileId: message * 4 + index + 1, url: `/api/v1/files/${message * 4 + index + 1}`,
+      })),
+    }))
+    const wrapper = mount(InquiryTimeline, { props: { messages } })
+    await flushPromises()
+    expect(get).not.toHaveBeenCalled()
+    wrapper.findAllComponents(AuthenticatedInquiryImage).forEach(child => visibility.enter(child.element))
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(4)
+    pending[0]!.resolve({ data: new Blob(['image']) })
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(5)
+    expect(createUrl).toHaveBeenCalledTimes(1)
+    expect(get.mock.calls.at(-1)![0]).toBe('/files/5')
+    wrapper.unmount()
+    expect(get.mock.calls.slice(1).every(([, config]) => config.signal.aborted)).toBe(true)
+    pending.forEach(response => response.resolve({ data: new Blob(['late']) }))
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(5)
+  })
+
+  it('does not start visible or queued images after the initiating account changes', async () => {
+    const visibility = controlVisibility()
+    const wrapper = mount(AuthenticatedInquiryImage, { props: { attachment } })
+    await flushPromises()
+    useAuthStore().sessionGeneration += 1
+    visibility.enter(wrapper.element)
+    await flushPromises()
+    expect(get).not.toHaveBeenCalled()
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it.each([true, false])('retries once through decoding and respects focus ownership (%s)', async (ownsFocus) => {
+    get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    get.mockReturnValueOnce(pending.promise)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry')
+    const wrapper = mount(AuthenticatedInquiryImage, { props: { attachment }, attachTo: document.body })
+    await flushPromises()
+    const button = wrapper.get('button')
+    ;(button.element as HTMLButtonElement).focus()
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    button.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(get.mock.calls[1]![1].expectedSession).toEqual({
+      sessionGeneration: useAuthStore().sessionGeneration, userId: null,
+    })
+    expect(wrapper.get('button').attributes('aria-disabled')).toBeDefined()
+    expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
+    const otherButton = document.createElement('button')
+    document.body.append(otherButton)
+    if (!ownsFocus) otherButton.focus()
+    pending.resolve({ data: new Blob(['image']) })
+    await flushPromises()
+    expect(wrapper.get('button').attributes('aria-disabled')).toBeDefined()
+    Object.defineProperties(wrapper.get('img').element, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    })
+    await wrapper.get('img').trigger('load')
+    expect(wrapper.find('button').exists()).toBe(false)
+    expect(document.activeElement).toBe(ownsFocus ? wrapper.get('a').element : otherButton)
+    otherButton.remove()
+    wrapper.unmount()
+  })
+
+  it('retries decode failures, revokes the old blob and ignores old image events', async () => {
+    get.mockResolvedValue({ data: new Blob(['image']) })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:broken').mockReturnValueOnce('blob:fixed')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const wrapper = mount(AuthenticatedInquiryImage, { props: { attachment } })
+    await flushPromises()
+    const oldImage = wrapper.get('img')
+    await oldImage.trigger('error')
+    expect(wrapper.get('a').attributes('href')).toBeUndefined()
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(revoke).toHaveBeenCalledWith('blob:broken')
+    expect(wrapper.get('img').element).not.toBe(oldImage.element)
+    await oldImage.trigger('error')
+    expect(wrapper.get('img').attributes('src')).toBe('blob:fixed')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    expect(wrapper.get('button').attributes('aria-disabled')).toBeDefined()
+    await wrapper.get('img').trigger('error')
+    expect(wrapper.get('button').attributes('aria-disabled')).toBeUndefined()
+    wrapper.unmount()
+    expect(revoke).toHaveBeenCalledWith('blob:fixed')
+  })
+
+  it.each(['source', 'session', 'unmount'])('discards a delayed retry after %s changes', async (change) => {
+    get.mockRejectedValueOnce(new Error('offline'))
+    const pending = createDeferred<{ data: Blob }>()
+    get.mockReturnValueOnce(pending.promise)
+    get.mockRejectedValueOnce(new Error('still offline'))
+    const create = vi.spyOn(URL, 'createObjectURL')
+    const wrapper = mount(AuthenticatedInquiryImage, { props: { attachment } })
+    await flushPromises()
+    await wrapper.get('button').trigger('click')
+    const config = get.mock.calls[1]![1]
+    if (change === 'source') await wrapper.setProps({ attachment: { ...attachment, url: '/api/v1/files/2' } })
+    if (change === 'session') useAuthStore().sessionGeneration += 1
+    if (change === 'unmount') wrapper.unmount()
+    expect(config.signal.aborted).toBe(true)
+    pending.resolve({ data: new Blob(['old retry']) })
+    await flushPromises()
+    expect(create).not.toHaveBeenCalled()
+    if (change !== 'unmount') wrapper.unmount()
   })
 
   it('releases visible private images and ignores delayed responses on a session change', async () => {
@@ -26,15 +192,32 @@ describe('AuthenticatedInquiryImage session ownership', () => {
     const pending = createDeferred<{ data: Blob }>()
     get.mockReturnValueOnce(pending.promise)
     await wrapper.setProps({ attachment: { fileId: 2, url: '/api/v1/files/2', originalName: 'next.png', fileSize: 5, mimeType: 'image/png' } })
+    await flushPromises()
     const config = get.mock.calls[1]?.[1]
     useAuthStore().sessionGeneration += 1
     expect(config.signal.aborted).toBe(true)
     pending.resolve({ data: new Blob(['old response']) })
     await flushPromises()
-    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.get('img').attributes('src')).toBeUndefined()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
     expect(revoke).toHaveBeenCalledWith('blob:private')
     expect(create).toHaveBeenCalledTimes(1)
     create.mockRestore()
     revoke.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('shows loading during the request, then reports a download failure', async () => {
+    const pending = createDeferred<{ data: Blob }>()
+    get.mockReturnValueOnce(pending.promise)
+    const wrapper = mount(AuthenticatedInquiryImage, {
+      props: { attachment: { fileId: 1, url: '/api/v1/files/1', originalName: 'private.png', fileSize: 5, mimeType: 'image/png' } },
+    })
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    pending.reject(new Error('unavailable'))
+    await flushPromises()
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('error')
+    expect(wrapper.get('a').attributes('href')).toBeUndefined()
+    wrapper.unmount()
   })
 })

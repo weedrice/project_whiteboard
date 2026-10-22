@@ -41,3 +41,19 @@ describe('UserAvatar', () => {
     expect(wrapper.emitted('image-error')).toHaveLength(1)
   })
 })
+
+describe('UserAvatar image states', () => {
+  it('shows initials after failure without requiring a parent error listener and retries a changed URL', async () => {
+    const wrapper = mount(UserAvatar, { props: { name: 'Alice', imageUrl: '/first.png' } })
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    await wrapper.get('img').trigger('error')
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.text()).toBe('A')
+    expect(wrapper.emitted('image-error')).toHaveLength(1)
+
+    await wrapper.setProps({ imageUrl: '/second.png' })
+    expect(wrapper.get('img').attributes('src')).toBe('/second.png')
+    expect(wrapper.get('img').attributes('data-image-state')).toBe('loading')
+    wrapper.unmount()
+  })
+})

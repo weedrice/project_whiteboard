@@ -187,6 +187,8 @@ npm.cmd run test:e2e
 
 `test:e2e`는 production build 후 기본 Playwright suite를 실행합니다. `test:e2e:run`은 기존 build를 사용하며, 다운로드·HTML sandbox·별도 통합 suite는 각각 `test:e2e:download`, `test:e2e:sandbox`, `test:e2e:full`의 별도 설정을 사용합니다. `test:e2e:full`은 실행 중인 대상 서버의 `E2E_BASE_URL` 설정이 필요합니다. `src/test/setup.ts`는 Vitest 공통 환경이며 browser tests는 `e2e/`에 있습니다.
 
+이미지 로딩·실패 상태는 `npm.cmd run test:e2e:images`로 검증하며 CI에서도 별도로 실행합니다. 별도 Vite 서버(4182 포트)에서 Chromium·WebKit으로 지연 응답, 인증 이미지 실패, 크기 유지, 모바일 및 동작 줄이기 설정을 확인하며 백엔드 연결은 필요하지 않습니다.
+
 ## 빌드
 
 일반 production build (`vite build`와 `pwa:verify`, 타입 검사는 별도 `type-check`):

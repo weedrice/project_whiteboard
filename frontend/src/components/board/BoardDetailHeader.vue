@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import type { RouteLocationRaw } from 'vue-router'
 import { ShieldCheck, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -31,7 +32,7 @@ const { t } = useI18n()
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
         <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
-          <img
+          <img v-image-state
             v-if="board.iconUrl"
             :src="getOptimizedBoardIconUrl(board.iconUrl, 96)"
             class="nv-board-icon"

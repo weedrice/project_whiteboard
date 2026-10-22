@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['full/**', 'sandboxed-html-rendering.spec.ts'],
+  testIgnore: ['full/**', 'sandboxed-html-rendering.spec.ts', 'image-loading-states.spec.ts', 'authenticated-image-gallery.spec.ts', 'inquiry-image-loading.spec.ts', 'editor-image-loading.spec.ts'],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

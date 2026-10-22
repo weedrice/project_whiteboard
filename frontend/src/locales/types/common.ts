@@ -80,6 +80,12 @@ export interface CommonMessages {
   advertisement: string
   appName: string
   loading: string
+  imageLoadError: string
+  imageRetry: string
+  imageRetrying: string
+  imageViewerLoading: string
+  imageViewerLoaded: string
+  imageViewerError: string
   noData: string
   loadMore: string
   add: string

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { IMAGE_STATE_CSS } from '../imageStatePresentation'
 import {
     buildSandboxedPostHtmlSource,
     containsSandboxedPostHtml,
@@ -400,6 +401,50 @@ describe('postHtmlSandbox', () => {
         })
     })
 
+    it('prepares images before their first paint without modifying the persisted source', () => {
+        const html = '<img src="/photo.png" width="640" height="480" alt="Original" onerror="bad()">'
+        const source = buildSandboxedPostHtmlSource(html, 'frame-1', '이미지를 불러올 수 없습니다')
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        const image = doc.querySelector('img')!
+
+        expect(image.getAttribute('data-image-state')).toBe('loading')
+        expect(image.getAttribute('aria-busy')).toBe('true')
+        expect(image.style.getPropertyValue('--nv-image-placeholder')).toContain('640')
+        expect(image.style.getPropertyValue('--nv-image-placeholder')).toContain('480')
+        expect(image.getAttribute('src')).toBe('/photo.png')
+        expect(image.getAttribute('alt')).toBe('Original')
+        expect(image.hasAttribute('onerror')).toBe(false)
+        expect(doc.querySelector('script')?.getAttribute('data-image-error-label')).toBe('이미지를 불러올 수 없습니다')
+        expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+    })
+
+    it('keeps the static fallback sanitized without hiding native images or retrying the bridge', () => {
+        const source = buildSandboxedPostHtmlSource(
+            '<img src="/photo.png" width="320" height="160" onerror="bad()"><script>bad()</script>',
+            'frame-static', '', { staticFallback: true },
+        )
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        expect(doc.querySelector('img')?.getAttribute('src')).toBe('/photo.png')
+        expect(doc.querySelector('img')?.hasAttribute('data-image-state')).toBe(false)
+        expect(doc.querySelector('img')?.hasAttribute('aria-busy')).toBe(false)
+        expect(doc.querySelector('img')?.hasAttribute('onerror')).toBe(false)
+        expect(doc.querySelector('script')).toBeNull()
+        for (const root of [doc.documentElement, doc.body]) {
+            expect(root.style.getPropertyValue('overflow-y')).toBe('auto')
+            expect(root.style.getPropertyPriority('overflow-y')).toBe('important')
+        }
+        expect(source).not.toContain(IMAGE_STATE_CSS)
+        expect(source).toContain("default-src 'none'")
+        expect(source).toContain('overflow-y: auto !important')
+    })
+
+    it('escapes localized error text without allowing additional bridge attributes', () => {
+        const source = buildSandboxedPostHtmlSource('<img src="/photo.png">', 'frame-1', '" onload="bad()')
+        const doc = new DOMParser().parseFromString(source, 'text/html')
+        expect(doc.querySelector('script')?.getAttribute('data-image-error-label')).toBe('" onload="bad()')
+        expect(doc.querySelector('script')?.hasAttribute('onload')).toBe(false)
+    })
+
     it('normalizes full html documents without nesting their document shell', () => {
         const source = buildSandboxedPostHtmlSource(
             '<!doctype html><html lang="ko" class="theme-dark"><head><meta name="viewport" content="width=320"><title>Card</title><style>.card{display:grid}</style></head><body class="document" style="padding: 1rem"><main class="card">Hello</main></body></html>',
@@ -441,17 +486,6 @@ describe('postHtmlSandbox', () => {
         expect(source).toContain('body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1fr) !important; }')
         expect(heightBridgeSource).toContain("var responsiveStackAttribute = 'data-noviis-responsive-stack'")
         expect(heightBridgeSource).toContain('hasOverflowingDescendant(grid)')
-    })
-
-    it('cleans up sandbox height polling when the frame unloads', () => {
-        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
-
-        expect(source).toContain('sandbox-height-bridge.js')
-        expect(heightBridgeSource).toContain('window.setInterval(postHeight, 500)')
-        expect(heightBridgeSource).toContain("channel: 'noviis-post-html-sandbox'")
-        expect(heightBridgeSource).toContain('window.clearInterval(intervalId)')
-        expect(heightBridgeSource).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
-        expect(heightBridgeSource).toContain('resizeObserver.disconnect()')
     })
 
     it('measures content independently from the current iframe viewport height', () => {

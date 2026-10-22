@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => {
 
     const transaction = { setMeta: vi.fn() }
     transaction.setMeta.mockImplementation(() => transaction)
+    const getHTML = vi.fn(() => '<p>editor-html</p>')
     const editor = {
         isEditable: true,
         isDestroyed: false,
@@ -60,7 +61,7 @@ const mocks = vi.hoisted(() => {
             toggleBold: () => true, toggleItalic: () => true, toggleUnderline: () => true, toggleStrike: () => true,
             setMark: () => true, setTextAlign: () => true, toggleBulletList: () => true, toggleOrderedList: () => true,
         })),
-        getHTML: vi.fn(() => '<p>editor-html</p>'),
+        getHTML,
         chain: vi.fn(() => chain),
         commands: {
             setContent: vi.fn(),
@@ -74,7 +75,18 @@ const mocks = vi.hoisted(() => {
             return {}
         }),
         isActive: vi.fn((name: unknown) => name === 'link'),
-        schema: { marks: {} },
+        schema: {
+            marks: {},
+            cached: {
+                domSerializer: {
+                    serializeFragment: vi.fn((_content: unknown, options: { document: Document }) => {
+                        const template = options.document.createElement('template')
+                        template.innerHTML = getHTML()
+                        return template.content
+                    }),
+                },
+            },
+        },
         state: {
             selection: { from: 1, to: 1, $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 } },
             tr: transaction,

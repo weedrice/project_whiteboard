@@ -18,6 +18,7 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
   let dragStart: DragStart | null = null
   let pinchStartDistance = 0
   let pinchStartScale = 1
+  let suppressSwipe = false
   const activePointers = new Map<number, { x: number; y: number }>()
 
   const imageTransform = computed(() => ({
@@ -31,6 +32,7 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     dragStart = null
     pinchStartDistance = 0
     activePointers.clear()
+    suppressSwipe = false
   }
 
   function getPointerDistance() {
@@ -74,6 +76,7 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     }
 
     if (activePointers.size === 2) {
+      suppressSwipe = true
       pinchStartDistance = getPointerDistance()
       pinchStartScale = imageScale.value
     }
@@ -106,11 +109,14 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     }
   }
 
-  function handleImagePointerUp(event: PointerEvent) {
+  function finishPointer(event: PointerEvent, cancelled: boolean) {
+    if (!activePointers.has(event.pointerId)) return
     activePointers.delete(event.pointerId)
-    ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
+    const target = event.currentTarget as HTMLElement
+    if (target.hasPointerCapture?.(event.pointerId)) target.releasePointerCapture(event.pointerId)
+    if (cancelled) suppressSwipe = true
 
-    if (dragStart && imageScale.value === 1) {
+    if (!suppressSwipe && dragStart && imageScale.value === 1) {
       const deltaX = event.clientX - dragStart.x
       const deltaY = event.clientY - dragStart.y
       if (deltaY > 80 && Math.abs(deltaY) > Math.abs(deltaX)) {
@@ -123,7 +129,21 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     if (activePointers.size === 0) {
       dragStart = null
       pinchStartDistance = 0
+      suppressSwipe = false
+    } else if (activePointers.size === 1) {
+      // Continue a pinch as a pan from the remaining finger, without a jump or swipe.
+      const remaining = activePointers.values().next().value!
+      dragStart = { ...remaining, offsetX: imageOffset.x, offsetY: imageOffset.y }
+      pinchStartDistance = 0
     }
+  }
+
+  function handleImagePointerUp(event: PointerEvent) {
+    finishPointer(event, false)
+  }
+
+  function handleImagePointerCancel(event: PointerEvent) {
+    finishPointer(event, true)
   }
 
   function toggleZoom() {
@@ -140,6 +160,7 @@ export function useLightboxGestures(options: UseLightboxGesturesOptions) {
     handleImagePointerDown,
     handleImagePointerMove,
     handleImagePointerUp,
+    handleImagePointerCancel,
     toggleZoom,
   }
 }

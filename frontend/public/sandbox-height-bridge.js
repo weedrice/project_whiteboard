@@ -5,8 +5,95 @@
   var frameId = script ? script.getAttribute('data-frame-id') : ''
   var lastHeight = 0
   var responsiveStackAttribute = 'data-noviis-responsive-stack'
+  var imageErrorLabel = script ? script.getAttribute('data-image-error-label') : ''
+  var imageRecords = new WeakMap()
+  var heightFrame = null
+  var disposed = true
+  var loadingObserver = null
+  var loadingImages = new Set()
 
   if (!frameId) return
+
+  function setImageState(image, state) {
+    image.setAttribute('data-image-state', state)
+    if (state === 'loading') observeLoadingImage(image)
+    else stopLoadingImage(image)
+    if (state === 'loading') image.setAttribute('aria-busy', 'true')
+    else image.removeAttribute('aria-busy')
+    var record = imageRecords.get(image)
+    var labelledBy = (image.getAttribute('aria-labelledby') || '').trim()
+    var explicitLabel = record && record.label ? record.label.trim() : ''
+    var decorative = image.getAttribute('alt') === '' && !explicitLabel && !labelledBy
+    if (state === 'error' && imageErrorLabel && !decorative) {
+      if (!labelledBy) image.setAttribute('aria-label', [explicitLabel || image.alt, imageErrorLabel].filter(Boolean).join(' — '))
+      image.setAttribute('title', imageErrorLabel)
+    } else if (record) {
+      if (record.label === null) image.removeAttribute('aria-label')
+      else image.setAttribute('aria-label', record.label)
+      if (record.title === null) image.removeAttribute('title')
+      else image.setAttribute('title', record.title)
+    }
+  }
+
+  function observeLoadingImage(image) {
+    if (disposed || !loadingObserver || loadingImages.has(image)) return
+    loadingImages.add(image)
+    image.setAttribute('data-image-offscreen', '')
+    loadingObserver.observe(image)
+  }
+
+  function stopLoadingImage(image) {
+    if (loadingImages.delete(image) && loadingObserver) loadingObserver.unobserve(image)
+    image.removeAttribute('data-image-offscreen')
+  }
+
+  function releaseRemovedImages(root) {
+    if (root.nodeType !== 1) return
+    var images = root.tagName === 'IMG' ? [root] : root.querySelectorAll('img')
+    for (var index = 0; index < images.length; index += 1) {
+      if (!document.body.contains(images[index])) stopLoadingImage(images[index])
+    }
+  }
+
+  function startLoadingObserver() {
+    if (typeof IntersectionObserver !== 'function') return
+    var observer = new IntersectionObserver(function (entries) {
+      if (disposed || loadingObserver !== observer) return
+      entries.forEach(function (entry) {
+        var image = entry.target
+        if (!loadingImages.has(image) || image.getAttribute('data-image-state') !== 'loading') return
+        if (entry.isIntersecting) image.removeAttribute('data-image-offscreen')
+        else image.setAttribute('data-image-offscreen', '')
+      })
+    }, { rootMargin: '200px 0px' })
+    loadingObserver = observer
+  }
+
+  function settleImage(image) {
+    if (!image.complete) return
+    setImageState(image, image.naturalWidth > 0 ? 'loaded' : 'error')
+    scheduleHeight()
+  }
+
+  function watchImage(image) {
+    if (!imageRecords.has(image)) {
+      imageRecords.set(image, { label: image.getAttribute('aria-label'), title: image.getAttribute('title') })
+      image.addEventListener('load', function () { settleImage(image) })
+      image.addEventListener('error', function () {
+        setImageState(image, 'error')
+        scheduleHeight()
+      })
+    }
+    setImageState(image, 'loading')
+    settleImage(image)
+  }
+
+  function watchImages(root) {
+    if (root.nodeType !== 1) return
+    if (root.tagName === 'IMG') watchImage(root)
+    var images = root.querySelectorAll('img')
+    for (var index = 0; index < images.length; index += 1) watchImage(images[index])
+  }
 
   function enforceScrollableDocument() {
     var roots = [document.documentElement, document.body]
@@ -95,16 +182,72 @@
     }, '*')
   }
 
-  window.addEventListener('load', postHeight)
-  window.addEventListener('resize', postHeight)
-  var resizeObserver = null
-  if (typeof ResizeObserver === 'function') {
-    resizeObserver = new ResizeObserver(postHeight)
-    resizeObserver.observe(document.body)
+  function scheduleHeight() {
+    if (disposed || heightFrame !== null) return
+    heightFrame = window.requestAnimationFrame(function () {
+      heightFrame = null
+      if (!disposed) postHeight()
+    })
   }
-  var intervalId = window.setInterval(postHeight, 500)
+
+  var imageObserver = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.type === 'childList') {
+        mutation.removedNodes.forEach(releaseRemovedImages)
+        mutation.addedNodes.forEach(watchImages)
+      } else if (mutation.target.tagName === 'IMG') {
+        watchImage(mutation.target)
+      } else if (mutation.target.tagName === 'SOURCE' && mutation.target.parentElement) {
+        watchImages(mutation.target.parentElement)
+      }
+    })
+  })
+  var resizeObserver = null
+  var intervalId = null
+
+  function resume() {
+    if (!disposed) return
+    disposed = false
+    lastHeight = 0
+    window.addEventListener('load', scheduleHeight)
+    window.addEventListener('resize', scheduleHeight)
+    startLoadingObserver()
+    watchImages(document.body)
+    imageObserver.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['src', 'srcset', 'sizes'],
+    })
+    if (typeof ResizeObserver === 'function') {
+      resizeObserver = new ResizeObserver(scheduleHeight)
+      resizeObserver.observe(document.body)
+    }
+    intervalId = window.setInterval(scheduleHeight, 500)
+    scheduleHeight()
+    // Readiness must not depend on a nonzero height or an animation frame.
+    parent.postMessage({
+      type: 'noviis-post-html-ready',
+      channel: 'noviis-post-html-sandbox',
+      id: frameId,
+    }, '*')
+  }
 
   function cleanup() {
+    disposed = true
+    if (loadingObserver) {
+      loadingObserver.disconnect()
+      loadingObserver = null
+    }
+    loadingImages.forEach(function (image) { image.setAttribute('data-image-offscreen', '') })
+    loadingImages.clear()
+    if (heightFrame !== null) {
+      window.cancelAnimationFrame(heightFrame)
+      heightFrame = null
+    }
+    window.removeEventListener('load', scheduleHeight)
+    window.removeEventListener('resize', scheduleHeight)
+    imageObserver.disconnect()
     if (intervalId !== null) {
       window.clearInterval(intervalId)
       intervalId = null
@@ -115,7 +258,11 @@
     }
   }
 
-  window.addEventListener('pagehide', cleanup, { once: true })
-  window.addEventListener('beforeunload', cleanup, { once: true })
-  postHeight()
+  // A cached document returns without rerunning this script. Pause only once
+  // navigation commits, then restore observers and listeners on every return.
+  window.addEventListener('pagehide', cleanup)
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) resume()
+  })
+  resume()
 }())

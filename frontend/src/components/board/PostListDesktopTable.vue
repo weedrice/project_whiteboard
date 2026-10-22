@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -59,7 +60,10 @@ const PREVIEW_GAP = 8
 const VIEWPORT_MARGIN = 8
 
 const hoverPreview = ref<{
-  url: string
+  url?: string
+  requestPath?: string
+  pending?: boolean
+  failed?: boolean
   left: number
   top: number
 } | null>(null)
@@ -93,14 +97,28 @@ function showImagePreview(event: Event, item: PostSummary) {
 
   const cachedObjectUrl = previewObjectUrls.get(requestPath)
   if (cachedObjectUrl) {
-    hoverPreview.value = { url: cachedObjectUrl, left, top }
+    hoverPreview.value = { url: cachedObjectUrl, requestPath, left, top }
     return
   }
 
   const generation = previewGeneration
+  hoverPreview.value = { left, top, pending: true }
   const controller = new AbortController()
   previewController = controller
   void loadAuthenticatedPreview(requestPath, left, top, controller, generation)
+}
+
+function handlePreviewError(event: Event) {
+  const image = event.currentTarget
+  const preview = hoverPreview.value
+  if (!(image instanceof HTMLImageElement) || !preview?.requestPath || !preview.url
+    || image.dataset.previewGeneration !== String(previewGeneration)
+    || image.getAttribute('src') !== preview.url
+    || previewObjectUrls.get(preview.requestPath) !== preview.url) return
+
+  previewObjectUrls.delete(preview.requestPath)
+  URL.revokeObjectURL(preview.url)
+  hoverPreview.value = { left: preview.left, top: preview.top, failed: true }
 }
 
 function hideImagePreview() {
@@ -134,9 +152,11 @@ async function loadAuthenticatedPreview(
 
     const objectUrl = URL.createObjectURL(response.data)
     previewObjectUrls.set(requestPath, objectUrl)
-    hoverPreview.value = { url: objectUrl, left, top }
+    hoverPreview.value = { url: objectUrl, requestPath, left, top }
   } catch {
-    if (!controller.signal.aborted && generation === previewGeneration) hoverPreview.value = null
+    if (!controller.signal.aborted && generation === previewGeneration) {
+      hoverPreview.value = { left, top, failed: true }
+    }
   } finally {
     if (previewController === controller) previewController = null
   }
@@ -283,11 +303,13 @@ onBeforeUnmount(() => {
         }"
         aria-hidden="true"
       >
-        <img
+        <img v-image-state="{ pending: hoverPreview.pending, failed: hoverPreview.failed }"
+          :key="previewGeneration"
+          :data-preview-generation="previewGeneration"
           :src="hoverPreview.url"
+          @error="handlePreviewError"
           alt=""
           decoding="async"
-          @error="hideImagePreview"
         />
       </div>
     </Teleport>

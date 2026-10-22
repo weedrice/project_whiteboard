@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vImageState } from '@/directives/imageState'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -200,7 +201,7 @@ defineExpose({
           <label for="icon-upload" class="cursor-pointer">
             <div
               class="h-16 w-16 rounded-md border nv-border nv-surface-muted flex items-center justify-center overflow-hidden nv-hover-surface transition-colors duration-200">
-              <img v-if="previewImage" :src="previewImage" :alt="$t('board.form.iconImage')" class="h-full w-full object-cover" />
+              <img v-image-state v-if="previewImage" :src="previewImage" :alt="$t('board.form.iconImage')" class="h-full w-full object-cover" />
               <svg v-else class="h-8 w-8 nv-text-subtle" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
