@@ -471,7 +471,7 @@ describe('postHtmlSandbox', () => {
         const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
 
         expect(source).toContain('sandbox-height-bridge.js')
-        expect(heightBridgeSource).toContain('window.setInterval(postHeight, 500)')
+        expect(heightBridgeSource).toContain('window.setInterval(scheduleHeight, 500)')
         expect(heightBridgeSource).toContain("channel: 'noviis-post-html-sandbox'")
         expect(heightBridgeSource).toContain('window.clearInterval(intervalId)')
         expect(heightBridgeSource).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
