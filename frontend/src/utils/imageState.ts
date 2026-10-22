@@ -13,6 +13,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
   let originalLabel = image.getAttribute('aria-label')
   let originalTitle = image.getAttribute('title')
   let errorLabelApplied = false
+  let appliedLabel: string | null = null
+  let appliedTitle: string | null = null
   let cancelErrorPresentation: (() => void) | null = null
   let stopLoadingObservation: (() => void) | null = null
 
@@ -22,10 +24,15 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
 
   function restoreLabels() {
     if (errorLabelApplied) {
-      if (originalLabel === null) image.removeAttribute('aria-label')
-      else image.setAttribute('aria-label', originalLabel)
-      if (originalTitle === null) image.removeAttribute('title')
-      else image.setAttribute('title', originalTitle)
+      // Vue or another caller may have patched either attribute since the failure.
+      if (image.getAttribute('aria-label') === appliedLabel) {
+        if (originalLabel === null) image.removeAttribute('aria-label')
+        else image.setAttribute('aria-label', originalLabel)
+      }
+      if (image.getAttribute('title') === appliedTitle) {
+        if (originalTitle === null) image.removeAttribute('title')
+        else image.setAttribute('title', originalTitle)
+      }
       errorLabelApplied = false
     }
   }
@@ -35,7 +42,7 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
     cancelErrorPresentation?.()
     cancelErrorPresentation = null
     const changed = image.dataset.imageState !== state
-    if (state !== 'error') restoreLabels()
+    restoreLabels()
     image.dataset.imageState = state
     if (state === 'loading') stopLoadingObservation ??= observeLoadingImage(image)
     else {
@@ -45,10 +52,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
     if (state === 'loading') image.setAttribute('aria-busy', 'true')
     else image.removeAttribute('aria-busy')
     if (state === 'error') {
-      if (!errorLabelApplied) {
-        originalLabel = image.getAttribute('aria-label')
-        originalTitle = image.getAttribute('title')
-      }
+      originalLabel = image.getAttribute('aria-label')
+      originalTitle = image.getAttribute('title')
       const label = errorLabel()
       cancelErrorPresentation = prepareImageError(image, label)
       const labelledBy = image.getAttribute('aria-labelledby')?.trim()
@@ -64,6 +69,8 @@ export function createImageStateController(image: HTMLImageElement, errorLabel: 
         if (originalTitle === null) image.removeAttribute('title')
         else image.setAttribute('title', originalTitle)
       } else image.setAttribute('title', label)
+      appliedLabel = image.getAttribute('aria-label')
+      appliedTitle = image.getAttribute('title')
       errorLabelApplied = true
     }
     if (changed) image.dispatchEvent(new Event('imagestatechange', { bubbles: true }))

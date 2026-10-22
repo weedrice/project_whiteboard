@@ -22,6 +22,36 @@ afterEach(() => {
 })
 
 describe('image presentation lifecycle', () => {
+  it.each(['Updated label', null])('retains patched metadata across repeated error refreshes: %s', (label) => {
+    const { image, controller } = setup()
+    image.title = 'Original title'
+    image.setAttribute('aria-label', 'Original label')
+    controller.fail()
+    image.title = 'Updated title'
+    if (label === null) image.removeAttribute('aria-label')
+    else image.setAttribute('aria-label', label)
+
+    controller.refreshErrorLabel()
+    controller.refreshErrorLabel()
+    expect(image.getAttribute('aria-label')).toBe(`${label ?? 'Landscape'} — Unable to load image.`)
+    expect(image.title).toBe('Unable to load image.')
+    controller.refresh({ pending: true })
+    expect(image.getAttribute('aria-label')).toBe(label)
+    expect(image.title).toBe('Updated title')
+  })
+
+  it('preserves caller-patched attributes when a failed controller is destroyed', () => {
+    const { image, controller } = setup()
+    image.title = 'Original title'
+    image.setAttribute('aria-label', 'Original label')
+    controller.fail()
+    image.removeAttribute('title')
+    image.setAttribute('aria-label', 'Updated label')
+    controller.destroy()
+    expect(image.getAttribute('title')).toBeNull()
+    expect(image.getAttribute('aria-label')).toBe('Updated label')
+  })
+
   it('does not leave an image with an empty source loading indefinitely', () => {
     const { image, controller } = setup()
     image.removeAttribute('src')
