@@ -8,8 +8,10 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.util.EntityUtils;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.stereotype.Component;
 
+import java.security.Security;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -25,6 +27,10 @@ class HttpWebPushSender implements WebPushSender {
     @Override
     public int send(PushSubscriptionSnapshot subscription, String payload) throws Exception {
         subscriptionValidator.validateForDelivery(subscription);
+        // The web-push library looks up ECDH by provider name during key loading.
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
         PushService pushService = new PushService(
                 properties.getPublicKey(),
                 properties.getPrivateKey(),

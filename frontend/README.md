@@ -102,7 +102,7 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 
 ### 요구 사항
 
-- Node.js `>=24.11.0 <25`
+- Node.js `>=24.15.0 <25` (jsdom 30.1.x 요구 사항; Docker 빌드는 24.18.0 사용)
 - npm
 
 ### 설치
@@ -112,6 +112,12 @@ npm ci
 ```
 
 lockfile 갱신이 필요한 명시적 의존성 변경 작업이 아니라면 `npm install`보다 `npm ci`를 사용합니다.
+
+보안 패치를 위해 `package.json`의 `overrides`에서 Satori의 `fflate`를 0.7.5로,
+Tailwind typography의 `postcss-selector-parser`를 7.1.7로 지정합니다. 상위 패키지가
+취약한 버전을 고정하고 있어 해당 의존 경로에만 적용합니다. 상위 패키지가 수정
+버전을 채택하면 override 제거를 검토하고, 변경 시 공유 이미지 생성과 typography
+CSS 출력을 확인합니다. Vitest와 `@vitest/coverage-v8`는 동일 버전으로 갱신합니다.
 
 ### 개발 서버
 
