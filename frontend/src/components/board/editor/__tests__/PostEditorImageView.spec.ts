@@ -116,7 +116,7 @@ describe('PostEditorImageView', () => {
       extensions: createPostEditorExtensions(),
       content: '<p><img src="' + src + '" alt="Protected" width="400" height="200" data-caption="Caption"></p>',
     })
-    const image = editor.view.dom.querySelector('img')!
+    const image = editor.view.dom.querySelector<HTMLImageElement>('img[alt="Protected"]')!
     expect(image.getAttribute('src')).toBeNull()
     expect(image.dataset.imageState).toBe('loading')
     expect(image.getAttribute('width')).toBe('400')

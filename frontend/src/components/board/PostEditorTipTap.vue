@@ -122,6 +122,7 @@ const {
 })
 const editor = usePostEditorInstance({
   modelValue,
+  accessibleLabel: computed(() => t('common.content')),
   onUpdateHtml: (html) => emit('update:modelValue', html),
   openSlashMenu,
   onRawHtmlBlockSelectionChange: (selected) => {
