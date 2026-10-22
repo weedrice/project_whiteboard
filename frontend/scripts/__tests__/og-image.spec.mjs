@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { Resvg } from '@resvg/resvg-js'
 import {
     buildPostOgMeta,
     loadOgIcon,
@@ -39,6 +40,22 @@ describe('static community OG images', () => {
         const png = await renderSiteOgImage()
 
         expect(() => validatePng(png)).not.toThrow()
+        // Decode the real production PNG rather than only checking its dimensions:
+        // layout engine changes can move the footer below a valid 1200x630 canvas.
+        const pixels = new Resvg(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><image width="1200" height="630" href="data:image/png;base64,${png.toString('base64')}"/></svg>`).render().pixels
+        const darkPixels = (left, top, right, bottom) => {
+            let count = 0
+            for (let y = top; y < bottom; y++) {
+                for (let x = left; x < right; x++) {
+                    const offset = (y * 1200 + x) * 4
+                    if (pixels[offset + 3] > 0 && pixels[offset] < 160 && pixels[offset + 1] < 160 && pixels[offset + 2] < 160) count++
+                }
+            }
+            return count
+        }
+        expect(darkPixels(70, 525, 450, 580), 'Korean footer must remain inside the image').toBeGreaterThan(100)
+        expect(darkPixels(1000, 525, 1130, 580), 'site domain must remain inside the image').toBeGreaterThan(50)
+        expect(darkPixels(0, 590, 1200, 630), 'footer must keep its bottom margin').toBe(0)
     }, 30_000)
 
     it('writes one content-independent brand image', async () => {

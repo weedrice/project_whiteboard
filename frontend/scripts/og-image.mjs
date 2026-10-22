@@ -47,6 +47,7 @@ export async function renderSiteOgImage(fontData, iconDataUrl) {
         props: {
             style: {
                 alignItems: 'stretch',
+                boxSizing: 'border-box',
                 background: '#f5f0e6',
                 color: '#1d2433',
                 display: 'flex',
@@ -74,6 +75,7 @@ export async function renderSiteOgImage(fontData, iconDataUrl) {
                                         alignItems: 'center',
                                         background: '#e6e8f2',
                                         border: '2px solid #d5d9ea',
+                                        boxSizing: 'border-box',
                                         borderRadius: '24px',
                                         display: 'flex',
                                         height: '96px',
