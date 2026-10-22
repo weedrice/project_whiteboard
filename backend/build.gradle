@@ -55,8 +55,8 @@ dependencies {
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 
 	// Querydsl
-	implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.6'
-	annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.6:jpa'
+	implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.7'
+	annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.7:jpa'
 	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
 	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
@@ -86,7 +86,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testRuntimeOnly 'com.h2database:h2:2.5.250'
+	testRuntimeOnly 'com.h2database:h2:2.5.252'
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 
@@ -94,7 +94,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 
 	// AWS SDK v2 (S3 only)
-	implementation platform('software.amazon.awssdk:bom:2.55.0')
+	implementation platform('software.amazon.awssdk:bom:2.56.0')
 	implementation 'software.amazon.awssdk:s3'
 
 	// HTML sanitization

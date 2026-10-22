@@ -6,7 +6,7 @@
 
 -   **Framework**: Spring Boot 4.1
 -   **Language**: Java 25
--   **Build Tool**: Gradle 9.7.1
+-   **Build Tool**: Gradle 9.8.1
 -   **Database**: PostgreSQL
 -   **ORM**: Spring Data JPA / Hibernate
 -   **Security**: Spring Security, JWT (JSON Web Token)
