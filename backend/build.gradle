@@ -30,6 +30,11 @@ repositories {
 	mavenCentral()
 }
 
+// Keep the current Boot baseline while applying the supported security patches.
+ext['tomcat.version'] = '11.0.27'
+ext['jackson-2-bom.version'] = '2.21.8'
+ext['jackson-bom.version'] = '3.1.8'
+
 dependencyLocking {
 	lockAllConfigurations()
 }
@@ -60,10 +65,15 @@ dependencies {
 	
 	// Bucket4j for Rate Limiting
 	implementation 'com.bucket4j:bucket4j-core:8.10.1'
-	implementation 'nl.martijndwars:web-push:5.1.2'
+	implementation('nl.martijndwars:web-push:5.1.2') {
+		// Delivery uses Apache HttpAsyncClient; the unused alternative carries CVEs.
+		exclude group: 'org.asynchttpclient', module: 'async-http-client'
+	}
 	// web-push 5.1.2 exposes implementation-scoped types in its public API.
 	implementation 'org.apache.httpcomponents:httpasyncclient:4.1.5'
 	implementation 'org.bitbucket.b_c:jose4j:0.9.7'
+	// web-push's Gradle metadata omits its required crypto provider.
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.86'
 
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
