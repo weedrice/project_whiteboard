@@ -7,6 +7,7 @@ import { SANDBOXED_POST_HTML_MARKER_CLASS } from '@/utils/postHtmlSandbox'
 
 export function usePostEditorInstance(options: {
     modelValue: Ref<string>
+    accessibleLabel: Ref<string>
     onUpdateHtml: (html: string) => void
     openSlashMenu: () => void
     onRawHtmlBlockSelectionChange?: (selected: boolean) => void
@@ -16,6 +17,8 @@ export function usePostEditorInstance(options: {
         editable: true,
         editorProps: {
             attributes: {
+                'aria-label': options.accessibleLabel.value,
+                'aria-multiline': 'true',
                 class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
             },
             handleDOMEvents: {
@@ -61,6 +64,20 @@ export function usePostEditorInstance(options: {
         onUpdate: ({ editor: instance }) => {
             options.onUpdateHtml(serializePostEditorHtml(getPostEditorHtml(instance)))
         },
+    })
+
+    watch(options.accessibleLabel, (label) => {
+        const instance = editor.value
+        if (!instance) return
+        instance.setOptions({
+            editorProps: {
+                ...instance.options.editorProps,
+                attributes: {
+                    ...instance.options.editorProps.attributes,
+                    'aria-label': label,
+                },
+            },
+        })
     })
 
     watch(

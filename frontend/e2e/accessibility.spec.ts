@@ -37,6 +37,9 @@ test('settings and post editor have no serious or critical axe violations', asyn
   await expectNoSeriousAccessibilityViolations(page)
   await page.goto('/board/general/write')
   await expect(page.locator('#title')).toBeVisible()
+  const editor = page.getByRole('textbox', { name: '내용', exact: true })
+  await expect(editor).toBeVisible()
+  await expect(editor).toHaveAttribute('aria-multiline', 'true')
   await expectNoSeriousAccessibilityViolations(page)
 })
 
