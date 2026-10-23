@@ -123,4 +123,48 @@ class PushSubscriptionRepositoryTest {
         entityManager.persist(user);
         return user;
     }
+    @Test
+    void membershipIsSpecificToUserAndEndpointAfterUnsubscribeAllAndReregister() {
+        User user = persistUser("push-member");
+        persistSubscription(user, "device-a");
+        persistSubscription(user, "device-b");
+        entityManager.flush();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(user.getUserId(), "device-b")).isTrue();
+
+        repository.deleteAllByUserId(user.getUserId());
+        entityManager.clear();
+        User reloadedUser = entityManager.find(User.class, user.getUserId());
+        persistSubscription(reloadedUser, "device-a");
+        entityManager.flush();
+
+        assertThat(repository.existsByUser_UserId(user.getUserId())).isTrue();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(user.getUserId(), "device-b")).isFalse();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(user.getUserId(), "device-a")).isTrue();
+    }
+
+    @Test
+    void transferringAnEndpointRemovesMembershipOnlyFromItsPreviousOwner() {
+        User previous = persistUser("push-previous");
+        User current = persistUser("push-current");
+        PushSubscription transferred = persistSubscription(previous, "shared-device");
+        persistSubscription(previous, "other-device");
+        transferred.update(current, "test-key", "test-auth", "test-browser");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.existsByUser_UserId(previous.getUserId())).isTrue();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(previous.getUserId(), "shared-device")).isFalse();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(current.getUserId(), "shared-device")).isTrue();
+        assertThat(repository.existsByUser_UserIdAndEndpoint(current.getUserId(), "unknown-device")).isFalse();
+    }
+
+    private User persistUser(String loginId) {
+        return entityManager.persist(User.builder().loginId(loginId).email(loginId + "@example.com")
+                .password("test-password").displayName(loginId).build());
+    }
+
+    private PushSubscription persistSubscription(User user, String endpoint) {
+        return entityManager.persist(PushSubscription.builder().user(user).endpoint(endpoint)
+                .p256dh("test-key").auth("test-auth").userAgent("test-browser").build());
+    }
 }

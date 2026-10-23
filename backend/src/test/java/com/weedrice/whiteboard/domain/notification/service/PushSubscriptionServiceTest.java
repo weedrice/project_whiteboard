@@ -63,6 +63,17 @@ class PushSubscriptionServiceTest {
     }
 
     @Test
+    void subscriptionStatusUsesTheCurrentUserAndExactEndpoint() {
+        when(repository.existsByUser_UserIdAndEndpoint(7L, "https://push.example/device-a")).thenReturn(true);
+
+        assertThat(service.isSubscribed(7L, "https://push.example/device-a")).isTrue();
+        assertThat(service.isSubscribed(7L, "https://push.example/device-b")).isFalse();
+        assertThat(service.isSubscribed(8L, "https://push.example/device-a")).isFalse();
+        verify(repository, never()).findByEndpoint(org.mockito.ArgumentMatchers.anyString());
+        verify(settingsService, never()).setPushEnabled(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
     void subscribeCreatesNewEndpointAndEnablesPush() {
         User user = mock(User.class);
         PushSubscriptionRequest request = request("https://push.example/new");

@@ -742,6 +742,20 @@ describe('UserSettings', () => {
     expect(wrapper.text()).toContain('user.settings.pushDisableSuccess')
   })
 
+  it('offers repair for an unregistered browser even when another device keeps account push enabled', async () => {
+    settingsData.value = { ...settingsData.value, pushEnabled: true }
+    pushNotificationMock.syncState.value = 'browser-only'
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('user.settings.pushBrowserOnly')
+    const repair = wrapper.findAll('button').find((button) => button.text() === 'user.settings.pushRepair')!
+    expect(repair.attributes('disabled')).toBeUndefined()
+    await repair.trigger('click')
+    await flushAll()
+    expect(pushNotificationMock.enablePush).toHaveBeenCalledOnce()
+  })
+
   it('distinguishes unsupported, unconfigured, and failed push configuration states', async () => {
     pushNotificationMock.supported.value = false
     let wrapper = mountUserSettings()
