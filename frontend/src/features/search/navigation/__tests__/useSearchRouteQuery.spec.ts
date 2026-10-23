@@ -61,6 +61,26 @@ describe('useSearchRouteQuery', () => {
     expect(routeQuery.searchInput.value).toBe('next')
   })
 
+  it('preserves the supported sort through pagination, filtering, and a new search', () => {
+    routeState.query = { q: 'vue', page: '2', author: 'hong', sort: 'viewCount,asc' }
+    const routeQuery = useSearchRouteQuery()
+
+    expect(routeQuery.params.value.sort).toBe('viewCount,asc')
+    expect(routeQuery.buildPageQuery(3)).toEqual({ q: 'vue', page: '3', author: 'hong', sort: 'viewCount,asc' })
+    expect(routeQuery.buildFilterQuery()).toEqual({ q: 'vue', author: 'hong', sort: 'viewCount,asc' })
+    expect(routeQuery.buildQueryWithoutFilter('author')).toEqual({ q: 'vue', sort: 'viewCount,asc' })
+    routeQuery.searchInput.value = 'next'
+    routeQuery.handleSearchSubmit()
+    expect(routerPush).toHaveBeenCalledWith({ name: 'search', query: { q: 'next', author: 'hong', sort: 'viewCount,asc' } })
+  })
+
+  it('drops unsupported sorting instead of sending it to the API', () => {
+    routeState.query = { q: 'vue', sort: 'unknown,desc' }
+    const routeQuery = useSearchRouteQuery()
+    expect(routeQuery.params.value.sort).toBeUndefined()
+    expect(routeQuery.buildPageQuery(0)).toEqual({ q: 'vue' })
+  })
+
   it('pushes new searches with only the canonical q query', () => {
     const routeQuery = useSearchRouteQuery()
 
