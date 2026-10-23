@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   boardRef,
+  postRef,
   mountPostForm,
   resetPostFormTestState,
   unmountPostFormWrappers,
@@ -52,6 +53,7 @@ describe('PostForm metadata layout', () => {
 
   it.each(['create', 'edit'] as const)('keeps notice and spoiler options on one line without descriptions in the %s form', (mode) => {
     boardRef.value = { ...(boardRef.value ?? {}), isAdmin: true }
+    postRef.value = { postId: 1, title: 'Original', contents: '', tags: [], isNotice: false, isSpoiler: false }
     const wrapper = mountPostForm(mode)
 
     expect(wrapper.get('#isNotice').attributes('description')).toBeUndefined()
