@@ -627,6 +627,20 @@
         },
         "type" : "object"
       },
+      "ApiResponseBoolean" : {
+        "properties" : {
+          "data" : {
+            "type" : "boolean"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCategoryResponse" : {
         "properties" : {
           "data" : {
@@ -6885,6 +6899,17 @@
             "type" : "integer"
           }
         },
+        "type" : "object"
+      },
+      "PushSubscriptionStatusRequest" : {
+        "properties" : {
+          "endpoint" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "endpoint" ],
         "type" : "object"
       },
       "RecentLogin" : {
@@ -17374,6 +17399,34 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "push-subscription-controller" ]
+      }
+    },
+    "/api/v1/users/me/push-subscriptions/status" : {
+      "post" : {
+        "operationId" : "getSubscriptionStatus",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PushSubscriptionStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
                 }
               }
             },

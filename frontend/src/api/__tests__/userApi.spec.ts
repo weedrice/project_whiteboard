@@ -29,6 +29,14 @@ describe('userApi', () => {
         vi.clearAllMocks()
     })
 
+    it('checks this endpoint membership in the request body while preserving session guards', async () => {
+        const config = { expectedSession: { sessionGeneration: 3, userId: 7 }, signal: new AbortController().signal }
+        await userApi.getPushSubscriptionStatus('https://push.example/device', config)
+        expect(apiMock.post).toHaveBeenCalledWith('/users/me/push-subscriptions/status', {
+            endpoint: 'https://push.example/device',
+        }, config)
+    })
+
     it('calls profile and settings endpoints', () => {
         const profileData = { displayName: 'tester', profileImageId: 10 }
         const passwordData = { currentPassword: 'old', newPassword: 'new' }
