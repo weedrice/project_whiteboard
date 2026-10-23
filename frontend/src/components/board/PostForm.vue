@@ -204,7 +204,6 @@ const {
   releaseUploadedFiles: releaseUploadedFileOwnership,
 } = usePostComposerUploadOwnership({
   identity: formIdentity,
-  content: computed(() => form.value.content),
   durableDraftFileIds,
 })
 
