@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostDraftCleanupService;
+import com.weedrice.whiteboard.domain.post.service.PostDraftCleanupBatchService;
 import com.weedrice.whiteboard.domain.post.service.PostDraftService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -57,6 +58,7 @@ class PostDraftFileReferenceTest {
     private final Board board = Board.builder().boardUrl("free").build();
     private final Post originalPost = Post.builder().user(owner).board(board).build();
     private PostDraftService draftService;
+    private FileService fileService;
 
     @BeforeEach
     void setUp() {
@@ -70,6 +72,7 @@ class PostDraftFileReferenceTest {
         when(draftRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
             DraftPost draft = invocation.getArgument(0);
             ReflectionTestUtils.setField(draft, "draftId", 10L);
+            if (draft.getVersion() == null) ReflectionTestUtils.setField(draft, "version", 0L);
             when(draftRepository.findByDraftIdAndUserForUpdate(10L, 1L)).thenReturn(Optional.of(draft));
             return draft;
         });
@@ -97,7 +100,7 @@ class PostDraftFileReferenceTest {
         FileAssociationService associationService =
                 new FileAssociationService(fileRepository, mock(UserRepository.class), boardRepository, clock);
         ReflectionTestUtils.setField(associationService, "entityManager", mock(EntityManager.class));
-        FileService fileService = new FileService(
+        fileService = new FileService(
                 mock(FileUploadService.class),
                 associationService,
                 fileRepository, mock(FileTemporaryCleanupWorker.class), clock);
@@ -143,6 +146,55 @@ class PostDraftFileReferenceTest {
         assertThat(draftAttachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         assertThat(original.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
         assertThat(original.isAssociatedWith(50L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
+    }
+
+    @Test
+    void autosaveRemovalThenUndoKeepsDraftImageUntilDraftDeletion() {
+        File attachment = file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        DraftResponse removed = draftService.saveDraftPost(1L, editRequest("<p>Removed image</p>", List.of()));
+
+        assertThat(removed.getFileIds()).isEmpty();
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+
+        DraftResponse restored = draftService.saveDraftPost(1L, PostDraftRequest.builder()
+                .draftId(10L).version(removed.getVersion()).boardUrl("free").originalPostId(50L)
+                .title("Undo image removal").contents("<img src=\"/api/v1/files/12\">")
+                .fileIds(List.of(12L)).build());
+
+        assertThat(restored.getContents()).contains("/api/v1/files/12");
+        assertThat(restored.getFileIds()).containsExactly(12L);
+        assertThat(restored.isStaleReferencesReset()).isFalse();
+        draftService.deleteDraftPost(1L, 10L, null);
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
+    void expirationCleansImagesOmittedFromTheCurrentDraftPayload() {
+        File attachment = file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        DraftResponse removed = draftService.saveDraftPost(1L, editRequest("<p>Removed image</p>", List.of()));
+        assertThat(removed.getFileIds()).isEmpty();
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        DraftPost expired = draftRepository.findByDraftIdAndUserForUpdate(10L, 1L).orElseThrow();
+        when(draftRepository.findExpiredBefore(any(), any())).thenReturn(List.of(expired));
+
+        int count = new PostDraftCleanupBatchService(draftRepository, fileService)
+                .cleanupExpiredBatch(java.time.LocalDateTime.now().minusDays(90), 100);
+
+        assertThat(count).isEqualTo(1);
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        verify(draftRepository).delete(expired);
+    }
+
+    @Test
+    void deletionCleansImagesOmittedFromTheCurrentDraftPayload() {
+        File attachment = file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        DraftResponse removed = draftService.saveDraftPost(1L, editRequest("<p>Removed image</p>", List.of()));
+        assertThat(removed.getFileIds()).isEmpty();
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+
+        draftService.deleteDraftPost(1L, 10L, null);
+
+        assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
     }
 
     @Test

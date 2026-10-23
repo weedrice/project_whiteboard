@@ -73,6 +73,7 @@
 - 초안 수정은 `entity_version` 숫자 버전을 우선 사용하며, 호환 요청은 `modified_at`과 API `updatedAt`을 DB microsecond 정밀도로 비교한다. `client_draft_key`는 사용자별 신규 저장 재시도를 멱등 처리한다.
 - 일반 초안은 사용자당 최근 100개를 유지한다. 새 초안 저장 후 한도를 초과하면 `modified_at ASC`, `draft_id ASC` 순서의 오래된 초안을 먼저 삭제한다. 활성 예약발행이 참조하는 보호 초안은 한도와 일반 초안 목록에서 제외한다.
 - `modified_at`이 현재 시각 기준 90일보다 오래된 초안은 매일 03:15(Asia/Seoul) 정리 대상이다.
+- 실행 취소를 위해 초안 자동 저장에서 빠진 파일도 해당 초안의 활성 연결로 유지한다. 현재 file_ids와 별개로 남은 파일은 발행·삭제·만료 시 관련 초안 ID로 조회하여 모두 정리한다.
 - 초안 레코드를 삭제하기 전에 `DRAFT_POST`로 연결된 활성 파일을 삭제 대기 상태로 전환한다. 게시글 발행에서는 선택 파일을 `POST_CONTENT`로 승격한 뒤 초안을 정리한다.
 - `draft_posts.poll_json`은 불완전한 작성 중 투표 payload도 보존하고, `series_id`는 시리즈 삭제 시 `NULL`로 전환한다.
 - `scheduled_posts.draft_id`는 nullable unique index로 한 초안당 하나의 예약만 허용하고 source 초안을 실제 예약 발행 시점까지 보존한다. `SCHEDULED`, `PUBLISHING`, `FAILED` 참조 초안은 정리 대상에서 제외하며, 취소 시 참조를 해제하고 발행 시 파일 승격 후 FK를 `NULL`로 전환해 초안을 정리한다.

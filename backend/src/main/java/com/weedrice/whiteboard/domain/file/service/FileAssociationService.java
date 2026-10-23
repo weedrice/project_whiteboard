@@ -88,17 +88,12 @@ class FileAssociationService {
     @Transactional
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
-        LocalDateTime deleteRequestedAt = now();
         Map<Long, File> lockedFiles = loadLockedActiveFilesById(requestedFileIds, draftId, RELATED_TYPE_DRAFT_POST);
         associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST, draftId,
                 null, lockedFiles);
-
-        for (File existingDraftFile : lockedFiles.values()) {
-            if (existingDraftFile.isAssociatedWith(draftId, RELATED_TYPE_DRAFT_POST)
-                    && !requestedFileIds.contains(existingDraftFile.getFileId())) {
-                existingDraftFile.markDeletionPending(deleteRequestedAt);
-            }
-        }
+        // An omitted image may still be referenced by the live editor's undo
+        // history. Keep it owned by this draft until publication or draft cleanup,
+        // which finds every remaining attachment independently of draft.fileIds.
     }
 
     public List<Long> retainValidDraftFileIds(List<Long> fileIds, Long ownerUserId, Long draftId) {
