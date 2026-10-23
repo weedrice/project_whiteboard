@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearchSubmitNavigation } from '@/features/search/navigation/useSearchSubmitNavigation'
 import { firstQueryValue } from '@/utils/routeQueryValue'
+import { DEFAULT_POST_LIST_SORT, normalizePostListSort } from '@/utils/postListSort'
 import type { PostSearchType, SearchParams } from '@/types'
 
 export type SearchFilterKey = 'searchType' | 'author' | 'period' | 'dateRange'
@@ -45,6 +46,7 @@ export function useSearchRouteQuery() {
   const toQuery = computed(() => firstQueryValue(route.query.to).trim())
   const boardUrlQuery = computed(() => firstQueryValue(route.query.boardUrl).trim())
   const pageQuery = computed(() => normalizePage(route.query.page))
+  const sortQuery = computed(() => normalizePostListSort(route.query.sort))
   const { submitSearch } = useSearchSubmitNavigation({
     getCurrentSearchQuery: () => searchQuery.value,
   })
@@ -69,6 +71,7 @@ export function useSearchRouteQuery() {
       if (toQuery.value) nextParams.to = toQuery.value
     }
     if (boardUrlQuery.value) nextParams.boardUrl = boardUrlQuery.value
+    if (sortQuery.value !== DEFAULT_POST_LIST_SORT) nextParams.sort = sortQuery.value
     return nextParams
   })
 
@@ -103,6 +106,7 @@ export function useSearchRouteQuery() {
 
   function buildPreservedFilterQuery() {
     const query: Record<string, string> = {}
+    if (sortQuery.value !== DEFAULT_POST_LIST_SORT) query.sort = sortQuery.value
     if (searchTypeQuery.value !== 'TITLE_CONTENT') query.searchType = searchTypeQuery.value
     if (searchTypeQuery.value !== 'AUTHOR' && authorQuery.value) query.author = authorQuery.value
     if (periodQuery.value) query.period = periodQuery.value
@@ -118,6 +122,7 @@ export function useSearchRouteQuery() {
     const query: Record<string, string> = {
       q: searchInput.value.trim() || searchQuery.value,
     }
+    if (sortQuery.value !== DEFAULT_POST_LIST_SORT) query.sort = sortQuery.value
     if (searchTypeInput.value !== 'TITLE_CONTENT') query.searchType = searchTypeInput.value
     if (searchTypeInput.value !== 'AUTHOR' && authorInput.value.trim()) query.author = authorInput.value.trim()
     const period = periodInput.value.trim().toUpperCase()
@@ -134,6 +139,7 @@ export function useSearchRouteQuery() {
     const query: Record<string, string> = {
       q: searchQuery.value,
     }
+    if (sortQuery.value !== DEFAULT_POST_LIST_SORT) query.sort = sortQuery.value
 
     if (filterKey !== 'searchType' && searchTypeQuery.value !== 'TITLE_CONTENT') {
       query.searchType = searchTypeQuery.value
@@ -163,6 +169,14 @@ export function useSearchRouteQuery() {
     return query
   }
 
+  function buildSortQuery(sort: string) {
+    const query = buildPageQuery(0)
+    const normalizedSort = normalizePostListSort(sort)
+    if (normalizedSort === DEFAULT_POST_LIST_SORT) delete query.sort
+    else query.sort = normalizedSort
+    return query
+  }
+
   return {
     searchInput,
     searchTypeInput,
@@ -178,6 +192,7 @@ export function useSearchRouteQuery() {
     toQuery,
     boardUrlQuery,
     pageQuery,
+    sortQuery,
     hasSearchQuery,
     isCustomDateRangeValid,
     params,
@@ -185,5 +200,6 @@ export function useSearchRouteQuery() {
     buildFilterQuery,
     buildQueryWithoutFilter,
     buildPageQuery,
+    buildSortQuery,
   }
 }
