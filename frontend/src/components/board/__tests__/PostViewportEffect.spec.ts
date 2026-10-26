@@ -77,7 +77,7 @@ describe('PostViewportEffect', () => {
   })
   it.each([false, true])('plays only on request and keeps isolation attributes (preview=%s)', async (preview) => {
     const wrapper = mount(PostViewportEffect, { props: { content, preview } })
-    const activeFrame = () => preview ? wrapper.element.querySelector<HTMLIFrameElement>('iframe') : frame()
+    const activeFrame = () => preview ? (wrapper.element as Element).querySelector<HTMLIFrameElement>('iframe') : frame()
     expect(activeFrame()).toBeFalsy()
     await play(wrapper)
     const iframe = activeFrame()
