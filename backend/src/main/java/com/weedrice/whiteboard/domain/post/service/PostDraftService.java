@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
+import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
+import com.weedrice.whiteboard.domain.post.support.PostContentFileReferences;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftMatchResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftRecoveryResponse;
@@ -32,7 +34,9 @@ import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.parser.Parser;
 import org.springframework.data.domain.Page;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -41,6 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -72,6 +77,9 @@ public class PostDraftService {
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostDraftCleanupService postDraftCleanupService;
+
+    @Value("${app.frontend-url:https://noviis.kr}")
+    private URI frontendOrigin = URI.create("https://noviis.kr");
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         Long ownerUserId = postUserReadPort.requireExistingUserId(userId);
@@ -411,28 +419,44 @@ public class PostDraftService {
         if (contents == null || contents.isBlank() || removedFileIds.isEmpty()) {
             return contents;
         }
-        Document document = Jsoup.parseBodyFragment(contents);
+        String updated = PostContentCodec.mapPreservedHtmlPayloads(contents,
+                payload -> removeDraftFileReferencesFromHtml(payload, removedFileIds));
+        return removeDraftFileReferencesFromHtml(updated, removedFileIds);
+    }
+
+    private String removeDraftFileReferencesFromHtml(String contents, Set<Long> removedFileIds) {
+        Document document = Jsoup.parse(contents, "", Parser.htmlParser().setTrackPosition(true));
         document.outputSettings().prettyPrint(false);
-        document.select("img[src]").stream()
+        var images = document.select("img[src]").stream()
+                .filter(PostContentCodec::isSupportedFileReference)
                 .filter(image -> removedFileIds.contains(
-                        FileService.extractInternalContentFileIdFromUrl(image.attr("src"))))
-                .forEach(element -> element.remove());
-        document.select("a[href]").stream()
+                        PostContentFileReferences.extractFileId(image.attr("src"), frontendOrigin)))
+                .toList();
+        var links = document.select("a[href]").stream()
+                .filter(PostContentCodec::isSupportedFileReference)
                 .filter(link -> removedFileIds.contains(
-                        FileService.extractInternalContentFileIdFromUrl(link.attr("href"))))
-                .forEach(element -> element.unwrap());
-        return document.body().html();
+                        PostContentFileReferences.extractFileId(link.attr("href"), frontendOrigin)))
+                .toList();
+        if (images.isEmpty() && links.isEmpty()) return contents;
+        images.forEach(element -> element.remove());
+        links.forEach(element -> element.unwrap());
+        if (document.documentType() != null || List.of(document.child(0), document.head(), document.body()).stream()
+                .map(element -> element.sourceRange())
+                .anyMatch(range -> range.isTracked() && !range.isImplicit())) return document.outerHtml();
+        return document.childNodes().stream()
+                .map(node -> node == document.child(0) ? document.head().html() + document.body().html() : node.outerHtml())
+                .collect(Collectors.joining());
     }
 
     private Set<Long> extractDraftFileReferences(String contents) {
         if (contents == null || contents.isBlank()) {
             return Set.of();
         }
-        Document document = Jsoup.parseBodyFragment(contents);
+        Document document = Jsoup.parse(PostContentCodec.expandPreservedHtml(contents));
         return java.util.stream.Stream.concat(
-                        document.select("img[src]").stream().map(image -> image.attr("src")),
-                        document.select("a[href]").stream().map(link -> link.attr("href")))
-                .map(FileService::extractInternalContentFileIdFromUrl)
+                        document.select("img[src]").stream().filter(PostContentCodec::isSupportedFileReference).map(image -> image.attr("src")),
+                        document.select("a[href]").stream().filter(PostContentCodec::isSupportedFileReference).map(link -> link.attr("href")))
+                .map(source -> PostContentFileReferences.extractFileId(source, frontendOrigin))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
     }

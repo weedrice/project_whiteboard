@@ -75,6 +75,25 @@ export interface AuthMessages {
 
 // 스페이스 메시지 타입
 export interface BoardMessages {
+  viewportEffect: {
+    title: string
+    play: string
+    stop: string
+    description: string
+    reducedMotion: string
+    invalid: string
+    duplicateLayers: string
+    htmlTooLarge: string
+    tooManyElements: string
+    cssResource: string
+    tooManyImages: string
+    imageSource: string
+    imageType: string
+    imageBytes: string
+    imageDataTooLarge: string
+    failed: string
+    preview: string
+  }
   list: {
     subscribed: string
     subscribedShort: string
@@ -276,6 +295,17 @@ export interface BoardMessages {
     }
   }
   writePost: {
+    viewportHtmlHelp: {
+      title: string
+      description: string
+      images: string
+      example: string
+      copy: string
+      copied: string
+      copyFailed: string
+      playback: string
+      visualNotice: string
+    }
     createTitle: string
     editTitle: string
     editScheduledTitle: string

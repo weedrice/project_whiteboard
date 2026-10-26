@@ -27,6 +27,67 @@ const baseForm = {
 }
 
 describe('postForm', () => {
+    it('ignores foreign template fragment traversal while collecting and reconciling HTML uploads', () => {
+        const source = '<svg><template></template></svg><math><template></template></math>'
+            + '<template data-noviis-layer="viewport"><img src="/api/v1/files/41"><img src="/api/v1/files/42"></template>'
+        const content = encodeSandboxedPostHtml(source)
+        expect(extractPostFileIdsFromContent(content)).toEqual([41, 42])
+        expect(resolvePostFormFileIds(content, [41], 'draft')).toEqual([41])
+        const reconciled = decodeSandboxedPostHtml(removePostFileReferencesFromContent(content, [42]))
+        expect(reconciled).toContain('/api/v1/files/41')
+        expect(reconciled).not.toContain('/api/v1/files/42')
+    })
+
+    it('keeps viewport template uploads through payload serialization and removes rejected references', () => {
+        const source = '<template data-noviis-layer="viewport"><style>.spark{color:red}</style>'
+            + '<img src="blob:preview" data-server-src="/api/v1/files/41" data-file-id="41">'
+            + '<img src="/api/v1/files/42"><img src="/api/v1/files/43" alt=":emoticon:">'
+            + '</template><p>Body</p>'
+        const content = encodeSandboxedPostHtml(source)
+        expect(extractPostFileIdsFromContent(content)).toEqual([41, 42, 43])
+        expect(resolvePostFormFileIds(content, [], 'content')).toEqual([41, 42])
+        expect(resolvePostFormFileIds(content, [41], 'draft')).toEqual([41])
+
+        const payload = buildPostFormPayload({
+            form: { ...baseForm, content }, mode: 'create', showNotice: false,
+            canShowNsfw: false, fileIds: [41, 42],
+        })
+        const persisted = decodeSandboxedPostHtml(payload.contents)
+        expect(persisted).not.toContain('blob:preview')
+        expect(persisted).toContain('src="/api/v1/files/41"')
+        expect(persisted).toContain('<style>.spark{color:red}</style>')
+
+        const reconciled = decodeSandboxedPostHtml(removePostFileReferencesFromContent(payload.contents, [42]))
+        expect(reconciled).not.toContain('/api/v1/files/42')
+        expect(reconciled).toContain('/api/v1/files/41')
+        expect(reconciled).toContain('/api/v1/files/43')
+        expect(reconciled).toContain('data-noviis-layer="viewport"')
+    })
+
+    it('does not count or reconcile files from generic and nested inert templates', () => {
+        const source = '<template><img src="/api/v1/files/40"></template>'
+            + '<template data-noviis-layer="viewport"><img src="/api/v1/files/41">'
+            + '<form><img src="/api/v1/files/43"></form><a href="/api/v1/files/44">ignored attachment link</a>'
+            + '<template data-noviis-layer="viewport"><img src="/api/v1/files/42"></template></template>'
+        const content = encodeSandboxedPostHtml(source)
+        expect(extractPostFileIdsFromContent(content)).toEqual([41])
+        expect(resolvePostFormFileIds(content, [], 'content')).toEqual([41])
+        const reconciled = decodeSandboxedPostHtml(removePostFileReferencesFromContent(content, [40, 41, 42]))
+        expect(reconciled).not.toContain('/api/v1/files/41')
+        expect(reconciled).toContain('/api/v1/files/40')
+        expect(reconciled).toContain('/api/v1/files/42')
+        expect(reconciled).toContain('/api/v1/files/43')
+    })
+
+    it('keeps fragment boundaries when reconciling an image beside document-like caption and comment text', () => {
+        const source = '<!-- <html> --><p data-caption="<html>">Body</p><img src="/api/v1/files/41">'
+        const reconciled = removePostFileReferencesFromContent(source, [41])
+        expect(reconciled).not.toMatch(/^<!DOCTYPE|^<html>/)
+        expect(reconciled).toContain('Body')
+        expect(reconciled).toContain('<!-- <html> -->')
+        expect(reconciled).not.toContain('/api/v1/files/41')
+    })
+
     it('enforces the shared post write limits', () => {
         const valid = { title: 'title', content: 'body', tags: ['tag'], fileIds: [1] }
         expect(validatePostFormContent(valid)).toBeNull()

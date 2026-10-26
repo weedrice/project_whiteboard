@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderPostContentHtml, type CodeBlockHighlighter } from '@/utils/postContentHtml'
+import { preparePostHtmlDisplay } from '@/utils/postHtmlDisplay'
 import {
   requiresSandboxedPostHtml,
   splitSandboxedPostHtmlSegments,
@@ -26,15 +27,22 @@ const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
 const sandboxWrapper = ref<HTMLElement | null>(null)
 const codeBlockHighlighter = shallowRef<CodeBlockHighlighter | null>(null)
-const contentSegments = computed(() => splitSandboxedPostHtmlSegments(props.content))
+const displayContent = computed(() => preparePostHtmlDisplay(props.content ?? '').html)
+const contentSegments = computed(() => {
+  const segments = splitSandboxedPostHtmlSegments(props.content)
+  return segments?.flatMap(segment => {
+    const display = preparePostHtmlDisplay(segment.html)
+    return display.empty ? [] : [{ ...segment, html: display.html }]
+  }) ?? null
+})
 const standaloneSandboxHtml = computed(() => (
-  contentSegments.value == null && requiresSandboxedPostHtml(props.content)
-    ? props.content ?? ''
+  contentSegments.value == null && requiresSandboxedPostHtml(displayContent.value)
+    ? displayContent.value
     : null
 ))
 const shouldUseSandbox = computed(() => contentSegments.value != null || standaloneSandboxHtml.value != null)
 const hasCodeBlock = computed(() => /<pre[\s>]/i.test(props.content ?? ''))
-const sanitizedHtml = computed(() => renderPostContentHtml(props.content, {
+const sanitizedHtml = computed(() => renderPostContentHtml(displayContent.value, {
   copy: t('board.writePost.codeBlock.copy'),
   copyAriaLabel: t('board.writePost.codeBlock.copyAriaLabel'),
 }, codeBlockHighlighter.value))

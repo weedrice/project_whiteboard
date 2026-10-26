@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { Storage } from '@/utils/storage'
+import { encodeSandboxedPostHtml, expandSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { loadStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   findButtonByText,
@@ -136,6 +137,55 @@ describe('PostForm draft behavior', () => {
 
     expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ fileIds: [7] }))
     expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', '<p>Kept body</p>')
+  })
+
+  it('accepts cleaned absolute viewport references without repeating draft recovery', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const contents = `<p>Kept body</p><template data-noviis-layer="viewport"><img src="${window.location.origin}/api/v1/files/7" data-file-id="7"></template>`
+    const cleaned = encodeSandboxedPostHtml('<p>Kept body</p><template data-noviis-layer="viewport"></template>')
+    mockSaveDraftMutateAsync.mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents: cleaned,
+          tags: [],
+          fileIds: [],
+          seriesId: null,
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+      .handleEditorFileUploaded(7)
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ fileIds: [7] }))
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    expect(mockSaveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({ fileIds: [], contents: cleaned }))
+    const currentHtml = (wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value
+    const expanded = expandSandboxedPostHtml(currentHtml) ?? currentHtml
+    expect(expanded).toContain('Kept body')
+    expect(expanded).not.toContain('/files/7')
+    expect(mockAddToast).not.toHaveBeenCalledWith('board.writePost.draftStatus.retryScheduled', 'info')
   })
 
   it.each(['', ' alt=":emoticon:" title=":emoticon:"'])('removes a server-rejected reference absent from draft fileIds (%s)', async (attributes) => {

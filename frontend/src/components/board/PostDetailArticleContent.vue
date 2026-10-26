@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ImageLightbox from '@/components/common/ui/ImageLightbox.vue'
 import PostContentView from '@/components/board/PostContentView.vue'
+import PostViewportEffect from '@/components/board/PostViewportEffect.vue'
 import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
 import PostDetailSpoilerOverlay from '@/components/board/PostDetailSpoilerOverlay.vue'
 import PostDetailTagSection from '@/components/board/PostDetailTagSection.vue'
@@ -106,6 +107,12 @@ onUpdated(prepareRichContent)
         @reveal-spoiler="emit('reveal-spoiler')"
       />
     </div>
+
+    <PostViewportEffect
+      v-if="!postView.isBlinded && !isBlurred"
+      :key="postView.postId"
+      :content="postContents"
+    />
 
     <PostPoll
       v-if="postView.poll"

@@ -42,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -351,7 +352,8 @@ class PostSummaryAssemblerTest {
             assertThat(summary.getFirstMediaType()).isEqualTo("video");
             assertThat(summary.getFirstMediaUrl())
                     .isEqualTo("https://www.youtube.com/embed/abc123?start=10&autoplay=0");
-            jsoup.verify(() -> Jsoup.parseBodyFragment(html));
+            // One parse for summary text, one shared parse for thumbnail and first media.
+            jsoup.verify(() -> Jsoup.parse(html), times(2));
         }
     }
 

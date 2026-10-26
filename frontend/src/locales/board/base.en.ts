@@ -2,6 +2,25 @@ import type { BoardMessages } from '../types'
 import { boardBaseMessages } from './base'
 
 export const boardEnBaseMessages = {
+  viewportEffect: {
+    title: 'Screen effect',
+    play: 'Play effect',
+    stop: 'Stop effect',
+    description: 'Display the custom screen decoration for up to 30 seconds.',
+    reducedMotion: 'Screen effects are disabled by your reduced motion preference.',
+    invalid: 'The screen effect exceeds the supported size or format.',
+    duplicateLayers: 'Each post supports one screen decoration. Remove the duplicate area.',
+    htmlTooLarge: 'Reduce the screen decoration HTML to 65,536 characters or fewer.',
+    tooManyElements: 'Reduce the screen decoration to 300 HTML elements or fewer.',
+    cssResource: 'CSS cannot load images or external resources. Use an uploaded img tag for images.',
+    tooManyImages: 'Screen effects support up to 8 images. Remove extra image tags.',
+    imageSource: 'This image URL is not supported. Move the complete img tag from an image uploaded in the visual editor.',
+    imageType: 'Screen effects support PNG, JPEG, GIF, and WebP images only.',
+    imageBytes: 'Reduce the combined screen effect images to 8 MiB or less.',
+    imageDataTooLarge: 'Image data, including repeated images, is too large. Reduce image sizes or repetitions.',
+    failed: 'Could not load the screen effect images.',
+    preview: 'Screen effect preview',
+  },
   list: {
     ...boardBaseMessages.list,
     subscribed: 'Subscribed spaces',

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
+import com.weedrice.whiteboard.domain.post.support.PostContentFileReferences;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.global.util.VideoEmbedUrlPolicy;
 import org.jsoup.Jsoup;
@@ -57,13 +58,22 @@ public class PostContentSummaryExtractor {
 
     PostThumbnailInfo resolveThumbnail(Long postId, String contents, Set<Long> postIdsWithImages,
             Map<Long, Long> thumbnailFileIdsByPostId) {
-        return resolveThumbnail(postId, postIdsWithImages, thumbnailFileIdsByPostId,
-                () -> extractFirstAllowedImageUrl(parseContent(contents)));
+        Long fileId = postIdsWithImages.contains(postId) ? thumbnailFileIdsByPostId.get(postId) : null;
+        String expanded = PostContentCodec.expandPreservedHtml(contents);
+        // Keep the attachment fast path for ordinary posts: no HTML parse needed.
+        if (fileId != null && !PostContentCodec.mayContainViewportLayer(expanded)) {
+            return new PostThumbnailInfo(FileUrlResolver.resolveThumbnail(fileId), true);
+        }
+        Document document = Jsoup.parse(expanded);
+        Set<Long> viewportOnlyIds = removeViewportLayers(document, fileId != null);
+        return resolveThumbnail(fileId, viewportOnlyIds, () -> extractFirstAllowedImageUrl(document));
     }
 
     FeedMedia resolveFeedMedia(Post post, Set<Long> postIdsWithImages, Map<Long, Long> thumbnailFileIdsByPostId) {
-        Document document = parseContent(post.getContents());
-        PostThumbnailInfo thumbnail = resolveThumbnail(post.getPostId(), postIdsWithImages, thumbnailFileIdsByPostId,
+        Long fileId = postIdsWithImages.contains(post.getPostId()) ? thumbnailFileIdsByPostId.get(post.getPostId()) : null;
+        Document document = Jsoup.parse(PostContentCodec.expandPreservedHtml(post.getContents()));
+        Set<Long> viewportOnlyIds = removeViewportLayers(document, fileId != null);
+        PostThumbnailInfo thumbnail = resolveThumbnail(fileId, viewportOnlyIds,
                 () -> extractFirstAllowedImageUrl(document));
         return new FeedMedia(thumbnail, extractFirstAllowedMedia(document));
     }
@@ -71,17 +81,13 @@ public class PostContentSummaryExtractor {
     record FeedMedia(PostThumbnailInfo thumbnail, PostMediaCandidate firstMedia) {
     }
 
-    private PostThumbnailInfo resolveThumbnail(Long postId, Set<Long> postIdsWithImages,
-            Map<Long, Long> thumbnailFileIdsByPostId, Supplier<String> contentImage) {
+    private PostThumbnailInfo resolveThumbnail(Long fileId, Set<Long> viewportOnlyFileIds, Supplier<String> contentImage) {
         String thumbnailUrl = null;
         boolean hasImage = false;
 
-        if (postIdsWithImages.contains(postId)) {
-            Long fileId = thumbnailFileIdsByPostId.get(postId);
-            if (fileId != null) {
-                thumbnailUrl = FileUrlResolver.resolveThumbnail(fileId);
-                hasImage = true;
-            }
+        if (fileId != null && !viewportOnlyFileIds.contains(fileId)) {
+            thumbnailUrl = FileUrlResolver.resolveThumbnail(fileId);
+            hasImage = true;
         }
 
         if (thumbnailUrl == null) {
@@ -99,7 +105,7 @@ public class PostContentSummaryExtractor {
         if (content == null || content.isEmpty()) {
             return null;
         }
-        content = PostContentCodec.expandPreservedHtml(content).trim();
+        content = PostContentCodec.withoutViewportLayers(content).trim();
         if (content.length() <= maxLen) {
             return content;
         }
@@ -169,7 +175,22 @@ public class PostContentSummaryExtractor {
         if (content == null || content.isEmpty()) {
             return null;
         }
-        return Jsoup.parseBodyFragment(PostContentCodec.expandPreservedHtml(content));
+        return PostContentCodec.parseVisibleContent(content);
+    }
+
+    private Set<Long> removeViewportLayers(Document document, boolean inspectAttachment) {
+        var layers = document.select(PostContentCodec.VIEWPORT_LAYER_SELECTOR);
+        if (layers.isEmpty()) return Set.of();
+        Set<Long> decorationIds = inspectAttachment ? layers.select("img[src]").stream()
+                .filter(PostContentCodec::isSupportedFileReference)
+                .map(image -> PostContentFileReferences.extractFileId(image.attr("src"), frontendOrigin))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet()) : Set.of();
+        layers.remove();
+        if (decorationIds.isEmpty()) return decorationIds;
+        document.select("img[src]").stream().filter(PostContentCodec::isSupportedFileReference).forEach(image -> decorationIds.remove(
+                PostContentFileReferences.extractFileId(image.attr("src"), frontendOrigin)));
+        return decorationIds;
     }
 
     private boolean isAllowedThumbnailUrl(String source) {

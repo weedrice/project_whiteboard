@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,119 @@ import java.util.Base64;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PostContentSummaryExtractorTest {
+
+    @Test
+    void ordinaryExcerptAndDocumentLikeAttributeTextAreNotReserialized() {
+        String ordinary = "<p data-caption='example <html>'>Body &amp; text</p><!-- <template> -->";
+        assertThat(extractor.truncateHtmlForExcerpt(ordinary, 1000)).isEqualTo(ordinary);
+        String hinted = "<p data-caption='<template data-noviis-layer=viewport>'>Body</p>";
+        assertThat(extractor.truncateHtmlForExcerpt(hinted, 1000)).isEqualTo(hinted);
+        assertThat(extractor.resolveThumbnail(100L, ordinary, Set.of(100L), Map.of(100L, 55L)).thumbnailUrl())
+                .isEqualTo("/api/v1/files/55/variants/thumbnail");
+    }
+
+    @Test
+    void viewportHintDoesNotMissQuotedTagTerminatorsOrUppercaseAttributeNames() {
+        String source = "<TEMPLATE data-caption='>' DATA-NOVIIS-LAYER='viewport'><p>Decoration</p>"
+                + "<img src='/api/v1/files/55'></TEMPLATE><p>Body</p>";
+        assertThat(extractor.truncateHtmlForExcerpt(source, 1000)).isEqualTo("<p>Body</p>");
+        assertThat(extractor.resolveThumbnail(100L, source, Set.of(100L), Map.of(100L, 55L)))
+                .isEqualTo(new PostThumbnailInfo(null, false));
+    }
+
+    @Test
+    void viewportDecorationIsExcludedFromSummariesExcerptsAndAttachmentThumbnails() {
+        String source = "<template data-noviis-layer=\"viewport\"><style>.spark{color:red}</style>"
+                + "<p>Decoration only</p><img src=\"/api/v1/files/55\"></template>"
+                + "<p>Visible body</p><img src=\"/api/v1/files/56\">";
+        String preserved = "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8)) + "\"></div>";
+        ReflectionTestUtils.setField(post, "contents", preserved);
+
+        assertThat(extractor.extractSummary(preserved)).isEqualTo("Visible body");
+        assertThat(PostContentCodec.toPlainText(preserved)).isEqualTo("Visible body");
+        assertThat(extractor.truncateHtmlForExcerpt(preserved, 1000))
+                .contains("Visible body", "/api/v1/files/56")
+                .doesNotContain("Decoration only", "template", "/api/v1/files/55", ".spark");
+        assertThat(extractor.extractFirstImageUrlFromContent(preserved)).isEqualTo("/api/v1/files/56");
+        assertThat(extractor.resolveThumbnail(post, Set.of(100L), Map.of(100L, 55L)).thumbnailUrl())
+                .isEqualTo("/api/v1/files/56");
+        assertThat(extractor.resolveFeedMedia(post, Set.of(100L), Map.of(100L, 55L)).firstMedia().url())
+                .isEqualTo("/api/v1/files/56");
+    }
+
+    @Test
+    void imageUsedInBothViewportAndBodyCanStillBeTheAttachmentThumbnail() {
+        String contents = "<template data-noviis-layer=\"viewport\"><img src=\"/api/v1/files/55\"></template>"
+                + "<p>Visible body</p><img src=\"/api/v1/files/55\">";
+        assertThat(extractor.resolveThumbnail(100L, contents, Set.of(100L), Map.of(100L, 55L)).thumbnailUrl())
+                .isEqualTo("/api/v1/files/55/variants/thumbnail");
+    }
+
+    @Test
+    void decorationOnlyPostHasNoListThumbnailOrExcerpt() {
+        String contents = "<template data-noviis-layer=\"viewport\"><p>Decoration only</p>"
+                + "<img src=\"/api/v1/files/55\"></template>";
+        assertThat(extractor.resolveThumbnail(100L, contents, Set.of(100L), Map.of(100L, 55L)))
+                .isEqualTo(new PostThumbnailInfo(null, false));
+        assertThat(extractor.extractSummary(contents)).isEmpty();
+        assertThat(extractor.truncateHtmlForExcerpt(contents, 1000)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://noviis.kr/api/v1/files/55",
+            "https://noviis.kr/files/55",
+            "https://NOVIIS.KR:443/api/v1/files/55",
+            "//noviis.kr/api/v1/files/55"
+    })
+    void sameOriginAbsoluteDecorationIsExcludedFromListAndFeedThumbnails(String imageUrl) {
+        String source = "<template data-noviis-layer=\"viewport\"><img src=\"" + imageUrl + "\"></template>";
+        String preserved = "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8)) + "\"></div>";
+        ReflectionTestUtils.setField(post, "contents", preserved);
+
+        assertThat(extractor.resolveThumbnail(post, Set.of(100L), Map.of(100L, 55L)))
+                .isEqualTo(new PostThumbnailInfo(null, false));
+        var media = extractor.resolveFeedMedia(post, Set.of(100L), Map.of(100L, 55L));
+        assertThat(media.thumbnail()).isEqualTo(new PostThumbnailInfo(null, false));
+        assertThat(media.firstMedia()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/files/55", "https://noviis.kr/api/v1/files/55"})
+    void sameFileInAbsoluteBodyImageKeepsAttachmentThumbnail(String decorationUrl) {
+        String contents = "<template data-noviis-layer=\"viewport\"><img src=\"" + decorationUrl
+                + "\"></template><img src=\"https://noviis.kr/api/v1/files/55\">";
+        ReflectionTestUtils.setField(post, "contents", contents);
+        var expected = new PostThumbnailInfo("/api/v1/files/55/variants/thumbnail", true);
+        assertThat(extractor.resolveThumbnail(post, Set.of(100L), Map.of(100L, 55L))).isEqualTo(expected);
+        assertThat(extractor.resolveFeedMedia(post, Set.of(100L), Map.of(100L, 55L)).thumbnail()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://external.example/api/v1/files/55",
+            "https://cdn.noviis.kr/api/v1/files/55",
+            "http://noviis.kr/api/v1/files/55",
+            "https://noviis.kr:444/api/v1/files/55",
+            "https://user@noviis.kr/api/v1/files/55",
+            "https://[invalid/api/v1/files/55"
+    })
+    void unrelatedOrInvalidDecorationUrlDoesNotSuppressAttachedFile(String imageUrl) {
+        String contents = "<template data-noviis-layer=\"viewport\"><img src=\"" + imageUrl + "\"></template>";
+        assertThat(extractor.resolveThumbnail(100L, contents, Set.of(100L), Map.of(100L, 55L)))
+                .isEqualTo(new PostThumbnailInfo("/api/v1/files/55/variants/thumbnail", true));
+    }
+
+    @Test
+    void decorationFileOriginUsesConfiguredFrontendOrigin() {
+        var configured = new PostContentSummaryExtractor("https://staging.noviis.kr:8443", "cdn.noviis.kr");
+        String contents = "<template data-noviis-layer=\"viewport\">"
+                + "<img src=\"https://staging.noviis.kr:8443/api/v1/files/55\"></template>";
+        assertThat(configured.resolveThumbnail(100L, contents, Set.of(100L), Map.of(100L, 55L)))
+                .isEqualTo(new PostThumbnailInfo(null, false));
+    }
 
     private PostContentSummaryExtractor extractor;
     private Post post;

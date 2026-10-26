@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { decodeSandboxedPostHtml, encodeSandboxedPostHtml } from '../postHtmlSandbox'
 import {
     normalizeEditorFileImagePreviewSources,
     normalizeEditorFileImageUrls,
@@ -7,6 +8,47 @@ import {
 } from '../fileUrl'
 
 describe('fileUrl', () => {
+    it('does not treat foreign namespace templates as HTML template fragments', () => {
+        const content = '<svg><template></template></svg><math><template></template></math>'
+            + '<template data-noviis-layer="viewport"><img src="blob:preview" data-file-id="157" data-server-src="/files/157"></template>'
+        const normalized = normalizeEditorFileImagePreviewSources(content)
+        expect(normalized).toContain('src="/api/v1/files/157"')
+        expect(normalized).not.toContain('blob:preview')
+    })
+
+    it('normalizes images inside viewport templates and preserved documents without losing head styles', () => {
+        const source = '<!doctype html><html><head><style>.spark{color:red}</style></head><body>'
+            + '<template data-noviis-layer="viewport"><img src="blob:preview" data-file-id="157" data-server-src="/files/157"></template>'
+            + '<p>Body</p></body></html>'
+        const normalized = normalizeEditorFileImagePreviewSources(encodeSandboxedPostHtml(source))
+        const decoded = decodeSandboxedPostHtml(normalized)
+
+        expect(decoded).toContain('<style>.spark{color:red}</style>')
+        expect(decoded).toContain('<template data-noviis-layer="viewport">')
+        expect(decoded).toMatch(/^<!DOCTYPE html><html>/)
+        expect(decoded).toContain('src="/api/v1/files/157"')
+        expect(decoded).toContain('data-file-id="157"')
+        expect(decoded).not.toContain('blob:preview')
+    })
+
+    it.each([
+        '<!-- example: <html> -->',
+        '<style>.x::before{content:"<html>"}</style>',
+        '<textarea><html></textarea>',
+        '<p data-caption="<html>">Example</p>',
+    ])('does not wrap a fragment when document-like text occurs in %s', (prefix) => {
+        const source = `${prefix}<img src="blob:preview" data-file-id="157" data-server-src="/files/157">`
+        const result = normalizeEditorFileImagePreviewSources(source)
+        expect(result).not.toMatch(/^<!DOCTYPE|^<html>/)
+        expect(result).toContain('src="/api/v1/files/157"')
+    })
+
+    it('does not normalize inactive generic or nested template contents', () => {
+        const source = '<template><img src="blob:generic" data-server-src="/files/1"></template>'
+            + '<template data-noviis-layer="viewport"><template><img src="blob:nested" data-server-src="/files/2"></template></template>'
+        expect(normalizeEditorFileImagePreviewSources(source)).toBe(source)
+    })
+
     it('normalizes legacy direct file URLs', () => {
         expect(normalizeFileUrl('/files/123')).toBe('/api/v1/files/123')
         expect(normalizeFileUrl('/files/123?size=sm')).toBe('/api/v1/files/123?size=sm')
