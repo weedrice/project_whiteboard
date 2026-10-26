@@ -386,6 +386,59 @@ describe('CommentForm', () => {
     wrapper.unmount()
   })
 
+  it.each(['new', 'reply', 'edit'] as const)('replaces removed mentions after selecting ten users in a %s comment', async mode => {
+    const previousMentions = Array.from({ length: 10 }, (_, index) => ({
+      userId: index + 1, displayName: `Old${index}`, profileImageUrl: null,
+    }))
+    const wrapper = mountCommentForm(mode === 'edit'
+      ? { commentId: 30, initialContent: previousMentions.map(user => `@${user.displayName}`).join(' '), initialMentions: previousMentions }
+      : mode === 'reply' ? { parentId: 20 } : {})
+    const textarea = wrapper.get('textarea')
+    const selectCandidate = async (displayName: string, userId: number, text: string) => {
+      apiMocks.getMentionCandidates.mockResolvedValue({ data: { success: true, data: [{ userId, displayName, profileImageUrl: null }] } })
+      await textarea.setValue(text)
+      textarea.element.setSelectionRange(text.length, text.length)
+      await textarea.trigger('keyup')
+      await flushPromises()
+      await wrapper.get('[role="option"]').trigger('click')
+      await flushPromises()
+    }
+    if (mode !== 'edit') {
+      for (const user of previousMentions) {
+        await selectCandidate(user.displayName, user.userId, `${textarea.element.value}@${user.displayName}`)
+      }
+    }
+    await selectCandidate('Bob', 99, '@Old0 @Bo')
+    expect(textarea.element.value).toBe('@Old0 @Bob ')
+    await wrapper.get('form').trigger('submit')
+    const mutation = mode === 'edit' ? updateComment : createComment
+    expect(mutation).toHaveBeenCalledWith(expect.objectContaining({
+      postId: 10,
+      data: expect.objectContaining({ content: '@Old0 @Bob', mentionedUserIds: [1, 99] }),
+    }), expect.any(Object))
+  })
+
+  it('keeps the ten-user limit and does not infer ids from plain text', async () => {
+    const mentions = Array.from({ length: 10 }, (_, index) => ({
+      userId: index + 1, displayName: `Old${index}`, profileImageUrl: null,
+    }))
+    const content = `${mentions.map(user => `@${user.displayName}`).join(' ')} @Unselected`
+    const wrapper = mountCommentForm({ commentId: 30, initialContent: content, initialMentions: mentions })
+    const textarea = wrapper.get('textarea')
+    apiMocks.getMentionCandidates.mockResolvedValue({ data: { success: true, data: [{ userId: 99, displayName: 'Bob' }] } })
+    const typed = `${content} @Bo`
+    await textarea.setValue(typed)
+    textarea.element.setSelectionRange(typed.length, typed.length)
+    await textarea.trigger('keyup')
+    await flushPromises()
+    await wrapper.get('[role="option"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit')
+    expect(updateComment).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ mentionedUserIds: mentions.map(user => user.userId) }),
+    }), expect.any(Object))
+  })
+
   it('keeps existing mention ids when editing leaves mention text in place', async () => {
     const wrapper = mountCommentForm({
       commentId: 30,
