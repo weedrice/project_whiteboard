@@ -18,7 +18,6 @@ interface UseBoardDetailNavigationOptions {
   isSubscribePending: Ref<boolean>
   handleSubscribe: () => Promise<void>
   handlePageChange: (newPage: number, totalPages: number) => void
-  resetListState: () => void
   resetNoticeState: () => void
 }
 
@@ -52,7 +51,6 @@ export function useBoardDetailNavigation({
   isSubscribePending,
   handleSubscribe,
   handlePageChange,
-  resetListState,
   resetNoticeState
 }: UseBoardDetailNavigationOptions) {
   const suppressedCurrentPostId = ref<string | null>(null)
@@ -83,7 +81,6 @@ export function useBoardDetailNavigation({
   }
 
   watch(() => route.params.boardUrl, () => {
-    resetListState()
     resetNoticeState()
     suppressedCurrentPostId.value = null
   })
