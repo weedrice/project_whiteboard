@@ -15,6 +15,7 @@ const example = `<template data-noviis-layer="viewport">
       position: fixed;
       top: 15vh;
       left: 70vw;
+      /* typography-guard-allow: standalone sandbox examples cannot inherit host typography tokens */
       font-size: 3rem;
       animation: float 3s ease-in-out infinite alternate;
     }
