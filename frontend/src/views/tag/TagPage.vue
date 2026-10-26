@@ -14,6 +14,7 @@ import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/
 import { encodePathSegment } from '@/utils/urlPath'
 import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 import { tagQueryKeys } from '@/composables/tagQueryKeys'
+import { DEFAULT_POST_LIST_SORT, normalizePostListSort } from '@/utils/postListSort'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,10 +25,11 @@ const page = computed(() => {
   return Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1
 })
 const pageIndex = computed(() => page.value - 1)
+const sort = computed(() => normalizePostListSort(route.query.sort))
 const params = computed(() => ({
   page: pageIndex.value,
   size: 20,
-  sort: 'createdAt,desc',
+  sort: sort.value,
 }))
 
 const { data, isLoading, isError, refetch } = useApiPageQuery({
@@ -68,12 +70,19 @@ useHead({
   ],
 })
 
-function buildPageRoute(nextPageIndex: number) {
+function buildPageRoute(nextPageIndex: number, nextSort = sort.value) {
   const nextPage = nextPageIndex + 1
   return {
     path: `/tag/${encodePathSegment(tagName.value)}`,
-    query: nextPage > 1 ? { page: String(nextPage) } : {},
+    query: {
+      ...(nextPage > 1 ? { page: String(nextPage) } : {}),
+      ...(nextSort !== DEFAULT_POST_LIST_SORT ? { sort: nextSort } : {}),
+    },
   }
+}
+
+function changeSort(nextSort: string) {
+  void router.push(buildPageRoute(0, normalizePostListSort(nextSort)))
 }
 
 watch(data, (result) => {
@@ -129,12 +138,14 @@ watch(data, (result) => {
     <template v-else>
       <PostList
         :posts="posts"
+        :current-sort="sort"
         :show-board-name="true"
         :hide-no-column="true"
         :resolve-post-route="resolvePostDetailRoute"
         :resolve-board-route="resolveBoardRoute"
         :show-inquiry-status="isInquiryPostItem"
         :empty-description="$t('search.tagEmpty')"
+        @update:sort="changeSort"
       />
 
       <div v-if="totalPages > 1" class="mt-4 flex justify-center">

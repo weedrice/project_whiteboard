@@ -170,6 +170,7 @@ vi.mock('@/components/board/PostList.vue', () => ({
     name: 'PostListStub',
     props: {
       posts: { type: Array, default: () => [] },
+      currentSort: { type: String, default: undefined },
     },
     setup(props) {
       return () => h('div', { 'data-testid': 'post-list' }, String(props.posts.length))
@@ -280,6 +281,23 @@ describe('SearchPage', () => {
     })
     expect(wrapper.find('[data-testid="search-page-empty"]').text()).toBe('search.placeholder')
     expect(wrapper.find('[data-testid="search-page-empty"]').attributes('data-description')).toBeUndefined()
+  })
+
+  it('connects post sorting to the request and resets pagination without losing filters', async () => {
+    routeState.query = { q: 'vue', page: '2', author: 'hong', sort: 'likeCount,desc' }
+    searchState.searchData.postResults = [{ postId: 1, title: 'Post' }]
+    const wrapper = mountPage()
+    const posts = wrapper.getComponent({ name: 'PostListStub' })
+
+    expect(searchState.lastParams?.value.sort).toBe('likeCount,desc')
+    expect(posts.props('currentSort')).toBe('likeCount,desc')
+    posts.vm.$emit('update:sort', 'viewCount,desc')
+    await flushPromises()
+
+    expect(routeState.routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: { q: 'vue', author: 'hong', sort: 'viewCount,desc' },
+    })
   })
 
   it('submits page-local searches through the search route', async () => {
