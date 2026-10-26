@@ -1,8 +1,8 @@
 import { failAuthScopedMutation } from '@/test/authScopedMutationOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import InquiryDetail from '../InquiryDetail.vue'
 import { createDeferred } from '@/test/async'
 
@@ -87,8 +87,11 @@ const UploaderStub = defineComponent({
   },
 })
 
+const wrappers: VueWrapper[] = []
+afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()))
+
 function mountView() {
-  return mount(InquiryDetail, {
+  const wrapper = mount(InquiryDetail, {
     global: {
       stubs: {
         InquiryImageUploader: UploaderStub,
@@ -98,6 +101,8 @@ function mountView() {
       },
     },
   })
+  wrappers.push(wrapper)
+  return wrapper
 }
 
 describe('InquiryDetail', () => {

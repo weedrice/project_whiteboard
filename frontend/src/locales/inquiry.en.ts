@@ -2,6 +2,7 @@ import type { InquiryMessages } from './types'
 
 export const inquiryEn: InquiryMessages = {
   common: {
+    leaveConfirm: 'You have an unsent inquiry message. Leave this page?',
     all: 'All', loading: 'Loading…', loadFailed: 'Failed to load.', notFound: 'This inquiry was not found or is unavailable.', empty: 'No inquiries yet.',
     status: 'Status', category: 'Category', priority: 'Priority', fromDate: 'From', toDate: 'To', search: 'Search', searchPlaceholder: 'Search title', query: 'Search', close: 'Close', remove: 'Remove', image: 'Image',
   },
