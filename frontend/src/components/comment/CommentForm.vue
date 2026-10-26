@@ -120,6 +120,11 @@ const insertMention = async (candidate: MentionCandidate, activeMention: { start
   const insertedText = `@${candidate.displayName} `
   content.value = `${before}${insertedText}${after}`
 
+  // Removed mention text must release its slot before accepting another user.
+  selectedMentionUsers.value = selectedMentionUsers.value.filter((user) => (
+    content.value.includes(`@${user.displayName}`)
+  ))
+
   if (!selectedMentionUsers.value.some((user) => user.userId === candidate.userId)
     && selectedMentionUsers.value.length < 10) {
     selectedMentionUsers.value = [...selectedMentionUsers.value, candidate]
