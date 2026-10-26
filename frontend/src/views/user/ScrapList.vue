@@ -290,6 +290,7 @@ async function moveScrap() {
 
 <template>
   <PaginatedListCard
+    actions-visibility="always"
     title-tag="h1"
     :title="$t('user.tabs.scraps')"
     :icon="Bookmark"

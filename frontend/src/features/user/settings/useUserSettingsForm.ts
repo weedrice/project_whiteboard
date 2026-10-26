@@ -44,6 +44,8 @@ interface UseNotificationSettingsFormOptions {
 
 export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   let saveRevision = 0
+  const savePending = ref(false)
+  let applyingSavedTheme = false
   const createDefaultForm = (): UserSettingsForm => ({
     theme: 'LIGHT',
     language: 'ko',
@@ -72,7 +74,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       ))
     )
   ))
-  const canSave = computed(() => isDirty.value && !options.isSaving.value)
+  const canSave = computed(() => isDirty.value && !options.isSaving.value && !savePending.value)
 
   const toFormSnapshot = (value: UserSettings): UserSettingsForm => ({
     theme: value.theme,
@@ -94,7 +96,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   }
 
   watch(options.settingsData, (value) => {
-    if (!value || isDirty.value) {
+    if (!value || isDirty.value || savePending.value) {
       return
     }
 
@@ -102,14 +104,26 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   }, { immediate: true })
 
   watch(options.themeIsDark, (isDark) => {
+    if (applyingSavedTheme) return
     const theme = isDark ? 'DARK' : 'LIGHT'
     if (form.theme !== theme) {
       form.theme = theme
     }
-  })
+  }, { flush: 'sync' })
+
+  const applySavedTheme = (theme: UserSettings['theme']) => {
+    // Applying a completed write must not replace edits made after submission.
+    applyingSavedTheme = true
+    try {
+      options.setTheme(theme)
+    } finally {
+      applyingSavedTheme = false
+    }
+  }
 
   watch(() => options.getSessionGeneration?.(), () => {
     saveRevision += 1
+    savePending.value = false
     Object.assign(form, createDefaultForm())
     baseline.value = null
     message.value = ''
@@ -124,6 +138,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     message.value = ''
     isError.value = false
     const revision = ++saveRevision
+    savePending.value = true
     const sessionGeneration = options.getSessionGeneration?.()
     const isCurrentSave = () => revision === saveRevision
       && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
@@ -159,7 +174,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       const response = await options.updateSettings(payload)
       if (!isCurrentSave()) return
 
-      options.setTheme(payload.theme)
+      applySavedTheme(payload.theme)
       rememberUserTimeZone(payload.timezone)
       const savedForm = { ...submittedForm }
       for (const field of PROFILE_PRIVACY_FIELDS) {
@@ -206,7 +221,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
           return
         }
         hydrateFromSettings(reloadedSettings)
-        options.setTheme(nextForm.theme)
+        applySavedTheme(nextForm.theme)
         message.value = options.t('common.messages.concurrentModification')
         isError.value = true
         return
@@ -214,6 +229,8 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       logger.error('Failed to save general settings:', error)
       message.value = options.t('user.settings.failed')
       isError.value = true
+    } finally {
+      if (revision === saveRevision) savePending.value = false
     }
   }
 

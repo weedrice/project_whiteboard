@@ -125,6 +125,9 @@ export const userAccountApi = {
     completeOnboarding(config?: AxiosRequestConfig) {
         return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete', undefined, config)
     },
+    getPushSubscriptionStatus(endpoint: string, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<boolean>>('/users/me/push-subscriptions/status', { endpoint }, config)
+    },
     createPushSubscription(data: PushSubscriptionPayload, config?: AxiosRequestConfig) {
         return api.post<ApiResponse<PushSubscriptionResponse>>('/users/me/push-subscriptions', data, config)
     },

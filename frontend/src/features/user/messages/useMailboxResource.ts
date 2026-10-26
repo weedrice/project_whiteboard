@@ -149,7 +149,21 @@ export function useMailboxResource() {
         }
     }
 
+    function resetReplyForPartnerChange(partnerId: number) {
+        const previousPartnerId = lastConversationPartnerId.value
+            ?? selectedMessage.value?.partnerUserId
+            ?? replyTarget.value?.partnerUserId
+        if (previousPartnerId === partnerId) return
+
+        // A draft and an in-flight send belong to the conversation that opened them.
+        cancelPendingReply()
+        resetReplyContent()
+        replyTarget.value = null
+        isReplyModalOpen.value = false
+    }
+
     function startMessageDetailRequest(msg: MailboxMessageViewModel) {
+        resetReplyForPartnerChange(msg.partnerUserId)
         requestLifecycle.messageDetail.cancel()
         requestLifecycle.initialConversation.cancel()
         requestLifecycle.conversationRefresh.cancel()
@@ -379,6 +393,7 @@ export function useMailboxResource() {
     }
 
     async function openConversationByPartnerId(partnerId: number) {
+        resetReplyForPartnerChange(partnerId)
         requestLifecycle.messageDetail.cancel()
         requestLifecycle.initialConversation.cancel()
         requestLifecycle.conversationRefresh.cancel()

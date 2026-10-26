@@ -1,4 +1,5 @@
 import { flushPromises } from '@vue/test-utils'
+import { reactive } from 'vue'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import { getExposedVm } from '@/test/vue-test-helpers'
@@ -17,7 +18,7 @@ import {
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        routerMocks.route.query = {}
+        routerMocks.route = reactive({ query: {} })
         messageApi.getConversations.mockImplementation((params, config) => messageApi.getReceivedMessages(params, config))
         messageApi.getConversation.mockResolvedValue({
             data: {
@@ -28,6 +29,112 @@ describe('MyMessages', () => {
                 },
             },
         })
+    })
+
+    function mockPartnerConversations() {
+        const messages = [2, 3].map((partnerId) => ({
+            messageId: partnerId,
+            content: `Conversation with ${partnerId}`,
+            partner: { userId: partnerId, displayName: `Partner ${partnerId}` },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }))
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: { success: true, data: { content: messages, totalPages: 1 } },
+        })
+        messageApi.getConversation.mockImplementation((partnerId: number) => Promise.resolve({
+            data: {
+                success: true,
+                data: { content: messages.filter((message) => message.partner.userId === partnerId), totalPages: 1 },
+            },
+        }))
+        messageApi.getMessage.mockImplementation((id: number) => Promise.resolve({
+            data: { success: true, data: messages.find((message) => message.messageId === id) },
+        }))
+        messageApi.sendMessage.mockResolvedValue({ data: { success: true, data: 10 } })
+    }
+
+    it('sends to the displayed partner after replying and changing the partner route', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Reply for partner 2'
+        await exposed.sendReply()
+        await flushPromises()
+
+        routerMocks.route.query = { partnerId: '3' }
+        await flushPromises()
+        expect(wrapper.text()).toContain('Conversation with 3')
+        exposed.replyContent = 'Reply for partner 3'
+        await exposed.sendReply()
+
+        expect(messageApi.sendMessage).toHaveBeenLastCalledWith(3, 'Reply for partner 3', expect.any(Object))
+        wrapper.unmount()
+    })
+
+    it.each(['route', 'list'] as const)('clears the previous partner draft when switching by %s', async (entry) => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Private draft for partner 2'
+
+        if (entry === 'route') {
+            routerMocks.route.query = { partnerId: '3' }
+        } else {
+            await messageOpenButtons(wrapper)[1].trigger('click')
+        }
+        await flushPromises()
+
+        expect(exposed.replyContent).toBe('')
+        expect(messageApi.sendMessage).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('cancels the old send on partner switch without clearing the new draft after late completion', async () => {
+        mockPartnerConversations()
+        const oldSend = createDeferred<{ data: { success: boolean; data: number } }>()
+        messageApi.sendMessage.mockReturnValueOnce(oldSend.promise)
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Old reply'
+        const sending = exposed.sendReply()
+        const oldSignal = messageApi.sendMessage.mock.calls[0][2].signal as AbortSignal
+
+        routerMocks.route.query = { partnerId: '3' }
+        await flushPromises()
+        expect(oldSignal.aborted).toBe(true)
+        expect(exposed.replyContent).toBe('')
+        exposed.replyContent = 'New draft'
+        oldSend.resolve({ data: { success: true, data: 10 } })
+        await sending
+        await flushPromises()
+
+        expect(exposed.replyContent).toBe('New draft')
+        expect(addToast).not.toHaveBeenCalledWith('user.message.sendSuccess', 'success')
+        await exposed.sendReply()
+        expect(messageApi.sendMessage).toHaveBeenLastCalledWith(3, 'New draft', expect.any(Object))
+        wrapper.unmount()
+    })
+
+    it('preserves a draft when the route reloads the same conversation partner', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Keep this draft'
+
+        routerMocks.route.query = { partnerId: '02' }
+        await flushPromises()
+
+        expect(exposed.replyContent).toBe('Keep this draft')
+        wrapper.unmount()
     })
 
     it('loads message detail and then calls read endpoint for unread received messages', async () => {

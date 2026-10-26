@@ -332,7 +332,6 @@ onBeforeUnmount(() => {
           <span>{{ $t('comment.readUntilHere') }}</span>
         </div>
         <CommentItem
-          v-memo="[postId, boardUrl, props.lastViewedAt, props.readOnly, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlinded, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies, deepLinkCommentIds.join(',')]"
           :comment="comment"
           :postId="postId"
           :boardUrl="boardUrl"

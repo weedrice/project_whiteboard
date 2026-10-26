@@ -15,6 +15,8 @@ import {
   unmountPostFormWrappers,
 } from './PostFormTestHarness'
 import PostEditorTipTap from '../PostEditorTipTap.vue'
+import { Storage } from '@/utils/storage'
+import { loadStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 
 type UploadResult = { data: { success: boolean, data: { fileId: number, fileUrl: string } } }
 const uploadMocks = vi.hoisted(() => ({ uploadFile: vi.fn(), discardUploads: vi.fn() }))
@@ -49,6 +51,29 @@ describe('PostForm image uploads', () => {
   afterEach(() => {
     unmountPostFormWrappers()
     vi.restoreAllMocks()
+  })
+
+  it('keeps recovered uploads when the latest local snapshot cannot be saved on exit', async () => {
+    mockPostFormAuthStore({ isAuthenticated: true, user: { userId: 1, role: 'USER' } })
+    const key = 'noviis:draft-v2:1:create:free:new'
+    Storage.set(key, {
+      boardUrl: 'free', title: 'Local photo draft',
+      contents: '<img src="/api/v1/files/505">',
+      fileIds: [505], unassociatedUploadFileIds: [505],
+      clientModifiedAt: new Date().toISOString(), hasLocalChanges: true,
+    })
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+    expect(loadStoredDraftSnapshot(key)?.fileIds).toEqual([505])
+    const failedWrite = vi.spyOn(Storage, 'setWithResult')
+      .mockReturnValue({ ok: false, reason: 'unavailable' })
+    await wrapper.get('[data-testid="editor-input"]').setValue('<p>Image removed</p>')
+    wrapper.unmount()
+    await flushPromises()
+
+    expect(failedWrite).toHaveBeenCalled()
+    expect(loadStoredDraftSnapshot(key)?.fileIds).toEqual([505])
+    expect(uploadMocks.discardUploads).not.toHaveBeenCalled()
   })
 
   it.each(['publish', 'schedule', 'update schedule'] as const)(

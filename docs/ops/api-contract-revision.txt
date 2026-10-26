@@ -1,1 +1,1 @@
-2026-10-profile-privacy-v2
+2026-10-push-endpoint-status-v1

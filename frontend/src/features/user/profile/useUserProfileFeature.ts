@@ -59,6 +59,21 @@ export function useUserProfileFeature(context: UserFeatureContext) {
     },
     onSuccess: (response, _variables, mutationContext) => {
       if (!isCurrentMutation(mutationContext)) return
+      const savedProfile = response.data
+      const currentUser = authStore.user
+      if (currentUser && savedProfile?.userId === currentUser.userId) {
+        // Commit known write results before the best-effort /users/me refresh.
+        // A failed refresh must not advertise another free image change or an old balance.
+        const imageChanged = _variables.profileImageId != null
+          && savedProfile.profileImageUrl !== currentUser.profileImageUrl
+        authStore.user = {
+          ...currentUser,
+          displayName: savedProfile.displayName,
+          profileImageUrl: savedProfile.profileImageUrl ?? undefined,
+          profileImageChangeFreeAvailable: imageChanged ? false : currentUser.profileImageChangeFreeAvailable,
+          points: savedProfile.remainingPoints ?? currentUser.points,
+        }
+      }
       if ((response.data?.spentPoints ?? 0) > 0) {
         void queryClient.invalidateQueries({
           queryKey: sessionQueryKey(mutationContext.sessionGeneration, userQueryKeys.pointsRoot),

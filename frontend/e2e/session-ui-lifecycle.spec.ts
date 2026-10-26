@@ -94,19 +94,37 @@ test('bootstrap restores settings after the user identity is hydrated', async ({
   expect(settingsRequests).toBe(1)
 })
 
-test('leaving a submitting inquiry preserves the current page and refreshes its list', async ({ page }) => {
+test('a submitting inquiry blocks leaving until success and refreshes its cached list', async ({ page }) => {
   await installMockApi(page, { authenticated: true })
   const createRequest = Promise.withResolvers<Route>()
   let created = false
+  let createRequests = 0
   const item = {
     inquiryId: 92, category: 'SERVICE_USE', title: '지연 응답 문의', status: 'NEW',
-    lastPublicMessageSummary: '완료를 기다리는 동안 목록으로 이동합니다.',
+    lastPublicMessageSummary: '전송이 완료될 때까지 작성 화면을 유지합니다.',
     modifiedAt: '2026-10-10T09:00:00',
+  }
+  const detail = {
+    ...item,
+    authorUserId: mockUser.userId,
+    authorName: mockUser.displayName,
+    createdAt: item.modifiedAt,
+    allowedActions: { canAddMessage: true, canWithdraw: true, canClose: false },
+    messages: [{
+      messageId: 101, authorUserId: mockUser.userId, authorName: mockUser.displayName,
+      messageType: 'USER_MESSAGE', content: item.lastPublicMessageSummary,
+      attachments: [], createdAt: item.modifiedAt,
+    }],
+    histories: [],
   }
   await page.route('**/api/v1/inquiries**', (route) => {
     if (route.request().method() === 'POST') {
+      createRequests += 1
       createRequest.resolve(route)
       return
+    }
+    if (new URL(route.request().url()).pathname.endsWith(`/inquiries/${item.inquiryId}`)) {
+      return fulfillJson(route, detail)
     }
     return fulfillJson(route, {
       content: created ? [item] : [], page: 0, size: 20,
@@ -115,22 +133,35 @@ test('leaving a submitting inquiry preserves the current page and refreshes its 
     })
   })
 
-  await page.goto('/inquiries/new')
+  // Warm the list cache so successful submission must invalidate the old empty result.
+  await page.goto('/inquiries')
+  await expect(page.getByText('등록한 문의가 없습니다.', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: '새 문의', exact: true }).click()
+  await expect(page).toHaveURL('/inquiries/new')
   const form = page.locator('form')
   await form.getByRole('textbox', { name: '제목' }).fill(item.title)
   await form.getByRole('textbox', { name: /문의 내용/ }).fill(item.lastPublicMessageSummary)
   await form.locator('button[type="submit"]').click()
   const createRoute = await createRequest.promise
   await page.locator('header').getByRole('link', { name: '내 문의', exact: true }).click()
-  await expect(page).toHaveURL('/inquiries')
-  await expect(page.getByRole('heading', { name: '내 문의', exact: true })).toBeVisible()
-
-  created = true
-  await fulfillJson(createRoute, item)
-  await expect(page.getByRole('link', { name: new RegExp(item.title) })).toBeVisible()
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
   }))
+  await expect(page).toHaveURL('/inquiries/new')
+  await expect(form.getByRole('textbox', { name: '제목' })).toHaveValue(item.title)
+  await expect(form.getByRole('textbox', { name: /문의 내용/ })).toHaveValue(item.lastPublicMessageSummary)
+  await expect(form.locator('button[type="submit"]')).toBeDisabled()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect(createRequests).toBe(1)
+
+  created = true
+  await fulfillJson(createRoute, detail)
+  await expect(page).toHaveURL(`/inquiries/${item.inquiryId}`)
+  await expect(page.getByRole('heading', { name: item.title, exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.locator('header').getByRole('button', { name: '목록', exact: true }).click()
   await expect(page).toHaveURL('/inquiries')
   await expect(page.getByRole('heading', { name: '내 문의', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: new RegExp(item.title) })).toBeVisible()
+  expect(createRequests).toBe(1)
 })
