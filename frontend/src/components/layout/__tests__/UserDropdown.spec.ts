@@ -101,12 +101,13 @@ describe('UserDropdown', () => {
     vi.clearAllMocks()
     authState.isAuthenticated = true
     authState.user.role = 'USER'
+    authState.user.displayName = 'Novi User'
     pointData.value = { currentPoint: 12345 }
   })
 
   it('exposes menu semantics on the profile trigger', () => {
     const closedWrapper = mountDropdown(false)
-    const closedButton = closedWrapper.get('button[aria-label="사용자 메뉴"]')
+    const closedButton = closedWrapper.get('#user-dropdown-trigger')
 
     expect(closedButton.attributes()).toMatchObject({
       type: 'button',
@@ -114,14 +115,24 @@ describe('UserDropdown', () => {
       'aria-expanded': 'false',
     })
     expect(closedButton.attributes('aria-controls')).toBeUndefined()
+    expect(closedButton.attributes('aria-label')).toBeUndefined()
+    expect(closedButton.text()).toContain('Novi User')
+    expect(closedButton.text()).toContain('사용자 메뉴')
 
     const openWrapper = mountDropdown(true)
-    const openButton = openWrapper.get('button[aria-label="사용자 메뉴"]')
+    const openButton = openWrapper.get('#user-dropdown-trigger')
 
     expect(openButton.attributes('aria-expanded')).toBe('true')
     expect(openButton.attributes('aria-controls')).toBe('user-dropdown-menu')
     expect(openWrapper.get('#user-dropdown-menu').attributes('role')).toBe('menu')
     expect(openWrapper.findAll('[role="menuitem"]').length).toBeGreaterThan(0)
+  })
+
+  it('includes the visible login ID when the display name is missing', () => {
+    authState.user.displayName = ''
+    const wrapper = mountDropdown()
+    expect(wrapper.get('#user-dropdown-trigger').text()).toContain('noviis')
+    expect(wrapper.get('#user-dropdown-trigger').text()).toContain('사용자 메뉴')
   })
 
   it('uses cached user point query when dropdown is open', () => {

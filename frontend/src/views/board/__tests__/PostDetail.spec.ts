@@ -319,7 +319,8 @@ describe('PostDetail', () => {
     expect(quickActions.text()).toContain('board.postDetail.toList')
     expect(quickActions.text()).toContain('board.postDetail.scrollTop')
     expect(wrapper.findAll('.nv-post-action-btn-circle')).toHaveLength(3)
-    expect(wrapper.find('.nv-post-action-btn-circle[aria-label="common.likes"]').exists()).toBe(true)
+    const likeButton = wrapper.get('.nv-post-action-btn-circle[aria-label^="common.likes "]')
+    expect(likeButton.attributes('aria-label')).toBe(`common.likes ${likeButton.text()}`)
     expect(wrapper.find('.nv-post-action-btn-circle[aria-label="board.postDetail.bookmark"]').exists()).toBe(true)
     expect(wrapper.find('.nv-post-action-btn-circle[aria-label="common.share"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('board.postDetail.tableOfContents')
@@ -532,7 +533,7 @@ describe('PostDetail', () => {
       .map((button) => button.attributes('aria-label'))
 
     expect(labels).toEqual([
-      'common.likes',
+      `common.likes ${postValue.likeCount}`,
       'board.postDetail.bookmark',
       'common.share',
       'common.report'

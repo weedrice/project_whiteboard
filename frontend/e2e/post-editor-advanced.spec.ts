@@ -12,7 +12,7 @@ async function paste(editor: Locator, html: string, text: string) {
 }
 
 async function insertBlock(page: Page, label: string) {
-  await page.getByRole('button', { name: '슬래시 메뉴', exact: true }).click()
+  await page.getByRole('button', { name: '블록 삽입', exact: true }).click()
   await page.getByRole('menuitem', { name: label, exact: true }).click()
 }
 
