@@ -2,6 +2,7 @@ import type { InquiryMessages } from './types'
 
 export const inquiry: InquiryMessages = {
   common: {
+    leaveConfirm: '작성 중인 문의 내용이 저장되지 않았습니다. 페이지를 나가시겠습니까?',
     all: '전체', loading: '불러오는 중…', loadFailed: '불러오지 못했습니다.', notFound: '문의를 찾을 수 없거나 접근할 수 없습니다.', empty: '등록한 문의가 없습니다.',
     status: '상태', category: '카테고리', priority: '우선순위', fromDate: '시작일', toDate: '종료일', search: '검색', searchPlaceholder: '제목 검색', query: '조회', close: '닫기', remove: '제거', image: '이미지',
   },
