@@ -1,6 +1,6 @@
 import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
+import { useAuthScopedMutation, type AuthScopedMutationFunctionContext } from '@/composables/useAuthScopedMutation'
 import { computed, type Ref } from 'vue'
 import type { AxiosRequestConfig } from 'axios'
 import type { Post } from '@/types'
@@ -283,10 +283,26 @@ export function usePost() {
     })
     const useUnblindPostByManager = () => createManagerPostMutation((postId, config) => postApi.unblindPostByManager(postId, config))
 
-    const updatePollInDetailCache = (postId: string | number, poll: Post['poll']) => {
-        queryClient.setQueriesData<Post>({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) }, (old) => (
+    const updatePollInDetailCache = async (
+        postId: string | number,
+        poll: Post['poll'],
+        mutationContext: AuthScopedMutationFunctionContext,
+    ) => {
+        // Routes use string IDs; the poll response/view model uses numeric IDs.
+        const postIds = new Set<string | number>([postId, String(postId)])
+        const numericPostId = Number(postId)
+        if (Number.isSafeInteger(numericPostId)) postIds.add(numericPostId)
+        const detailFilters = [...postIds].flatMap((id) => [true, false].map((incrementView) => ({
+            queryKey: sessionQueryKey(mutationContext.intent.sessionGeneration, postDetailQueryKey(id, incrementView)),
+            exact: true,
+        })))
+        // Stop older detail reads, including ones started during the vote.
+        // Related posts and versions share the prefix but must keep loading.
+        await Promise.all(detailFilters.map((filters) => queryClient.cancelQueries(filters)))
+        mutationContext.assertCurrent()
+        detailFilters.forEach((filters) => queryClient.setQueriesData<Post>(filters, (old) => (
             old ? { ...old, poll } : old
-        ))
+        )))
     }
 
     const useVotePoll = () => {
@@ -295,9 +311,9 @@ export function usePost() {
             mutationFn: async ({ postId, data }: { postId: string | number, data: PollVotePayload }, mutationContext) => {
                 return unwrapAxiosApiData(await postApi.votePoll(postId, data, mutationContext.requestConfig))
             },
-            onSuccess: (poll, { postId }, context) => {
+            onSuccess: (poll, { postId }, context, mutationContext) => {
                 if (!isCurrentMutation(context)) return
-                updatePollInDetailCache(postId, poll)
+                return updatePollInDetailCache(postId, poll, mutationContext)
             },
         })
     }
@@ -308,9 +324,9 @@ export function usePost() {
             mutationFn: async (postId: string | number, mutationContext) => {
                 return unwrapAxiosApiData(await postApi.deletePollVote(postId, mutationContext.requestConfig))
             },
-            onSuccess: (poll, postId, context) => {
+            onSuccess: (poll, postId, context, mutationContext) => {
                 if (!isCurrentMutation(context)) return
-                updatePollInDetailCache(postId, poll)
+                return updatePollInDetailCache(postId, poll, mutationContext)
             },
         })
     }

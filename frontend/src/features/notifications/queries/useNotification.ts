@@ -19,6 +19,7 @@ import {
 } from '@/queryAuthScope'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
+import { advanceNotificationReadRevision, readNotificationsAfterLatestEvent } from './notificationReadRevision'
 
 export function useNotification() {
     const queryClient = useQueryClient()
@@ -29,11 +30,11 @@ export function useNotification() {
         return useApiPageQuery<Notification>({
             queryKey: computed(() => notificationListQueryKey(params.value)),
             meta: AUTH_SCOPED_QUERY_META,
-            request: (context) => callWithOptionalQuerySignal(
+            request: (context) => readNotificationsAfterLatestEvent(queryClient, context, () => callWithOptionalQuerySignal(
                 context,
                 () => notificationApi.getNotifications(params.value),
                 (config) => notificationApi.getNotifications(params.value, config),
-            ),
+            )),
         })
     }
 
@@ -41,11 +42,11 @@ export function useNotification() {
         return useApiQuery<number>({
             queryKey: notificationUnreadCountQueryKey,
             meta: AUTH_SCOPED_QUERY_META,
-            request: (context) => callWithOptionalQuerySignal(
+            request: (context) => readNotificationsAfterLatestEvent(queryClient, context, () => callWithOptionalQuerySignal(
                 context,
                 notificationApi.getUnreadCount,
                 notificationApi.getUnreadCount,
-            ),
+            )),
             refetchInterval: 60000,
             staleTime: 0,
             enabled: computed(() => authStore.isAuthenticated),
@@ -61,6 +62,7 @@ export function useNotification() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                advanceNotificationReadRevision(queryClient, context.sessionGeneration)
                 queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
             }
         })
@@ -75,6 +77,7 @@ export function useNotification() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                advanceNotificationReadRevision(queryClient, context.sessionGeneration)
                 queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
             }
         })

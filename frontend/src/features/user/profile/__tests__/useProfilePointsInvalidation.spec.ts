@@ -67,6 +67,25 @@ function seedPointCaches() {
 }
 
 describe('paid profile image change and point caches', () => {
+  it.each([
+    { payload: { displayName: 'Renamed' }, profileImageUrl: '/old.png' },
+    { payload: { removeProfileImage: true }, profileImageUrl: null },
+    { payload: { profileImageId: 501 }, profileImageUrl: '/old.png' },
+  ])('preserves unused free change and balance for a name edit, removal, or image no-op: $payload', async ({ payload, profileImageUrl }) => {
+    auth.user = {
+      ...auth.user!, points: 6000, profileImageUrl: '/old.png', profileImageChangeFreeAvailable: true,
+    }
+    mocks.updateMyProfile.mockResolvedValueOnce(axiosApiSuccess({
+      userId: 7, displayName: 'Renamed', profileImageUrl, spentPoints: null, remainingPoints: null,
+    }))
+
+    await mutation.mutateAsync(payload)
+
+    expect(auth.user).toMatchObject({
+      displayName: 'Renamed', profileImageUrl: profileImageUrl ?? undefined, points: 6000, profileImageChangeFreeAvailable: true,
+    })
+  })
+
   it.each(['mounted', 'unmounted'] as const)('refreshes fresh balance and history after a paid save while %s', async (lifetime) => {
     const keys = seedPointCaches()
     const response = createDeferred<ReturnType<typeof profileResponse>>()

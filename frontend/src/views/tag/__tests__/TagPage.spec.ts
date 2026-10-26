@@ -1,7 +1,7 @@
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, reactive } from 'vue'
 import TagPage from '../TagPage.vue'
 import { useHead } from '@unhead/vue'
 
@@ -11,6 +11,8 @@ const routeState = vi.hoisted(() => ({
 }))
 
 const routerReplace = vi.hoisted(() => vi.fn())
+const routerPush = vi.hoisted(() => vi.fn())
+const reactiveRouteState = reactive(routeState)
 
 const tagApi = vi.hoisted(() => ({
   getPostsByTagName: vi.fn(),
@@ -23,8 +25,8 @@ vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
-    useRoute: () => routeState,
-    useRouter: () => ({ replace: routerReplace }),
+    useRoute: () => reactiveRouteState,
+    useRouter: () => ({ replace: routerReplace, push: routerPush }),
   }
 })
 
@@ -75,7 +77,8 @@ const mountPage = () => {
         ErrorState: true,
         Pagination: true,
         PostList: {
-          props: ['posts', 'emptyDescription'],
+          name: 'PostList',
+          props: ['posts', 'emptyDescription', 'currentSort'],
           template: '<div data-testid="post-list" :data-empty-description="emptyDescription">{{ posts.length }}</div>',
         },
         RouterLink: RouterLinkStub,
@@ -91,6 +94,7 @@ describe('TagPage', () => {
     routeState.params = { name: 'vue' }
     routeState.query = {}
     routerReplace.mockReset()
+    routerPush.mockReset()
     tagApi.getPostsByTagName.mockResolvedValue({
       data: {
         success: true,
@@ -156,6 +160,27 @@ describe('TagPage', () => {
       title: expect.any(Object),
       meta: expect.any(Array),
     }))
+  })
+
+  it('sorts from the route, resets to the first page, and retains sorting in page links', async () => {
+    routeState.query = { page: '2', sort: 'likeCount,desc' }
+    const wrapper = mountPage()
+    await flushPromises()
+    const posts = wrapper.getComponent({ name: 'PostList' })
+    expect(posts.props('currentSort')).toBe('likeCount,desc')
+    expect(tagApi.getPostsByTagName).toHaveBeenLastCalledWith('vue',
+      { page: 1, size: 20, sort: 'likeCount,desc' }, expect.any(Object))
+
+    posts.vm.$emit('update:sort', 'viewCount,desc')
+    await flushPromises()
+    expect(routerPush).toHaveBeenCalledWith({ path: '/tag/vue', query: { sort: 'viewCount,desc' } })
+    reactiveRouteState.query = { sort: 'viewCount,desc' }
+    await flushPromises()
+    expect(tagApi.getPostsByTagName).toHaveBeenLastCalledWith('vue',
+      { page: 0, size: 20, sort: 'viewCount,desc' }, expect.any(Object))
+    expect(wrapper.getComponent({ name: 'PostList' }).props('currentSort')).toBe('viewCount,desc')
+    const buildLink = wrapper.getComponent({ name: 'Pagination' }).props('linkBuilder')
+    expect(buildLink(1)).toEqual({ path: '/tag/vue', query: { page: '2', sort: 'viewCount,desc' } })
   })
 
   it('replaces an out-of-range page with the last page returned by the API', async () => {

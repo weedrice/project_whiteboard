@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/vue-query'
+import { advanceNotificationReadRevision } from './notificationReadRevision'
 import type { Notification } from '@/types'
 import {
   notificationsQueryKey,
@@ -38,6 +39,8 @@ export function applyIncomingNotificationToCache(
   if (recentNotificationIds.has(notificationId, normalized)) {
     return
   }
+
+  advanceNotificationReadRevision(queryClient, sessionGeneration)
 
   // A grouped event updates an existing unread row; it never creates another row.
   const isNewNotification = !wasAlreadySeen && (normalized.groupCount ?? 1) <= 1

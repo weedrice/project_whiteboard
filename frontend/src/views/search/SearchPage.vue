@@ -185,11 +185,13 @@
             </h2>
             <PostList
               :posts="posts"
+              :current-sort="sortQuery"
               :showBoardName="true"
               :hideNoColumn="true"
               :resolve-post-route="resolvePostDetailRoute"
               :resolve-board-route="resolveBoardRoute"
               :show-inquiry-status="isInquiryPostItem"
+              @update:sort="changeSort"
             />
           </div>
 
@@ -407,12 +409,14 @@ const {
   fromQuery,
   toQuery,
   pageQuery,
+  sortQuery,
   hasSearchQuery,
   params,
   handleSearchSubmit,
   buildFilterQuery,
   buildQueryWithoutFilter,
   buildPageQuery,
+  buildSortQuery,
   isCustomDateRangeValid,
 } = useSearchRouteQuery()
 const isFilterOpen = ref(false)
@@ -622,6 +626,10 @@ function buildSearchPageLink(page: number) {
     name: 'search',
     query: buildPageQuery(page),
   }
+}
+
+function changeSort(sort: string) {
+  void router.push({ name: 'search', query: buildSortQuery(sort) })
 }
 
 watch([pageQuery, totalKeywordPages], ([page, totalPages]) => {

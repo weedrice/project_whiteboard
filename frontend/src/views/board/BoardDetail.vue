@@ -43,8 +43,7 @@ const {
   toggleConceptPosts,
   toggleCategory,
   handleSortChange,
-  handlePageChange,
-  resetListState
+  handlePageChange
 } = useBoardListState(route, router)
 
 const boardUrl = computed(() => route.params.boardUrl as string)
@@ -122,7 +121,6 @@ const {
   isSubscribePending,
   handleSubscribe,
   handlePageChange,
-  resetListState,
   resetNoticeState
 })
 
