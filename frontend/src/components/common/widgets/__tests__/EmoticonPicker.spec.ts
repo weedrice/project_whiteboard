@@ -118,9 +118,11 @@ describe('EmoticonPicker', () => {
         const purchasedList = [createEmoticon(1, 'Cat')]
         const myList = [createEmoticon(2, 'OwnerPack')]
         mocks.getPurchasedEmoticons.mockResolvedValueOnce({
+            number: 0, totalPages: 1, last: true,
             content: purchasedList,
         })
         mocks.getMyEmoticons.mockResolvedValueOnce({
+            number: 0, totalPages: 1, last: true,
             content: myList,
         })
 
@@ -131,17 +133,19 @@ describe('EmoticonPicker', () => {
         expect((options.enabled as () => boolean)()).toBe(false)
 
         const result = await (options.queryFn as (context: ReturnType<typeof queryTestContext>) => Promise<unknown>)(queryTestContext(options))
-        expect(mocks.getPurchasedEmoticons).toHaveBeenCalledWith({ size: 100 }, authQueryConfig())
-        expect(mocks.getMyEmoticons).toHaveBeenCalledWith({ size: 100 }, authQueryConfig())
+        expect(mocks.getPurchasedEmoticons).toHaveBeenCalledWith({ page: 0, size: 100 }, authQueryConfig())
+        expect(mocks.getMyEmoticons).toHaveBeenCalledWith({ page: 0, size: 100 }, authQueryConfig())
         expect(result).toEqual([...purchasedList, ...myList])
     })
 
     it('deduplicates emoticons that appear in purchased and owned lists', async () => {
         const shared = createEmoticon(1, 'SharedPack')
         mocks.getPurchasedEmoticons.mockResolvedValueOnce({
+            number: 0, totalPages: 1, last: true,
             content: [shared],
         })
         mocks.getMyEmoticons.mockResolvedValueOnce({
+            number: 0, totalPages: 1, last: true,
             content: [shared, createEmoticon(2, 'OwnerPack')],
         })
 

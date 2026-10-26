@@ -142,6 +142,49 @@ test('legacy inquiry URL creates a dedicated inquiry and reopens a resolved inqu
   ])
 })
 
+for (const mobile of [false, true]) {
+  test(`unsent inquiry survives rejected navigation (${mobile ? 'mobile' : 'desktop'})`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 })
+    await installMockApi(page, { authenticated: true })
+    const state = await installInquiryApi(page)
+    await page.goto('/inquiries/new')
+    await page.locator('form input[type="text"]').fill('작성 중 제목')
+    await page.locator('form textarea').fill('작성 중 내용')
+    await page.locator('header').getByRole('link', { name: '내 문의', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText('작성 중인 문의 내용이 저장되지 않았습니다.')
+    await dialog.getByRole('button', { name: '아니오', exact: true }).click()
+    await expect(page).toHaveURL('/inquiries/new')
+    await expect(page.locator('form textarea')).toHaveValue('작성 중 내용')
+    await expect(page.locator('form input[type="text"]')).toHaveValue('작성 중 제목')
+    expect(await page.evaluate(() => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    })).toBe(true)
+    await page.getByRole('button', { name: '취소', exact: true }).click()
+    await dialog.getByRole('button', { name: '예', exact: true }).click()
+    await expect(page).toHaveURL('/inquiries')
+    expect(state.writes).toEqual([])
+  })
+}
+
+test('unsent inquiry reply survives rejected navigation and leaves freely after sending', async ({ page }) => {
+  await installMockApi(page, { authenticated: true })
+  const state = await installInquiryApi(page)
+  await page.goto('/inquiries/91')
+  await page.locator('form textarea').fill('작성 중 답변')
+  await page.getByRole('button', { name: '목록', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '아니오', exact: true }).click()
+  await expect(page.locator('form textarea')).toHaveValue('작성 중 답변')
+  await page.locator('form button[type="submit"]').click()
+  await expect(page.locator('form textarea')).toHaveValue('')
+  await page.getByRole('button', { name: '목록', exact: true }).click()
+  await expect(page).toHaveURL('/inquiries')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect(state.writes).toHaveLength(1)
+})
+
 test('super admin starts and resolves a new inquiry from the support queue', async ({ page }) => {
   await installMockApi(page, { authenticated: true })
   const adminUser = { ...mockUser, userId: 1, displayName: 'Admin', role: 'SUPER_ADMIN' }

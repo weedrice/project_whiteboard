@@ -328,6 +328,7 @@ type FillPostFormOptions = {
 }
 
 const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
+export const mockRefetchBoard = vi.fn()
 const postRef = ref<unknown>(null)
 const scheduledPostRef = ref<unknown>(null)
 const isBoardLoadingRef = ref(false)
@@ -551,7 +552,7 @@ export const resetPostFormTestState = () => {
     vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as unknown as ReturnType<typeof useToastStore>)
 
     vi.mocked(useBoard).mockReturnValue({
-        useBoardDetail: () => ({ data: boardRef, isLoading: isBoardLoadingRef }),
+        useBoardDetail: () => ({ data: boardRef, isLoading: isBoardLoadingRef, refetch: mockRefetchBoard }),
     } as unknown as ReturnType<typeof useBoard>)
 
     vi.mocked(usePost).mockReturnValue({
@@ -618,6 +619,7 @@ export {
     mockSaveDraftMutateAsync,
     mockUpdateMutate,
     mockUsePostDetail,
+    mockUseScheduledPostDetail,
     mockPostFormAuthStore,
     mountPostForm,
     postRef,

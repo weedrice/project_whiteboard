@@ -2996,6 +2996,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/push-subscriptions/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getSubscriptionStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me/scheduled-posts": {
         parameters: {
             query?: never;
@@ -3476,6 +3492,11 @@ export interface components {
         };
         ApiResponseBoardDetailResponse: {
             data?: components["schemas"]["BoardDetailResponse"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
+        ApiResponseBoolean: {
+            data?: boolean;
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
@@ -5739,6 +5760,9 @@ export interface components {
             endpoint?: string;
             /** Format: int64 */
             subscriptionId?: number;
+        };
+        PushSubscriptionStatusRequest: {
+            endpoint: string;
         };
         RecentLogin: {
             ipAddress?: string;
@@ -12152,6 +12176,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getSubscriptionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseBoolean"];
                 };
             };
         };

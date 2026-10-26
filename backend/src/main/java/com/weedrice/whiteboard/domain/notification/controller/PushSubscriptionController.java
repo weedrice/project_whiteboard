@@ -2,10 +2,12 @@ package com.weedrice.whiteboard.domain.notification.controller;
 
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionResponse;
+import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionStatusRequest;
 import com.weedrice.whiteboard.domain.notification.service.PushSubscriptionService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,13 @@ public class PushSubscriptionController {
             @CurrentUserId Long userId,
             @Valid @RequestBody PushSubscriptionRequest request) {
         return ApiResponse.success(pushSubscriptionService.subscribe(userId, request));
+    }
+
+    @PostMapping("/status")
+    public ApiResponse<Boolean> getSubscriptionStatus(
+            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Valid @RequestBody PushSubscriptionStatusRequest request) {
+        return ApiResponse.success(pushSubscriptionService.isSubscribed(userId, request.getEndpoint()));
     }
 
     @DeleteMapping

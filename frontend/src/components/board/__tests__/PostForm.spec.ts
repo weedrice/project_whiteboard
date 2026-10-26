@@ -152,7 +152,7 @@ describe('PostForm', () => {
         await wrapper.setProps({ postId: '2' })
         await nextTick()
 
-        expect((wrapper.get('#title').element as HTMLInputElement).value).toBe('')
+        expect(wrapper.find('#title').exists()).toBe(false)
 
         postRef.value = {
             postId: 2,
@@ -682,7 +682,7 @@ describe('PostForm', () => {
             isNsfw: false,
             isSpoiler: false,
         }
-        const tagsValueDirtyWrapper = mountPostForm('edit')
+        const tagsValueDirtyWrapper = mountPostForm('edit', {}, {}, { postId: '77' })
         await nextTick()
         await tagsValueDirtyWrapper.get('[data-testid=\"set-tags\"]').trigger('click')
         const tagsValueDirtyExposed = getExposedVm<Pick<PostFormExposed, 'getLeaveState'>>(tagsValueDirtyWrapper)

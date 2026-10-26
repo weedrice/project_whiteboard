@@ -98,6 +98,8 @@ const {
   post,
   scheduledPost,
   isLoading,
+  isResourceReady,
+  retryResources,
   isSubmitting,
   showNotice,
   canShowNsfw,
@@ -204,7 +206,6 @@ const {
   releaseUploadedFiles: releaseUploadedFileOwnership,
 } = usePostComposerUploadOwnership({
   identity: formIdentity,
-  content: computed(() => form.value.content),
   durableDraftFileIds,
 })
 
@@ -231,7 +232,7 @@ const postContentIsValid = () => {
   }) == null
 }
 const draftContentIsValid = () => {
-  if (isImageUploadPending.value) return false
+  if (!isResourceReady.value || isLoading.value || isImageUploadPending.value) return false
   const payload = buildPayload('draft')
   return validatePostDraftContent({
     title: payload.title,
@@ -376,7 +377,7 @@ const {
   boardUrl,
   postId,
   preferredDraftId,
-  isLoading,
+  isLoading: computed(() => isLoading.value || !isResourceReady.value),
   selectedCategoryId: computed({
     get: () => form.value.categoryId,
     set: (categoryId) => {
@@ -440,6 +441,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   t,
   addToast: toastStore.addToast,
   validateBeforeSubmit: () => {
+    if (!isResourceReady.value || isLoading.value) return false
     if (isImageUploadPending.value) {
       toastStore.addToast(t('board.writePost.upload.uploading'), 'info')
       return false
@@ -472,7 +474,7 @@ const effectiveDraftPresentation = computed(() => ({
   ...draftPresentation.value,
   actions: draftPresentation.value.actions.map((action) => ({
     ...action,
-    disabled: action.disabled || isSubmitting.value || isSubmissionLocked.value || isImageUploadPending.value,
+    disabled: action.disabled || !isResourceReady.value || isLoading.value || isSubmitting.value || isSubmissionLocked.value || isImageUploadPending.value,
   })),
 }))
 function handleCancel() {
@@ -559,7 +561,7 @@ defineExpose({
         :hide-preview="props.hidePreview"
         :is-submitting="isSubmitting || isSubmissionLocked"
         :submit-label="submitLabel"
-        :submit-disabled="isImageUploadPending"
+        :submit-disabled="!isResourceReady || isLoading || isImageUploadPending"
         @cancel="handleCancel"
         @preview="showPreview = true"
         @submit="handleSubmit"
@@ -568,6 +570,14 @@ defineExpose({
       <div v-if="isLoading" class="py-10 text-center">
         <BaseSpinner size="lg" />
       </div>
+
+      <ErrorState
+        v-else-if="!isResourceReady"
+        title-tag="h2"
+        :message="t('common.messages.loadFailed')"
+        show-retry
+        @retry="retryResources"
+      />
 
       <ErrorState
         v-else-if="isPostSeriesError"
@@ -579,7 +589,7 @@ defineExpose({
       />
 
       <form
-        v-if="!isLoading"
+        v-if="!isLoading && isResourceReady"
         class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18.5rem]"
         @submit.prevent="handleSubmit"
       >

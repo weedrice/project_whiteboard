@@ -87,6 +87,31 @@ class FileAssociationReservationTest {
     }
 
     @Test
+    void draftUndoKeepsOmittedFilesUntilPublicationCleansOnlyUnpublishedImages() {
+        File restored = file(55L, FileRelatedType.DRAFT_POST);
+        File omitted = file(55L, FileRelatedType.DRAFT_POST);
+        service.syncDraftFiles(List.of(), owner.getUserId(), 55L);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(fileRepository.findById(restored.getFileId()).orElseThrow().getStorageStatus())
+                .isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(service.retainValidDraftFileIds(List.of(restored.getFileId()), owner.getUserId(), 55L))
+                .containsExactly(restored.getFileId());
+        service.syncDraftFiles(List.of(restored.getFileId()), owner.getUserId(), 55L);
+        service.attachFilesToPost(List.of(restored.getFileId()), owner.getUserId(), 100L, 55L);
+        service.markDraftFilesDeletionPending(55L);
+        entityManager.flush();
+        entityManager.clear();
+
+        File published = fileRepository.findById(restored.getFileId()).orElseThrow();
+        assertThat(published.isAssociatedWith(100L, FileRelatedType.POST_CONTENT)).isTrue();
+        assertThat(published.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(fileRepository.findById(omitted.getFileId()).orElseThrow().getStorageStatus())
+                .isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
     void anotherPublicationCannotClaimTheReservation() {
         File file = file(null, null);
         reserve(file, null);

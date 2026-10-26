@@ -364,7 +364,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `categoryId` | 선택 | 지정하면 해당 스페이스의 활성 카테고리와 작성 권한을 검증한다. |
 | `tags` | 선택 | 게시글 태그 개수·태그명 길이 정책을 적용한다. |
 | `isNotice`, `isNsfw`, `isSpoiler`, `isSecret` | 선택 | 생략 시 `false`. 공지 초안은 스페이스 관리자 권한이 필요하다. |
-| `fileIds` | 선택 | 초안에 연결할 현재 사용자 소유 파일 ID 목록. |
+| `fileIds` | 선택 | 현재 초안 본문에 사용할 사용자 소유 파일 ID 목록. 이전 저장에서 빠진 파일은 실행 취소를 위해 같은 초안에 보관하며, 초안 발행·삭제·만료 때 함께 정리한다. |
 | `poll` | 선택 | 작성 중인 투표 payload. 질문·선택지가 불완전한 상태도 보존하되 질문 200자, 선택지 10개, 선택지별 100자 상한은 적용한다. |
 | `seriesId` | 선택 | 현재 사용자 소유 시리즈 ID. |
 | `clientDraftKey` | 신규 초안 저장 시 권장 | 클라이언트가 생성한 8~64자 멱등키. 같은 사용자가 동일한 저장 내용으로 재시도하면 기존 초안 응답을 반환하며, 같은 키의 내용이 달라지면 `409 Conflict`와 `P004`(`DRAFT_OUTDATED`)를 반환한다. |
@@ -451,6 +451,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 생성 |
 | `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 body 기준 키워드 알림 구독 해지 |
 | `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
+| `POST` | `/api/v1/users/me/push-subscriptions/status` | 현재 사용자·기기 endpoint의 서버 등록 여부 조회 (`{ "endpoint": "..." }` → `ApiResponse<boolean>`); 미등록·다른 사용자 소유는 모두 false |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 해지 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions/all` | 현재 사용자의 Web Push 구독 전체 해지 및 push 설정 비활성화 |
 | `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |

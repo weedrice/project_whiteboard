@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { useConfirm } from '@/composables/useConfirm'
 import { inquiryApi } from '@/api/inquiry'
@@ -39,6 +40,7 @@ const content = ref('')
 const fileIds = ref<number[]>([])
 const errorMessage = ref('')
 const uploadsPending = ref(false)
+const writeCompleted = ref(false)
 const uploader = ref<InstanceType<typeof InquiryImageUploader> | null>(null)
 let draftEpoch = 0
 const categoryLabel = (value: InquiryCategory) => t(`inquiry.category.${value}`)
@@ -85,6 +87,7 @@ function resetDraft() {
   fileIds.value = []
   errorMessage.value = ''
   uploadsPending.value = false
+  writeCompleted.value = false
   void staleUploader?.discardUploads()
 }
 watch(inquiryId, resetDraft)
@@ -103,6 +106,7 @@ const messageMutation = useAuthScopedMutation({
     )
     variables.uploader?.commitUploads()
     if (isCurrentDraft(variables) && uploader.value === variables.uploader) {
+      writeCompleted.value = true
       content.value = ''
       fileIds.value = []
       errorMessage.value = ''
@@ -128,7 +132,10 @@ const actionMutation = useAuthScopedMutation({
       sessionQueryKey(variables.generation, ['inquiries', 'detail', variables.inquiryId]),
       unwrapAxiosApiData(response),
     )
-    if (isCurrentDraft(variables)) errorMessage.value = ''
+    if (isCurrentDraft(variables)) {
+      writeCompleted.value = true
+      errorMessage.value = ''
+    }
     await refresh(variables.inquiryId, variables.generation)
   },
   onError: (error, variables) => {
@@ -141,6 +148,15 @@ const actionMutation = useAuthScopedMutation({
 const interactionPending = computed(() => (
   operations.isPending('message') || operations.isPending('action')
 ))
+const { confirmNavigation } = useUnsavedChangesGuard(
+  computed(() => content.value.trim().length > 0 || fileIds.value.length > 0),
+  computed(() => (interactionPending.value && !writeCompleted.value) || uploadsPending.value),
+  () => t('inquiry.common.leaveConfirm'),
+  confirm,
+)
+onBeforeRouteUpdate((to, from) => (
+  to.params.inquiryId === from.params.inquiryId ? true : confirmNavigation()
+))
 
 function addMessage() {
   if (interactionPending.value) return
@@ -152,6 +168,7 @@ function addMessage() {
     errorMessage.value = t('inquiry.upload.uploading')
     return
   }
+  writeCompleted.value = false
   void operations.run('message', async () => messageMutation.mutateAsync({
     inquiryId: inquiryId.value,
     content: content.value.trim(),
@@ -164,6 +181,7 @@ function addMessage() {
 
 async function runAction(action: 'withdraw' | 'close') {
   if (interactionPending.value) return
+  writeCompleted.value = false
   await operations.run('action', async (scope) => {
     const targetInquiryId = inquiryId.value
     const targetDraftEpoch = draftEpoch

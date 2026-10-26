@@ -4,6 +4,8 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation, type AuthScopedMutationFunctionContext } from '@/composables/useAuthScopedMutation'
 import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
+import { useConfirm } from '@/composables/useConfirm'
 import { isNavigationFailure, useRouter } from 'vue-router'
 import { inquiryApi } from '@/api/inquiry'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -23,6 +25,7 @@ const router = useRouter()
 const queryClient = useQueryClient()
 const operations = useAuthScopedOperation()
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const category = ref<InquiryCategory>('SERVICE_USE')
 const title = ref('')
 const content = ref('')
@@ -32,6 +35,15 @@ const uploadsPending = ref(false)
 const uploader = ref<InstanceType<typeof InquiryImageUploader> | null>(null)
 const createdInquiryId = ref<number | null>(null)
 const formLocked = computed(() => operations.isPending('create') || createdInquiryId.value !== null)
+useUnsavedChangesGuard(
+  computed(() => createdInquiryId.value === null && (
+    title.value.trim().length > 0 || content.value.trim().length > 0
+    || fileIds.value.length > 0 || category.value !== 'SERVICE_USE'
+  )),
+  computed(() => createdInquiryId.value === null && (operations.isPending('create') || uploadsPending.value)),
+  () => t('inquiry.common.leaveConfirm'),
+  confirm,
+)
 let disposed = false
 onScopeDispose(() => { disposed = true })
 
@@ -126,11 +138,8 @@ function submit() {
 
 async function cancel() {
   if (formLocked.value) return
-  await operations.run('cancel', async (scope) => {
-    await uploader.value?.discardUploads()
-    scope.assertCurrent()
-    await router.push('/inquiries')
-  })
+  // The uploader cleans up on unmount, after the route guard accepts leaving.
+  await router.push('/inquiries')
 }
 useAuthSessionReset(() => {
   category.value = 'SERVICE_USE'

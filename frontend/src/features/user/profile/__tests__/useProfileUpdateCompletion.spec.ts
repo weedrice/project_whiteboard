@@ -99,6 +99,52 @@ function changeAccount() {
 }
 
 describe('profile write completion and editor lifetime', () => {
+  it.each(['mounted', 'unmounted'] as const)('keeps the consumed free change after hydration fails while %s', async (lifetime) => {
+    const write = createDeferred<ReturnType<typeof savedProfile>>()
+    mocks.updateMyProfile.mockReturnValueOnce(write.promise)
+    mocks.getMe.mockRejectedValueOnce({ response: { status: 503 } })
+    const first = mountSubmit()
+    const pending = first.submitter.updateProfile()
+    await flushPromises()
+    if (lifetime === 'unmounted') first.wrapper.unmount()
+    write.resolve(savedProfile())
+    await pending
+
+    expect(auth.user).toMatchObject({
+      displayName: 'Updated Name', profileImageUrl: '/new.png',
+      profileImageChangeFreeAvailable: false, points: 6000,
+    })
+    expect(mocks.updateMyProfile).toHaveBeenCalledOnce()
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
+    expect(first.onClose).toHaveBeenCalledTimes(lifetime === 'mounted' ? 1 : 0)
+
+    const reopened = mountSubmit()
+    await reopened.submitter.updateProfile()
+    expect(reopened.confirm).toHaveBeenCalledExactlyOnceWith('user.profile.profileImageCostConfirm')
+    expect(mocks.uploadFile).toHaveBeenCalledOnce()
+    expect(mocks.updateMyProfile).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the authoritative paid balance when hydration fails', async () => {
+    auth.user!.profileImageChangeFreeAvailable = false
+    mocks.updateMyProfile.mockResolvedValueOnce(axiosApiSuccess({
+      userId: 7, displayName: 'Updated Name', profileImageUrl: '/new.png',
+      spentPoints: 1000, remainingPoints: 0,
+    }))
+    mocks.getMe.mockRejectedValueOnce({ response: { status: 503 } })
+    const first = mountSubmit()
+    first.confirm.mockResolvedValueOnce(true)
+    await first.submitter.updateProfile()
+
+    expect(auth.user).toMatchObject({ points: 0, profileImageChangeFreeAvailable: false })
+    expect(first.onClose).toHaveBeenCalledOnce()
+    const reopened = mountSubmit()
+    await reopened.submitter.updateProfile()
+    expect(reopened.confirm).not.toHaveBeenCalled()
+    expect(reopened.addToast).toHaveBeenCalledWith('user.profile.profileImageInsufficientPoints', 'error')
+    expect(mocks.updateMyProfile).toHaveBeenCalledOnce()
+  })
+
   it('refreshes shared auth state after unmount and requires the paid confirmation in the next editor', async () => {
     const write = createDeferred<ReturnType<typeof savedProfile>>()
     mocks.updateMyProfile.mockReturnValueOnce(write.promise)

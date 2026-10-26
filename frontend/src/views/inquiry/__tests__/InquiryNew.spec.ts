@@ -1,7 +1,7 @@
 import { failAuthScopedMutation } from '@/test/authScopedMutationOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
-import { mount, flushPromises } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import InquiryNew from '../InquiryNew.vue'
 import { configureAuthQueryScope } from '@/queryAuthScope'
@@ -31,6 +31,7 @@ const { state } = vi.hoisted(() => {
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(false) }) }))
 
 vi.mock('vue-router', async (importOriginal) => ({
   ...await importOriginal<typeof import('vue-router')>(),
@@ -64,8 +65,11 @@ const InquiryImageUploaderStub = defineComponent({
   },
 })
 
+const wrappers: VueWrapper[] = []
+afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()))
+
 function mountView() {
-  return mount(InquiryNew, {
+  const wrapper = mount(InquiryNew, {
     global: {
       stubs: {
         InquiryImageUploader: InquiryImageUploaderStub,
@@ -74,6 +78,8 @@ function mountView() {
       },
     },
   })
+  wrappers.push(wrapper)
+  return wrapper
 }
 
 describe('InquiryNew', () => {

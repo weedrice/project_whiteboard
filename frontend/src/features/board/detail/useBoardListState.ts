@@ -16,6 +16,7 @@ import {
 
 type BoardListRoute = {
   path: string
+  params?: { boardUrl?: string | string[] }
   query: LocationQuery
 }
 
@@ -182,7 +183,12 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
     setPage(0, { skipRouteSync: true })
   }
 
-  watch(() => route.query, (newQuery) => {
+  watch([() => route.params?.boardUrl, () => route.query], ([boardUrl, newQuery], [previousBoardUrl]) => {
+    if (boardUrl !== previousBoardUrl) {
+      // Reset board-local state before restoring the destination URL in this same watcher.
+      sort.value = 'createdAt,desc'
+      skipNextPageSync = false
+    }
     const routeState = resolveBoardListRouteState(newQuery)
     if (page.value !== routeState.page) {
       page.value = routeState.page
