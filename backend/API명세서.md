@@ -451,6 +451,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 생성 |
 | `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 body 기준 키워드 알림 구독 해지 |
 | `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
+| `POST` | `/api/v1/users/me/push-subscriptions/status` | 현재 사용자·기기 endpoint의 서버 등록 여부 조회 (`{ "endpoint": "..." }` → `ApiResponse<boolean>`); 미등록·다른 사용자 소유는 모두 false |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 해지 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions/all` | 현재 사용자의 Web Push 구독 전체 해지 및 push 설정 비활성화 |
 | `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |

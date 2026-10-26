@@ -29,6 +29,10 @@ public class PushSubscriptionService {
     private final WebPushSubscriptionValidator subscriptionValidator;
     private final WebPushProperties webPushProperties;
 
+    public boolean isSubscribed(Long userId, String endpoint) {
+        return pushSubscriptionRepository.existsByUser_UserIdAndEndpoint(userId, endpoint);
+    }
+
     @Transactional
     public PushSubscriptionResponse subscribe(Long userId, PushSubscriptionRequest request) {
         String endpoint = request.getEndpoint();
