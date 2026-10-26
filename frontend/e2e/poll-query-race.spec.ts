@@ -45,7 +45,7 @@ for (const action of ['vote', 'cancel'] as const) {
     await page.goto('/board/general/post/1')
     const option = page.getByRole('radio', { name: /Option A/ })
     await expect(option).toBeVisible()
-    await page.getByRole('button', { name: '추천', exact: true }).click()
+    await page.getByRole('button', { name: /^추천 \d+$/ }).click()
     await getStarted
     if (action === 'vote') {
       await option.check()

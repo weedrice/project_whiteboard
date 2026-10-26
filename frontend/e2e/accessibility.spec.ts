@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { installMockApi, login } from './fixtures/mockApi'
+import { installMockApi, login, mockUser } from './fixtures/mockApi'
 import { encodeSandboxedPostHtml } from '../src/utils/postHtmlSandbox'
 
 async function expectNoSeriousAccessibilityViolations(page: Page) {
@@ -15,6 +15,37 @@ const dialogViewports = [
   { name: 'desktop', size: { width: 1280, height: 800 } },
 ] as const
 
+// Below 640px the shell replaces this dropdown with mobile navigation.
+for (const viewport of [
+  { name: 'compact', size: { width: 700, height: 844 } },
+  { name: 'desktop', size: { width: 1280, height: 800 } },
+]) {
+  for (const hasProfileImage of [false, true]) {
+    test(`user menu preserves its visible name (${viewport.name}, avatar ${hasProfileImage ? 'image' : 'initial'})`, async ({ page }) => {
+      await page.setViewportSize(viewport.size)
+      await installMockApi(page, { authenticated: true })
+      await page.route('**/api/v1/users/me', route => route.fulfill({
+        json: {
+          success: true,
+          data: { ...mockUser, profileImageUrl: hasProfileImage ? '/images/default-emoticon.png' : null },
+        },
+      }))
+      await page.goto('/')
+      const trigger = page.locator('#user-dropdown-trigger')
+      await expect(trigger).toBeVisible()
+      await expect(trigger).toHaveAccessibleName(/Tester 사용자 메뉴$/)
+      if (hasProfileImage) {
+        await expect(trigger.locator('img')).toBeVisible()
+        await expect.poll(() => trigger.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+      }
+      const results = await new AxeBuilder({ page }).include('#user-dropdown-trigger').analyze()
+      expect(results.violations).toEqual([])
+      await trigger.click()
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    })
+  }
+}
+
 test('login and home have no serious or critical axe violations', async ({ page }) => {
   await installMockApi(page)
   await page.goto('/login')
@@ -27,6 +58,10 @@ test('post detail has no serious or critical axe violations', async ({ page }) =
   await installMockApi(page)
   await page.goto('/board/general/post/1')
   await expect(page.getByRole('heading', { name: 'Accessible post' })).toBeVisible()
+  const copyButton = page.locator('.nv-post-url-chip')
+  await expect(copyButton).toHaveAccessibleName(`${(await copyButton.innerText()).trim()} 복사하기`)
+  const likeButton = page.locator('.nv-post-action-btn[aria-pressed]').first()
+  await expect(likeButton).toHaveAccessibleName(`추천 ${(await likeButton.innerText()).trim()}`)
   await expectNoSeriousAccessibilityViolations(page)
 })
 
@@ -34,6 +69,8 @@ test('settings and post editor have no serious or critical axe violations', asyn
   await installMockApi(page)
   await login(page)
   await page.goto('/mypage/settings')
+  const userMenu = page.locator('#user-dropdown-trigger')
+  await expect(userMenu).toHaveAccessibleName(/.+ 사용자 메뉴$/)
   await expectNoSeriousAccessibilityViolations(page)
   await page.goto('/board/general/write')
   await expect(page.locator('#title')).toBeVisible()

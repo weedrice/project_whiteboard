@@ -184,7 +184,7 @@ const languageOptions = computed(() => [...new Set([
         <button v-if="editor.isActive('codeBlock')" type="button" class="tiptap-btn tiptap-btn-pill" @mousedown.prevent @click="emit('exit-code-block')">
           {{ t('board.writePost.codeBlock.exit') }}
         </button>
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
+        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
           {{ t('board.writePost.toolbar.insertBlock') }}
         </button>
         <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="emit('open-table', $event.currentTarget as HTMLElement)">

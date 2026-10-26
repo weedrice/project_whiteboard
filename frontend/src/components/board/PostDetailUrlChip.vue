@@ -27,7 +27,7 @@ const emit = defineEmits<{
       type="button"
       class="nv-post-url-chip"
       :title="currentUrl"
-      :aria-label="$t('common.copy')"
+      :aria-label="`${compactUrl} ${$t('common.copy')}`"
       @click="emit('copy-url')"
     >
       <Copy class="h-3.5 w-3.5 flex-shrink-0" />
