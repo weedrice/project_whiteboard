@@ -142,7 +142,8 @@ export function useReportModerationPage() {
     }
   }
 
-  watch(totalPages, (nextTotalPages) => {
+  watch(() => reportsData.value?.totalPages, (nextTotalPages) => {
+    if (nextTotalPages === undefined) return
     clampPageToTotalPages(nextTotalPages)
   })
 

@@ -82,7 +82,8 @@ export function useAdminIpBlocksManager() {
     })
   }
 
-  watch(totalPages, (nextTotalPages) => {
+  watch(() => ipBlocksData.value?.totalPages, (nextTotalPages) => {
+    if (nextTotalPages === undefined) return
     if (nextTotalPages === 0) {
       page.value = 0
       return
