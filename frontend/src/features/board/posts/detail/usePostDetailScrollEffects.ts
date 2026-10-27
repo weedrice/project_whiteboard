@@ -177,12 +177,10 @@ export function usePostDetailScrollEffects({
     })
   })
 
-  watch(post, (newPost, oldPost) => {
-    if (!newPost) return
+  watch([() => post.value?.postId, () => post.value?.isSpoiler], ([postId, isSpoiler]) => {
+    if (postId == null) return
 
-    syncBoardListPageForDirectEntry()
-
-    if (newPost.isSpoiler) {
+    if (isSpoiler) {
       isBlurred.value = true
       timeLeft.value = 5
       startBlurTimer()
@@ -190,6 +188,12 @@ export function usePostDetailScrollEffects({
       isBlurred.value = false
       clearBlurTimer()
     }
+  }, { immediate: true })
+
+  watch(post, (newPost, oldPost) => {
+    if (!newPost) return
+
+    syncBoardListPageForDirectEntry()
 
     if (!oldPost || newPost.postId !== oldPost.postId) {
       const expectedPostId = newPost.postId
