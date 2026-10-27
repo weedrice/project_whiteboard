@@ -4,20 +4,20 @@ NoviIs 커뮤니티 플랫폼의 Vue 3 기반 프론트엔드 애플리케이션
 
 ## 기술 스택
 
-아래 버전은 2026-09-09 현재 `package.json`의 선언 범위이며, 설치 해석 버전은 `package-lock.json`을 기준으로 합니다.
+선언 버전과 지원 Node 범위는 `package.json`, 재현 가능한 설치 버전은 `package-lock.json`을 기준으로 합니다.
 
-- Framework: Vue `^3.5.41`, Composition API, `<script setup>`
-- Build Tool: Vite `^8.2.1`
-- Language: TypeScript `^5.9.3`
-- State: Pinia `^4.0.3`, TanStack Vue Query `^5.101.4`
-- Routing: Vue Router `^5.2.0`
-- Styling: Tailwind CSS `^4.3.2`, PostCSS, `nv-*` design tokens
-- HTTP: Axios `^1.19.0`
-- Editor: TipTap `3.30.5`
+- Framework: Vue, Composition API, `<script setup>`
+- Build Tool: Vite
+- Language: TypeScript
+- State: Pinia, TanStack Vue Query
+- Routing: Vue Router
+- Styling: Tailwind CSS, PostCSS, `nv-*` design tokens
+- HTTP: Axios
+- Editor: TipTap
 - Icons: Lucide Vue Next
-- I18n: Vue I18n `11.4.8`
-- Unit/component tests: Vitest `^4.1.10`, Vue Test Utils, jsdom
-- Browser tests: Playwright `^1.62.1`, axe-core accessibility checks
+- I18n: Vue I18n
+- Unit/component tests: Vitest, Vue Test Utils, jsdom
+- Browser tests: Playwright, axe-core accessibility checks
 
 ## 프로젝트 구조
 
@@ -112,6 +112,19 @@ npm ci
 ```
 
 lockfile 갱신이 필요한 명시적 의존성 변경 작업이 아니라면 `npm install`보다 `npm ci`를 사용합니다.
+
+로컬 기준 버전은 `.nvmrc`에 고정되어 있습니다. Windows에서 nvm-windows를 사용한다면 `frontend/`에서 다음 순서로 준비합니다.
+
+```powershell
+$frontendNodeVersion = (Get-Content .nvmrc -Encoding UTF8).Trim()
+nvm install $frontendNodeVersion
+nvm use $frontendNodeVersion
+node --version
+npm.cmd ci
+npm.cmd ls --depth=0
+```
+
+macOS/Linux의 nvm에서는 `nvm install`과 `nvm use`가 `.nvmrc`를 읽습니다. 다른 런타임 관리자를 사용해도 `package.json`의 Node 범위를 충족해야 합니다. `.npmrc`의 `engine-strict=true`는 지원하지 않는 Node에서 의존성 설치를 중단합니다. 브랜치 이동이나 잠금 파일 변경 후에는 `npm ci`를 다시 실행하고 `npm ls --depth=0`에 `invalid`/`missing` 항목이 없는지 확인한 뒤 테스트·타입 검사·빌드를 실행합니다. 기존 `node_modules`로 통과한 결과는 잠금 파일 버전의 검증을 대신하지 않습니다.
 
 보안 패치를 위해 `package.json`의 `overrides`에서 Satori의 `fflate`를 0.7.5로,
 Tailwind typography의 `postcss-selector-parser`를 7.1.7로 지정합니다. 상위 패키지가
