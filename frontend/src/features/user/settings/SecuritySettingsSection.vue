@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Monitor } from 'lucide-vue-next'
 import { useUser } from '@/features/user/useUser'
@@ -11,6 +11,8 @@ import { formatDateTimeOrDash } from '@/utils/date'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -48,6 +50,20 @@ const {
 const sessions = computed(() => sessionsData.value ?? [])
 const loginHistory = computed(() => loginHistoryData.value?.content ?? [])
 const currentLocale = computed(() => locale.value as 'ko' | 'en')
+
+useAuthSessionReset(() => {
+  loginHistoryParams.value = { page: 0, size: 10 }
+  showLoginHistory.value = false
+}, authStore)
+
+// Retention can remove the final page while this panel is open.
+watch(loginHistoryData, (page) => {
+  if (!page) return
+  const lastPage = Math.max(0, page.totalPages - 1)
+  if (loginHistoryParams.value.page > lastPage) {
+    loginHistoryParams.value = { ...loginHistoryParams.value, page: lastPage }
+  }
+})
 
 async function handleRevokeSession(session: { sessionId: number; current: boolean }) {
   const intent = captureAuthSessionIntent(authStore)
@@ -185,6 +201,12 @@ async function handleRevokeOtherSessions() {
           <p v-if="loginHistory.length === 0" class="text-sm nv-text-subtle">
             {{ $t('user.settings.sessions.historyEmpty') }}
           </p>
+          <Pagination
+            v-if="(loginHistoryData?.totalPages ?? 0) > 1"
+            :current-page="loginHistoryParams.page"
+            :total-pages="loginHistoryData?.totalPages ?? 0"
+            @page-change="loginHistoryParams = { ...loginHistoryParams, page: $event }"
+          />
         </template>
       </div>
     </div>
