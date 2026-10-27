@@ -4,6 +4,7 @@ import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { unwrapApiData } from '@/api/response'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
 import { useMailboxListState } from '@/features/user/messages/useMailboxListState'
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
@@ -29,6 +30,7 @@ export function useMailboxResource() {
     const toastStore = useToastStore()
     const authStore = useAuthStore()
     const { confirm } = useConfirm()
+    const deleteOperation = useAuthScopedOperation(authStore)
 
     const {
         viewType,
@@ -475,27 +477,31 @@ export function useMailboxResource() {
     }
 
     async function deleteSelectedMessages() {
-        const generation = authStore.sessionGeneration
-        const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-        if (!isConfirmed || generation !== authStore.sessionGeneration) return
-        const request = requestLifecycle.deleteMessages.start()
-        try {
-            const { data } = await messageApi.deleteMessages([...selectedMessages.value], {
-                skipGlobalErrorHandler: true,
-                signal: request.signal,
-            })
-            if (!request.isCurrent()) return
-            if (data.success) {
-                toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
-                await fetchMessages()
+        // A realtime refresh can clear the selection while confirmation is open.
+        const messageIds = [...selectedMessages.value]
+        if (messageIds.length === 0) return
+        await deleteOperation.run('selection', async (scope) => {
+            const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+            if (!isConfirmed || !scope.isCurrent()) return
+            const request = requestLifecycle.deleteMessages.start()
+            try {
+                const { data } = await messageApi.deleteMessages(messageIds, scope.withRequestConfig({
+                    skipGlobalErrorHandler: true,
+                    signal: request.signal,
+                }))
+                if (!scope.isCurrent() || !request.isCurrent()) return
+                if (data.success) {
+                    toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
+                    await fetchMessages()
+                }
+            } catch (error) {
+                if (!scope.isCurrent() || !request.isCurrent()) return
+                logger.error('Failed to delete messages:', error)
+                toastStore.addToast(t('common.messages.deleteFailed'), 'error')
+            } finally {
+                request.finish()
             }
-        } catch (error) {
-            if (!request.isCurrent()) return
-            logger.error('Failed to delete messages:', error)
-            toastStore.addToast(t('common.messages.deleteFailed'), 'error')
-        } finally {
-            request.finish()
-        }
+        })
     }
 
     function startReply(msg: MailboxMessageViewModel) {
