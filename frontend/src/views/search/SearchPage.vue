@@ -297,17 +297,17 @@
 
         <SearchSidebarPanel
           :title="$t('search.recentKeywords')"
-          :loading="isRecentKeywordsLoading"
-          :error="isRecentKeywordsError"
+          :loading="isRecentKeywordsLoading && recentKeywords.length === 0"
+          :error="isRecentKeywordsError || (recentSearchSync.hasSyncError.value && recentKeywords.length === 0)"
           :empty="recentKeywords.length === 0"
           :empty-text="$t('search.noResults')"
-          @retry="refetchRecentKeywords"
+          @retry="retryRecentKeywords"
         >
           <template #actions>
             <button
               v-if="recentKeywords.length > 0"
               type="button"
-              class="nv-touch-target rounded-md px-1 text-xs font-medium nv-accent-text hover:underline"
+              class="nv-touch-target rounded-md px-1 text-xs font-medium nv-accent-text enabled:hover:underline disabled:cursor-not-allowed disabled:opacity-50"
               @click="handleClearRecentKeywords"
             >
               {{ $t('search.clearRecent') }}
@@ -316,7 +316,7 @@
           <div class="space-y-2">
             <div
               v-for="keyword in recentKeywords"
-              :key="keyword.logId"
+              :key="keyword.keyword"
               class="flex min-h-11 min-w-0 items-center gap-2 rounded-md border nv-border px-3 py-2"
             >
               <button
@@ -331,12 +331,19 @@
                 type="button"
                 class="nv-touch-target-square -my-2 -mr-3 shrink-0 rounded-md text-xs nv-text-subtle nv-hover-danger"
                 :aria-label="$t('search.deleteRecent', { keyword: keyword.keyword })"
-                @click="handleDeleteRecentKeyword(keyword.logId)"
+                @click="handleDeleteRecentKeyword(keyword.logId, keyword.keyword)"
               >
                 ×
               </button>
             </div>
           </div>
+          <ErrorState
+            v-if="recentSearchSync.hasSyncError.value"
+            title-tag="h3"
+            :message="$t('common.messages.loadFailed')"
+            show-retry
+            @retry="recentSearchSync.retry"
+          />
         </SearchSidebarPanel>
 
         <ErrorState
@@ -363,6 +370,7 @@ import { useAuthStore } from '@/stores/auth'
 import { searchApi } from '@/api/search'
 import { tagApi } from '@/api/tag'
 import { useSearch } from '@/features/search/queries/useSearch'
+import { useRecentSearchSync } from '@/features/search/queries/useRecentSearchSync'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { searchQueryKeys } from '@/features/search/queries/searchQueryKeys'
 import {
@@ -422,11 +430,23 @@ const {
 const isFilterOpen = ref(false)
 
 const {
+  data: recentKeywordData,
+  isLoading: isRecentKeywordsLoading,
+  isError: isRecentKeywordsError,
+  refetch: refetchRecentKeywords,
+} = useRecentSearches(computed(() => authStore.isAuthenticated))
+const recentSearchSync = useRecentSearchSync({
+  data: recentKeywordData,
+  refetch: refetchRecentKeywords,
+})
+const recentKeywords = recentSearchSync.items
+
+const {
   data: searchData,
   isLoading,
   error: integratedSearchError,
   refetch: refetchIntegratedSearch,
-} = useIntegratedSearch(params)
+} = useIntegratedSearch(params, recentSearchSync.beginSearch)
 const hasSemanticUnsupportedFilters = computed(() => Boolean(
   params.value.searchType !== 'TITLE_CONTENT'
   || params.value.author
@@ -464,12 +484,6 @@ const {
   staleTime: 300_000,
   meta: { errorMessage: false },
 })
-const {
-  data: recentKeywordData,
-  isLoading: isRecentKeywordsLoading,
-  isError: isRecentKeywordsError,
-  refetch: refetchRecentKeywords,
-} = useRecentSearches(computed(() => authStore.isAuthenticated))
 const posts = computed(() => searchData.value?.postResults || [])
 const comments = computed(() => searchData.value?.commentResults || [])
 const users = computed(() => searchData.value?.userResults || [])
@@ -497,7 +511,6 @@ const keywordResultsEmpty = computed(() => (
 const hasAnyResults = computed(() => totalResultCount.value > 0 || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
-const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 const hasKeywordFilters = computed(() => Boolean(
   params.value.searchType !== 'TITLE_CONTENT' || params.value.author || params.value.period,
 ))
@@ -600,15 +613,17 @@ function searchKeyword(keyword: string) {
 
 const recentMutationControllers = new Set<AbortController>()
 
-async function runRecentKeywordMutation(request: (signal: AbortSignal) => Promise<unknown>) {
+async function runRecentKeywordMutation(request: (signal: AbortSignal) => Promise<unknown>, keyword?: string) {
   const generation = authStore.sessionGeneration
   const controller = new AbortController()
   recentMutationControllers.add(controller)
+  const completeDeletion = recentSearchSync.beginDeletion(keyword)
 
   try {
     await request(controller.signal)
     if (controller.signal.aborted
       || !isSessionGenerationCurrent(authStore, generation)) return
+    completeDeletion()
     await queryClient.invalidateQueries({
       queryKey: sessionQueryKey(generation, searchQueryKeys.recent),
     })
@@ -640,16 +655,21 @@ watch([pageQuery, totalKeywordPages], ([page, totalPages]) => {
   })
 }, { immediate: true })
 
-async function deleteRecentKeyword(logId: number) {
-  await runRecentKeywordMutation((signal) => searchApi.deleteRecentSearch(logId, { signal }))
+async function deleteRecentKeyword(logId: number, keyword: string) {
+  await runRecentKeywordMutation((signal) => searchApi.deleteRecentSearch(logId, { signal }), keyword)
+}
+
+function retryRecentKeywords() {
+  if (recentSearchSync.isReconciling.value) recentSearchSync.retry()
+  else void refetchRecentKeywords()
 }
 
 async function clearRecentKeywords() {
   await runRecentKeywordMutation((signal) => searchApi.deleteAllRecentSearches({ signal }))
 }
 
-function handleDeleteRecentKeyword(logId: number) {
-  void deleteRecentKeyword(logId).catch(() => undefined)
+function handleDeleteRecentKeyword(logId: number, keyword: string) {
+  void deleteRecentKeyword(logId, keyword).catch(() => undefined)
 }
 
 function handleClearRecentKeywords() {

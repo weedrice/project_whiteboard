@@ -100,15 +100,25 @@ export function useSearch() {
         })
     }
 
-    const useIntegratedSearch = (params: Ref<SearchParams>) => {
+    const useIntegratedSearch = (
+        params: Ref<SearchParams>,
+        beginSearch?: (keyword: string) => (canonicalKeyword: string) => void,
+    ) => {
         const normalizedParams = computed(() => normalizeSearchParams(params.value))
         return useApiQuery<IntegratedSearchResponse, SearchPageViewModel>({
             queryKey: computed(() => searchQueryKeys.integrated(normalizedParams.value)),
-            request: (context) => callWithOptionalQuerySignal(
-                context,
-                () => searchApi.search(params.value),
-                (config) => searchApi.search(params.value, config),
-            ),
+            request: async (context) => {
+                const completeSearch = beginSearch?.(normalizedParams.value.q ?? '')
+                const response = await callWithOptionalQuerySignal(
+                    context,
+                    () => searchApi.search(params.value),
+                    (config) => searchApi.search(params.value, config),
+                )
+                if (!context.signal.aborted && response.data.success) {
+                    completeSearch?.(response.data.data.keyword)
+                }
+                return response
+            },
             selectData: toSearchPageViewModel,
             enabled: computed(() => hasSearchText(normalizedParams.value.q)),
             keepPreviousData: true,
