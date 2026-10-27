@@ -1,9 +1,12 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
+import com.weedrice.whiteboard.domain.post.entity.ScrapFolder;
+import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
@@ -11,6 +14,8 @@ import jakarta.persistence.PersistenceUnitUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
@@ -320,6 +325,66 @@ class ScrapRepositoryTest {
                 .extracting(scrap -> scrap.getPost().getTitle())
                 .containsExactly("스크랩 대상");
         assertThat(result.getTotalElements()).isEqualTo(1L);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { "reader", "author", "boardAdmin", "superAdmin" })
+    @DisplayName("블라인드 글은 권한과 관계없이 전체·폴더·검색 스크랩 목록과 개수에서 제외한다")
+    void findScrapPages_excludeBlindedPostsFromContentAndCount(String viewerRole) {
+        User managedAuthor = entityManager.find(User.class, author.getUserId());
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        if ("boardAdmin".equals(viewerRole)) {
+            entityManager.persist(Admin.builder()
+                    .user(managedScrapper).board(managedBoard).role("MANAGER").build());
+        }
+        ScrapFolder folder = entityManager.persist(ScrapFolder.builder()
+                .user(managedScrapper).name("saved").build());
+        Scrap existingScrap = entityManager.find(Scrap.class,
+                new ScrapId(scrapper.getUserId(), scrappedPost.getPostId()));
+        existingScrap.moveToFolder(folder);
+        Post visiblePost = persistPost(managedBoard, managedAuthor, "visible", false);
+        Post blindedPost = persistPost(managedBoard,
+                "author".equals(viewerRole) ? managedScrapper : managedAuthor, "blinded", false);
+        blindedPost.blind("POLICY", LocalDateTime.of(2030, 1, 1, 0, 0));
+        for (Post post : List.of(visiblePost, blindedPost)) {
+            entityManager.persist(Scrap.builder()
+                    .user(managedScrapper).post(post).remark("remark").folder(folder).build());
+        }
+        entityManager.flush();
+        // Equal timestamps put the newest (blinded) post first unless the query excludes it.
+        for (Post post : List.of(scrappedPost, visiblePost, blindedPost)) {
+            updateScrapCreatedAt(scrapper.getUserId(), post.getPostId(),
+                    LocalDateTime.of(2030, 1, 1, 0, 0));
+        }
+        Long folderId = folder.getFolderId();
+        Long visiblePostId = visiblePost.getPostId();
+        entityManager.clear();
+
+        for (boolean filterFolder : List.of(false, true)) {
+            for (boolean search : List.of(false, true)) {
+                // A full first page forces Spring Data to execute the separate count query.
+                PageRequest page = PageRequest.of(0, 1);
+                Long requestedFolderId = filterFolder ? folderId : null;
+                boolean superAdmin = "superAdmin".equals(viewerRole);
+                Page<Scrap> result = search
+                        ? scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                                scrapper, requestedFolderId, "%remark%", superAdmin, true,
+                                NO_BLOCKED_USER_IDS, BoardPolicyConstants.INQUIRY_BOARD_URL, true, page)
+                        : scrapRepository.findPageByUserWithPostDetails(
+                                scrapper, requestedFolderId, superAdmin, true,
+                                NO_BLOCKED_USER_IDS, BoardPolicyConstants.INQUIRY_BOARD_URL, true, page);
+
+                assertThat(result.getContent())
+                        .as("visible content: role=%s, folder=%s, search=%s", viewerRole, filterFolder, search)
+                        .extracting(scrap -> scrap.getPost().getPostId())
+                        .containsExactly(visiblePostId);
+                assertThat(result.getTotalElements())
+                        .as("visible count: role=%s, folder=%s, search=%s", viewerRole, filterFolder, search)
+                        .isEqualTo(2);
+                assertThat(result.getTotalPages()).isEqualTo(2);
+            }
+        }
     }
 
     private User persistUser(String loginId, String email, String displayName) {

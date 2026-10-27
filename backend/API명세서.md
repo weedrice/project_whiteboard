@@ -342,6 +342,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
 | `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
 
+`GET /api/v1/users/me/scraps`는 블라인드 게시글을 작성자·스페이스 관리자·최고 관리자 여부와 관계없이 목록과 `totalElements`/`totalPages`에서 제외한다. `folderId`와 `keyword` 필터를 적용한 조회에도 동일하게 적용한다.
+
 투표 요청은 기존 선택을 요청의 선택지 목록으로 교체한다. 같은 선택의 재전송이나 기존 선택을 포함한
 복수 선택 변경도 중복 표 없이 처리한다. 내 시리즈 목록 조회는 계정 상태를 검증하며 쓰기 잠금을 획득하지 않는다.
 
