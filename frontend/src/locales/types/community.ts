@@ -114,6 +114,14 @@ export interface BoardMessages {
     filterSubscribed: string
     filterPublic: string
     filterPrivate: string
+    sortNewest: string
+    sortOldest: string
+    sortMostLikes: string
+    sortFewestLikes: string
+    sortMostViews: string
+    sortFewestViews: string
+    sortPostIdAscending: string
+    sortPostIdDescending: string
     sortDefault: string
     sortName: string
     sortPopular: string
@@ -366,6 +374,16 @@ export interface BoardMessages {
     updateFailed: string
     loadFailed: string
     validation: string
+    contentValidation: {
+      titleRequired: string
+      titleTooLong: string
+      titleContainsHtml: string
+      contentTooLong: string
+      tooManyTags: string
+      tagRequired: string
+      tagTooLong: string
+      tooManyFiles: string
+    }
     discardEditConfirm: string
     discardCreateConfirm: string
     leaveConfirm: string
@@ -652,6 +670,8 @@ export interface CommentMessages {
 // 알림 메시지 타입
 export interface NotificationMessages {
   title: string
+  read: string
+  unread: string
   unreadNotifications: string
   markAllRead: string
   markAllReadShort?: string
@@ -1037,6 +1057,7 @@ export interface UserMessages {
     receiver: string
     content: string
     inputContent: string
+    discardConfirm: string
     contentTooLong: string
     contentLength: string
     sendSuccess: string

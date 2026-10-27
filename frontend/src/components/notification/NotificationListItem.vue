@@ -56,6 +56,7 @@ const iconToneClass: Record<NotificationTone, string> = {
     ]"
     @click="emit('activate', notification)"
   >
+    <span class="sr-only">{{ notification.isRead ? t('notification.read') : t('notification.unread') }}. </span>
     <div v-if="mode === 'dropdown'" class="flex items-start">
       <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" :class="iconToneClass[presentation.tone]" aria-hidden="true">
         <component :is="presentation.icon" class="h-4 w-4" />
@@ -79,7 +80,10 @@ const iconToneClass: Record<NotificationTone, string> = {
       </span>
       <span class="min-w-0 flex-1">
         <span class="mb-0.5 flex items-center justify-between gap-2">
-          <span class="shrink-0 text-xs nv-text-subtle">{{ timeText }}</span>
+          <span class="inline-flex items-center gap-2 text-xs nv-text-subtle">
+            <span v-if="!notification.isRead" class="h-2 w-2 shrink-0 rounded-full bg-[var(--nv-accent)]" aria-hidden="true" />
+            {{ timeText }}
+          </span>
           <BaseBadge class="shrink-0" :variant="badgeVariantByTone[presentation.tone]" size="sm">
             {{ typeLabel }}
           </BaseBadge>

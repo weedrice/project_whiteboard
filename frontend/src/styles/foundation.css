@@ -60,7 +60,7 @@ html {
     --nv-radius-pill: 9999px;
     --nv-type-kicker: var(--text-xs);
     --nv-type-micro: var(--text-micro);
-    --nv-bottom-nav-height: 4.9rem;
+    --nv-bottom-nav-height: 5.25rem;
     --nv-accent: #2447b8;
     --nv-accent-bg: #e8edf8;
     --nv-accent-soft: var(--nv-accent-bg); /* deprecated alias — use --nv-accent-bg */

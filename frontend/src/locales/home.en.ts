@@ -59,6 +59,8 @@ export const homeEn: HomeMessages = {
     description: 'Catch up on new posts from the spaces you follow.',
     loading: 'Loading your feed.',
     loadFailed: 'Your feed could not be loaded.',
+    loadMoreFailed: 'More posts could not be loaded. Please try again.',
+    refreshFailed: 'New posts could not be checked. You can keep reading the loaded posts.',
     emptyTitle: 'Your feed is empty.',
     emptyDescription: 'Follow spaces and their new posts will appear here.',
     browseSpaces: 'Browse spaces',

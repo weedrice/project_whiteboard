@@ -78,7 +78,7 @@ const commitHash = toShortCommitHash(__COMMIT_HASH__)
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .nv-footer {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }

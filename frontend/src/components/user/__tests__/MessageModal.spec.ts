@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirmStore } from '@/stores/confirm'
 import { createDeferred } from '@/test/async'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -91,6 +92,105 @@ describe('MessageModal', () => {
         expect(wrapper.find('[data-test="modal-body"] input[disabled]').exists()).toBe(false)
         expect(footer.findAll('button').map(button => button.text())).toEqual(['common.cancel', 'common.send'])
     })
+
+    it('closes an empty draft without a discard confirmation', async () => {
+        const wrapper = mountModal()
+        await getButtonByText(wrapper, 'common.cancel').trigger('click')
+        expect(useConfirmStore().isOpen).toBe(false)
+        expect(wrapper.emitted('close')).toHaveLength(1)
+        wrapper.unmount()
+    })
+
+    it('preserves a draft when discard is cancelled and clears it after confirmation', async () => {
+        const wrapper = mountModal()
+        const confirmation = useConfirmStore()
+        await wrapper.get('textarea').setValue('Unsent draft')
+        wrapper.getComponent(BaseModalStub).vm.$emit('close')
+        await flushAll()
+        expect(confirmation.isOpen).toBe(true)
+        expect(confirmation.message).toBe('user.message.discardConfirm')
+        expect(wrapper.emitted('close')).toBeUndefined()
+        confirmation.cancel()
+        await flushAll()
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Unsent draft')
+        await getButtonByText(wrapper, 'common.cancel').trigger('click')
+        confirmation.confirm()
+        await flushAll()
+        expect(wrapper.emitted('close')).toHaveLength(1)
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('')
+        wrapper.unmount()
+    })
+
+    it('keeps one confirmation for repeated close requests', async () => {
+        const wrapper = mountModal()
+        const confirmation = useConfirmStore()
+        const open = vi.spyOn(confirmation, 'open')
+        await wrapper.get('textarea').setValue('Unsent draft')
+        wrapper.getComponent(BaseModalStub).vm.$emit('close')
+        wrapper.getComponent(BaseModalStub).vm.$emit('close')
+        await flushAll()
+        expect(open).toHaveBeenCalledTimes(1)
+        confirmation.confirm()
+        await flushAll()
+        expect(wrapper.emitted('close')).toHaveLength(1)
+        wrapper.unmount()
+    })
+
+    it.each(['recipient', 'session', 'reopen', 'edit'] as const)(
+        'does not discard a newer draft after a pending confirmation and %s change',
+        async (change) => {
+            const wrapper = mountModal()
+            const confirmation = useConfirmStore()
+            await wrapper.get('textarea').setValue('Old draft')
+            await getButtonByText(wrapper, 'common.cancel').trigger('click')
+            if (change === 'recipient') await wrapper.setProps({ userId: 4 })
+            if (change === 'session') {
+                useAuthStore().sessionGeneration += 1
+                await wrapper.vm.$nextTick()
+            }
+            if (change === 'reopen') await wrapper.setProps({ isOpen: false })
+            expect(confirmation.isOpen).toBe(change === 'edit')
+            if (change === 'reopen') await wrapper.setProps({ isOpen: true })
+            await wrapper.get('textarea').setValue('New draft')
+            expect(confirmation.isOpen).toBe(false)
+            confirmation.confirm()
+            await flushAll()
+            expect(wrapper.emitted('close')).toBeUndefined()
+            expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('New draft')
+            wrapper.unmount()
+        },
+    )
+
+    it('dismisses its discard confirmation after unmount', async () => {
+        const wrapper = mountModal()
+        await wrapper.get('textarea').setValue('Unsent draft')
+        await getButtonByText(wrapper, 'common.cancel').trigger('click')
+        expect(useConfirmStore().isOpen).toBe(true)
+        wrapper.unmount()
+        await flushAll()
+        expect(useConfirmStore().isOpen).toBe(false)
+        expect(wrapper.emitted('close')).toBeUndefined()
+    })
+
+    it.each(['unmount', 'recipient', 'close'] as const)(
+        'preserves an unrelated newer confirmation on %s', async (change) => {
+            const wrapper = mountModal()
+            const confirmation = useConfirmStore()
+            await wrapper.get('textarea').setValue('Unsent draft')
+            await getButtonByText(wrapper, 'common.cancel').trigger('click')
+            const unrelated = confirmation.open('Unrelated action')
+            if (change === 'unmount') wrapper.unmount()
+            if (change === 'recipient') await wrapper.setProps({ userId: 4 })
+            if (change === 'close') await wrapper.setProps({ isOpen: false })
+            await flushAll()
+            expect(confirmation.isOpen).toBe(true)
+            expect(confirmation.message).toBe('Unrelated action')
+            confirmation.confirm()
+            await expect(unrelated).resolves.toBe(true)
+            expect(wrapper.emitted('close')).toBeUndefined()
+            if (change !== 'unmount') wrapper.unmount()
+        },
+    )
 
     it('shows a warning and skips the request when content is blank', async () => {
         const wrapper = mountModal()

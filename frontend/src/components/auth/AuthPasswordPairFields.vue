@@ -31,6 +31,8 @@ withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:password': [value: string]
   'update:confirmPassword': [value: string]
+  'blur-password': []
+  'blur-confirm-password': []
 }>()
 </script>
 
@@ -48,6 +50,7 @@ const emit = defineEmits<{
       :error="passwordError"
       :hide-label="hideLabels"
       @update:model-value="emit('update:password', String($event))"
+      @blur="emit('blur-password')"
     >
       <template #prefix>
         <Lock class="h-5 w-5 nv-text-subtle" />
@@ -68,6 +71,7 @@ const emit = defineEmits<{
       :error="confirmPasswordError"
       :hide-label="hideLabels"
       @update:model-value="emit('update:confirmPassword', String($event))"
+      @blur="emit('blur-confirm-password')"
     >
       <template #prefix>
         <Lock class="h-5 w-5 nv-text-subtle" />

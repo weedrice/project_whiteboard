@@ -2,6 +2,8 @@ import type { NotificationMessages } from './types'
 
 export const notification: NotificationMessages = {
   title: '알림 목록',
+  read: '읽음',
+  unread: '읽지 않음',
   unreadNotifications: '읽지 않은 알림 {count}개',
   markAllRead: '모두 읽음으로 표시',
   markAllReadShort: '모두 읽음',

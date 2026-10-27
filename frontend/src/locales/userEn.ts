@@ -409,6 +409,7 @@ export const userEn: UserMessages = {
     receiver: 'Recipient',
     content: 'Message',
     inputContent: 'Enter a message.',
+    discardConfirm: 'Discard your unsent message and close?',
     contentTooLong: 'Messages can contain up to {max} characters.',
     contentLength: '{current} / {max} characters',
     sendSuccess: 'The message has been sent.',

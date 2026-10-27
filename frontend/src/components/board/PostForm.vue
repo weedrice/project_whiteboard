@@ -18,6 +18,7 @@ import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
 import { usePostComposerUploadOwnership } from '@/features/board/posts/form/usePostComposerUploadOwnership'
@@ -31,6 +32,11 @@ import {
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TAG_MAX_COUNT,
+  POST_TAG_MAX_LENGTH,
+  POST_FILE_MAX_COUNT,
+  type PostFormContentValidationError,
   validatePostDraftContent,
   validatePostDraftPollContract,
   validatePostFormContent,
@@ -214,22 +220,67 @@ function handleEditorFileUploaded(fileId: number) {
   recordUploadedFile(fileId)
 }
 
-type PostRequiredField = 'title'
-const postValidation = useFieldValidation<PostRequiredField>({
+function contentValidationMessage(error: PostFormContentValidationError) {
+  const params = {
+    titleMax: POST_TITLE_MAX_LENGTH,
+    contentMax: POST_CONTENT_MAX_LENGTH,
+    tagMax: POST_TAG_MAX_COUNT,
+    tagLengthMax: POST_TAG_MAX_LENGTH,
+    fileMax: POST_FILE_MAX_COUNT,
+  }
+  switch (error) {
+    case 'titleRequired': return t('board.writePost.contentValidation.titleRequired', params)
+    case 'titleTooLong': return t('board.writePost.contentValidation.titleTooLong', params)
+    case 'titleContainsHtml': return t('board.writePost.contentValidation.titleContainsHtml', params)
+    case 'contentTooLong': return t('board.writePost.contentValidation.contentTooLong', params)
+    case 'tooManyTags': return t('board.writePost.contentValidation.tooManyTags', params)
+    case 'tagRequired': return t('board.writePost.contentValidation.tagRequired', params)
+    case 'tagTooLong': return t('board.writePost.contentValidation.tagTooLong', params)
+    case 'tooManyFiles': return t('board.writePost.contentValidation.tooManyFiles', params)
+  }
+}
+
+const postValidation = useFieldValidation<'title'>({
   validators: {
-    title: (values) => String(values.title ?? '').trim() ? '' : t('board.writePost.placeholder.title'),
+    title: (values) => {
+      const error = validatePostFormContent({
+        title: String(values.title ?? '').trim(), content: '', tags: [], fileIds: [],
+      })
+      return error ? contentValidationMessage(error) : ''
+    },
   },
   fieldIds: { title: 'title' },
 })
 const postRequiredValues = computed(() => ({ title: form.value.title }))
-const postContentIsValid = () => {
+const submittedContentError = ref<PostFormContentValidationError | null>(null)
+const submittedContentMessage = computed(() => submittedContentError.value
+  ? contentValidationMessage(submittedContentError.value)
+  : '')
+const getPostContentError = () => {
   const payload = buildPayload('content')
   return validatePostFormContent({
     title: payload.title,
     content: payload.contents,
     tags: payload.tags,
     fileIds: payload.fileIds,
-  }) == null
+  })
+}
+watch(() => form.value.title, () => {
+  if (postValidation.touched.title || postValidation.submitted.value) {
+    postValidation.validateField('title', postRequiredValues.value)
+  }
+})
+watch(form, () => {
+  if (submittedContentError.value) submittedContentError.value = getPostContentError()
+}, { deep: true })
+
+async function focusContentError() {
+  const identity = formIdentity.value
+  await nextTick()
+  if (identity !== formIdentity.value || !submittedContentError.value) return
+  const errorElement = composePageRef.value?.querySelector<HTMLElement>('#post-content-validation-error')
+  errorElement?.focus()
+  errorElement?.scrollIntoView({ block: 'center', behavior: getMotionAwareScrollBehavior() })
 }
 const draftContentIsValid = () => {
   if (!isResourceReady.value || isLoading.value || isImageUploadPending.value) return false
@@ -300,6 +351,8 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 function resetFormIdentityState() {
   resetEditHydrationState()
   resetFormState()
+  postValidation.clearValidation()
+  submittedContentError.value = null
   resetSeriesInput()
   scheduledAt.value = ''
   savedScheduledAt.value = ''
@@ -449,12 +502,13 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
 
     const valid = postValidation.validateAll(postRequiredValues.value)
     if (!valid) {
-      toastStore.addToast(t('board.writePost.validation'), 'error')
+      submittedContentError.value = null
       return false
     }
 
-    if (!postContentIsValid()) {
-      toastStore.addToast(t('board.writePost.validation'), 'error')
+    submittedContentError.value = getPostContentError()
+    if (submittedContentError.value) {
+      void focusContentError()
       return false
     }
 
@@ -604,6 +658,7 @@ defineExpose({
             :title-max-length="POST_TITLE_MAX_LENGTH"
             :content="form.content"
             :title-error="postValidation.visibleError('title')"
+            :content-error="submittedContentMessage"
             :tags="form.tags"
             :poll="form.poll"
             :poll-read-only="props.mode === 'edit' && !scheduledPostId"

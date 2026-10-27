@@ -184,6 +184,7 @@
               {{ $t('common.post') }}
             </h2>
             <PostList
+              show-mobile-sort
               :posts="posts"
               :current-sort="sortQuery"
               :showBoardName="true"

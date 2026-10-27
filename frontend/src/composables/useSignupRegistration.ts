@@ -99,12 +99,13 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   function validatePassword() {
-    if (!touched.password) return
-    fieldErrors.password = validatePasswordValue(form.value.password, {
-      messages: {
-        invalid: t('auth.validation.passwordStrength')
-      }
-    }) ?? ''
+    if (touched.password) {
+      fieldErrors.password = validatePasswordValue(form.value.password, {
+        messages: {
+          invalid: t('auth.validation.passwordStrength')
+        }
+      }) ?? ''
+    }
     if (touched.passwordConfirm) {
       validatePasswordConfirm()
     }
@@ -143,6 +144,18 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     } else {
       fieldErrors.displayName = ''
     }
+  }
+
+  function touchField(field: keyof SignupForm) {
+    touched[field] = true
+    const validators = {
+      loginId: validateLoginId,
+      password: validatePassword,
+      passwordConfirm: validatePasswordConfirm,
+      email: validateEmail,
+      displayName: validateDisplayName,
+    }
+    validators[field]()
   }
 
   function touchAllFields() {
@@ -302,27 +315,22 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   })
 
   watch(() => form.value.loginId, () => {
-    touched.loginId = true
     validateLoginId()
   })
 
   watch(() => form.value.password, () => {
-    touched.password = true
     validatePassword()
   })
 
   watch(() => form.value.passwordConfirm, () => {
-    touched.passwordConfirm = true
     validatePasswordConfirm()
   })
 
   watch(() => form.value.email, () => {
-    touched.email = true
     validateEmail()
   })
 
   watch(() => form.value.displayName, () => {
-    touched.displayName = true
     validateDisplayName()
   })
 
@@ -331,6 +339,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   return {
     form,
     fieldErrors,
+    touchField,
     error,
     isLoading,
     isReregister,

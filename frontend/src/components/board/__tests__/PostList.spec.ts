@@ -58,6 +58,58 @@ describe('PostList', () => {
     }
   })
 
+  it('exposes mobile sorting only for opted-in consumers and follows controlled sort state', async () => {
+    const wrapper = mount(PostList, {
+      props: { posts: [createPost()], showDensityControl: false },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: { RouterLink: RouterLinkStub, BaseTable: true, UserMenu: true },
+      },
+    })
+    expect(wrapper.find('select').exists()).toBe(false)
+    await wrapper.setProps({ showMobileSort: true })
+    const select = wrapper.get('select')
+    expect(select.element.value).toBe('createdAt,desc')
+    expect(wrapper.get(`label[for="${select.attributes('id')}"]`).text()).toBe('board.list.sortLabel')
+    for (const value of ['createdAt,asc', 'likeCount,desc', 'likeCount,asc', 'viewCount,desc', 'viewCount,asc', 'createdAt,desc']) {
+      await select.setValue(value)
+      expect(wrapper.emitted('update:sort')?.at(-1)).toEqual([value])
+      await wrapper.setProps({ currentSort: value })
+      expect(select.element.value).toBe(value)
+    }
+    const emissionCount = wrapper.emitted('update:sort')?.length
+    await wrapper.setProps({ currentSort: 'likeCount,asc' })
+    expect(select.element.value).toBe('likeCount,asc')
+    expect(wrapper.emitted('update:sort')).toHaveLength(emissionCount!)
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['postId,asc', 'board.list.sortPostIdAscending'],
+    ['postId,desc', 'board.list.sortPostIdDescending'],
+  ])('shows restored %s sorting without changing the controlled value', async (currentSort, label) => {
+    const wrapper = mount(PostList, {
+      props: { posts: [createPost()], showDensityControl: false, showMobileSort: true, currentSort },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: { RouterLink: RouterLinkStub, BaseTable: true, UserMenu: true },
+      },
+    })
+    const select = wrapper.get('select')
+    expect(select.element.value).toBe(currentSort)
+    expect(wrapper.get('option:checked').text()).toBe(label)
+    expect(wrapper.findAll('option')).toHaveLength(7)
+    expect(wrapper.emitted('update:sort')).toBeUndefined()
+
+    await select.setValue('likeCount,desc')
+    expect(wrapper.emitted('update:sort')).toEqual([['likeCount,desc']])
+    await wrapper.setProps({ currentSort: 'likeCount,desc' })
+    expect(select.element.value).toBe('likeCount,desc')
+    expect(wrapper.findAll('option')).toHaveLength(6)
+    expect(wrapper.emitted('update:sort')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('preserves pagination query in post detail links when provided', () => {
     const wrapper = mount(PostList, {
       props: {

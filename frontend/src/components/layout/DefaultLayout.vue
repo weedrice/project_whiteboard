@@ -134,7 +134,7 @@ const goToNotificationsPage = async () => {
 
     <nav class="nv-topnav">
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <div class="flex min-w-0 items-center gap-3">
+        <div class="flex shrink-0 items-center gap-3">
           <router-link to="/" class="flex min-h-11 shrink-0 items-center gap-2 rounded-md nv-focus-ring" :aria-label="t('layout.a11y.homeLink', { appName: t('common.appName') })">
             <img v-image-state :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" width="32" height="32" class="h-8 w-8 rounded md:hidden" />
             <img v-image-state :src="logoSrc" :alt="$t('common.appName')" width="1239" height="419" class="hidden h-8 w-auto shrink-0 object-contain md:block" />
@@ -160,8 +160,8 @@ const goToNotificationsPage = async () => {
           </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
-          <div class="relative w-auto min-w-[2.5rem] sm:min-w-[16rem]">
+        <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div class="relative w-auto min-w-[2.5rem] sm:w-40 sm:min-w-0 lg:w-64">
             <GlobalSearchBar />
           </div>
 
@@ -231,7 +231,7 @@ const goToNotificationsPage = async () => {
   transition: background-color 0.2s ease;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .nv-main-content {
     padding-bottom: 1.5rem;
   }

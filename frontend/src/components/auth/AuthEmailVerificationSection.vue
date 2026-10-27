@@ -44,6 +44,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:email': [value: string]
   'update:code': [value: string]
+  'blur-email': []
   send: []
   verify: []
 }>()
@@ -67,6 +68,7 @@ const isInline = props.layout === 'inline'
           :disabled="emailDisabled || loading"
           hideLabel
           @update:model-value="emit('update:email', String($event))"
+          @blur="emit('blur-email')"
         >
           <template #prefix>
             <Mail class="h-5 w-5 nv-text-subtle" />

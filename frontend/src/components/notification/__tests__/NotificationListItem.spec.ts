@@ -26,6 +26,21 @@ const notification: Notification = {
 }
 
 describe('NotificationListItem', () => {
+  it.each(['dropdown', 'page'] as const)('exposes read state and updates it after activation in %s mode', async (mode) => {
+    const wrapper = mount(NotificationListItem, {
+      props: { notification, mode, timeText: '3m' },
+    })
+    const status = wrapper.get('.sr-only')
+    expect(status.text()).toBe('notification.unread.')
+    expect(status.attributes('aria-hidden')).toBeUndefined()
+    expect(wrapper.findAll('span[aria-hidden="true"]').some((node) => node.classes().includes('rounded-full') && node.classes().includes('h-2'))).toBe(true)
+
+    await wrapper.setProps({ notification: { ...notification, isRead: true } })
+    expect(status.text()).toBe('notification.read.')
+    expect(wrapper.classes()).not.toContain('nv-unread-surface')
+    expect(wrapper.findAll('span[aria-hidden="true"]').some((node) => node.classes().includes('h-2'))).toBe(false)
+  })
+
   it('renders dropdown actor, relative time, unread surface, and accent tone', async () => {
     const wrapper = mount(NotificationListItem, {
       props: { notification, mode: 'dropdown', timeText: '3m' },

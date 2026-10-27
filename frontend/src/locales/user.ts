@@ -409,6 +409,7 @@ export const user: UserMessages = {
     receiver: '받는 사람',
     content: '내용',
     inputContent: '내용을 입력해주세요.',
+    discardConfirm: '작성 중인 쪽지를 삭제하고 닫으시겠습니까?',
     contentTooLong: '쪽지는 최대 {max}자까지 입력할 수 있습니다.',
     contentLength: '{current} / {max}자',
     sendSuccess: '쪽지가 전송되었습니다.',

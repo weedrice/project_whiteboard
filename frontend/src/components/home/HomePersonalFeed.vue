@@ -17,6 +17,8 @@ const {
   posts,
   isLoading,
   isError,
+  isFetching,
+  isFetchNextPageError,
   isFetchingNextPage,
   hasNextPage,
   fetchNextPage,
@@ -24,12 +26,12 @@ const {
 } = usePersonalFeed(userId, enabled)
 
 function loadMore() {
-  if (!hasNextPage.value || isFetchingNextPage.value) return
+  if (!hasNextPage.value || isFetching.value) return
   void fetchNextPage()
 }
 
 const { targetRef } = useIntersectionObserver((isIntersecting) => {
-  if (isIntersecting) loadMore()
+  if (isIntersecting && !isError.value) loadMore()
 }, { rootMargin: '240px 0px' })
 
 defineExpose({ refresh: refetch })
@@ -58,7 +60,7 @@ defineExpose({ refresh: refetch })
     </div>
 
     <ErrorState
-      v-else-if="isError"
+      v-else-if="isError && posts.length === 0"
       title-tag="h3"
       :message="$t('home.personal.loadFailed')"
       show-retry
@@ -93,12 +95,25 @@ defineExpose({ refresh: refetch })
         />
       </div>
 
-      <div ref="targetRef" class="h-px" aria-hidden="true" />
-      <div v-if="hasNextPage" class="flex justify-center">
+      <div v-if="isError" class="space-y-3 text-center">
+        <p role="status" class="text-sm text-[var(--nv-danger-text)]">
+          {{ isFetchNextPageError ? $t('home.personal.loadMoreFailed') : $t('home.personal.refreshFailed') }}
+        </p>
         <BaseButton
           type="button"
           variant="secondary"
-          :disabled="isFetchingNextPage"
+          :disabled="isFetching"
+          @click="isFetchNextPageError ? loadMore() : refetch()"
+        >
+          {{ isFetching ? $t('home.personal.loadingMore') : $t('common.error.retry') }}
+        </BaseButton>
+      </div>
+      <div ref="targetRef" class="h-px" aria-hidden="true" />
+      <div v-if="hasNextPage && !isError" class="flex justify-center">
+        <BaseButton
+          type="button"
+          variant="secondary"
+          :disabled="isFetching"
           @click="loadMore"
         >
           {{ isFetchingNextPage ? $t('home.personal.loadingMore') : $t('home.personal.loadMore') }}

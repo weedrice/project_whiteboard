@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import { FileText } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import PostListDesktopTable from '@/components/board/PostListDesktopTable.vue'
@@ -62,6 +63,7 @@ const props = withDefaults(defineProps<{
   isLoadingMore?: boolean
   density?: PostListDensity
   showDensityControl?: boolean
+  showMobileSort?: boolean
 }>(), {
   loading: false,
   currentSort: 'createdAt,desc',
@@ -82,6 +84,7 @@ const props = withDefaults(defineProps<{
   isLoadingMore: false,
   density: undefined,
   showDensityControl: true,
+  showMobileSort: false,
 })
 
 const emit = defineEmits<{
@@ -91,6 +94,25 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const mobileSortOptions = computed(() => {
+  const options = [
+    { value: 'createdAt,desc', label: t('board.list.sortNewest') },
+    { value: 'createdAt,asc', label: t('board.list.sortOldest') },
+    { value: 'likeCount,desc', label: t('board.list.sortMostLikes') },
+    { value: 'likeCount,asc', label: t('board.list.sortFewestLikes') },
+    { value: 'viewCount,desc', label: t('board.list.sortMostViews') },
+    { value: 'viewCount,asc', label: t('board.list.sortFewestViews') },
+  ]
+  if (props.currentSort === 'postId,asc' || props.currentSort === 'postId,desc') {
+    options.unshift({
+      value: props.currentSort,
+      label: props.currentSort === 'postId,asc'
+        ? t('board.list.sortPostIdAscending')
+        : t('board.list.sortPostIdDescending'),
+    })
+  }
+  return options
+})
 const listDensity = usePostListDensity()
 const effectiveDensity = computed(() => props.density ?? listDensity.value)
 const effectiveEmptyTitle = computed(() => props.emptyTitle ?? t('board.list.noPosts'))
@@ -255,6 +277,16 @@ const columns = computed(() => createPostListColumns({
     <div v-if="showDensityControl" class="flex items-center justify-end px-3 py-2 sm:px-4">
       <PostListDensityControl
         v-model="listDensity"
+      />
+    </div>
+
+    <div v-if="showMobileSort" class="px-4 pb-3 pt-2 sm:hidden">
+      <BaseSelect
+        :model-value="currentSort"
+        :label="t('board.list.sortLabel')"
+        :options="mobileSortOptions"
+        input-class="min-h-11"
+        @update:model-value="emit('update:sort', String($event))"
       />
     </div>
 

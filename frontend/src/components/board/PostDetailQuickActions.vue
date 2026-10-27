@@ -58,9 +58,9 @@ const { t } = useI18n()
   z-index: 35;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .nv-post-mobile-actions {
-    bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
+    bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom) + 0.5rem);
   }
 }
 
