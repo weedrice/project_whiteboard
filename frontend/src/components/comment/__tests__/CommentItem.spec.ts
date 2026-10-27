@@ -12,6 +12,7 @@ const routerPushMock = vi.fn()
 vi.mock('@/features/comments/queries/useComment', () => ({
     useComment: () => ({
         useInfiniteReplies: useRepliesMock,
+        useCommentLikePending: () => ref(false),
         useToggleCommentLike: () => ({
             mutate: toggleCommentLikeMock,
             isPending: ref(false),

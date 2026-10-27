@@ -1,10 +1,11 @@
 import { createReactiveAuthScopedQueryOptions } from '@/utils/authScopedQuery'
 import { useInfiniteQuery, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
-import { computed, type Ref } from 'vue'
+import { computed, toValue, type MaybeRefOrGetter, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 import { unwrapAxiosApiPageData } from '@/api/response'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
+import { acquireCommentLikePending, isCommentLikePending } from './commentLikePending'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
@@ -257,8 +258,12 @@ export function useComment() {
         })
     }
 
+    const useCommentLikePending = (commentId: MaybeRefOrGetter<string | number>) => computed(() => (
+        isCommentLikePending(queryClient, authStore, toValue(commentId))
+    ))
+
     const useToggleCommentLike = () => {
-        return useAuthScopedMutation({
+        const mutation = useAuthScopedMutation({
             mutationFn: async ({ commentId, liked }: CommentLikeVariables, mutationContext) => {
                 return liked
                     ? await commentApi.likeComment(commentId, mutationContext.requestConfig)
@@ -292,6 +297,26 @@ export function useComment() {
                 queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.all) })
             },
         })
+
+        const mutateAsync = async (...args: Parameters<typeof mutation.mutateAsync>) => {
+            // Acquire before Vue Query awaits onMutate, so even two callbacks
+            // in the same tick cannot dispatch opposite writes for one comment.
+            const release = acquireCommentLikePending(queryClient, authStore, args[0].commentId)
+            if (!release) return undefined
+            try {
+                return await mutation.mutateAsync(...args)
+            } finally {
+                release()
+            }
+        }
+
+        return {
+            ...mutation,
+            mutateAsync,
+            mutate: (...args: Parameters<typeof mutation.mutate>) => {
+                void mutateAsync(...args).catch(() => undefined)
+            },
+        }
     }
 
     return {
@@ -304,5 +329,6 @@ export function useComment() {
         useUpdateComment,
         useDeleteComment,
         useToggleCommentLike,
+        useCommentLikePending,
     }
 }

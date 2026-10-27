@@ -65,8 +65,9 @@ try {
   toastStore = undefined
 }
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
-const { useToggleCommentLike } = useComment()
-const { mutate: toggleCommentLike, isPending: isLikePending } = useToggleCommentLike()
+const { useToggleCommentLike, useCommentLikePending } = useComment()
+const { mutate: toggleCommentLike } = useToggleCommentLike()
+const isLikePending = useCommentLikePending(() => props.comment.commentId)
 
 const isReplying = ref(false)
 const isEditing = ref(false)
