@@ -205,7 +205,8 @@ vi.mock('@/utils/date', () => ({
   formatDate: () => '2026-04-22'
 }))
 
-vi.mock('@/utils/keyboard', () => ({
+vi.mock('@/utils/keyboard', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/utils/keyboard')>(),
   isInputFocused: () => false
 }))
 
