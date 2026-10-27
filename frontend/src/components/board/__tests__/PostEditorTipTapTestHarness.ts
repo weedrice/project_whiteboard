@@ -1,6 +1,9 @@
 import { vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
+import { Schema } from '@tiptap/pm/model'
+import { EditorState, NodeSelection, TextSelection, type Plugin, type PluginKey, type Transaction } from '@tiptap/pm/state'
+import type { JSONContent } from '@tiptap/core'
 
 export type PostEditorTipTapAttributes =
     | { color: string; fontSize: string; lineHeight: string }
@@ -26,6 +29,8 @@ const mocks = vi.hoisted(() => {
         setHighlight: vi.fn(),
         setLink: vi.fn(),
         insertContent: vi.fn(),
+        insertContentAt: vi.fn(),
+        command: vi.fn(),
         extendMarkRange: vi.fn(),
         unsetLink: vi.fn(),
         insertTable: vi.fn(),
@@ -49,8 +54,6 @@ const mocks = vi.hoisted(() => {
     })
     chain.run.mockImplementation(() => true)
 
-    const transaction = { setMeta: vi.fn() }
-    transaction.setMeta.mockImplementation(() => transaction)
     const getHTML = vi.fn(() => '<p>editor-html</p>')
     const editor = {
         isEditable: true,
@@ -87,15 +90,11 @@ const mocks = vi.hoisted(() => {
                 },
             },
         },
-        state: {
-            selection: { from: 1, to: 1, $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 } },
-            tr: transaction,
-            doc: {
-                descendants: vi.fn(),
-                textBetween: vi.fn(() => 'selected text'),
-                content: { size: 8 },
-            },
-        },
+        // Initialized before each mount. Plugin state, selection mapping and
+        // transaction dispatch use ProseMirror rather than no-op editor stubs.
+        state: {} as EditorState,
+        registerPlugin: vi.fn(),
+        unregisterPlugin: vi.fn(),
         view: {
             dom: document.createElement('div'),
             dispatch: vi.fn(),
@@ -362,8 +361,39 @@ export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEve
     return handler as (view: unknown, event: TEvent) => boolean
 }
 
-export const setEditorSelection = (selection: unknown) => {
-    mocks.editor.state.selection = { $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 }, ...selection as object } as typeof mocks.editor.state.selection
+const documentSchema = new Schema({
+    nodes: {
+        doc: { content: 'block+' },
+        paragraph: { content: 'inline*', group: 'block' },
+        text: { group: 'inline' },
+        image: {
+            inline: true, group: 'inline', atom: true,
+            attrs: { src: {}, serverSrc: { default: null }, fileId: { default: null } },
+        },
+        rawHtmlBlock: { group: 'block', atom: true },
+    },
+})
+
+export const setEditorDocument = (text: string) => {
+    const paragraph = documentSchema.nodes.paragraph!.create(null, text ? documentSchema.text(text) : undefined)
+    mocks.editor.view.dispatch(mocks.editor.state.tr.replaceWith(0, mocks.editor.state.doc.content.size, paragraph))
+}
+
+export const setEditorSelection = (selection: {
+    from: number
+    to: number
+    node?: { type: { name: string } }
+    $from?: { parent: { textContent: string }; parentOffset: number }
+}) => {
+    if (selection.node?.type.name === 'rawHtmlBlock') {
+        const nodes = [documentSchema.nodes.rawHtmlBlock!.create(), documentSchema.nodes.paragraph!.create()]
+        const tr = mocks.editor.state.tr.replaceWith(0, mocks.editor.state.doc.content.size, nodes)
+        mocks.editor.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, selection.from)))
+        return
+    }
+    if (selection.$from) setEditorDocument(selection.$from.parent.textContent)
+    const tr = mocks.editor.state.tr
+    mocks.editor.view.dispatch(tr.setSelection(TextSelection.create(tr.doc, selection.from, selection.to)))
 }
 
 export const mockNextEditorPositionAtCoords = (position: { pos: number } | null) => {
@@ -386,9 +416,44 @@ export const resetPostEditorTipTapTestState = () => {
     setEditorRefValue(mocks.editor)
     mocks.themeStore.isDark = false
     mocks.editor.getHTML.mockReturnValue('<p>editor-html</p>')
-    mocks.editor.state.selection = { from: 1, to: 1, $from: { depth: 0, parent: { textContent: 'initial' }, parentOffset: 0 } }
+    mocks.editor.isEditable = true
+    mocks.editor.isDestroyed = false
+    mocks.editor.state = EditorState.create({
+        schema: documentSchema,
+        doc: documentSchema.node('doc', null, [documentSchema.node('paragraph', null, documentSchema.text('initial'))]),
+    })
+    mocks.editor.registerPlugin.mockImplementation((plugin: Plugin) => {
+        mocks.editor.state = mocks.editor.state.reconfigure({ plugins: [...mocks.editor.state.plugins, plugin] })
+    })
+    mocks.editor.unregisterPlugin.mockImplementation((key: PluginKey) => {
+        const plugin = key.get(mocks.editor.state)
+        mocks.editor.state = mocks.editor.state.reconfigure({ plugins: mocks.editor.state.plugins.filter(item => item !== plugin) })
+    })
+    mocks.editor.view.dispatch.mockImplementation((tr: Transaction) => {
+        mocks.editor.state = mocks.editor.state.apply(tr)
+    })
+    let transaction: Transaction | undefined
+    mocks.editor.chain.mockImplementation(() => {
+        transaction = undefined
+        return mocks.chain
+    })
+    mocks.chain.insertContentAt.mockImplementation((position: number, content: JSONContent, options: { updateSelection: boolean }) => {
+        if (options.updateSelection !== false) throw new Error('Upload insertion must preserve the current selection')
+        transaction ??= mocks.editor.state.tr
+        transaction.insert(position, documentSchema.nodeFromJSON(content))
+        return mocks.chain
+    })
+    mocks.chain.command.mockImplementation((command: (context: { tr: Transaction }) => boolean) => {
+        transaction ??= mocks.editor.state.tr
+        if (!command({ tr: transaction })) throw new Error('Editor command rejected the test transaction')
+        return mocks.chain
+    })
+    mocks.chain.run.mockImplementation(() => {
+        if (transaction) mocks.editor.view.dispatch(transaction)
+        transaction = undefined
+        return true
+    })
     mocks.editor.isActive.mockImplementation((name: unknown) => name === 'link')
-    mocks.editor.state.doc.content.size = 8
     mocks.editor.view.posAtCoords.mockReturnValue({ pos: 3 })
     mocks.validateImageFile.mockReturnValue(null)
     mocks.uploadImage.mockResolvedValue({ url: 'https://cdn.test/image.png', fileId: 55 })

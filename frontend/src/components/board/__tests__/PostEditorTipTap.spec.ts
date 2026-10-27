@@ -9,6 +9,7 @@ import {
     mountEditor,
     resetPostEditorTipTapTestState,
     selectors,
+    setEditorDocument,
     setEditorRefValue,
     setEditorSelection,
     triggerEditorSelectionUpdate,
@@ -422,7 +423,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.editor.commands.setTextSelection).toHaveBeenCalledWith(3)
 
         mockNextEditorPositionAtCoords(null)
-        mocks.editor.state.doc.content.size = 10
+        setEditorDocument('12345678')
         const secondEvent = new MouseEvent('mousedown', {
             bubbles: true,
             cancelable: true,
