@@ -43,6 +43,7 @@ async function handleCheckIn() {
     // MutationCache owns the single user-facing error toast; consume the click promise here.
   }
 }
+defineExpose({ refresh: () => enabled.value ? refetch() : undefined })
 </script>
 
 <template>

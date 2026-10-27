@@ -44,7 +44,7 @@ describe('useAttendance', () => {
     }
     const controller = new AbortController()
 
-    expect(query.queryKey.value).toEqual(['session', 0, 'attendance', 'me', '2026-07'])
+    expect(query.queryKey.value).toEqual(['session', 0, 'attendance', 'me', '2026-07', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)])
     await expect(query.queryFn(queryTestContext(query, { signal: controller.signal }))).resolves.toEqual({ checkedIn: true })
     expect(mocks.getMyAttendance).toHaveBeenCalledWith('2026-07', authQueryConfig({ signal: controller.signal }))
   })
