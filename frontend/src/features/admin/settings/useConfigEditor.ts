@@ -24,6 +24,9 @@ function isSameDraft(left: ConfigDraft, right: ConfigDraft) {
 export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
     const drafts = ref<ConfigDrafts>({})
     const baselines = ref<ConfigDrafts>({})
+    const draftRevisions = new Map<string, number>()
+    const pendingSaves = new Map<string, { revision: number }>()
+    let resetRevision = 0
 
     watch(configsData, (configs) => {
         const nextDrafts: ConfigDrafts = {}
@@ -34,8 +37,10 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
             const previousDraft = drafts.value[config.key]
             const previousBaseline = baselines.value[config.key]
             const hasUnsavedDraft = previousDraft && previousBaseline && !isSameDraft(previousDraft, previousBaseline)
+            const pendingSave = pendingSaves.get(config.key)
+            const editedDuringSave = pendingSave && pendingSave.revision !== (draftRevisions.get(config.key) ?? 0)
 
-            nextDrafts[config.key] = hasUnsavedDraft ? { ...previousDraft } : nextBaseline
+            nextDrafts[config.key] = previousDraft && (hasUnsavedDraft || editedDuringSave) ? { ...previousDraft } : nextBaseline
             nextBaselines[config.key] = nextBaseline
         }
 
@@ -54,6 +59,7 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
         const current = drafts.value[key]
         if (!current) return
 
+        draftRevisions.set(key, (draftRevisions.get(key) ?? 0) + 1)
         drafts.value = {
             ...drafts.value,
             [key]: {
@@ -67,7 +73,35 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
         return drafts.value[key]
     }
 
+    function captureSave(key: string) {
+        const draft = getDraft(key)
+        if (!draft || pendingSaves.has(key)) return null
+        const submittedRevision = draftRevisions.get(key) ?? 0
+        const submittedResetRevision = resetRevision
+        const pendingSave = { revision: submittedRevision }
+        pendingSaves.set(key, pendingSave)
+
+        return {
+            draft: { ...draft },
+            acknowledge(savedConfig: GlobalConfig) {
+                if (submittedResetRevision !== resetRevision || pendingSaves.get(key) !== pendingSave || savedConfig.key !== key || !drafts.value[key]) return
+                const savedDraft = toDraft(savedConfig)
+                // Establish the saved baseline before clearing the submitted draft's dirty state.
+                baselines.value = { ...baselines.value, [key]: savedDraft }
+                if ((draftRevisions.get(key) ?? 0) === submittedRevision) {
+                    drafts.value = { ...drafts.value, [key]: savedDraft }
+                }
+            },
+            release() {
+                if (pendingSaves.get(key) === pendingSave) pendingSaves.delete(key)
+            },
+        }
+    }
+
     function resetDrafts() {
+        resetRevision += 1
+        draftRevisions.clear()
+        pendingSaves.clear()
         drafts.value = {}
         baselines.value = {}
     }
@@ -78,5 +112,6 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
         hasUnsavedChanges,
         updateDraft,
         getDraft,
+        captureSave,
     }
 }

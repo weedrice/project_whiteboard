@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { normalizeConfigWritePayload } from '@/utils/inputNormalization'
+import { unwrapAxiosApiData } from '@/api/response'
 import {
   EMOTICON_IMAGE_MAX_COUNT_KEY,
   useEmoticonImagePolicy,
@@ -39,7 +40,7 @@ export function useGlobalSettingsManager() {
   const { mutateAsync: updateConfig } = useUpdateConfig()
   const { mutateAsync: createConfig } = useCreateConfig()
   const { mutateAsync: deleteConfig } = useDeleteConfig()
-  const { configs, hasUnsavedChanges: hasUnsavedConfigChanges, updateDraft, getDraft, resetDrafts } = useConfigEditor(configsData)
+  const { configs, hasUnsavedChanges: hasUnsavedConfigChanges, updateDraft, captureSave, resetDrafts } = useConfigEditor(configsData)
   const hasUnsavedChanges = computed(() => hasUnsavedConfigChanges.value || (
     isModalOpen.value
     && Object.values(newConfig).some((value) => value.trim().length > 0)
@@ -75,23 +76,32 @@ export function useGlobalSettingsManager() {
   const isSavePending = (key: string) => operations.isPending(`config:${key}`)
 
   async function handleSave(key: string) {
-    const config = getDraft(key)
-    if (!config) return
+    const submission = captureSave(key)
+    if (!submission) return
+    const config = submission.draft
     const payload = normalizeConfigWritePayload(config)
-    if (!payload) return
-    await operations.run(`config:${key}`, async (scope) => {
-      try {
-        await updateConfig({ key: config.key, value: payload.value, description: payload.description })
-        scope.assertCurrent()
-        if (config.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
-          await refreshEmoticonImagePolicy()
+    if (!payload) {
+      submission.release()
+      return
+    }
+    try {
+      await operations.run(`config:${key}`, async (scope) => {
+        try {
+          const response = await updateConfig({ key: config.key, value: payload.value, description: payload.description })
           scope.assertCurrent()
+          submission.acknowledge(unwrapAxiosApiData(response))
+          if (config.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
+            await refreshEmoticonImagePolicy()
+            scope.assertCurrent()
+          }
+          toastStore.addToast(t('admin.settings.messages.saved'), 'success')
+        } catch {
+          // Error handled globally.
         }
-        toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-      } catch {
-        // Error handled globally.
-      }
-    })
+      })
+    } finally {
+      submission.release()
+    }
   }
 
   async function handleCreateConfig() {
