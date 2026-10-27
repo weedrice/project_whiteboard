@@ -161,7 +161,7 @@ onUpdated(prepareRichContent)
       </div>
     </section>
 
-    <div class="hidden sm:block">
+    <div>
       <PostDetailReactionBar
         :liked="postView.liked"
         :scrapped="postView.scrapped"
