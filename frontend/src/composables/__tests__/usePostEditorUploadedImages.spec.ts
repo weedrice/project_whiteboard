@@ -126,6 +126,116 @@ describe('post editor uploads with transaction-mapped anchors', () => {
     expect(editor.state.doc.textBetween(from, to)).toBe('KEEP')
   })
 
+  it.each(['undo', 'undo-and-redo', 'delete-later-image'] as const)('retains the earlier failed upload across %s of a later image', async operation => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file()])
+    requests[0]!.reject(new Error('offline'))
+    await flushPromises()
+    const failedId = queue.failedItems.value[0]!.id
+    await finish(1, 2)
+    if (operation === 'delete-later-image') editor.commands.deleteRange({ from: 1, to: 2 })
+    else {
+      editor.commands.undo()
+      if (operation === 'undo-and-redo') editor.commands.redo()
+    }
+    expect(queue.retryItem(failedId)).toBe(true)
+    await finish(2, 1)
+
+    expect(imageIds()).toEqual(operation === 'undo-and-redo' ? [1, 2] : [1])
+    expect(editor.getText()).toBe('start KEEP end')
+  })
+
+  it('keeps an earlier failed upload before boundary typing after undo and redo', async () => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file()])
+    requests[0]!.reject(new Error('offline'))
+    await flushPromises()
+    const failedId = queue.failedItems.value[0]!.id
+    await finish(1, 2)
+    editor.commands.undo()
+    editor.commands.redo()
+    editor.commands.insertContentAt(1, 'NEW ')
+    expect(queue.retryItem(failedId)).toBe(true)
+    await finish(2, 1)
+
+    expect(imageIds()).toEqual([1, 2])
+    expect(editor.getText()).toBe('NEW start KEEP end')
+    const paragraph = editor.state.doc.firstChild!
+    expect(paragraph.child(0).attrs.fileId).toBe(1)
+    expect(paragraph.child(1).text).toBe('NEW ')
+    expect(paragraph.child(2).attrs.fileId).toBe(2)
+  })
+
+  it('keeps a new anchor after text typed exactly at its insertion point', async () => {
+    editor.commands.setTextSelection(1)
+    enqueue()
+    editor.commands.insertContentAt(1, 'NEW ')
+    await finish()
+
+    const paragraph = editor.state.doc.firstChild!
+    expect(paragraph.child(0).text).toBe('NEW ')
+    expect(paragraph.child(1).attrs.fileId).toBe(1)
+    expect(editor.getText()).toBe('NEW start KEEP end')
+  })
+
+  it('still discards a left-affinity anchor when its entire document is replaced', async () => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file()])
+    requests[0]!.reject(new Error('offline'))
+    await flushPromises()
+    const failedId = queue.failedItems.value[0]!.id
+    await finish(1, 2)
+    editor.commands.setContent('<p>another document</p>')
+    expect(queue.retryItem(failedId)).toBe(true)
+    await finish(2, 1)
+
+    expect(imageIds()).toEqual([])
+    expect(editor.getText()).toBe('another document')
+  })
+
+  it.each([[1, 2], [2, 1]])('keeps three-file order when two failures are retried in order %s then %s', async (firstId, secondId) => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file(), file()])
+    requests[0]!.reject(new Error('first offline'))
+    await flushPromises()
+    requests[1]!.reject(new Error('second offline'))
+    await flushPromises()
+    await finish(2, 3)
+    editor.commands.undo()
+    editor.commands.redo()
+    expect(queue.retryItem(firstId)).toBe(true)
+    await finish(3, firstId)
+    expect(queue.retryItem(secondId)).toBe(true)
+    await finish(4, secondId)
+
+    expect(imageIds()).toEqual([1, 2, 3])
+    expect(editor.getText()).toBe('start KEEP end')
+  })
+
+  it.each(['start', 'end'] as const)('discards a drop anchor at the document %s when the whole document is replaced', async boundary => {
+    const position = boundary === 'start' ? 0 : editor.state.doc.content.size
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: position, inside: -1 })
+    enqueue([file()], { clientX: 120, clientY: 240 } as DragEvent)
+    editor.commands.setContent('<p>another document</p>')
+    await finish()
+
+    expect(imageIds()).toEqual([])
+    expect(editor.getText()).toBe('another document')
+  })
+
+  it('recognizes whole-document replacement after an earlier step in the same transaction', async () => {
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 0, inside: -1 })
+    enqueue([file()], { clientX: 120, clientY: 240 } as DragEvent)
+    const transaction = editor.state.tr.insertText('NEW ', 1)
+    transaction.replaceWith(0, transaction.doc.content.size,
+      editor.schema.nodes.paragraph!.create(null, editor.schema.text('another document')))
+    editor.view.dispatch(transaction)
+    await finish()
+
+    expect(imageIds()).toEqual([])
+    expect(editor.getText()).toBe('another document')
+  })
+
   it('maps every queued file while earlier uploads complete and the user continues typing', async () => {
     editor.commands.setTextSelection(1)
     enqueue([file(), file(), file()])
