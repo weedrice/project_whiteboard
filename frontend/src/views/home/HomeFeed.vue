@@ -30,6 +30,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const attendancePanelRef = ref<InstanceType<typeof HomeAttendancePanel> | null>(null)
 const personalFeedRef = ref<InstanceType<typeof HomePersonalFeed> | null>(null)
 const homeTitle = computed(() => t('common.appName'))
 
@@ -89,7 +90,7 @@ async function refreshActiveHomeView() {
     await personalFeedRef.value?.refresh()
     return
   }
-  await refetch()
+  await Promise.all([refetch(), attendancePanelRef.value?.refresh()])
 }
 
 const heroPost = computed(() => selectHomeHeroPost(featured.value, editorPicks.value, trending.value))
@@ -217,7 +218,7 @@ useHead({
           </div>
 
           <div class="space-y-3">
-            <HomeAttendancePanel />
+            <HomeAttendancePanel ref="attendancePanelRef" />
             <div class="flex items-center gap-2">
               <TrendingUpIcon class="h-4 w-4 text-[var(--nv-accent)]" />
               <p class="nv-home-section-kicker">{{ $t('home.landing.siteStats') }}</p>

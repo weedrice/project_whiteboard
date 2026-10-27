@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { attendanceApi } from '@/api/attendance'
 import { unwrapAxiosApiData } from '@/api/response'
+import { useAttendanceDay } from './useAttendanceDay'
 import { attendanceQueryKeys } from '@/features/user/attendance/attendanceQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
@@ -24,13 +25,18 @@ export function useAttendance() {
     const queryClient = useQueryClient()
     const authStore = useAuthStore()
 
-    const useMyAttendance = (enabled: Ref<boolean>, month?: Ref<string | undefined>) => useQuery({
-        ...createReactiveAuthScopedQueryOptions(authStore, computed(() => currentSessionQueryKey(authStore, attendanceQueryKeys.me(month?.value))), async (context) => unwrapAxiosApiData(
-            await attendanceApi.getMyAttendance(month?.value, withQuerySignal(undefined, context))
-        )),
-        enabled,
-        meta: AUTH_SCOPED_QUERY_META,
-    })
+    const useMyAttendance = (enabled: Ref<boolean>, month?: Ref<string | undefined>) => {
+        const today = useAttendanceDay(enabled)
+        return useQuery({
+            ...createReactiveAuthScopedQueryOptions(authStore, computed(() => currentSessionQueryKey(
+                authStore, attendanceQueryKeys.me(month?.value, today.value),
+            )), async (context) => unwrapAxiosApiData(
+                await attendanceApi.getMyAttendance(month?.value, withQuerySignal(undefined, context))
+            )),
+            enabled,
+            meta: AUTH_SCOPED_QUERY_META,
+        })
+    }
 
     const useCheckIn = () => {
         let activeController: AbortController | null = null

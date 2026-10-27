@@ -515,4 +515,33 @@ describe('HomeFeed', () => {
         expect(wrapper.find('[aria-labelledby="home-recommended-tab"]').exists()).toBe(true)
         expect(navigation.replace).toHaveBeenCalledWith({ name: 'home', query: {} })
     })
+
+    it('refreshes attendance together with recommended home content', async () => {
+        const refreshAttendance = vi.fn().mockResolvedValue(undefined)
+        const wrapper = mount(HomeFeed, {
+            global: {
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    HomeBoardStrip: true,
+                    HomeAttendancePanel: defineComponent({
+                        setup(_props, { expose }) {
+                            expose({ refresh: refreshAttendance })
+                            return () => null
+                        },
+                    }),
+                    PullToRefresh: defineComponent({
+                        props: { refresh: { type: Function, required: true } },
+                        setup(props, { slots }) {
+                            return () => h('div', [h('button', { 'data-refresh': '', onClick: () => props.refresh() }), slots.default?.()])
+                        },
+                    }),
+                },
+            },
+        })
+        await wrapper.get('[data-refresh]').trigger('click')
+        expect(state.refetch).toHaveBeenCalledOnce()
+        expect(refreshAttendance).toHaveBeenCalledOnce()
+    })
 })
