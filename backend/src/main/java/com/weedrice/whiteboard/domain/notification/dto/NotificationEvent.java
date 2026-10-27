@@ -95,8 +95,22 @@ public class NotificationEvent {
             Long sourceId,
             String messageKey,
             String... messageParams) {
+        return localized(UUID.randomUUID(), userToNotify, actor, actorAgent, notificationType, sourceType,
+                sourceId, messageKey, messageParams);
+    }
+
+    public static NotificationEvent localized(
+            UUID eventId,
+            User userToNotify,
+            User actor,
+            Agent actorAgent,
+            NotificationType notificationType,
+            NotificationSourceType sourceType,
+            Long sourceId,
+            String messageKey,
+            String... messageParams) {
         return new NotificationEvent(
-                UUID.randomUUID(),
+                java.util.Objects.requireNonNull(eventId, "eventId"),
                 userToNotify,
                 actor,
                 actorAgent,

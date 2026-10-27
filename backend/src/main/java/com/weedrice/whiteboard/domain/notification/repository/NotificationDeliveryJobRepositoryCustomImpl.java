@@ -10,6 +10,18 @@ import java.time.LocalDateTime;
 
 public class NotificationDeliveryJobRepositoryCustomImpl implements NotificationDeliveryJobRepositoryCustom {
 
+    // Keyword event IDs are the durable deduplication record until fan-out finishes,
+    // including a failed fan-out that may be retried later.
+    private static final String NO_UNFINISHED_KEYWORD_FANOUT = """
+            NOT EXISTS (
+                SELECT 1 FROM keyword_notification_fanout_jobs fanout
+                WHERE job.notification_type = 'KEYWORD'
+                  AND job.source_type = 'POST'
+                  AND fanout.post_id = job.source_id
+                  AND fanout.status <> 'COMPLETED'
+            )
+            """;
+
     private final JdbcTemplate jdbcTemplate;
     private final boolean postgreSql;
 
@@ -63,10 +75,11 @@ public class NotificationDeliveryJobRepositoryCustomImpl implements Notification
         if (postgreSql) {
             return jdbcTemplate.update("""
                     WITH candidates AS (
-                        SELECT job_id
-                        FROM notification_delivery_jobs
+                        SELECT job.job_id
+                        FROM notification_delivery_jobs job
                         WHERE status = ?
                           AND %s < ?
+                          AND %s
                         ORDER BY %s ASC, job_id ASC
                         FOR UPDATE SKIP LOCKED
                         LIMIT ?
@@ -76,22 +89,23 @@ public class NotificationDeliveryJobRepositoryCustomImpl implements Notification
                     WHERE job.job_id = candidate.job_id
                       AND job.status = ?
                       AND job.%s < ?
-                    """.formatted(cutoffColumn, cutoffColumn, cutoffColumn),
+                    """.formatted(cutoffColumn, NO_UNFINISHED_KEYWORD_FANOUT, cutoffColumn, cutoffColumn),
                     status, cutoff, batchSize, status, cutoff);
         }
         return jdbcTemplate.update("""
                 DELETE FROM notification_delivery_jobs
                 WHERE job_id IN (
-                    SELECT job_id
-                    FROM notification_delivery_jobs
+                    SELECT job.job_id
+                    FROM notification_delivery_jobs job
                     WHERE status = ?
                       AND %s < ?
+                      AND %s
                     ORDER BY %s ASC, job_id ASC
                     LIMIT ?
                 )
                   AND status = ?
                   AND %s < ?
-                """.formatted(cutoffColumn, cutoffColumn, cutoffColumn),
+                """.formatted(cutoffColumn, NO_UNFINISHED_KEYWORD_FANOUT, cutoffColumn, cutoffColumn),
                 status, cutoff, batchSize, status, cutoff);
     }
 
