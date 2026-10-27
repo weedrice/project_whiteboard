@@ -30,13 +30,15 @@ export function usePostSeriesOptions({
   const { t } = useI18n()
   const authStore = useAuthStore()
   const toastStore = useToastStore()
-  const localOptions = ref<PostSeries[] | null>(null)
+  const createdOptions = ref<PostSeries[]>([])
   const serverOptions = ref<PostSeries[]>([])
   const hasLoadedPostSeries = ref(false)
   const isPostSeriesError = ref(false)
   const newSeriesTitle = ref('')
   const isCreatingSeries = ref(false)
-  const seriesOptions = computed(() => localOptions.value ?? serverOptions.value)
+  const seriesOptions = computed(() => [...new Map(
+    [...serverOptions.value, ...createdOptions.value].map(series => [series.seriesId, series]),
+  ).values()])
   let createAbortController: AbortController | null = null
 
   function cancelCreateSeriesRequest() {
@@ -56,6 +58,13 @@ export function usePostSeriesOptions({
       })
       if (generation !== authStore.sessionGeneration) return
       serverOptions.value = series
+      const loadedIds = new Set(series.map(option => option.seriesId))
+      createdOptions.value = createdOptions.value.filter(option => !loadedIds.has(option.seriesId))
+      // An older list response may omit a series created while it was loading.
+      // Keep it in both the selector and the cache used when reopening the form.
+      if (createdOptions.value.length > 0) {
+        queryClient.setQueryData(sessionQueryKey(generation, userQueryKeys.postSeries), seriesOptions.value)
+      }
       hasLoadedPostSeries.value = true
     } catch {
       if (generation !== authStore.sessionGeneration) return
@@ -83,13 +92,13 @@ export function usePostSeriesOptions({
         || authStore.sessionGeneration !== generation
         || formIdentity.value !== identity
       ) return
-      localOptions.value = [
-        ...seriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
+      createdOptions.value = [
+        ...createdOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
         createdSeries,
       ]
       queryClient.setQueryData(
         sessionQueryKey(generation, userQueryKeys.postSeries),
-        localOptions.value,
+        seriesOptions.value,
       )
       form.value.seriesId = createdSeries.seriesId
       newSeriesTitle.value = ''
@@ -132,7 +141,7 @@ export function usePostSeriesOptions({
 
   watch(() => authStore.sessionGeneration, () => {
     cancelCreateSeriesRequest()
-    localOptions.value = null
+    createdOptions.value = []
     serverOptions.value = []
     hasLoadedPostSeries.value = false
     isPostSeriesError.value = false
