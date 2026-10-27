@@ -5,6 +5,29 @@ import { createI18n } from 'vue-i18n'
 import RawHtmlBlockView from '../RawHtmlBlockView.vue'
 
 describe('RawHtmlBlockView', () => {
+  it('shows a compact notice for viewport-only HTML while retaining the node source', () => {
+    const html = '<template data-noviis-layer="viewport"><style>.x{color:red}</style><span class="x">effect</span></template>'
+    const updateAttributes = vi.fn()
+    const wrapper = mount(RawHtmlBlockView, {
+      props: {
+        node: { attrs: { html } }, editor: {}, extension: {}, getPos: () => 0,
+        decorations: [], innerDecorations: {}, view: {}, selected: false,
+        HTMLAttributes: {}, updateAttributes, deleteNode: vi.fn(),
+      } as never,
+      global: {
+        stubs: {
+          NodeViewWrapper: defineComponent({
+            setup(_, { attrs, slots }) { return () => h('div', attrs, slots.default?.()) },
+          }),
+        },
+      },
+    })
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(wrapper.get('.raw-html-block__notice').text()).toContain('전체 화면 장식')
+    expect(wrapper.props('node').attrs.html).toBe(html)
+    expect(updateAttributes).not.toHaveBeenCalled()
+  })
+
   it('renders preserved html through the script-free sandbox preview', () => {
     const rawHtml = '<style>.card{display:grid}</style><button onclick="run()">카드</button><script>run()</script>'
     const i18n = createI18n({

@@ -87,6 +87,17 @@ function mountContent(overrides: Partial<InstanceType<typeof PostDetailArticleCo
 }
 
 describe('PostDetailArticleContent', () => {
+  it('does not expose viewport effects until spoilers are revealed and removes them for blinded posts', async () => {
+    const wrapper = mountContent({
+      postContents: '<template data-noviis-layer="viewport"><div>Decoration</div></template>',
+    })
+    expect(wrapper.find('[data-testid="viewport-effect-panel"]').exists()).toBe(false)
+    await wrapper.setProps({ isBlurred: false })
+    expect(wrapper.find('[data-testid="viewport-effect-panel"]').exists()).toBe(true)
+    await wrapper.setProps({ postView: postView({ isBlinded: true }) })
+    expect(wrapper.find('[data-testid="viewport-effect-panel"]').exists()).toBe(false)
+  })
+
   it('renders article helpers and forwards user actions', async () => {
     const wrapper = mountContent()
 

@@ -8,6 +8,8 @@ const allowedRawHtmlRenderers = new Set([
 ])
 const allowedSrcdocRenderers = new Set([
   'components/common/SandboxedHtmlFrame.vue',
+  // Scriptless decorative renderer; both modes enforce isolation in PostViewportEffect.spec.ts.
+  'components/board/PostViewportEffect.vue',
 ])
 
 function toSourcePath(filePath: string) {
@@ -36,7 +38,7 @@ describe('SanitizedHtmlView usage guard', () => {
     expect(violations).toEqual([])
   })
 
-  it('keeps iframe srcdoc rendering behind the shared sandboxed renderer', () => {
+  it('keeps iframe srcdoc rendering inside the reviewed sandboxed renderers', () => {
     const srcdocRendererPattern = /\bsrcdoc\s*=|:srcdoc\s*=|\bv-bind:srcdoc\s*=/
     const violations = collectVueFiles(sourceRoot)
       .filter((filePath) => !toSourcePath(filePath).includes('/__tests__/'))

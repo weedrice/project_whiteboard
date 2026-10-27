@@ -4,6 +4,7 @@ import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostVideoUrlPopover from '@/components/board/PostVideoUrlPopover.vue'
+import PostViewportHtmlHelp from '@/components/board/PostViewportHtmlHelp.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import { POST_CONTENT_MAX_LENGTH } from '@/utils/postForm'
 
@@ -105,6 +106,7 @@ const emit = defineEmits<{
         />
       </div>
     </div>
+    <PostViewportHtmlHelp v-if="editorViewMode === 'html'" class="mt-3" />
   </div>
 </template>
 

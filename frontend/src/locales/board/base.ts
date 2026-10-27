@@ -1,6 +1,25 @@
 import type { BoardMessages } from '../types'
 
 export const boardBaseMessages = {
+  viewportEffect: {
+    title: '화면 효과',
+    play: '효과 재생',
+    stop: '효과 끄기',
+    description: '직접 작성한 화면 장식을 최대 30초 동안 표시합니다.',
+    reducedMotion: '모션 감소 설정에 따라 화면 효과를 재생하지 않습니다.',
+    invalid: '화면 효과의 크기 또는 형식이 지원 범위를 벗어났습니다.',
+    duplicateLayers: '화면 장식 영역은 글당 하나만 사용할 수 있습니다. 중복된 영역을 제거해 주세요.',
+    htmlTooLarge: '화면 장식 HTML을 65,536자 이하로 줄여 주세요.',
+    tooManyElements: '화면 장식의 HTML 요소를 300개 이하로 줄여 주세요.',
+    cssResource: 'CSS로 이미지나 외부 리소스를 불러올 수 없습니다. 이미지는 업로드한 img 태그로 넣어 주세요.',
+    tooManyImages: '화면 효과 이미지는 최대 8개입니다. 이미지 태그 수를 줄여 주세요.',
+    imageSource: '이 이미지 주소는 사용할 수 없습니다. 일반 편집기에서 업로드한 img 태그를 그대로 옮겨 주세요.',
+    imageType: '화면 효과에는 PNG, JPEG, GIF, WebP 이미지만 사용할 수 있습니다.',
+    imageBytes: '화면 효과 이미지의 합계를 8 MiB 이하로 줄여 주세요.',
+    imageDataTooLarge: '반복 표시를 포함한 이미지 데이터가 너무 큽니다. 이미지 크기나 반복 횟수를 줄여 주세요.',
+    failed: '화면 효과 이미지를 불러올 수 없습니다.',
+    preview: '화면 효과 미리보기',
+  },
   list: {
     subscribed: '구독 스페이스',
     subscribedShort: '구독',

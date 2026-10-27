@@ -133,6 +133,11 @@ export function requiresSandboxedPostHtml(content: string | null | undefined): b
     return hasSandboxHtmlStructure(content ?? '')
 }
 
+/** Detect actual document tags without matching captions, comments or raw text. */
+export function hasPostHtmlDocumentStructure(content: string): boolean {
+    return hasSandboxHtmlStructure(content, true)
+}
+
 // Inspect tag and attribute names, never strings inside quoted attribute values.
 function hasSandboxHtmlStructure(content: string, documentOnly = false): boolean {
     let cursor = 0

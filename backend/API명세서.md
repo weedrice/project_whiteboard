@@ -17,6 +17,8 @@
 
 ### 게시글·초안 본문 HTML
 
+- 전체 화면 장식은 기존 `contents`의 `template[data-noviis-layer="viewport"]`로 선언한다. 보존 HTML과 template 내부의 업로드 이미지도 기존 파일 소유권·초안/예약 연결 규칙을 적용하며, 장식 내용은 요약/대표 이미지에서 제외한다. 대표 이미지의 파일 판별은 상대 URL과 설정된 프런트엔드와 동일 출처인 절대 URL을 동일하게 처리하며, 본문에서도 사용한 파일은 유지한다. 초안도 동일한 URL 판별 규칙으로 유효하지 않은 이미지·첨부 링크를 정리하므로, 절대 URL 참조가 남아 복구 재저장이 반복되지 않는다. 다른 출처 또는 사용자 정보가 포함된 URL은 로컬 파일로 취급하지 않는다. 새 DTO 필드나 엔드포인트는 없다. 표시·제한 계약은 [전체 화면 HTML 장식](../docs/design-notes/post-viewport-html.md)을 참고한다.
+
 - 체크리스트는 `ul[data-type=taskList]`와 `li[data-type=taskItem][data-checked]`, 안내·주의 상자는 `aside[data-callout]`, 접기 영역은 `details > summary + div[data-details-content]`로 저장한다. 입력 요소나 이벤트 핸들러를 저장하지 않으며 기존 `contents` 필드를 사용한다.
 
 - 적용: 기존 `contents` HTML 안에서 이미지의 `alt`와 `data-caption`, 표 셀의 `colwidth`와 안전한 `background-color` 스타일을 보존한다. 캡션은 일반 텍스트 속성이며 실행 가능한 HTML로 해석하지 않는다. 엔드포인트와 DTO 필드에는 변경이 없다.

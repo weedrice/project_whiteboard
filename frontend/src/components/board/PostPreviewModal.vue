@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import PostContentView from '@/components/board/PostContentView.vue'
+import PostViewportEffect from '@/components/board/PostViewportEffect.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 
@@ -59,6 +60,7 @@ const { t } = useI18n()
         :sandbox-min-height="420"
         sandbox-loading="eager"
       />
+      <PostViewportEffect v-if="isOpen" :content="content" preview />
     </div>
     <template #footer>
       <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">

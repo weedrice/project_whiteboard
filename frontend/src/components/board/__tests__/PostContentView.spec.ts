@@ -4,6 +4,29 @@ import PostContentView from '../PostContentView.vue'
 import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 describe('PostContentView', () => {
+    it('does not allocate a blank iframe for a viewport-only declaration', () => {
+        const source = '<template data-noviis-layer="viewport"><style>.x{color:red}</style><span class="x">effect</span></template>'
+        for (const content of [source, encodeSandboxedPostHtml(source)]) {
+            const wrapper = mount(PostContentView, { props: { content, sandboxMinHeight: 420 } })
+            expect(wrapper.find('iframe').exists()).toBe(false)
+            expect(wrapper.text()).toBe('')
+            expect(wrapper.props('content')).toBe(content)
+            wrapper.unmount()
+        }
+    })
+
+    it('skips only the viewport block between ordinary and preserved visible content', () => {
+        const decoration = encodeSandboxedPostHtml('<template data-noviis-layer="viewport"><div>effect</div></template>')
+        const card = encodeSandboxedPostHtml('<style>.box{height:30px}</style><div class="box"></div>')
+        const content = `<p>Before</p>${decoration}${card}<p>After</p>`
+        const wrapper = mount(PostContentView, { props: { content } })
+        expect(wrapper.findAll('iframe')).toHaveLength(1)
+        expect(wrapper.get('iframe').attributes('srcdoc')).toContain('<div class="box"></div>')
+        expect(wrapper.text()).toContain('Before')
+        expect(wrapper.text()).toContain('After')
+        expect(wrapper.props('content')).toBe(content)
+    })
+
     it('renders normal editor html through the sanitized rich content path', () => {
         const wrapper = mount(PostContentView, {
             props: {

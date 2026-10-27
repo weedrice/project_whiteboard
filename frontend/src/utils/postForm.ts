@@ -1,4 +1,4 @@
-import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { normalizeEditorFileImagePreviewSources, normalizeEditorFileImageUrls, normalizeLegacyFileUrls, queryPostFileElements, serializePostFileDocument } from '@/utils/fileUrl'
 import { getWindowOrigin } from '@/utils/browserEnv'
 import { withServerOffset } from '@/utils/date'
 import {
@@ -151,7 +151,7 @@ function collectPostFileIdsFromContent(content: string, includeEmoticonReference
     const expandedContent = expandSandboxedPostHtml(content) ?? content
     const doc = parser.parseFromString(expandedContent, 'text/html')
 
-    doc.querySelectorAll('img[src]').forEach((image) => {
+    queryPostFileElements(doc, 'img[src]').forEach((image) => {
         // The editor marker separates an existing emoticon asset from uploads.
         // The server remains responsible for validating the actual file reference.
         if (!includeEmoticonReferences && (
@@ -174,7 +174,7 @@ function collectPostFileIdsFromContent(content: string, includeEmoticonReference
         }
     })
 
-    doc.querySelectorAll('a[href]').forEach((link) => {
+    queryPostFileElements(doc, 'a[href]').forEach((link) => {
         const fileId = extractFileIdFromPostImageSrc(link.getAttribute('href') ?? '')
         if (fileId != null) {
             fileIds.add(fileId)
@@ -200,7 +200,7 @@ function removePostFileReferencesFromHtml(content: string, fileIds: number[]): s
     const doc = parser.parseFromString(content, 'text/html')
     let changed = false
 
-    doc.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+    queryPostFileElements<HTMLImageElement>(doc, 'img').forEach((image) => {
         const dataFileId = image.getAttribute('data-file-id')
         const candidateIds = [
             dataFileId && /^\d+$/.test(dataFileId) ? Number(dataFileId) : null,
@@ -212,14 +212,15 @@ function removePostFileReferencesFromHtml(content: string, fileIds: number[]): s
         changed = true
     })
 
-    doc.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+    queryPostFileElements<HTMLAnchorElement>(doc, 'a[href]').forEach((link) => {
         const fileId = extractFileIdFromPostImageSrc(link.getAttribute('href') ?? '')
         if (fileId == null || !removedFileIds.has(fileId)) return
         link.replaceWith(...Array.from(link.childNodes))
         changed = true
     })
 
-    return changed ? doc.body.innerHTML : content
+    if (!changed) return content
+    return serializePostFileDocument(doc, content)
 }
 
 export function resolvePostFormFileIds(
@@ -248,7 +249,7 @@ export function buildPostFormPayload({
     includePoll,
 }: BuildPostFormPayloadOptions) {
     const normalizedContents = requiresPreservedPostHtml(form.content)
-        ? normalizeLegacyFileUrls(form.content)
+        ? normalizeLegacyFileUrls(normalizeEditorFileImagePreviewSources(form.content))
         : normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.content))
     const contents = encodeSandboxedPostHtml(normalizedContents)
     const parsedCategoryId = typeof form.categoryId === 'string'

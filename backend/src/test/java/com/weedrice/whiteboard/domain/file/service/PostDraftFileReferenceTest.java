@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostDraftCleanupService;
 import com.weedrice.whiteboard.domain.post.service.PostDraftCleanupBatchService;
 import com.weedrice.whiteboard.domain.post.service.PostDraftService;
+import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
@@ -31,6 +32,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +51,118 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PostDraftFileReferenceTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "https://noviis.kr", "https://NOVIIS.kr:443", "//noviis.kr"})
+    void staleViewportFilesAreRemovedAndTheReconciledDraftCanBeSavedAgain(String origin) {
+        File attachment = file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        File original = file(11L, owner, 50L, FileService.RELATED_TYPE_POST_CONTENT);
+        String source = "<template data-noviis-layer=\"viewport\"><img src=\"" + origin + "/api/v1/files/12\">"
+                + "<img src=\"" + origin + "/api/v1/files/99\"></template>"
+                + "<img src=\"" + origin + "/api/v1/files/11\">"
+                + "<a href=\"" + origin + "/api/v1/files/99\">Attachment label</a>";
+
+        DraftResponse saved = draftService.saveDraftPost(1L, editRequest(preservedHtml(source), List.of(12L, 99L)));
+
+        assertThat(saved.getFileIds()).containsExactly(12L);
+        assertThat(saved.isStaleReferencesReset()).isTrue();
+        String reconciled = PostContentCodec.expandPreservedHtml(saved.getContents());
+        assertThat(reconciled).contains(origin + "/api/v1/files/12", origin + "/api/v1/files/11", "Attachment label")
+                .doesNotContain("/api/v1/files/99", "<a ");
+        PostDraftRequest retry = PostDraftRequest.builder()
+                .draftId(saved.getDraftId()).version(saved.getVersion()).boardUrl("free").originalPostId(50L)
+                .title("Changed title").contents(saved.getContents()).fileIds(saved.getFileIds()).build();
+
+        DraftResponse resaved = draftService.saveDraftPost(1L, retry);
+
+        assertThat(resaved.isStaleReferencesReset()).isFalse();
+        assertThat(resaved.getContents()).isEqualTo(saved.getContents());
+        assertThat(resaved.getFileIds()).containsExactly(12L);
+        assertThat(attachment.isAssociatedWith(10L, FileService.RELATED_TYPE_DRAFT_POST)).isTrue();
+        assertThat(original.isAssociatedWith(50L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
+        assertThat(original.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
+    @Test
+    void staleAbsoluteViewportReferenceIsDetectedWithoutARequestedFileId() {
+        String source = "<template data-noviis-layer=\"viewport\"><img src=\"https://noviis.kr/api/v1/files/99\"></template>";
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(preservedHtml(source), List.of()));
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        assertThat(PostContentCodec.expandPreservedHtml(response.getContents())).doesNotContain("/api/v1/files/99");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://example.com", "http://noviis.kr", "https://noviis.kr:8443", "https://user@noviis.kr"})
+    void draftReconciliationDoesNotTreatOtherOriginsOrUserInfoAsLocalFiles(String origin) {
+        String source = "<template data-noviis-layer=\"viewport\"><img src=\"" + origin + "/api/v1/files/99\"></template>";
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(preservedHtml(source), List.of(99L)));
+        assertThat(response.getFileIds()).isEmpty();
+        assertThat(PostContentCodec.expandPreservedHtml(response.getContents())).isEqualTo(source);
+    }
+
+    @Test
+    void draftReferenceResolutionUsesTheConfiguredFrontendOrigin() {
+        ReflectionTestUtils.setField(draftService, "frontendOrigin", java.net.URI.create("https://staging.noviis.kr:8443"));
+        String source = "<template data-noviis-layer=\"viewport\">"
+                + "<img src=\"https://staging.noviis.kr:8443/api/v1/files/99\">"
+                + "<img src=\"https://noviis.kr/api/v1/files/99\"></template>";
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(preservedHtml(source), List.of()));
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        assertThat(PostContentCodec.expandPreservedHtml(response.getContents()))
+                .doesNotContain("https://staging.noviis.kr:8443/api/v1/files/99")
+                .contains("https://noviis.kr/api/v1/files/99");
+    }
+
+    @Test
+    void preservedViewportUploadsKeepValidFilesAndRemoveRejectedReferences() {
+        file(12L, owner, 10L, FileService.RELATED_TYPE_DRAFT_POST);
+        String source = "<!doctype html><html><head><style>.spark{color:red}</style></head><body>"
+                + "<template data-noviis-layer=\"viewport\"><img src=\"/api/v1/files/12\">"
+                + "<img src=\"/api/v1/files/99\"></template><p>Visible</p></body></html>";
+        String marker = "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8)) + "\"></div>";
+
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(marker, List.of(12L, 99L)));
+
+        assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        assertThat(response.getContents()).contains("noviis-sandboxed-post-html").doesNotContain("<template");
+        assertThat(PostContentCodec.expandPreservedHtml(response.getContents()))
+                .contains("/api/v1/files/12", "data-noviis-layer=\"viewport\"", ".spark{color:red}", "Visible")
+                .doesNotContain("/api/v1/files/99");
+    }
+
+    @Test
+    void draftReconciliationDoesNotTurnDocumentLikeCaptionTextIntoAFullDocument() {
+        String source = "<!-- <html> --><p data-caption=\"<html>\">Visible</p>"
+                + "<template data-noviis-layer=\"viewport\"><img src=\"/api/v1/files/99\"></template>";
+        String marker = preservedHtml(source);
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(marker, List.of(99L)));
+        String reconciled = PostContentCodec.expandPreservedHtml(response.getContents());
+        assertThat(reconciled)
+                .contains("Visible", "<!-- <html> -->")
+                .doesNotContain("<html><head>")
+                .doesNotContain("/api/v1/files/99");
+        assertThat(org.jsoup.Jsoup.parse(reconciled).selectFirst("p").attr("data-caption"))
+                .isEqualTo("<html>");
+    }
+
+    @Test
+    void draftReferencesIgnoreUnsupportedInertTemplates() {
+        String source = "<p>Visible</p><template><img src=\"/api/v1/files/98\"></template>"
+                + "<template data-noviis-layer=\"viewport\"><p>Decoration</p>"
+                + "<form><img src=\"/api/v1/files/97\"></form><a href=\"/api/v1/files/96\">Ignored attachment</a>"
+                + "<template><img src=\"/api/v1/files/99\"></template></template>";
+        DraftResponse response = draftService.saveDraftPost(1L, editRequest(preservedHtml(source), List.of()));
+        assertThat(response.getFileIds()).isEmpty();
+        assertThat(response.isStaleReferencesReset()).isFalse();
+        assertThat(PostContentCodec.expandPreservedHtml(response.getContents())).isEqualTo(source);
+    }
+
+    private static String preservedHtml(String source) {
+        return "<div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8)) + "\"></div>";
+    }
+
     private final FileRepository fileRepository = mock(FileRepository.class);
     private final DraftPostRepository draftRepository = mock(DraftPostRepository.class);
     private final BoardRepository boardRepository = mock(BoardRepository.class);

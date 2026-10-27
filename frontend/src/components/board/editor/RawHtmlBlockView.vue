@@ -4,10 +4,12 @@ import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { Code2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
+import { preparePostHtmlDisplay } from '@/utils/postHtmlDisplay'
 
 const props = defineProps<NodeViewProps>()
 const { t } = useI18n()
 const html = computed(() => String(props.node.attrs.html ?? ''))
+const display = computed(() => preparePostHtmlDisplay(html.value))
 const descriptionId = `raw-html-block-description-${useId()}`
 </script>
 
@@ -30,9 +32,12 @@ const descriptionId = `raw-html-block-description-${useId()}`
         <p :id="descriptionId">{{ t('board.writePost.rawHtmlBlock.description') }}</p>
       </div>
     </div>
-    <div class="raw-html-block__preview" contenteditable="false">
+    <p v-if="display.hasViewport" class="raw-html-block__notice" contenteditable="false">
+      {{ t('board.writePost.viewportHtmlHelp.visualNotice') }}
+    </p>
+    <div v-if="!display.empty" class="raw-html-block__preview" contenteditable="false">
       <SandboxedHtmlFrame
-        :html="html"
+        :html="display.html"
         :title="t('board.writePost.rawHtmlBlock.previewTitle')"
         :min-height="320"
         loading="lazy"
@@ -83,6 +88,13 @@ const descriptionId = `raw-html-block-description-${useId()}`
   max-height: min(52vh, 34rem);
   overflow: auto;
   padding: 0.75rem;
+}
+
+.raw-html-block__notice {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: var(--text-compact);
+  color: var(--nv-ink-soft);
 }
 
 .raw-html-block.ProseMirror-selectednode {

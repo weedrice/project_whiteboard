@@ -3,6 +3,17 @@ import { boardWritePostMessages } from './writePost'
 
 export const boardEnWritePostMessages: BoardMessages['writePost'] = {
   ...boardWritePostMessages,
+    viewportHtmlHelp: {
+      title: 'Create a screen effect with HTML',
+      description: 'Copy the example into the HTML body, then customize its CSS and decoration. Each post supports one screen effect. Scripts, inputs, links, and videos are not enabled.',
+      images: 'Upload an image in the visual editor first, then move its img tag into the decoration area. External image URLs and CSS background image URLs are not supported.',
+      example: 'Screen effect HTML example',
+      copy: 'Copy example',
+      copied: 'Example copied.',
+      copyFailed: 'Could not copy. Select and copy the example manually.',
+      playback: 'Choose Play effect in the preview to try it. Visitors can play it for up to 30 seconds. Effects are disabled when reduced motion is enabled.',
+      visualNotice: 'This block includes a screen decoration. Edit it in HTML mode and play it in the post preview.',
+    },
     createTitle: 'Write post',
     editTitle: 'Edit post',
     editScheduledTitle: 'Edit scheduled post',

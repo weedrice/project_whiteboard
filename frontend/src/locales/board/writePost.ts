@@ -1,6 +1,17 @@
 import type { BoardMessages } from '../types'
 
 export const boardWritePostMessages: BoardMessages['writePost'] = {
+    viewportHtmlHelp: {
+      title: 'HTML로 화면 효과 만들기',
+      description: '아래 예시를 복사해 HTML 본문에 붙여 넣은 뒤 CSS와 장식을 바꿔 보세요. 화면 효과는 글당 하나만 지원하며, 스크립트·입력·링크·동영상은 실행되지 않습니다.',
+      images: '이미지는 먼저 일반 편집기에서 업로드한 뒤 해당 img 태그를 장식 영역으로 옮기세요. 외부 이미지 주소와 CSS 배경 이미지 주소는 지원하지 않습니다.',
+      example: '화면 효과 HTML 예시',
+      copy: '예시 복사',
+      copied: '예시를 복사했습니다.',
+      copyFailed: '복사하지 못했습니다. 예시를 직접 선택해 복사해 주세요.',
+      playback: '미리보기에서 효과 재생을 눌러 확인할 수 있습니다. 방문자가 재생하면 최대 30초 동안 표시되며, 모션 감소 설정에서는 재생하지 않습니다.',
+      visualNotice: '전체 화면 장식이 포함되어 있습니다. HTML 모드에서 수정하고 게시글 미리보기에서 재생해 보세요.',
+    },
     createTitle: '글 작성',
     editTitle: '게시글 수정',
     editScheduledTitle: '예약글 수정',

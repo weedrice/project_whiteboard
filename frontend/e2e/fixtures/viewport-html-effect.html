@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { min-height: 200vh; }
+      main { padding: 20px; }
+      .fixture-controls { display: flex; flex-wrap: wrap; gap: 12px; }
+      #underneath { position: fixed; left: 20px; bottom: 20px; }
+      #host-nav { position: fixed; top: 0; right: 0; z-index: var(--nv-z-nav); background: white; }
+      #host-modal { position: fixed; inset: 25%; z-index: var(--nv-z-overlay); background: white; border: 2px solid black; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, defineComponent, h, ref } from 'vue'
+      import { createPinia } from 'pinia'
+      import { configureApiStoreResolvers } from '../../src/api'
+      import { useAuthStore } from '../../src/stores/auth'
+      import { configureAuthQueryScope, notifyAuthSessionBoundary } from '../../src/queryAuthScope'
+      import PostViewportEffect from '../../src/components/board/PostViewportEffect.vue'
+      import PostContentView from '../../src/components/board/PostContentView.vue'
+      import i18n from '../../src/i18n'
+      import '../../src/style.css'
+      import '../../src/styles/foundation.css'
+      import '../../src/styles/components.css'
+      const pinia = createPinia()
+      const auth = useAuthStore(pinia)
+      auth.sessionGeneration = 1
+      auth.user = { userId: 10 }
+      configureAuthQueryScope(() => auth.sessionGeneration, () => auth.user?.userId ?? null)
+      configureApiStoreResolvers({ resolveAuthStore: () => auth })
+      const mode = new URLSearchParams(location.search).get('mode')
+      const image = mode === 'image'
+      const inner = '<style>@keyframes falling{from{transform:translateY(0)}to{transform:translateY(60px)}}.petal{position:fixed;inset:0;background:rgba(0,150,255,.15)}#moving{width:40px;height:40px;background:red;animation:falling 1s infinite alternate}</style>'
+        + '<div class="petal"><div id="moving">꽃</div></div>'
+        + '<a id="inner-link" href="https://invalid.test" tabindex="0">untrusted link</a><input autofocus>'
+        + '<scr' + 'ipt>window.parent.__viewportScriptRan=true</scr' + 'ipt>'
+        + (image ? '<img id="animated-upload" src="/api/v1/files/9901" data-file-id="9901" style="position:fixed;right:20px;top:100px;width:40px;height:40px">' : '')
+      const unsafeCss = '<style>.x{background-image:url("data:image/svg+xml,%3Csvg%3E%3C/svg%3E"),url("/forbidden-decoration.png")}</style><div class="x">unsafe asset</div>'
+      const quotedCommentCss = '<style>.x{--a:"/*";background-image:url("data:image/svg+xml,%3Csvg%3E%3C/svg%3E"),url("/forbidden-decoration.png");--b:"*/"}</style><div class="x">unsafe asset</div>'
+      const tooManyImages = '<img src="/api/v1/files/9901" data-file-id="9901">'.repeat(9)
+      const unsupportedImage = '<img src="https://invalid.test/unapproved.webp">'
+      const effectHtml = mode === 'css-url' ? unsafeCss
+        : mode === 'css-comment' ? quotedCommentCss
+        : mode === 'too-many-images' ? tooManyImages
+        : mode === 'unsupported-image' ? unsupportedImage : inner
+      const declaration = '<template data-noviis-layer="viewport">' + effectHtml + '</template>'
+      const initialContent = (mode === 'blank' ? '' : '<p>Article</p>') + declaration.repeat(mode === 'duplicate' ? 2 : 1)
+      const fixture = defineComponent({
+        setup() {
+          const content = ref(initialContent)
+          const enabled = ref(true)
+          const clicks = ref(0)
+          const modal = ref(false)
+          return () => h('main', [
+            h('div', { class: 'fixture-controls' }, [
+              h('button', { id: 'change-content', onClick: () => { content.value = initialContent + '<p>changed</p>' } }, 'Change article'),
+              h('button', { id: 'disable', onClick: () => { enabled.value = false } }, 'Revoke visibility'),
+              h('button', { id: 'session', onClick: () => {
+                auth.sessionGeneration += 1
+                auth.user = { userId: 20 }
+                notifyAuthSessionBoundary(auth.sessionGeneration)
+              } }, 'Switch session'),
+              h('button', { id: 'show-modal', onClick: () => { modal.value = true } }, 'Open modal'),
+            ]),
+            h(PostViewportEffect, { content: content.value, enabled: enabled.value }),
+            mode === 'blank' ? h('article', { id: 'post-content' }, [h(PostContentView, { content: content.value })]) : null,
+            h('button', { id: 'underneath', onClick: () => { clicks.value += 1 } }, 'Underlying button'),
+            h('output', { id: 'click-count' }, String(clicks.value)),
+            h('button', { id: 'host-nav', onClick: () => { clicks.value += 1 } }, 'Navigation'),
+            modal.value ? h('div', { id: 'host-modal', role: 'dialog' }, [
+              h('button', { id: 'close-modal', onClick: () => { modal.value = false } }, 'Close modal'),
+            ]) : null,
+          ])
+        },
+      })
+      createApp(fixture).use(pinia).use(i18n).mount('#app')
+    </script>
+  </body>
+</html>
