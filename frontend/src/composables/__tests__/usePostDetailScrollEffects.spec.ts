@@ -146,6 +146,51 @@ describe('usePostDetailScrollEffects', () => {
     expect(usePostDetailKeyboardShortcuts).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves the reveal and countdown when the same spoiler post is refreshed', async () => {
+    const post = ref<Post | undefined>(makePost({ isSpoiler: true }))
+    const state = mountScrollEffects({ post })
+    await nextTick()
+
+    state.timeLeft.value = 2
+    post.value = makePost({ isSpoiler: true, likeCount: 2, liked: true })
+    await nextTick()
+    expect(state.timeLeft.value).toBe(2)
+    expect(state.startBlurTimer).toHaveBeenCalledTimes(1)
+
+    state.isBlurred.value = false
+    state.timeLeft.value = 0
+    post.value = makePost({ isSpoiler: true, likeCount: 2, liked: true, scrapped: true })
+    await nextTick()
+    expect(state.isBlurred.value).toBe(false)
+    expect(state.timeLeft.value).toBe(0)
+    expect(state.startBlurTimer).toHaveBeenCalledTimes(1)
+    state.wrapper.unmount()
+  })
+
+  it('resets spoiler protection for another post or a changed spoiler flag', async () => {
+    const post = ref<Post | undefined>(makePost({ isSpoiler: true }))
+    const state = mountScrollEffects({ post })
+    await nextTick()
+    state.isBlurred.value = false
+
+    post.value = makePost({ postId: 2, isSpoiler: true })
+    await nextTick()
+    expect(state.isBlurred.value).toBe(true)
+    expect(state.timeLeft.value).toBe(5)
+    expect(state.startBlurTimer).toHaveBeenCalledTimes(2)
+
+    post.value.isSpoiler = false
+    await nextTick()
+    expect(state.isBlurred.value).toBe(false)
+    expect(state.clearBlurTimer).toHaveBeenCalled()
+
+    post.value.isSpoiler = true
+    await nextTick()
+    expect(state.isBlurred.value).toBe(true)
+    expect(state.startBlurTimer).toHaveBeenCalledTimes(3)
+    state.wrapper.unmount()
+  })
+
   it('clears spoiler timer state when a normal post replaces a spoiler post', async () => {
     const post = ref<Post | undefined>(makePost({ isSpoiler: true }))
     const state = mountScrollEffects({ post })
