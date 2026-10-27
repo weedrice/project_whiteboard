@@ -93,8 +93,8 @@ class PurchaseHistoryTest {
         }
 
         @Test
-        @DisplayName("구매 당시 표시 정보는 이후 상품 수정과 독립적이다")
-        void purchasedPresentation_isSnapshot() {
+        @DisplayName("구매 당시 이름·유형은 유지하고 이미지는 최신 상품을 따른다")
+        void purchasedPresentation_preservesIdentityAndRefreshesImage() {
             PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                     .user(user)
                     .item(emoticonItem)
@@ -106,12 +106,13 @@ class PurchaseHistoryTest {
             assertThat(purchaseHistory.getPurchasedItemName()).isEqualTo("프리미엄 이모티콘");
             assertThat(purchaseHistory.getPurchasedItemType()).isEqualTo("EMOTICON");
             assertThat(purchaseHistory.getPurchasedImageUrl())
-                    .isEqualTo("https://example.com/emoticon.png");
+                    .isEqualTo("https://example.com/changed.png");
+            assertThat(purchaseHistory.getPurchasedPrice()).isEqualTo(100);
         }
 
         @Test
-        @DisplayName("구매 당시 이미지가 없으면 null도 유효한 스냅샷으로 유지한다")
-        void purchasedPresentation_preservesNullImageSnapshot() {
+        @DisplayName("구매 당시 이미지가 없어도 이후 추가된 상품 이미지를 표시한다")
+        void purchasedPresentation_showsImageAddedAfterPurchase() {
             ShopItem itemWithoutImage = ShopItem.builder()
                     .itemName("이미지 없는 상품")
                     .price(100)
@@ -127,7 +128,8 @@ class PurchaseHistoryTest {
             itemWithoutImage.updatePresentation("변경된 이름", "https://example.com/new-image.png");
 
             assertThat(purchaseHistory.getPurchasedItemName()).isEqualTo("이미지 없는 상품");
-            assertThat(purchaseHistory.getPurchasedImageUrl()).isNull();
+            assertThat(purchaseHistory.getPurchasedImageUrl())
+                    .isEqualTo("https://example.com/new-image.png");
         }
 
         @Test

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.shop.repository;
 
+import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
 import com.weedrice.whiteboard.domain.shop.entity.PurchaseHistory;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -7,6 +8,9 @@ import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
@@ -70,6 +74,37 @@ class PurchaseHistoryRepositoryTest {
         assertThat(result.getContent())
                 .extracting(PurchaseHistory::getPurchaseId)
                 .containsExactly(second.getPurchaseId(), first.getPurchaseId());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = { "/api/v1/files/20" })
+    @DisplayName("기존 구매 이력 응답은 썸네일 교체·제거를 반영하고 구매 당시 이름·유형·가격을 유지한다")
+    void existingPurchaseResponse_usesCurrentThumbnail(String currentImageUrl) {
+        PurchaseHistory purchase = persistPurchaseHistory(75);
+        Long purchaseId = purchase.getPurchaseId();
+        Long itemId = item.getItemId();
+        Long userId = user.getUserId();
+        entityManager.flush();
+        entityManager.clear();
+
+        ShopItem managedItem = entityManager.find(ShopItem.class, itemId);
+        managedItem.updatePresentation("Renamed item", currentImageUrl);
+        managedItem.suspendSale();
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<PurchaseHistory> page = purchaseHistoryRepository
+                .findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(userId, PageRequest.of(0, 10));
+        // The old snapshot may remain in storage; it must not override the current thumbnail.
+        assertThat(page.getContent().getFirst().getImageUrlSnapshot())
+                .isEqualTo("https://example.com/item.png");
+        PurchaseHistoryResponse.PurchaseSummary response = PurchaseHistoryResponse.from(page).getContent().getFirst();
+        assertThat(response.getPurchaseId()).isEqualTo(purchaseId);
+        assertThat(response.getItem().getImageUrl()).isEqualTo(currentImageUrl);
+        assertThat(response.getItem().getItemName()).isEqualTo("Premium item");
+        assertThat(response.getItem().getItemType()).isEqualTo("EMOTICON");
+        assertThat(response.getPrice()).isEqualTo(75);
     }
 
     private PurchaseHistory persistPurchaseHistory(int purchasedPrice) {

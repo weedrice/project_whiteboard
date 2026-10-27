@@ -682,7 +682,7 @@ class ShopServiceTest {
     }
 
     @Test
-    @DisplayName("Purchase histories include the purchased item image URL")
+    @DisplayName("Purchase histories use the latest item image and preserve purchase identity")
     void getPurchaseHistories_mapsItemImageUrl() {
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                 .user(user)
@@ -702,7 +702,7 @@ class ShopServiceTest {
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getItem().getImageUrl())
-                .isEqualTo("https://example.com/emoticon.png");
+                .isEqualTo("https://example.com/changed.png");
         assertThat(response.getContent().get(0).getItem().getItemName()).isEqualTo("Premium emoticon");
         assertThat(response.getContent().get(0).getItem().getItemType()).isEqualTo("EMOTICON");
     }
