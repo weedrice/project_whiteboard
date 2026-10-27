@@ -1,87 +1,250 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
-import type { Editor } from '@tiptap/core'
-import { usePostEditorUploadedImages } from '@/features/board/posts/editor/usePostEditorUploadedImages'
+import { flushPromises } from '@vue/test-utils'
+import { Editor } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
+import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { usePostEditorUploadedImages, type UploadedEditorImage } from '@/features/board/posts/editor/usePostEditorUploadedImages'
+import { useEditorImageUploadQueue } from '@/composables/useEditorImageUploadQueue'
+import { createDeferred } from '@/test/async'
 
-const createEditorRef = () => {
-    const chain = {
-        focus: vi.fn(),
-        insertContent: vi.fn(),
-        run: vi.fn(),
-    }
-    chain.focus.mockReturnValue(chain)
-    chain.insertContent.mockReturnValue(chain)
-    chain.run.mockReturnValue(true)
+const file = () => new File(['image'], 'preview.png', { type: 'image/png' })
 
-    const editor = {
-        chain: vi.fn(() => chain),
-        state: {
-            selection: { from: 0, to: 0 },
+describe('post editor uploads with transaction-mapped anchors', () => {
+  let editor: Editor
+  let editorRef: ReturnType<typeof shallowRef<Editor | undefined>>
+  let scope: ReturnType<typeof effectScope>
+  let images: ReturnType<typeof usePostEditorUploadedImages>
+  let queue: ReturnType<typeof useEditorImageUploadQueue<UploadedEditorImage>>
+  let requests: ReturnType<typeof createDeferred<UploadedEditorImage>>[]
+  const emitFileUploaded = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(blob => `blob:preview-${(blob as File).name}`)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    editor = new Editor({ extensions: createPostEditorExtensions(), content: '<p>start KEEP end</p>' })
+    editorRef = shallowRef(editor)
+    requests = []
+    scope = effectScope()
+    scope.run(() => {
+      images = usePostEditorUploadedImages(editorRef, emitFileUploaded)
+      queue = useEditorImageUploadQueue<UploadedEditorImage>({
+        validate: () => null,
+        upload: () => {
+          const request = createDeferred<UploadedEditorImage>()
+          requests.push(request)
+          return request.promise
         },
-    }
-
-    return {
-        chain,
-        editorRef: shallowRef<Editor | undefined>(editor as unknown as Editor),
-    }
-}
-
-describe('usePostEditorUploadedImages', () => {
-    beforeEach(() => {
-        vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:https://noviis.kr/preview"unsafe')
-        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+        isAbort: () => false,
+        onUploaded: images.insertUploadedImage,
+        onItemReleased: images.releaseUploadAnchor,
+      })
     })
+  })
 
-    afterEach(() => {
-        vi.restoreAllMocks()
-    })
+  afterEach(() => {
+    queue.dispose()
+    scope.stop()
+    editorRef.value?.destroy()
+    if (!editor.isDestroyed) editor.destroy()
+    vi.restoreAllMocks()
+  })
 
-    it('tracks uploaded file ids and inserts escaped preview image html', () => {
-        const { chain, editorRef } = createEditorRef()
-        const emitFileUploaded = vi.fn()
-        const { fileIds, insertUploadedImage } = usePostEditorUploadedImages(editorRef, emitFileUploaded)
-        const file = new File(['image'], 'preview.png', { type: 'image/png' })
+  function enqueue(files = [file()], dropEvent?: DragEvent) {
+    images.enqueueImageFiles(queue, files, dropEvent)
+  }
+  async function finish(index = 0, fileId = index + 1) {
+    requests[index]!.resolve({ url: `/api/v1/files/${fileId}`, fileId })
+    await flushPromises()
+  }
+  function imageIds() {
+    const ids: number[] = []
+    editor.state.doc.descendants(node => { if (node.type.name === 'image') ids.push(node.attrs.fileId) })
+    return ids
+  }
 
-        insertUploadedImage({ url: 'https://cdn.test/image"unsafe.png', fileId: 42 }, file)
+  it('keeps text selected during a pending upload and inserts at the original caret without taking focus', async () => {
+    editor.commands.setTextSelection(1)
+    enqueue()
+    editor.commands.setTextSelection({ from: 7, to: 11 })
+    const input = document.body.appendChild(document.createElement('input'))
+    input.focus()
+    await finish()
 
-        expect(fileIds.value).toEqual([42])
-        expect(emitFileUploaded).toHaveBeenCalledWith(42)
-        expect(URL.createObjectURL).toHaveBeenCalledWith(file)
-        expect(chain.insertContent).toHaveBeenCalledWith(
-            '<img src="blob:https://noviis.kr/preview&quot;unsafe" data-file-id="42" data-server-src="https://cdn.test/image&quot;unsafe.png">',
-        )
-    })
+    expect(editor.getText()).toBe('start KEEP end')
+    expect(editor.state.doc.firstChild?.firstChild?.type.name).toBe('image')
+    const { from, to } = editor.state.selection
+    expect(editor.state.doc.textBetween(from, to)).toBe('KEEP')
+    expect(document.activeElement).toBe(input)
+    expect(images.fileIds.value).toEqual([1])
+    input.remove()
+  })
 
-    it('supports uploads without file ids and revokes all preview urls on dispose', () => {
-        const { chain, editorRef } = createEditorRef()
-        const emitFileUploaded = vi.fn()
-        const { fileIds, insertUploadedImage, disposeUploadedImagePreviews } = usePostEditorUploadedImages(editorRef, emitFileUploaded)
-        vi.mocked(URL.createObjectURL)
-            .mockReturnValueOnce('blob:https://noviis.kr/one')
-            .mockReturnValueOnce('blob:https://noviis.kr/two')
+  it('maps the anchor through edits before it and gives image insertion its own undo step', async () => {
+    editor.commands.setTextSelection(7)
+    enqueue()
+    editor.commands.insertContentAt(1, 'NEW ')
+    await finish()
 
-        insertUploadedImage({ url: 'https://cdn.test/no-id.png' }, new File(['one'], 'one.png', { type: 'image/png' }))
-        insertUploadedImage({ url: 'https://cdn.test/with-id.png', fileId: 7 }, new File(['two'], 'two.png', { type: 'image/png' }))
-        disposeUploadedImagePreviews()
+    expect(editor.getText()).toBe('NEW start KEEP end')
+    expect(editor.getHTML()).toMatch(/NEW start <img[^>]*>KEEP end/)
+    editor.commands.undo()
+    expect(editor.getText()).toBe('NEW start KEEP end')
+    expect(imageIds()).toEqual([])
+    editor.commands.undo()
+    expect(editor.getText()).toBe('start KEEP end')
+  })
 
-        expect(fileIds.value).toEqual([7])
-        expect(emitFileUploaded).toHaveBeenCalledTimes(1)
-        expect(chain.insertContent.mock.calls[0][0]).not.toContain('data-file-id')
-        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/one')
-        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/two')
-    })
+  it('uses the drop coordinates instead of the current selection', async () => {
+    editor.commands.setTextSelection({ from: 1, to: 6 })
+    const coords = vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 7, inside: 0 })
+    enqueue([file()], { clientX: 120, clientY: 240 } as DragEvent)
+    await finish()
 
-    it('revokes preview urls when the owning effect scope is disposed', () => {
-        const scope = effectScope()
-        const { editorRef } = createEditorRef()
+    expect(coords).toHaveBeenCalledWith({ left: 120, top: 240 })
+    expect(editor.getHTML()).toMatch(/start <img[^>]*>KEEP end/)
+    expect(editor.getText()).toBe('start KEEP end')
+  })
 
-        scope.run(() => {
-            const { insertUploadedImage } = usePostEditorUploadedImages(editorRef, vi.fn())
-            insertUploadedImage({ url: 'https://cdn.test/scoped.png' }, new File(['scoped'], 'scoped.png', { type: 'image/png' }))
-        })
+  it('keeps batch order when an earlier failed file is retried after a later image was inserted', async () => {
+    const sameFile = file()
+    editor.commands.setTextSelection(1)
+    enqueue([sameFile, sameFile])
+    requests[0]!.reject(new Error('offline'))
+    await flushPromises()
+    const failedId = queue.failedItems.value[0]!.id
+    await finish(1, 2)
+    editor.commands.setTextSelection({ from: 8, to: 12 })
+    expect(queue.retryItem(failedId)).toBe(true)
+    await finish(2, 1)
 
-        scope.stop()
+    expect(imageIds()).toEqual([1, 2])
+    expect(editor.getText()).toBe('start KEEP end')
+    const { from, to } = editor.state.selection
+    expect(editor.state.doc.textBetween(from, to)).toBe('KEEP')
+  })
 
-        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/preview"unsafe')
-    })
+  it('maps every queued file while earlier uploads complete and the user continues typing', async () => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file(), file()])
+    await finish(0, 1)
+    editor.commands.insertContentAt(2, 'NEW ')
+    await finish(1, 2)
+    await finish(2, 3)
+
+    expect(imageIds()).toEqual([1, 2, 3])
+    expect(editor.getText()).toBe('NEW start KEEP end')
+  })
+
+  it.each(['delete', 'replace-document'] as const)('discards an anchor removed by %s without inserting at the new caret', async operation => {
+    editor.commands.setTextSelection(7)
+    enqueue()
+    if (operation === 'delete') editor.commands.deleteRange({ from: 1, to: 11 })
+    else editor.commands.setContent('<p>another document</p>')
+    const remainingText = editor.getText()
+    await finish()
+
+    expect(editor.getText()).toBe(remainingText)
+    expect(imageIds()).toEqual([])
+    // The form still owns the unused upload and can discard it on teardown.
+    expect(emitFileUploaded).toHaveBeenCalledWith(1)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it.each(['cancel', 'clear', 'dispose'] as const)('does not insert canceled uploads after %s', async action => {
+    editor.commands.setTextSelection(1)
+    enqueue([file(), file()])
+    queue[action]()
+    await finish()
+
+    expect(imageIds()).toEqual([])
+    expect(requests).toHaveLength(1)
+    expect(editor.getText()).toBe('start KEEP end')
+    expect(images.insertUploadedImage({ url: '/late.png' }, file(), 1)).toBe(false)
+  })
+
+  it('removes failed anchors when dismissed', async () => {
+    enqueue()
+    requests[0]!.reject(new Error('offline'))
+    await flushPromises()
+    const failedId = queue.failedItems.value[0]!.id
+    queue.dismissItem(failedId)
+
+    expect(images.insertUploadedImage({ url: '/late.png' }, file(), failedId)).toBe(false)
+    expect(imageIds()).toEqual([])
+  })
+
+  it('drops anchors when the editor instance changes', async () => {
+    enqueue()
+    editorRef.value = new Editor({ extensions: createPostEditorExtensions(), content: '<p>replacement</p>' })
+    await finish()
+
+    expect(editor.getText()).toBe('start KEEP end')
+    expect(editorRef.value.getText()).toBe('replacement')
+    expect(editorRef.value.getHTML()).not.toContain('<img')
+  })
+
+  it('ignores completion after editor destruction', async () => {
+    enqueue()
+    editor.destroy()
+    await finish()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('serializes unsafe-looking URL attributes safely and releases preview URLs on scope disposal', async () => {
+    vi.mocked(URL.createObjectURL).mockReturnValue('blob:preview"unsafe')
+    enqueue()
+    requests[0]!.resolve({ url: 'https://cdn.test/image"unsafe.png', fileId: 42 })
+    await flushPromises()
+
+    expect(images.fileIds.value).toEqual([42])
+    expect(editor.getHTML()).toContain('data-server-src="https://cdn.test/image&quot;unsafe.png"')
+    expect(editor.state.doc.firstChild?.firstChild?.attrs.src).toBe('blob:preview"unsafe')
+    scope.stop()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview"unsafe')
+  })
+
+  it('inserts after the selected raw HTML block without changing a later node selection', async () => {
+    editor.commands.setContent(encodeSandboxedPostHtml('<div>Raw HTML</div>') + '<p>KEEP</p>')
+    editor.commands.setNodeSelection(0)
+    enqueue()
+    editor.commands.setNodeSelection(0)
+    await finish()
+    expect(editor.state.doc.firstChild?.type.name).toBe('rawHtmlBlock')
+    expect(editor.state.doc.child(1).firstChild?.type.name).toBe('image')
+    expect(editor.state.doc.textContent).toContain('KEEP')
+    expect(editor.state.selection.from).toBe(0)
+    expect(editor.state.selection.to).toBe(1)
+  })
+
+  it('does not insert when the editor becomes read-only while uploading', async () => {
+    enqueue()
+    editor.setEditable(false)
+    await finish()
+    expect(editor.getText()).toBe('start KEEP end')
+    expect(imageIds()).toEqual([])
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('releases the preview if a plugin rejects the insertion transaction', async () => {
+    enqueue()
+    editor.registerPlugin(new Plugin({ filterTransaction: transaction => !transaction.docChanged }))
+    await finish()
+    expect(imageIds()).toEqual([])
+    expect(editor.getText()).toBe('start KEEP end')
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview-preview.png')
+    expect(images.insertUploadedImage({ url: '/late.png' }, file(), 1)).toBe(false)
+  })
+
+  it('supports a successful upload without a file id', async () => {
+    enqueue()
+    requests[0]!.resolve({ url: '/no-id.png' })
+    await flushPromises()
+    expect(editor.getHTML()).toContain('data-server-src="/no-id.png"')
+    expect(images.fileIds.value).toEqual([])
+    expect(emitFileUploaded).not.toHaveBeenCalled()
+  })
+
 })

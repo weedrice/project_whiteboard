@@ -1,8 +1,8 @@
 import { onScopeDispose, ref, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { closeHistory } from '@tiptap/pm/history'
-import { escapeHtmlAttr } from '@/components/board/editor/postEditorHtml'
 import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
+import { usePostEditorUploadAnchors } from './usePostEditorUploadAnchors'
 
 export type UploadedEditorImage = { url: string; fileId?: number }
 
@@ -12,21 +12,43 @@ export function usePostEditorUploadedImages(
 ) {
   const fileIds = ref<number[]>([])
   const editorImagePreviewUrls = new Set<string>()
+  const anchors = usePostEditorUploadAnchors(editor)
 
-  const insertUploadedImage = (uploaded: UploadedEditorImage, file: File) => {
+  function enqueueImageFiles(
+    queue: { enqueueFiles: (files: File[]) => Array<{ id: number; status: string }> },
+    files: File[],
+    dropEvent?: DragEvent,
+  ) {
+    const instance = editor.value
+    if (!instance || instance.isDestroyed || !instance.isEditable) return
+    if (!dropEvent) moveFromSelectedRawHtmlBlock(instance, 1)
+    const position = dropEvent
+      ? instance.view.posAtCoords({ left: dropEvent.clientX, top: dropEvent.clientY })?.pos
+      : instance.state.selection.from
+    if (position == null) return
+    // enqueue starts the upload, but its await cannot settle before this synchronous capture.
+    const items = queue.enqueueFiles(files)
+    anchors.add(items.filter(item => item.status !== 'canceled').map(item => item.id), position)
+  }
+
+  const insertUploadedImage = (uploaded: UploadedEditorImage, file: File, itemId: number) => {
     if (typeof uploaded.fileId === 'number') {
       fileIds.value.push(uploaded.fileId)
       emitFileUploaded(uploaded.fileId)
     }
-
+    // Deleted anchors and replaced/destroyed editors must not redirect a late upload.
+    if (!editor.value?.isEditable || !anchors.has(itemId)) return false
     const previewUrl = URL.createObjectURL(file)
     editorImagePreviewUrls.add(previewUrl)
-    const serverAttributes = [
-      typeof uploaded.fileId === 'number' ? `data-file-id="${uploaded.fileId}"` : '',
-      `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
-    ].filter(Boolean).join(' ')
-    if (editor.value) moveFromSelectedRawHtmlBlock(editor.value, 1)
-    editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
+    const inserted = anchors.insert(itemId, {
+      type: 'image',
+      attrs: { src: previewUrl, serverSrc: uploaded.url, fileId: uploaded.fileId ?? null },
+    })
+    if (!inserted) {
+      URL.revokeObjectURL(previewUrl)
+      editorImagePreviewUrls.delete(previewUrl)
+    }
+    return inserted
   }
 
   const disposeUploadedImagePreviews = () => {
@@ -56,6 +78,8 @@ export function usePostEditorUploadedImages(
   return {
     fileIds,
     insertUploadedImage,
+    enqueueImageFiles,
+    releaseUploadAnchor: anchors.remove,
     replaceUploadedImage,
     disposeUploadedImagePreviews,
   }

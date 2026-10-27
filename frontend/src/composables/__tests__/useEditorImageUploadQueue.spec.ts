@@ -108,8 +108,8 @@ describe('useEditorImageUploadQueue', () => {
         expect(queue.currentItem.value).toBeNull()
         expect(queue.isProcessing.value).toBe(false)
         expect(queue.queueCount.value).toBe(0)
-        expect(onUploaded).toHaveBeenNthCalledWith(1, { url: 'https://cdn.test/first.png' }, firstFile)
-        expect(onUploaded).toHaveBeenNthCalledWith(2, { url: 'https://cdn.test/second.png' }, secondFile)
+        expect(onUploaded).toHaveBeenNthCalledWith(1, { url: 'https://cdn.test/first.png' }, firstFile, firstItem.id)
+        expect(onUploaded).toHaveBeenNthCalledWith(2, { url: 'https://cdn.test/second.png' }, secondFile, secondItem.id)
     })
 
     it('preserves failed items when later files are enqueued', async () => {

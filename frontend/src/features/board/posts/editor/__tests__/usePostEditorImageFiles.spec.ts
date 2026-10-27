@@ -43,4 +43,15 @@ describe('usePostEditorImageFiles', () => {
     expect(supportedEvent.preventDefault).not.toHaveBeenCalled()
     expect(enqueueFiles).not.toHaveBeenCalled()
   })
+
+  it('forwards the drop coordinates with image files to the upload anchor owner', () => {
+    const enqueueFiles = vi.fn()
+    const { onEditorDrop } = usePostEditorImageFiles({ enqueueFiles })
+    const image = new File(['image'], 'image.png', { type: 'image/png' })
+    const event = { dataTransfer: { files: [image] }, clientX: 120, clientY: 240, preventDefault: vi.fn() } as unknown as DragEvent
+    onEditorDrop(event)
+    expect(enqueueFiles).toHaveBeenCalledWith([image], event)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
 })
