@@ -11,6 +11,7 @@ interface TrackingState {
   lastSentCommentId: number | null
   activeStartedAt: number | null
   inFlight: boolean
+  finalFlushRequested: boolean
   controller: AbortController | null
   sessionGeneration: number
   userId: string | number
@@ -27,6 +28,7 @@ interface PostViewHistoryOptions {
 export function usePostViewHistory(options: PostViewHistoryOptions) {
   const states = new Map<string, TrackingState>()
   let currentKey: string | null = null
+  let disposed = false
   let flushTimer: ReturnType<typeof setInterval> | null = null
   let windowFocused = document.hasFocus()
 
@@ -58,6 +60,7 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       lastSentCommentId: initialLastReadCommentId ?? null,
       activeStartedAt: null,
       inFlight: false,
+      finalFlushRequested: false,
       controller: null,
       sessionGeneration,
       userId,
@@ -72,7 +75,8 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
 
   function canAccrue() {
     return Boolean(
-      options.enabled.value
+      !disposed
+      && options.enabled.value
       && currentKey
       && document.visibilityState === 'visible'
       && windowFocused,
@@ -96,12 +100,20 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
     if (state) accrue(state)
   }
 
+  function isCurrentSession(state: TrackingState) {
+    return state.sessionGeneration === options.sessionGeneration.value
+      && String(state.userId) === String(options.userId.value ?? '')
+  }
+
+  function finishDisposal() {
+    if (!disposed || [...states.values()].some((state) => state.inFlight)) return
+    stopSessionBoundary()
+    states.clear()
+  }
+
   async function flushState(state: TrackingState) {
-    if (state.inFlight) return
-    if (
-      state.sessionGeneration !== options.sessionGeneration.value
-      || String(state.userId) !== String(options.userId.value ?? '')
-    ) return
+    if (state.inFlight || !isCurrentSession(state)) return
+    state.finalFlushRequested = false
 
     if (state === currentState()) {
       accrue(state)
@@ -124,27 +136,33 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
 
     try {
       await postApi.updateViewHistory(state.postId, payload, {
+        expectedSession: { sessionGeneration: state.sessionGeneration, userId: state.userId },
         signal: controller.signal,
         skipAuthRefresh: true,
         skipGlobalErrorHandler: true,
       })
-      if (
-        controller.signal.aborted
-        || state.sessionGeneration !== options.sessionGeneration.value
-        || String(state.userId) !== String(options.userId.value ?? '')
-      ) return
+      if (controller.signal.aborted || !isCurrentSession(state)) return
       state.lastSentCommentId = sentCommentId
     } catch {
-      if (
-        !controller.signal.aborted
-        && state.sessionGeneration === options.sessionGeneration.value
-        && String(state.userId) === String(options.userId.value ?? '')
-      ) {
+      // A failed response can still have persisted additive duration on the server.
+      // The final follow-up sends only new data, without replaying this request.
+      if (!disposed && !controller.signal.aborted && isCurrentSession(state)) {
         state.pendingDurationMs += durationMs
       }
     } finally {
       state.inFlight = false
       if (state.controller === controller) state.controller = null
+      if (state.finalFlushRequested) {
+        state.finalFlushRequested = false
+        if (
+          !controller.signal.aborted
+          && isCurrentSession(state)
+          && (Math.floor(state.pendingDurationMs) > 0 || state.lastReadCommentId !== sentCommentId)
+        ) {
+          void flushState(state)
+        }
+      }
+      finishDisposal()
     }
   }
 
@@ -227,10 +245,14 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
     currentKey = null
     states.forEach((state) => state.controller?.abort())
     states.clear()
+    finishDisposal()
   })
 
   onBeforeUnmount(() => {
+    disposed = true
     stopAccruing()
+    currentKey = null
+    states.forEach((state) => { state.finalFlushRequested = state.inFlight })
     flushAll()
     document.removeEventListener('visibilitychange', handleActivityChange)
     window.removeEventListener('focus', handleFocus)
@@ -239,7 +261,7 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       clearInterval(flushTimer)
       flushTimer = null
     }
-    stopSessionBoundary()
+    finishDisposal()
   })
 
   return {

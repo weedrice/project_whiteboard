@@ -45,6 +45,16 @@ const TestHost = defineComponent({
   template: '<div />',
 })
 
+function deferredHistoryRequest() {
+  let resolve!: (value: Awaited<ReturnType<typeof postApi.updateViewHistory>>) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<Awaited<ReturnType<typeof postApi.updateViewHistory>>>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
+  return { promise, resolve: () => resolve(apiSuccessResponse<typeof postApi.updateViewHistory>()), reject }
+}
+
 describe('usePostViewHistory', () => {
   let now = 0
 
@@ -74,6 +84,7 @@ describe('usePostViewHistory', () => {
       15,
       { durationMs: 30_000, lastReadCommentId: 4 },
       expect.objectContaining({
+        expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
         skipAuthRefresh: true,
         skipGlobalErrorHandler: true,
@@ -93,6 +104,7 @@ describe('usePostViewHistory', () => {
       15,
       { durationMs: 5_250, lastReadCommentId: 9 },
       expect.objectContaining({
+        expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
         skipAuthRefresh: true,
         skipGlobalErrorHandler: true,
@@ -146,6 +158,7 @@ describe('usePostViewHistory', () => {
       15,
       { durationMs: 31_000, lastReadCommentId: 4 },
       expect.objectContaining({
+        expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
         skipAuthRefresh: true,
         skipGlobalErrorHandler: true,
@@ -183,5 +196,150 @@ describe('usePostViewHistory', () => {
       { durationMs: 30_000, lastReadCommentId: 4 },
       expect.objectContaining({ skipAuthRefresh: true }),
     )
+  })
+
+  it('flushes only the final delta and cursor after an in-flight request settles after unmount', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    now = 30_000
+    vi.advanceTimersByTime(30_000)
+
+    now = 35_000
+    wrapper.vm.setLastReadCommentId(9)
+    wrapper.unmount()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    expect(sessionBoundary.listener).not.toBeNull()
+
+    now = 90_000
+    pending.resolve()
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(postApi.updateViewHistory).mock.calls.map((call) => call[1])).toEqual([
+      { durationMs: 30_000, lastReadCommentId: 4 },
+      { durationMs: 5_000, lastReadCommentId: 9 },
+    ])
+    expect(sessionBoundary.listener).toBeNull()
+    vi.advanceTimersByTime(90_000)
+    await flushPromises()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+  })
+
+  it('flushes a cursor-only change queued behind a pending request', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    wrapper.vm.setLastReadCommentId(9)
+    wrapper.unmount()
+    pending.resolve()
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
+      15, { durationMs: 0, lastReadCommentId: 9 }, expect.any(Object),
+    )
+    expect(sessionBoundary.listener).toBeNull()
+  })
+
+  it.each(['success', 'failure'] as const)('does not repeat unchanged final data after %s', async (outcome) => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    wrapper.unmount()
+    if (outcome === 'success') pending.resolve()
+    else pending.reject(new Error('response lost'))
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    expect(sessionBoundary.listener).toBeNull()
+  })
+
+  it('sends unsent final data after failure without replaying possibly persisted duration or retrying forever', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory)
+      .mockReturnValueOnce(pending.promise)
+      .mockRejectedValueOnce(new Error('final response lost'))
+    const wrapper = mount(TestHost)
+    now = 30_000
+    vi.advanceTimersByTime(30_000)
+    now = 35_000
+    wrapper.vm.setLastReadCommentId(9)
+    wrapper.unmount()
+    pending.reject(new Error('first response lost'))
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
+      15, { durationMs: 5_000, lastReadCommentId: 9 }, expect.any(Object),
+    )
+    expect(sessionBoundary.listener).toBeNull()
+    vi.advanceTimersByTime(90_000)
+    await flushPromises()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+  })
+
+  it('aborts an unmounted pending request at the session boundary and discards its final follow-up', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    now = 30_000
+    vi.advanceTimersByTime(30_000)
+    now = 35_000
+    wrapper.vm.setLastReadCommentId(9)
+    wrapper.unmount()
+    const signal = vi.mocked(postApi.updateViewHistory).mock.calls[0]![2]!.signal!
+    expect(signal.aborted).toBe(false)
+    sessionBoundary.listener?.()
+    expect(signal.aborted).toBe(true)
+    pending.resolve()
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    expect(sessionBoundary.listener).toBeNull()
+  })
+
+  it('keeps the boundary subscription until the final follow-up settles', async () => {
+    const first = deferredHistoryRequest()
+    const final = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(first.promise).mockReturnValueOnce(final.promise)
+    const wrapper = mount(TestHost)
+    now = 30_000
+    vi.advanceTimersByTime(30_000)
+    now = 35_000
+    wrapper.unmount()
+    first.resolve()
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(sessionBoundary.listener).not.toBeNull()
+    const signal = vi.mocked(postApi.updateViewHistory).mock.calls[1]![2]!.signal!
+    sessionBoundary.listener?.()
+    expect(signal.aborted).toBe(true)
+    final.reject(new DOMException('Aborted', 'AbortError'))
+    await flushPromises()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(sessionBoundary.listener).toBeNull()
+  })
+
+  it('does not send a final follow-up when the session identity changes without a boundary notification', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    now = 30_000
+    vi.advanceTimersByTime(30_000)
+    now = 35_000
+    wrapper.unmount()
+    wrapper.vm.sessionGeneration = 2
+    wrapper.vm.userId = 8
+    pending.resolve()
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    expect(sessionBoundary.listener).toBeNull()
   })
 })
