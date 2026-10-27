@@ -172,8 +172,23 @@ describe('useCommentReplies with the query cache', () => {
     await vi.waitFor(() => expect(replies.repliesError.value?.message).toBe('page unavailable'))
     await nextTick()
     expect(commentApi.getReplies).toHaveBeenCalledTimes(2)
-    await replies.refetchReplies()
+    replies.retryReplies()
     await vi.waitFor(() => expect(replies.replies.value).toHaveLength(52))
+    expect(vi.mocked(commentApi.getReplies).mock.calls.map(([, params]) => params?.page)).toEqual([0, 1, 1])
+  })
+
+  it('retains cached replies after a refresh failure and retries the refresh', async () => {
+    const { replies } = setup()
+    await loadTwoPages(replies)
+    vi.mocked(commentApi.getReplies).mockRejectedValueOnce(new Error('refresh unavailable'))
+    await replies.refetchReplies()
+    expect(replies.replies.value).toHaveLength(52)
+    expect(replies.repliesError.value).toBeTruthy()
+    vi.mocked(commentApi.getReplies).mockClear()
+    replies.retryReplies()
+    await vi.waitFor(() => expect(replies.repliesError.value).toBeNull())
+    expect(vi.mocked(commentApi.getReplies).mock.calls.map(([, params]) => params?.page)).toEqual([0, 1])
+    expect(replies.replies.value).toHaveLength(52)
   })
 
   it('ignores a late next-page response after changing the parent', async () => {

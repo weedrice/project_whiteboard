@@ -19,6 +19,7 @@ import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigatio
 const { t } = useI18n()
 
 const isEditModalOpen = ref(false)
+const profileEditorRef = ref<InstanceType<typeof ProfileEditor> | null>(null)
 
 const {
   profile,
@@ -178,9 +179,9 @@ onMounted(async () => {
         </DashboardListSection>
       </div>
 
-      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" layout="immersive" @close="isEditModalOpen = false" mobile-full
+      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" layout="immersive" @close="profileEditorRef?.requestClose()" mobile-full
         mobile-fit-content>
-        <ProfileEditor @close="isEditModalOpen = false" @refreshed="() => { fetchMyProfile(); fetchMyAgents() }" />
+        <ProfileEditor ref="profileEditorRef" @close="isEditModalOpen = false" @refreshed="() => { fetchMyProfile(); fetchMyAgents() }" />
       </BaseModal>
 
       <EmailVerificationModal

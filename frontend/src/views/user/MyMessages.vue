@@ -231,6 +231,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useDraftDiscardConfirmation } from '@/composables/useDraftDiscardConfirmation'
 import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const { t } = useI18n()
@@ -284,11 +285,16 @@ function removePartnerIdFromRoute() {
     void router.replace({ query })
 }
 
-function closeConversationAndSyncRoute() {
-    if (isSending.value) return
-    closeConversation()
-    removePartnerIdFromRoute()
-}
+const { requestClose: closeConversationAndSyncRoute } = useDraftDiscardConfirmation({
+    draftState: () => [selectedMessage.value?.partnerUserId, replyContent.value, isSending.value],
+    isDirty: () => replyContent.value.trim().length > 0,
+    canClose: () => !!selectedMessage.value && !isSending.value,
+    message: () => t('user.message.discardConfirm'),
+    close: () => {
+        closeConversation()
+        removePartnerIdFromRoute()
+    },
+})
 
 async function loadOlderWithScrollPreservation() {
     const timeline = conversationTimelineRef.value

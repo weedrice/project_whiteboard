@@ -451,6 +451,7 @@ describe('extracted board components', () => {
       },
     })
 
+    expect(wrapper.get('.nv-post-back-btn').attributes('aria-label')).toBe('board.postDetail.toList')
     await wrapper.get('.nv-post-back-btn').trigger('click')
     await wrapper.get('[aria-label="common.delete"]').trigger('click')
 

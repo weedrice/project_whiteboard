@@ -17,6 +17,7 @@ export function usePostEditorInstance(options: {
         editable: true,
         editorProps: {
             attributes: {
+                role: 'textbox',
                 'aria-label': options.accessibleLabel.value,
                 'aria-multiline': 'true',
                 class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',

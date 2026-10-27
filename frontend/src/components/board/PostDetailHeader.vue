@@ -54,6 +54,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
             variant="ghost"
             size="sm"
             class="nv-post-back-btn"
+            :aria-label="t('board.postDetail.toList')"
             @click="emit('back-to-list')"
           >
             <ArrowLeft class="h-4 w-4" />

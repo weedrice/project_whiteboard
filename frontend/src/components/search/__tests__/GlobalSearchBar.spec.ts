@@ -168,6 +168,37 @@ describe('GlobalSearchBar', () => {
         expect(document.body.querySelector('#global-search-board-results-vue')?.getAttribute('role')).toBe('option')
     })
 
+    it('keeps teleported mobile results open on retry and still closes on outside click', async () => {
+        mobileViewport.value = true
+        boardIsError.value = true
+        const wrapper = mountSearchBar()
+        try {
+            await wrapper.get('button[aria-label="search.placeholder"]').trigger('click')
+            const input = wrapper.get('input')
+            await input.setValue('Vue')
+            await input.trigger('focus')
+
+            const retryButton = document.body.querySelector<HTMLButtonElement>('.nv-global-search-mobile-results [role="alert"] button')
+            expect(retryButton).not.toBeNull()
+            retryButton!.click()
+            await nextTick()
+
+            expect(refetchBoards).toHaveBeenCalledOnce()
+            expect(wrapper.get('input').element.value).toBe('Vue')
+            expect(wrapper.get('input').attributes('aria-expanded')).toBe('true')
+            boardIsError.value = false
+            await nextTick()
+            expect(document.body.querySelector('#global-search-board-results-vue')).not.toBeNull()
+
+            document.body.click()
+            await nextTick()
+            expect(wrapper.find('input').exists()).toBe(false)
+            expect(document.body.querySelector('.nv-global-search-mobile-results')).toBeNull()
+        } finally {
+            wrapper.unmount()
+        }
+    })
+
     it('restores focus to the mobile search trigger when Escape collapses search', async () => {
         mobileViewport.value = true
         const wrapper = mountSearchBar()

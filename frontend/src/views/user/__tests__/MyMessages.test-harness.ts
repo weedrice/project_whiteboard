@@ -20,6 +20,7 @@ const messageApi = vi.hoisted(() => ({
     sendMessage: vi.fn(),
 }))
 
+const confirm = vi.hoisted(() => vi.fn().mockResolvedValue(true))
 const addToast = vi.hoisted(() => vi.fn())
 const extractErrorResponseMock = vi.hoisted(() => vi.fn())
 const routerMocks = vi.hoisted(() => ({
@@ -46,7 +47,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
-        confirm: vi.fn().mockResolvedValue(true),
+        confirm,
     }),
 }))
 
@@ -75,7 +76,7 @@ vi.mock('vue-router', () => ({
     useRouter: () => ({ replace: routerMocks.replace }),
 }))
 
-export { addToast, extractErrorResponseMock, messageApi, routerMocks }
+export { confirm, addToast, extractErrorResponseMock, messageApi, routerMocks }
 
 export const baseModalStub = {
     props: {

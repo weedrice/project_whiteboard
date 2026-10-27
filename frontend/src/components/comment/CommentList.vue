@@ -53,6 +53,7 @@ const {
   isLoading,
   isFetching,
   isFetchingNextPage,
+  isFetchNextPageError,
   hasNextPage,
   fetchNextPage,
   error: commentsError,
@@ -110,7 +111,14 @@ async function handleDelete(comment: Comment) {
 }
 
 function loadMoreComments() {
+  if (isFetching.value) return
   void fetchNextPage()
+}
+
+function retryComments() {
+  if (isFetching.value) return
+  if (isFetchNextPageError.value) void fetchNextPage()
+  else void refetchComments()
 }
 
 async function resolveDeepLinkPath(targetCommentId: number, revision: number, controller: AbortController) {
@@ -285,7 +293,7 @@ onBeforeUnmount(() => {
     </div>
 
     <ErrorState
-      v-else-if="commentsError"
+      v-else-if="commentsError && comments.length === 0"
       title-tag="h4"
       :message="commentLoadFailedMessage"
       show-retry
@@ -350,6 +358,12 @@ onBeforeUnmount(() => {
         {{ $t('comment.empty') }}
       </div>
 
+      <div v-if="commentsError" class="nv-form-error text-sm" role="alert">
+        <p>{{ commentLoadFailedMessage }}</p>
+        <BaseButton type="button" variant="secondary" size="sm" :loading="isFetching" @click="retryComments">
+          {{ $t('common.error.retry') }}
+        </BaseButton>
+      </div>
       <div v-else-if="hasMoreComments" class="flex justify-center pt-2">
         <BaseButton
           type="button"

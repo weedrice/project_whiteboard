@@ -6,6 +6,7 @@ import { getExposedVm } from '@/test/vue-test-helpers'
 import { createDeferred } from '@/test/async'
 import {
     addToast,
+    confirm,
     baseModalStub,
     extractErrorResponseMock,
     messageApi,
@@ -18,6 +19,7 @@ import {
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        confirm.mockResolvedValue(true)
         routerMocks.route = reactive({ query: {} })
         messageApi.getConversations.mockImplementation((params, config) => messageApi.getReceivedMessages(params, config))
         messageApi.getConversation.mockResolvedValue({
@@ -53,6 +55,61 @@ describe('MyMessages', () => {
         }))
         messageApi.sendMessage.mockResolvedValue({ data: { success: true, data: 10 } })
     }
+
+    it('preserves a reply on cancelled close, then discards it only after approval', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Keep this reply'
+        confirm.mockResolvedValueOnce(false)
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        await flushPromises()
+        expect(exposed.replyContent).toBe('Keep this reply')
+        expect(wrapper.getComponent(baseModalStub).props('isOpen')).toBe(true)
+        expect(routerMocks.replace).not.toHaveBeenCalled()
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        await flushPromises()
+        expect(exposed.replyContent).toBe('')
+        expect(wrapper.getComponent(baseModalStub).props('isOpen')).toBe(false)
+        expect(routerMocks.replace).toHaveBeenCalledWith({ query: {} })
+        expect(messageApi.sendMessage).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('closes an empty reply without confirmation', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        await flushPromises()
+        expect(confirm).not.toHaveBeenCalled()
+        expect(wrapper.getComponent(baseModalStub).props('isOpen')).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('does not discard the next partner draft after a late confirmation', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Old private reply'
+        const decision = createDeferred<boolean>()
+        confirm.mockReturnValueOnce(decision.promise)
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        routerMocks.route.query = { partnerId: '3' }
+        await flushPromises()
+        exposed.replyContent = 'New private reply'
+        decision.resolve(true)
+        await flushPromises()
+        expect(exposed.replyContent).toBe('New private reply')
+        expect(wrapper.getComponent(baseModalStub).props('isOpen')).toBe(true)
+        expect(routerMocks.replace).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
 
     it('sends to the displayed partner after replying and changing the partner route', async () => {
         mockPartnerConversations()

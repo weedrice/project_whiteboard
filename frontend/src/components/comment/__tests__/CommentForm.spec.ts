@@ -230,6 +230,37 @@ describe('CommentForm', () => {
     )
   })
 
+  it.each([null, 20])('keeps text, mentions and caret after sending an emoticon (parent %s)', async (parentId) => {
+    const wrapper = mountCommentForm({
+      parentId,
+      initialContent: 'hello @Alice',
+      initialMentions: [{ userId: 7, displayName: 'Alice', profileImageUrl: null }],
+    })
+    document.body.appendChild(wrapper.element)
+    const textarea = wrapper.get('textarea').element
+    textarea.focus()
+    textarea.setSelectionRange(3, 3)
+    wrapper.getComponent({ name: 'EmoticonPicker' }).vm.$emit('select', { imageUrl: '/sticker.png' })
+    isCreating.value = true
+    await wrapper.vm.$nextTick()
+    expect(createComment.mock.calls[0]?.[0].data).toEqual({ content: '![emoticon](/sticker.png)', parentId })
+    createComment.mock.calls[0]?.[1].onSuccess({ data: { success: true, data: { commentId: 44 } } })
+    isCreating.value = false
+    await flushPromises()
+    expect(wrapper.emitted('success')).toBeUndefined()
+    expect(wrapper.emitted('emoticon-success')).toHaveLength(1)
+    expect(textarea.value).toBe('hello @Alice')
+    expect(document.activeElement).toBe(textarea)
+    expect(textarea.selectionStart).toBe(3)
+    await wrapper.get('form').trigger('submit')
+    expect(createComment.mock.calls[1]?.[0].data).toEqual({ content: 'hello @Alice', parentId, mentionedUserIds: [7] })
+    createComment.mock.calls[1]?.[1].onSuccess({ data: { success: true, data: { commentId: 45 } } })
+    await wrapper.vm.$nextTick()
+    expect(textarea.value).toBe('')
+    expect(wrapper.emitted('success')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('adds mentioned user ids when a mention candidate is selected', async () => {
     apiMocks.getMentionCandidates.mockResolvedValueOnce({
       data: {

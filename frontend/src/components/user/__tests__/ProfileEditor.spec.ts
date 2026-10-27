@@ -6,6 +6,7 @@ import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import { getExposedVm } from '@/test/vue-test-helpers'
 
 type ProfileEditorExposed = {
+  requestClose: () => Promise<unknown> | undefined
   selectedFile: File | null
   removeProfileImage: boolean
 }
@@ -224,6 +225,87 @@ describe('ProfileEditor', () => {
       },
     })
     mocks.confirm.mockResolvedValue(true)
+  })
+
+  it('preserves changed names on cancelled dismissal and closes after approval', async () => {
+    const wrapper = mountProfileEditor()
+    await wrapper.get('#profile-display-name').setValue('New name')
+    mocks.confirm.mockResolvedValueOnce(false)
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(wrapper.get<HTMLInputElement>('#profile-display-name').element.value).toBe('New name')
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      'user.profile.discardConfirm', undefined, undefined, undefined,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('closes without confirmation when a name edit is reverted', async () => {
+    const wrapper = mountProfileEditor()
+    await wrapper.get('#profile-display-name').setValue('Temporary name')
+    await wrapper.get('#profile-display-name').setValue('tester')
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('protects an unsaved photo even when the name has not changed', async () => {
+    const wrapper = mountProfileEditor()
+    getExposedVm<ProfileEditorExposed>(wrapper).selectedFile = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    mocks.confirm.mockResolvedValueOnce(false)
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(mocks.confirm).toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(getExposedVm<ProfileEditorExposed>(wrapper).selectedFile).not.toBeNull()
+    wrapper.unmount()
+  })
+
+  it('protects removal of an existing profile photo', async () => {
+    mocks.user.profileImageUrl = 'https://example.com/profile.png'
+    const wrapper = mountProfileEditor()
+    await findButtonByText(wrapper, 'user.profile.removePhoto').trigger('click')
+    mocks.confirm.mockResolvedValueOnce(false)
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(mocks.confirm).toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(getExposedVm<ProfileEditorExposed>(wrapper).removeProfileImage).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('locks submitted inputs but preserves closing during a pending save', async () => {
+    let finish!: (value: { success: boolean }) => void
+    mocks.updateProfile.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = mountProfileEditor()
+    await wrapper.get('#profile-display-name').setValue('Saved name')
+    await findButtonByText(wrapper, 'common.save').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('fieldset').attributes('inert')).toBeDefined()
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    wrapper.unmount()
+    finish({ success: true })
+    await flushPromises()
+  })
+
+  it('restores editability and draft protection after save failure', async () => {
+    mocks.updateProfile.mockRejectedValueOnce(new Error('Save failed'))
+    const wrapper = mountProfileEditor()
+    await wrapper.get('#profile-display-name').setValue('Unsaved name')
+    await findButtonByText(wrapper, 'common.save').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('fieldset').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('fieldset').attributes('inert')).toBeUndefined()
+    mocks.confirm.mockResolvedValueOnce(false)
+    await getExposedVm<ProfileEditorExposed>(wrapper).requestClose()
+    expect(mocks.confirm).toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
   })
 
   it('shows the agent code registration field when the current agent is suspended', () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useComment } from '@/features/comments/queries/useComment'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { CommentCreateResponse } from '@/api/comment'
@@ -41,6 +41,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'success'): void
+  (e: 'emoticon-success'): void
   (e: 'cancel'): void
 }>()
 
@@ -48,6 +49,7 @@ const { useCreateComment, useUpdateComment } = useComment()
 const { mutate: createComment, isPending: isCreating } = useCreateComment()
 const { mutate: updateComment, isPending: isUpdating } = useUpdateComment()
 let formRevision = 0
+onUnmounted(() => { formRevision += 1 })
 
 const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
@@ -93,6 +95,22 @@ const getTextarea = () => {
   return root?.querySelector('textarea') ?? (document.getElementById(textareaId.value) as HTMLTextAreaElement | null)
 }
 commentValidation.registerFocus('content', () => getTextarea()?.focus())
+
+let emoticonFocus: { revision: number; start: number; end: number } | null = null
+watch(isSubmitting, async (pending) => {
+  if (pending || !emoticonFocus) return
+  const focus = emoticonFocus
+  emoticonFocus = null
+  await nextTick()
+  if (focus.revision !== formRevision) return
+  const textarea = getTextarea()
+  if (!textarea?.isConnected) return
+  const active = document.activeElement
+  // Do not take focus back if the user moved to another control while sending.
+  if (active !== document.body && !textarea.closest('form')?.contains(active)) return
+  textarea.focus({ preventScroll: true })
+  textarea.setSelectionRange(focus.start, focus.end)
+}, { flush: 'post' })
 
 const findActiveMention = (textarea: HTMLTextAreaElement | null) => {
   if (!textarea) return null
@@ -196,6 +214,12 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
   showEmoticonPicker.value = false
   
   if (isSubmitting.value) return
+  const textarea = getTextarea()
+  emoticonFocus = {
+    revision: formRevision,
+    start: textarea?.selectionStart ?? content.value.length,
+    end: textarea?.selectionEnd ?? content.value.length,
+  }
   
   // 이모티콘 이미지를 마크다운 형식으로 댓글 내용에 설정
   const emoticonContent = `![emoticon](${image.imageUrl})`
@@ -210,7 +234,7 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
     onSuccess: (response) => {
       if (submissionRevision !== formRevision) return
       showEarnedPointsToast(response)
-      emit('success')
+      emit('emoticon-success')
     },
     onError: (err) => {
       if (submissionRevision !== formRevision) return
