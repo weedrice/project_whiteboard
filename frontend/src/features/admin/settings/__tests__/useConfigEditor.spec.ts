@@ -80,4 +80,55 @@ describe('useConfigEditor', () => {
       description: 'Server description',
     })
   })
+
+  it.each(['before', 'after'])('acknowledges a normalized save when its refetch arrives %s the response', async (order) => {
+    const configsData = ref([config('price', '100')])
+    const editor = useConfigEditor(configsData)
+    editor.updateDraft('price', { value: '  200  ', description: '  Updated  ' })
+    const submission = editor.captureSave('price')!
+    const saved = config('price', '200', 'Updated')
+
+    if (order === 'before') {
+      configsData.value = [saved]
+      await nextTick()
+    }
+    submission.acknowledge(saved)
+    if (order === 'after') {
+      configsData.value = [saved]
+      await nextTick()
+    }
+
+    expect(editor.getDraft('price')).toEqual(saved)
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
+  it('preserves a newer editing revision even if it returns to the submitted text', () => {
+    const editor = useConfigEditor(ref([config('price', '100')]))
+    editor.updateDraft('price', { value: '  200  ' })
+    const submission = editor.captureSave('price')!
+    editor.updateDraft('price', { value: '300' })
+    editor.updateDraft('price', { value: '  200  ' })
+
+    submission.acknowledge(config('price', '200'))
+
+    expect(editor.getDraft('price')?.value).toBe('  200  ')
+    expect(editor.hasUnsavedChanges.value).toBe(true)
+    editor.updateDraft('price', { value: '200' })
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
+  it('does not acknowledge a draft from before a reset', async () => {
+    const configsData = ref([config('price', '100')])
+    const editor = useConfigEditor(configsData)
+    const submission = editor.captureSave('price')!
+    editor.resetDrafts()
+    configsData.value = [config('price', '300')]
+    await nextTick()
+
+    submission.acknowledge(config('price', '200'))
+
+    expect(editor.getDraft('price')?.value).toBe('300')
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+    expect(editor.captureSave('missing')).toBeNull()
+  })
 })

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, type Ref } from 'vue'
 import { useGlobalSettingsManager } from '../useGlobalSettingsManager'
-import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
 import { useAuthStore } from '@/stores/auth'
 
@@ -88,7 +88,7 @@ describe('useGlobalSettingsManager', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.createConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
     mocks.deleteConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
-    mocks.updateConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.updateConfig.mockImplementation(async data => apiSuccessDataResponse<() => Promise<unknown>>(data))
   })
 
   it('saves the current draft and shows a success toast', async () => {
@@ -103,6 +103,10 @@ describe('useGlobalSettingsManager', () => {
       description: 'Updated description',
     })
     expect(mocks.addToast).toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
+    expect(manager.configs.value[0]).toEqual({
+      key: 'site.name', value: 'Updated', description: 'Updated description',
+    })
+    expect(manager.hasUnsavedChanges.value).toBe(false)
   })
 
   it('refreshes the public policy after saving the emoticon image limit', async () => {
