@@ -12,7 +12,10 @@ vi.mock('@/composables/useEventListener', () => ({
     mocks.listener = listener
   },
 }))
-vi.mock('@/utils/keyboard', () => ({ isInputFocused: () => mocks.inputFocused }))
+vi.mock('@/utils/keyboard', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/utils/keyboard')>(),
+  isInputFocused: () => mocks.inputFocused,
+}))
 
 function key(key: string, options: KeyboardEventInit = {}) {
   return new KeyboardEvent('keydown', { key, cancelable: true, ...options })

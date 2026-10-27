@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEventListener } from '@/composables/useEventListener'
 import { useThemePreference } from '@/composables/useThemePreference'
 import { isNarrowViewport } from '@/utils/browserEnv'
-import { isInputFocused } from '@/utils/keyboard'
+import { isInputFocused, isModalDialogOpen } from '@/utils/keyboard'
 
 export interface KeyboardShortcutHandlers {
     toggleSubscriptionDropdown?: () => void
@@ -24,6 +24,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+        if (event.defaultPrevented || isModalDialogOpen()) return
         const isDropdownOpen = keyboardStore.isDropdownOpen || Boolean(handlers.isDropdownOpen?.())
 
         if (isDropdownOpen) {
@@ -146,6 +147,7 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+        if (event.defaultPrevented || isModalDialogOpen()) return
 
         if (ctrlKey || altKey || metaKey) return
         if (isInputFocused()) return

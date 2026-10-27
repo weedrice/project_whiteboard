@@ -132,7 +132,8 @@ vi.mock('@/components/user/BadgeAwardCelebration.vue', () => ({
     }),
 }))
 
-vi.mock('@/utils/keyboard', () => ({
+vi.mock('@/utils/keyboard', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/utils/keyboard')>(),
     isInputFocused: () => false,
 }))
 

@@ -34,7 +34,8 @@ vi.mock('@/composables/useThemePreference', () => ({
     useThemePreference: () => ({ toggleTheme }),
 }))
 
-vi.mock('@/utils/keyboard', () => ({
+vi.mock('@/utils/keyboard', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/utils/keyboard')>(),
     isInputFocused: () => false,
 }))
 

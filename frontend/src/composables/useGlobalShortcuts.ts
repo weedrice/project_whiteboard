@@ -1,7 +1,7 @@
 import { onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventListener } from '@/composables/useEventListener'
-import { isInputFocused } from '@/utils/keyboard'
+import { isInputFocused, isModalDialogOpen } from '@/utils/keyboard'
 
 interface ShortcutConfig {
   key: string
@@ -28,6 +28,7 @@ export function useGlobalShortcuts() {
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || isModalDialogOpen()) return
     if (typeof event.key !== 'string' || event.key.length === 0) {
       return
     }
@@ -95,6 +96,12 @@ export function useGlobalShortcuts() {
   }
 
   const gKeyHandler = (event: KeyboardEvent) => {
+    if (isModalDialogOpen() || isInputFocused()) {
+      gKeyPressed = false
+      clearGKeyTimer()
+      return
+    }
+
     if (event.key === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
       handleGKey()
       return

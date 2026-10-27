@@ -2,7 +2,7 @@ import type { ComputedRef, Ref } from 'vue'
 import type { Router } from 'vue-router'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { useEventListener } from '@/composables/useEventListener'
-import { isInputFocused } from '@/utils/keyboard'
+import { isInputFocused, isModalDialogOpen } from '@/utils/keyboard'
 
 type PostDetailKeyboardAuthState = {
   isAuthenticated: boolean
@@ -41,7 +41,7 @@ export function usePostDetailKeyboardShortcuts({
     const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
     if (event.defaultPrevented) return
-    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+    if (isModalDialogOpen()) return
     if (ctrlKey || altKey || metaKey) return
     if (isInputFocused()) return
     if (isReportModalOpen.value) return

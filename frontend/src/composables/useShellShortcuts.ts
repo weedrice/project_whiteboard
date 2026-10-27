@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import type { DropdownType } from '@/stores/keyboard'
-import { isInputFocused } from '@/utils/keyboard'
+import { isInputFocused, isModalDialogOpen } from '@/utils/keyboard'
 
 interface ShellShortcutAuthStore {
   isAuthenticated: boolean
@@ -31,6 +31,7 @@ interface UseShellShortcutsOptions {
 export function useShellShortcuts(options: UseShellShortcutsOptions) {
   const handleKeyDown = async (event: KeyboardEvent) => {
     const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+    if (event.defaultPrevented || isModalDialogOpen()) return
 
     if (key === 'Escape') {
       if (options.hasOpenDropdown()) {

@@ -170,7 +170,8 @@ vi.mock('@/utils/image', () => ({
   handleImageError: vi.fn()
 }))
 
-vi.mock('@/utils/keyboard', () => ({
+vi.mock('@/utils/keyboard', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/utils/keyboard')>(),
   isInputFocused: () => false
 }))
 
