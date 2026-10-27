@@ -61,6 +61,6 @@ public class PurchaseHistory extends BaseTimeEntity {
     }
 
     public String getPurchasedImageUrl() {
-        return itemNameSnapshot != null ? imageUrlSnapshot : item.getImageUrl();
+        return item.getImageUrl();
     }
 }

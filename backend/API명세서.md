@@ -497,6 +497,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/reports` | 범용 신고 |
 | `GET` | `/api/v1/reports/me` | 내 신고 내역 |
 
+`GET /api/v1/shop/me/purchases`의 `item.imageUrl`은 과거 구매 건도 현재 상품 썸네일을 반환하며, 현재 이미지가 없으면 `null`이다. 구매 당시 이름·유형·결제 가격은 기존 보존 정책을 유지한다. 노비콘 썸네일 교체 시 이전 파일은 기존 정책대로 삭제 예약한다.
+
 관리자 상품 목록은 `q`, `itemType`, `isActive`, `isSaleEnabled` 필터와 페이지 요청을 받는다.
 판매 상태 변경 본문은 `{ "saleEnabled": boolean, "reason": string }`이며 `reason`은 공백이 아닌
 최대 500자 문자열이다. 목록은 `ApiResponse<PageResponse<AdminShopItemResponse>>`, 변경 결과는
