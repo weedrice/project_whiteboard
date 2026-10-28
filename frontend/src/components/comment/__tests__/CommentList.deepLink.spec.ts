@@ -87,16 +87,19 @@ describe('CommentList deep links with Vue Query', () => {
       return commentsPage(params.page ?? 0)
     })
     const view = setup()
-    await vi.waitFor(() => expect(view.find('[data-testid="comment-error"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(view.find('[role="alert"]').exists()).toBe(true))
+    const firstComment = view.get('[data-comment-id="1"]').element
     await flushPromises()
     const nextPageCalls = () => vi.mocked(commentApi.getComments).mock.calls.filter(([, params]) => params.page === 1)
     expect(nextPageCalls()).toHaveLength(1)
 
     failNextPage = false
-    await view.get('[data-testid="comment-error"] button').trigger('click')
+    await view.get('[role="alert"] button').trigger('click')
     await vi.waitFor(() => expect(view.find('[data-comment-id="51"]').exists()).toBe(true))
     expect(nextPageCalls()).toHaveLength(2)
-    expect(view.find('[data-testid="comment-error"]').exists()).toBe(false)
+    expect(view.find('[role="alert"]').exists()).toBe(false)
+    expect(view.get('[data-comment-id="1"]').element).toBe(firstComment)
+    expect(vi.mocked(commentApi.getComments).mock.calls.map(([, params]) => params.page)).toEqual([0, 1, 1])
   })
 
   it.each(['post', 'session', 'sort'] as const)('does not continue the old traversal after a %s change', async (change) => {

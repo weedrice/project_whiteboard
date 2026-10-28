@@ -14,6 +14,7 @@ interface UseGlobalSearchControllerOptions {
   filteredBoards: Ref<BoardListItem[]>
   searchQuery: Ref<string>
   searchContainer: Ref<HTMLElement | null>
+  mobileResults: Ref<HTMLElement | null>
   searchInputRef: Ref<SearchInputLike | null>
   searchToggleRef: Ref<HTMLButtonElement | null>
   searchListboxId: string
@@ -23,6 +24,7 @@ export function useGlobalSearchController({
   filteredBoards,
   searchQuery,
   searchContainer,
+  mobileResults,
   searchInputRef,
   searchToggleRef,
   searchListboxId
@@ -88,7 +90,8 @@ export function useGlobalSearchController({
   })
 
   const handleClickOutside = (event: Event) => {
-    if (!searchContainer.value || searchContainer.value.contains(event.target as Node)) return
+    const path = event.composedPath()
+    if (!searchContainer.value || path.includes(searchContainer.value) || (mobileResults.value && path.includes(mobileResults.value))) return
     showDropdown.value = false
     resetSelection()
     if (isMobile.value && isExpanded.value) collapse()

@@ -333,7 +333,7 @@ describe('useMyPageDashboardResource', () => {
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
   })
 
-  it('updates post sort before refetching my posts', async () => {
+  it('returns to the first page when sorting my posts', async () => {
     const resource = useMyPageDashboardResource(t)
     await resource.handleMyPostsPageChange(2)
     vi.mocked(userApi.getMyPosts).mockClear()
@@ -341,14 +341,16 @@ describe('useMyPageDashboardResource', () => {
 
     await resource.handleMyPostsSortChange('likeCount,desc')
 
+    expect(resource.myPostsCurrentPage.value).toBe(0)
+
     expect(userApi.getMyPosts).toHaveBeenCalledWith({
-      page: 2,
+      page: 0,
       size: 10,
       sort: 'likeCount,desc',
     }, signalConfig)
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
       queryKey: ['session', 0, 'user', 'me', 'posts', {
-        page: 2,
+        page: 0,
         size: 10,
         sort: 'likeCount,desc',
       }],

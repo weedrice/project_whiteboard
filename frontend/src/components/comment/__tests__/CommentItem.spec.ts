@@ -133,6 +133,7 @@ describe('CommentItem', () => {
                 hasNextPage: ref(false),
                 fetchNextPage: vi.fn(),
                 isFetching: ref(false),
+                isFetchNextPageError: ref(false),
                 isLoading: ref(false),
                 error: ref(null),
                 refetch: vi.fn(),
@@ -459,6 +460,47 @@ describe('CommentItem', () => {
             query: { redirect: '/board/free%20board/post/100/' },
         })
         expect(toggleCommentLikeMock).not.toHaveBeenCalled()
+    })
+
+    it.each([false, true])('keeps a child reply draft mounted through a loading error (next page %s)', async (nextPageError) => {
+        useAuthStoreMock.mockReturnValue({ isAuthenticated: true, user: { userId: 1 } })
+        const query = useRepliesMock.getMockImplementation()!(ref(100), ref(1), ref({ size: 50 }), ref(true))
+        query.isFetchNextPageError.value = nextPageError
+        useRepliesMock.mockImplementationOnce(() => query)
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1, content: 'parent', author: null, likeCount: 0,
+                    isDeleted: false, createdAt: '2026-04-20T12:00:00',
+                    hasReplies: true, replyCount: 51, children: [],
+                },
+                postId: 100, boardUrl: 'free',
+            },
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    UserMenu: true,
+                    CommentForm: { data: () => ({ draft: '' }), template: '<textarea v-model="draft" />' },
+                },
+            },
+        })
+        await wrapper.findAll('button').find(button => button.text() === commentLocale.viewReplies.replace('{count}', '51'))!.trigger('click')
+        const child = wrapper.get('#comment-2')
+        await child.findAll('button').find(button => button.text() === 'comment.reply')!.trigger('click')
+        await child.get('textarea').setValue('Keep this draft')
+        const textarea = child.get('textarea').element
+        query.error.value = new Error('unavailable')
+        await wrapper.vm.$nextTick()
+        expect(child.get('textarea').element).toBe(textarea)
+        expect(textarea.value).toBe('Keep this draft')
+        await wrapper.get('[role="alert"] button').trigger('click')
+        expect(nextPageError ? query.fetchNextPage : query.refetch).toHaveBeenCalledTimes(1)
+        expect(nextPageError ? query.refetch : query.fetchNextPage).not.toHaveBeenCalled()
+        query.error.value = null
+        await wrapper.vm.$nextTick()
+        expect(child.get('textarea').element).toBe(textarea)
+        expect(textarea.value).toBe('Keep this draft')
+        wrapper.unmount()
     })
 
     it('shows a reply target and caps visual indentation for deep replies', async () => {

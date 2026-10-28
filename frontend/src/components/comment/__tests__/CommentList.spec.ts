@@ -18,6 +18,7 @@ const { authState, bestCommentsValue, commentsValue, commentsState, deleteCommen
   commentsState: {
     error: null as Error | null,
     hasNextPage: false,
+    isFetchNextPageError: false,
   },
   bestCommentsValue: [] as Array<{ commentId: number; content: string }>,
   confirm: vi.fn(),
@@ -28,6 +29,7 @@ const { authState, bestCommentsValue, commentsValue, commentsState, deleteCommen
 }))
 
 let capturedCommentParams: Ref<{ page: number; size: number; sort: string }> | null = null
+let capturedCommentError: Ref<Error | null>
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -68,14 +70,16 @@ vi.mock('@/features/comments/queries/useComment', () => ({
   useComment: () => ({
     useInfiniteComments: (_postId: Ref<string | number>, params: Ref<{ page: number; size: number; sort: string }>) => {
       capturedCommentParams = params
+      capturedCommentError = ref(commentsState.error)
       return {
         data: ref({ pages: [commentsValue], pageParams: [0] }),
         isLoading: ref(false),
         isFetching: ref(false),
         isFetchingNextPage: ref(false),
+        isFetchNextPageError: ref(commentsState.isFetchNextPageError),
         hasNextPage: ref(commentsState.hasNextPage),
         fetchNextPage,
-        error: ref(commentsState.error),
+        error: capturedCommentError,
         refetch: refetchComments,
       }
     },
@@ -133,6 +137,7 @@ describe('CommentList', () => {
     confirm.mockReset().mockResolvedValue(true)
     commentsState.error = null
     commentsState.hasNextPage = false
+    commentsState.isFetchNextPageError = false
     fetchNextPage.mockClear()
     refetchComments.mockClear()
     getComment.mockReset()
@@ -172,6 +177,7 @@ describe('CommentList', () => {
 
   it('shows a retryable error state when comments fail to load', async () => {
     commentsState.error = new Error('failed')
+    commentsValue.content = []
 
     const wrapper = mountCommentList()
 
@@ -179,6 +185,19 @@ describe('CommentList', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     await wrapper.get('[role="alert"] button').trigger('click')
     expect(refetchComments).toHaveBeenCalled()
+  })
+
+  it.each([false, true])('keeps mounted comments after an error and retries the failed operation (next page %s)', async (nextPageError) => {
+    commentsState.isFetchNextPageError = nextPageError
+    commentsState.hasNextPage = true
+    const wrapper = mountCommentList()
+    const row = wrapper.get('[data-testid="comment-item"]').element
+    capturedCommentError.value = new Error('failed')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[data-testid="comment-item"]').element).toBe(row)
+    await wrapper.get('[role="alert"] button').trigger('click')
+    expect(nextPageError ? fetchNextPage : refetchComments).toHaveBeenCalledTimes(1)
+    expect(nextPageError ? refetchComments : fetchNextPage).not.toHaveBeenCalled()
   })
 
   it('shows a load-more action when more comments exist and fetches the next page', async () => {

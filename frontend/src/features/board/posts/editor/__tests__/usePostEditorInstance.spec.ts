@@ -32,6 +32,7 @@ describe('usePostEditorInstance accessibility', () => {
             label.value = 'Content'
             await nextTick()
 
+            expect(element.getAttribute('role')).toBe('textbox')
             expect(element.getAttribute('aria-label')).toBe('Content')
             expect(element.getAttribute('aria-multiline')).toBe('true')
             expect(element.classList.contains('nv-rich-content')).toBe(true)

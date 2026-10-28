@@ -1,18 +1,20 @@
 <template>
   <div class="bg-transparent p-0">
-    <ProfileBasicForm
-      v-model:display-name="form.displayName"
-      v-model:profile-image-error="profileImageError"
-      :fallback-display-name="authStore.user?.displayName"
-      :profile-image-display-url="profileImageDisplayUrl"
-      :display-name-error="profileValidation.visibleError('displayName') || errors.displayName"
-      :profile-image-cost-text="profileImageCostText"
-      :can-remove-profile-image="canRemoveProfileImage"
-      @file-change="handleFileChange"
-      @remove-photo="clearProfileImage"
-      @blur-display-name="profileValidation.touchField('displayName', profileValidationValues)"
-      @submit="handleProfileSubmit"
-    />
+    <fieldset :disabled="loading" :inert="loading ? true : undefined" class="m-0 min-w-0 border-0 p-0">
+      <ProfileBasicForm
+        v-model:display-name="form.displayName"
+        v-model:profile-image-error="profileImageError"
+        :fallback-display-name="authStore.user?.displayName"
+        :profile-image-display-url="profileImageDisplayUrl"
+        :display-name-error="profileValidation.visibleError('displayName') || errors.displayName"
+        :profile-image-cost-text="profileImageCostText"
+        :can-remove-profile-image="canRemoveProfileImage"
+        @file-change="handleFileChange"
+        @remove-photo="clearProfileImage"
+        @blur-display-name="profileValidation.touchField('displayName', profileValidationValues)"
+        @submit="handleProfileSubmit"
+      />
+    </fieldset>
     <p v-if="errors.profileImage" class="mt-2 text-sm nv-form-error" role="alert">
       {{ errors.profileImage }}
     </p>
@@ -56,6 +58,7 @@ import AccountDeletionSection from '@/components/user/AccountDeletionSection.vue
 import ProfileAgentPanel from '@/components/user/ProfileAgentPanel.vue'
 import ProfileBasicForm from '@/components/user/ProfileBasicForm.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useDraftDiscardConfirmation } from '@/composables/useDraftDiscardConfirmation'
 import { useUser } from '@/features/user/useUser'
 import { useAccountDeletion } from '@/features/user/profile/useAccountDeletion'
 import { useMyAgentActions } from '@/features/user/agents/useMyAgentActions'
@@ -154,6 +157,20 @@ const {
   onRefreshed: () => emit('refreshed'),
   onClose: () => emit('close')
 })
+
+const { requestClose } = useDraftDiscardConfirmation({
+  draftState: () => [form.displayName, selectedFile.value, removeProfileImage.value, loading.value],
+  // A submitted save may finish after the editor closes; keep that existing lifecycle.
+  isDirty: () => !loading.value && (
+    form.displayName !== (authStore.user?.displayName || '')
+    || selectedFile.value !== null
+    || removeProfileImage.value
+  ),
+  message: () => t('user.profile.discardConfirm'),
+  close: () => emit('close'),
+})
+
+defineExpose({ requestClose })
 
 watch(
   () => [authStore.sessionGeneration, authStore.user?.userId] as const,

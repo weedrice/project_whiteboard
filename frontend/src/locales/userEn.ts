@@ -30,6 +30,7 @@ export const userEn: UserMessages = {
     currentPhotoAlt: 'Current profile photo',
     choosePhotoPlaceholder: 'Choose a profile photo',
     profileImageFirstFree: 'Your first profile image change is free.',
+    discardConfirm: 'Discard your unsaved profile changes and close?',
     profileImageCost: 'Costs {cost}P to change · You have {points}P',
     profileImageCostConfirm: 'Changing your profile image costs {cost}P. Continue?',
     profileImageCostSpent: '{points}P was deducted for changing your profile image.',

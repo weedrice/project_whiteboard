@@ -755,6 +755,7 @@ export interface UserMessages {
     currentPhotoAlt: string
     choosePhotoPlaceholder: string
     profileImageFirstFree: string
+    discardConfirm: string
     profileImageCost: string
     profileImageCostConfirm: string
     profileImageCostSpent: string

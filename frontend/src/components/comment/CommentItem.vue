@@ -25,6 +25,7 @@ import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInv
 import type { ReportReasonType } from '@/types'
 import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { buildPostDetailPath } from '@/utils/urlPath'
 
 defineOptions({
@@ -76,13 +77,14 @@ const {
   replies,
   isRepliesOpen,
   isRepliesLoading,
+  isRepliesFetching,
   repliesError,
   replyHasNext,
   canLoadReplies,
   markReplyCreated,
   toggleReplies,
   loadMoreReplies,
-  refetchReplies,
+  retryReplies,
 } = useCommentReplies(commentRef, computed(() => props.postId), computed(() => props.deepLinkCommentIds))
 const {
   isBlockedAuthor,
@@ -124,8 +126,12 @@ const replyToggleLabel = computed(() => {
 })
 
 function handleReplySuccess() {
-  markReplyCreated()
+  handleEmoticonSuccess()
   isReplying.value = false
+}
+
+function handleEmoticonSuccess() {
+  markReplyCreated()
   emit('reply-success')
 }
 
@@ -447,6 +453,7 @@ onUnmounted(cancelPendingCommentReport)
             :postId="postId"
             :parentId="comment.commentId"
             @success="handleReplySuccess"
+            @emoticon-success="handleEmoticonSuccess"
             @cancel="isReplying = false"
           />
         </div>
@@ -459,12 +466,13 @@ onUnmounted(cancelPendingCommentReport)
           <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
             {{ $t('common.loading') }}
           </p>
-          <div v-else-if="repliesError" class="text-xs nv-form-error" role="alert">
+          <div v-else-if="repliesError && replies.length === 0" class="text-xs nv-form-error" role="alert">
             <p>{{ $t('comment.loadRepliesFailed') }}</p>
             <button
               type="button"
               class="nv-focus-ring mt-2 min-h-11 rounded-md border nv-border px-3 text-xs font-medium"
-              @click="refetchReplies()"
+              :disabled="isRepliesFetching"
+              @click="retryReplies"
             >
               {{ $t('common.error.retry') }}
             </button>
@@ -484,14 +492,22 @@ onUnmounted(cancelPendingCommentReport)
               @edit-success="$emit('edit-success')"
               @delete="(childComment) => $emit('delete', childComment)"
             />
-            <button
-              v-if="replyHasNext"
+            <div v-if="repliesError" class="text-xs nv-form-error" role="alert">
+              <p>{{ $t('comment.loadRepliesFailed') }}</p>
+              <BaseButton type="button" variant="secondary" size="sm" :loading="isRepliesFetching" @click="retryReplies">
+                {{ $t('common.error.retry') }}
+              </BaseButton>
+            </div>
+            <BaseButton
+              v-else-if="replyHasNext"
               type="button"
-              class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
+              variant="secondary"
+              size="sm"
+              :loading="isRepliesFetching"
               @click="loadMoreReplies"
             >
               {{ $t('common.loadMore') }}
-            </button>
+            </BaseButton>
           </div>
           <p v-else class="text-xs nv-text-subtle">
             {{ $t('common.noData') }}

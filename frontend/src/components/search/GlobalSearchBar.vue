@@ -7,6 +7,7 @@ import { useBoardAutocomplete } from '@/features/board/search/useBoardAutocomple
 import { useGlobalSearchController } from '@/features/search/navigation/useGlobalSearchController'
 
 const searchContainer = ref<HTMLElement | null>(null)
+const mobileResults = ref<HTMLElement | null>(null)
 const searchInputRef = ref<{ $el?: HTMLElement; focus?: () => void } | null>(null)
 const searchToggleRef = ref<HTMLButtonElement | null>(null)
 const searchInputId = 'global-search-input'
@@ -30,6 +31,7 @@ const {
   filteredBoards,
   searchQuery,
   searchContainer,
+  mobileResults,
   searchInputRef,
   searchToggleRef,
   searchListboxId
@@ -95,6 +97,7 @@ const {
     <Teleport to="body">
       <div
         v-if="showDropdown && isMobile && isExpanded"
+        ref="mobileResults"
         class="nv-global-search-dropdown nv-global-search-mobile-results fixed inset-x-0 top-16 z-[var(--nv-z-overlay)] mx-0 rounded-t-none border-t-0 shadow-lg border overflow-y-auto">
         <BoardAutocompleteList
           :boards="filteredBoards"

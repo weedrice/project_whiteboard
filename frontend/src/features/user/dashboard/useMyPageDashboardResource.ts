@@ -174,6 +174,7 @@ export function useMyPageDashboardResource(t: Translate) {
 
   function handleMyPostsSortChange(newSort: string) {
     myPostsSort.value = newSort
+    myPostsCurrentPage.value = 0
     return fetchMyPosts()
   }
 

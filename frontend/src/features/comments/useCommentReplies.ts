@@ -26,6 +26,7 @@ export function useCommentReplies(
     data: repliesData,
     isLoading: isRepliesLoading,
     isFetching: isRepliesFetching,
+    isFetchNextPageError,
     error: repliesError,
     hasNextPage: replyHasNext,
     fetchNextPage,
@@ -50,6 +51,12 @@ export function useCommentReplies(
   function loadMoreReplies() {
     if (!replyHasNext.value || isRepliesFetching.value) return
     void fetchNextPage()
+  }
+
+  function retryReplies() {
+    if (isRepliesFetching.value) return
+    if (isFetchNextPageError.value) void fetchNextPage()
+    else void refetchReplies()
   }
 
   watch([replies, deepLinkChildId, replyHasNext, isRepliesFetching, isRepliesOpen], () => {
@@ -90,6 +97,7 @@ export function useCommentReplies(
     replies,
     isRepliesOpen,
     isRepliesLoading,
+    isRepliesFetching,
     repliesError,
     replyHasNext,
     canLoadReplies,
@@ -97,5 +105,6 @@ export function useCommentReplies(
     toggleReplies,
     loadMoreReplies,
     refetchReplies,
+    retryReplies,
   }
 }

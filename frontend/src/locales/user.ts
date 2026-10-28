@@ -30,6 +30,7 @@ export const user: UserMessages = {
     currentPhotoAlt: '\uD604\uC7AC \uD504\uB85C\uD544 \uC0AC\uC9C4',
     choosePhotoPlaceholder: '프로필 사진을 선택하세요',
     profileImageFirstFree: '프로필 이미지 최초 변경은 무료입니다.',
+    discardConfirm: '저장하지 않은 프로필 변경사항을 버리고 닫으시겠습니까?',
     profileImageCost: '변경 시 {cost}P 차감 · 보유 {points}P',
     profileImageCostConfirm: '프로필 이미지 변경 시 {cost}P가 차감됩니다. 계속할까요?',
     profileImageCostSpent: '프로필 이미지 변경으로 {points}P가 차감되었습니다.',
