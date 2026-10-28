@@ -1332,6 +1332,37 @@ class PostgresApplicationContextSmokeTest {
     }
 
     @Test
+    void keywordPostDeliveryLookupCanUseItsValidPartialIndex() {
+        String indexName = "idx_notification_delivery_jobs_keyword_post_receiver";
+        Boolean valid = jdbcTemplate.queryForObject("""
+                SELECT i.indisvalid
+                FROM pg_index i
+                JOIN pg_class c ON c.oid = i.indexrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = current_schema() AND c.relname = ?
+                """, Boolean.class, indexName);
+        assertEquals(Boolean.TRUE, valid);
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            // The smoke database is small: force index eligibility, not a production cost estimate.
+            // SET LOCAL is confined to this transaction and cannot affect other tests or pooled users.
+            jdbcTemplate.execute("SET LOCAL enable_seqscan = off");
+            List<String> plan = jdbcTemplate.queryForList("""
+                    EXPLAIN (COSTS OFF)
+                    SELECT job.* FROM notification_delivery_jobs job
+                    WHERE job.notification_type = 'KEYWORD'
+                      AND job.source_type = 'POST'
+                      AND job.source_id = ?
+                      AND job.receiver_user_id IN (?, ?)
+                    ORDER BY job.created_at ASC, job.job_id ASC
+                    """, String.class, 101L, 201L, 202L);
+            String explanation = String.join("\n", plan);
+            assertTrue(explanation.contains(indexName), explanation);
+        });
+    }
+
+    @Test
     void notificationDeliveryInsertIsIdempotentUnderPostgresConcurrency() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         User receiver = userRepository.saveAndFlush(User.builder()

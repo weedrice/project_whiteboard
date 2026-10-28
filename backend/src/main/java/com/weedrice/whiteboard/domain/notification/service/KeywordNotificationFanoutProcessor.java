@@ -4,8 +4,10 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceTy
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFanoutJob;
+import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.entity.UserKeywordSubscription;
 import com.weedrice.whiteboard.domain.notification.repository.KeywordNotificationFanoutJobRepository;
+import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.UserKeywordSubscriptionRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
@@ -24,8 +26,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -40,6 +46,7 @@ public class KeywordNotificationFanoutProcessor {
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
     private final NotificationDeliveryJobService deliveryJobService;
+    private final NotificationDeliveryJobRepository deliveryJobRepository;
     private final UserBlockService userBlockService;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
@@ -81,13 +88,22 @@ public class KeywordNotificationFanoutProcessor {
         User author = userRepository.findById(post.getUserId()).orElse(null);
         Agent authorAgent = post.getAgentId() == null ? null : agentRepository.findById(post.getAgentId()).orElse(null);
         LocalDateTime cooldown = now().minusMinutes(COOLDOWN_MINUTES);
-        for (UserKeywordSubscription subscription : subscriptions) {
-            if (isEligible(subscription, post, blocked, cooldown)) {
-                NotificationEvent event = NotificationEvent.localized(
-                        subscription.getUser(), author, authorAgent,
-                        NotificationType.KEYWORD, NotificationSourceType.POST, post.getPostId(),
-                        "notification.keyword.matched", post.getTitle());
-                if (deliveryJobService.enqueue(event) != null) subscription.markNotified(now());
+        List<UserKeywordSubscription> eligible = subscriptions.stream()
+                .filter(subscription -> isEligible(subscription, post, blocked, cooldown)).toList();
+        Map<Long, UUID> existingEventIds = existingKeywordEventIds(post.getPostId(), eligible);
+        for (UserKeywordSubscription subscription : eligible) {
+            Long receiverId = subscription.getUser().getUserId();
+            NotificationEvent event = NotificationEvent.localized(
+                    existingEventIds.getOrDefault(receiverId, keywordEventId(post.getPostId(), receiverId)),
+                    subscription.getUser(), author, authorAgent,
+                    NotificationType.KEYWORD, NotificationSourceType.POST, post.getPostId(),
+                    "notification.keyword.matched", post.getTitle());
+            NotificationDeliveryJob deliveryJob = deliveryJobService.enqueue(event);
+            if (deliveryJob != null && (subscription.getLastNotifiedAt() == null
+                    || subscription.getLastNotifiedAt().isBefore(deliveryJob.getCreatedAt()))) {
+                // A later page may match another keyword for the same receiver. Reuse the
+                // first enqueue time so a duplicate neither extends nor rewinds cooldown.
+                subscription.markNotified(deliveryJob.getCreatedAt());
             }
         }
         Long cursor = subscriptions.isEmpty() ? job.getLastSubscriptionId()
@@ -113,6 +129,26 @@ public class KeywordNotificationFanoutProcessor {
                 && Boolean.TRUE.equals(post.getBoard().getIsActive())
                 && Boolean.TRUE.equals(post.getBoard().getIsPublic())
                 && Boolean.TRUE.equals(post.getBoard().getIsListed());
+    }
+
+    private UUID keywordEventId(Long postId, Long receiverId) {
+        // Persisted event identity survives page boundaries and worker restarts.
+        return UUID.nameUUIDFromBytes(("keyword-post:" + postId + ":receiver:" + receiverId)
+                .getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Map<Long, UUID> existingKeywordEventIds(Long postId, List<UserKeywordSubscription> eligible) {
+        List<Long> receiverIds = eligible.stream().map(subscription -> subscription.getUser().getUserId())
+                .distinct().toList();
+        if (receiverIds.isEmpty()) return Map.of();
+        // One lookup per page also finds random-ID events from before this change.
+        // The fan-out job lock serializes pages; ordered results retain each receiver's first event.
+        Map<Long, UUID> eventIds = new HashMap<>();
+        for (NotificationDeliveryJob existing : deliveryJobRepository.findKeywordPostJobsForReceivers(
+                postId, receiverIds)) {
+            eventIds.putIfAbsent(existing.getReceiverUserId(), existing.getEventId());
+        }
+        return eventIds;
     }
     private boolean isEligible(UserKeywordSubscription s, Post p, Set<Long> blocked, LocalDateTime cooldown) {
         Long userId = s.getUser() == null ? null : s.getUser().getUserId();

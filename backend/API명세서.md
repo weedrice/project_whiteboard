@@ -473,6 +473,10 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터 |
 | `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | 영구 실패한 피드 생성 작업 단건 재시도(SUPER_ADMIN) |
 
+키워드 구독은 게시글·수신자 단위로 알림 이벤트를 중복 방지한다. 동일 제목에 여러 구독 키워드가
+일치하더라도 배치 경계와 재시도에 걸쳐 알림·푸시 이벤트를 추가 생성하지 않는다. 각 매칭 구독의
+10분 대기 시간은 최초 이벤트 등록 시각을 사용하며, 이미 더 최근의 알림 시각이 있으면 유지한다.
+
 ### Files, Tags, Points, Shop, Reports
 
 | Method | URI | 설명 |

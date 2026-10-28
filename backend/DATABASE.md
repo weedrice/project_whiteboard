@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-10-16 |
+| 기준일 | 2026-10-27 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V100__profile_privacy_settings.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V101__index_keyword_notification_delivery_lookup.sql` |
 | 현재 테이블 수 | 88개 |
 | DB | PostgreSQL |
 
@@ -182,6 +182,7 @@
 - `verification_codes`는 목적/생성일 조회와 ticket lookup 인덱스를 가진다.
 - `message_queue`는 processing lease 회수와 send attempt 조회 인덱스를 가진다.
 - `feed_generation_jobs`는 post당 job unique 제약과 status/processing 조회 인덱스를 가진다.
+- `idx_notification_delivery_jobs_keyword_post_receiver`는 `notification_type = 'KEYWORD' AND source_type = 'POST'`인 알림 전달 작업의 `(source_id, receiver_user_id)` 부분 인덱스다. V101에서 온라인 생성하며, fan-out 페이지별 기존 이벤트 조회를 지원한다. 완료·실패 상태도 중복 방지 대상이므로 상태 조건으로 제한하지 않는다. 매칭 결과의 `created_at, job_id` 정렬은 조회에서 유지한다.
 - `sanctions`, `ip_blocks`는 processor user FK와 조회 인덱스를 가진다.
 - `agent_daily_quotas`는 agent/date/action 조합 unique다.
 - `agent_post_activity_reads`는 `(agent_id, post_id)` unique 제약과 agent/post 조회 인덱스를 가진다.
@@ -279,6 +280,7 @@
 | `V98` | 게시글·댓글의 `(agent_id, user_id)`가 Agent 소유자와 일치하도록 복합 FK를 `NOT VALID`로 추가(expand) |
 | `V99` | 게시글·댓글 Agent 소유자 복합 FK 검증(expand) |
 | `V100` | 프로필 개요·작성 글·작성 댓글 공개 설정 3개 추가(expand, 기본값 Y) |
+| `V101` | 키워드 게시글 알림의 글·수신자별 중복 방지 조회용 부분 인덱스 온라인 추가(expand) |
 
 ## 프로필 공개 설정 (V100)
 
@@ -291,6 +293,7 @@
 - `CREATE EXTENSION IF NOT EXISTS pg_trgm`와 `CREATE EXTENSION IF NOT EXISTS vector` 실행 권한이 필요하다.
 - 큰 테이블의 trigram/vector 인덱스는 운영 반영 전에 staging에서 `EXPLAIN (ANALYZE, BUFFERS)`와 락 영향을 확인한다.
 - local/H2 테스트는 PostgreSQL extension, native SQL, index 동작을 증명하지 않는다.
+- V101은 기존 테이블에 부분 인덱스를 `CONCURRENTLY`로 생성하고 5초 `lock_timeout`을 적용한다. 신규 컬럼·테이블·데이터 변경은 없으며 이전 JAR와 호환된다. 큰 이력 테이블에서는 인덱스 생성 I/O·디스크 사용량·배포 시작 시간을 확인하고, 실패 시 [마이그레이션 정책](../docs/ops/database-migration-policy.md)의 invalid index 확인·복구 절차를 따른다.
 - V97 적용 전 아래 사전 점검 결과가 모두 `0`인지 확인한다. 하나라도 존재하면 배포를 중단하고 자동 보정하지 않는다.
 
   ```sql

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +18,17 @@ public interface NotificationDeliveryJobRepository extends JpaRepository<Notific
         NotificationDeliveryJobRepositoryCustom {
 
     Optional<NotificationDeliveryJob> findByEventId(UUID eventId);
+
+    @Query("""
+            SELECT job FROM NotificationDeliveryJob job
+            WHERE job.notificationType = com.weedrice.whiteboard.domain.notification.constant.NotificationType.KEYWORD
+              AND job.sourceType = com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType.POST
+              AND job.sourceId = :postId
+              AND job.receiverUserId IN :receiverIds
+            ORDER BY job.createdAt ASC, job.jobId ASC
+            """)
+    List<NotificationDeliveryJob> findKeywordPostJobsForReceivers(
+            @Param("postId") Long postId, @Param("receiverIds") Collection<Long> receiverIds);
 
     @Query("""
             SELECT job.jobId
