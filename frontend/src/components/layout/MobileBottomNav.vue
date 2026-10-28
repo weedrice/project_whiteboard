@@ -65,7 +65,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
 </script>
 
 <template>
-  <div v-if="!hidden" class="sm:hidden">
+  <div v-if="!hidden" class="md:hidden">
     <nav class="nv-mobile-nav" :aria-label="t('layout.mobileNav.ariaLabel')">
       <RouterLink to="/" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" :aria-current="isHome ? 'page' : undefined">
         <Home class="h-5 w-5" aria-hidden="true" />

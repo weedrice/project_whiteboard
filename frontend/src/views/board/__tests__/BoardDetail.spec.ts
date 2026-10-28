@@ -171,7 +171,7 @@ vi.mock('@/utils/image', () => ({
 }))
 
 vi.mock('@/utils/keyboard', async (importOriginal) => ({
-    ...await importOriginal<typeof import('@/utils/keyboard')>(),
+  ...await importOriginal<typeof import('@/utils/keyboard')>(),
   isInputFocused: () => false
 }))
 
@@ -202,6 +202,30 @@ describe('BoardDetail', () => {
     confirmMock.mockReset()
     confirmMock.mockResolvedValue(true)
     subscribeMutate.mockReset()
+  })
+
+  it('keeps one search field before the mobile infinite list and submits its query', async () => {
+    isMobilePostList.value = true
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub, RouterView: true, PostList: true,
+          Pagination: true, UserMenu: true, BaseSkeleton: true,
+        },
+      },
+    })
+    const search = wrapper.get('#board-search-input')
+    const list = wrapper.get('post-list-stub')
+    expect(wrapper.findAll('#board-search-input')).toHaveLength(1)
+    expect(search.element.compareDocumentPosition(list.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await search.setValue('needle')
+    await search.trigger('keyup.enter')
+    await nextTick()
+    expect(router.replace).toHaveBeenCalledWith(expect.objectContaining({
+      query: expect.objectContaining({ q: 'needle' }),
+    }))
+    wrapper.unmount()
   })
 
   it('shows all, concept, and real category filters in the toolbar', () => {

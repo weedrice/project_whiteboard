@@ -19,6 +19,7 @@ const route = useRoute()
 const {
   form,
   fieldErrors,
+  touchField,
   isLoading,
   isReregister,
   oauthTicketLoading,
@@ -77,6 +78,7 @@ usePwaReloadBlocker(computed(() => (
           <BaseInput id="login-id" v-model="form.loginId" name="loginId" type="text" required
             :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel
             :error="fieldErrors.loginId"
+            @blur="touchField('loginId')"
             :disabled="isReregister">
             <template #prefix>
               <User class="h-5 w-5 nv-text-subtle" />
@@ -93,6 +95,8 @@ usePwaReloadBlocker(computed(() => (
           :password-error="fieldErrors.password"
           :confirm-password-error="fieldErrors.passwordConfirm"
           hide-labels
+          @blur-password="touchField('password')"
+          @blur-confirm-password="touchField('passwordConfirm')"
         />
 
         <div>
@@ -118,6 +122,7 @@ usePwaReloadBlocker(computed(() => (
             :expired-label="t('auth.codeExpired')"
             :format-time="formatTime"
             :email-error="fieldErrors.email"
+            @blur-email="touchField('email')"
             @send="sendVerificationCode"
             @verify="verifyCode"
           />
@@ -126,7 +131,7 @@ usePwaReloadBlocker(computed(() => (
         <div>
           <BaseInput id="display-name" v-model="form.displayName" name="displayName" type="text" required
             :placeholder="$t('auth.placeholders.displayName')" :label="$t('common.displayName')" hideLabel
-            :error="fieldErrors.displayName">
+            :error="fieldErrors.displayName" @blur="touchField('displayName')">
             <template #prefix>
               <Smile class="h-5 w-5 nv-text-subtle" />
             </template>

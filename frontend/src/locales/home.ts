@@ -60,6 +60,8 @@ export const home: HomeMessages = {
     description: '구독한 스페이스의 새 글을 발행 순서대로 모아보세요.',
     loading: '내 피드를 불러오는 중입니다.',
     loadFailed: '내 피드를 불러오지 못했습니다.',
+    loadMoreFailed: '추가 글을 불러오지 못했습니다. 다시 시도해 주세요.',
+    refreshFailed: '새 글을 확인하지 못했습니다. 기존 글은 계속 읽을 수 있습니다.',
     emptyTitle: '아직 피드에 글이 없습니다.',
     emptyDescription: '스페이스를 구독하면 새 글이 여기에 모입니다.',
     browseSpaces: '스페이스 둘러보기',

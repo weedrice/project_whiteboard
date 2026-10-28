@@ -2,6 +2,8 @@ import type { NotificationMessages } from './types'
 
 export const notificationEn: NotificationMessages = {
   title: 'Notifications',
+  read: 'Read',
+  unread: 'Unread',
   unreadNotifications: '{count} unread notifications',
   markAllRead: 'Mark all as read',
   markAllReadShort: 'Mark all read',

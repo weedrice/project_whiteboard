@@ -61,7 +61,7 @@ const hasMobileBottomNav = computed(() => (
   bottom: 0;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .nv-toast-bottom-container.with-mobile-nav {
     bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
   }

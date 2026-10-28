@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import {
     boardRef,
@@ -39,6 +39,16 @@ type PostFormExposed = {
 }
 
 describe('PostForm', () => {
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
+    beforeAll(() => {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView })
+    })
+    afterAll(() => {
+        if (originalScrollIntoView) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView)
+        else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+    })
+
     afterEach(() => {
         unmountPostFormWrappers()
     })
@@ -173,12 +183,14 @@ describe('PostForm', () => {
         const wrapper = mountPostForm('create')
 
         await wrapper.get('form').trigger('submit')
-        expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
+        expect(wrapper.findComponent({ name: 'PostFormMainSection' }).props('titleError')).toBe('board.writePost.contentValidation.titleRequired')
+        expect(mockAddToast).not.toHaveBeenCalled()
         expect(mockCreateMutate).not.toHaveBeenCalled()
 
         await wrapper.get('#title').setValue('   ')
         await wrapper.get('form').trigger('submit')
-        expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
+        expect(wrapper.findComponent({ name: 'PostFormMainSection' }).props('titleError')).toBe('board.writePost.contentValidation.titleRequired')
+        expect(mockAddToast).not.toHaveBeenCalled()
         expect(mockCreateMutate).not.toHaveBeenCalled()
 
         setBoardCategories([])
@@ -188,6 +200,72 @@ describe('PostForm', () => {
 
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
         expect(mockCreateMutate).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        { title: '<Vue> usage', error: 'titleContainsHtml' },
+        { title: 'x'.repeat(201), error: 'titleTooLong' },
+    ])('shows the specific $error title error and clears it after correction', async ({ title, error }) => {
+        const wrapper = mountPostForm('create')
+        await fillPostForm(wrapper, { title })
+        await submitPostForm(wrapper)
+
+        const main = wrapper.findComponent({ name: 'PostFormMainSection' })
+        expect(main.props('titleError')).toBe(`board.writePost.contentValidation.${error}`)
+        expect(mockAddToast).not.toHaveBeenCalled()
+        expect(mockCreateMutate).not.toHaveBeenCalled()
+
+        await wrapper.get('#title').setValue('Vue usage')
+        expect(main.props('titleError')).toBe('')
+        await submitPostForm(wrapper)
+        expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+        { error: 'contentTooLong', contents: 'x'.repeat(100001) },
+        { error: 'tooManyFiles', contents: Array.from({ length: 21 }, (_, i) => `<img src="/api/v1/files/${i + 1}">`).join('') },
+    ])('keeps an actionable $error message until the body is corrected', async ({ error, contents }) => {
+        const wrapper = mountPostForm('create')
+        document.body.appendChild(wrapper.element)
+        try {
+            await fillPostForm(wrapper, { contents })
+            await submitPostForm(wrapper)
+            await nextTick()
+
+            const message = wrapper.get('#post-content-validation-error')
+            expect(message.text()).toBe(`board.writePost.contentValidation.${error}`)
+            expect(document.activeElement).toBe(message.element)
+            expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: 'center' }))
+            expect(mockAddToast).not.toHaveBeenCalled()
+            expect(mockCreateMutate).not.toHaveBeenCalled()
+
+            await wrapper.get('[data-testid="editor-input"]').setValue('<p>Shorter body</p>')
+            expect(wrapper.find('#post-content-validation-error').exists()).toBe(false)
+            await submitPostForm(wrapper)
+            expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+        } finally {
+            wrapper.element.remove()
+        }
+    })
+
+    it.each([
+        { error: 'tooManyTags', tags: Array.from({ length: 11 }, (_, i) => `tag-${i}`) },
+        { error: 'tagRequired', tags: [''] },
+        { error: 'tagTooLong', tags: ['x'.repeat(101)] },
+    ])('explains $error instead of reporting a missing required field', async ({ error, tags }) => {
+        const wrapper = mountPostForm('create')
+        await fillPostForm(wrapper)
+        wrapper.findComponent({ name: 'PostTags' }).vm.$emit('update:modelValue', tags)
+        await nextTick()
+        await submitPostForm(wrapper)
+
+        expect(wrapper.get('#post-content-validation-error').text()).toBe(`board.writePost.contentValidation.${error}`)
+        expect(mockAddToast).not.toHaveBeenCalled()
+        expect(mockCreateMutate).not.toHaveBeenCalled()
+
+        wrapper.findComponent({ name: 'PostTags' }).vm.$emit('update:modelValue', ['fixed'])
+        await nextTick()
+        expect(wrapper.find('#post-content-validation-error').exists()).toBe(false)
     })
 
     it('submits create payload and leaves success navigation to the parent view', async () => {

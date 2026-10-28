@@ -393,6 +393,8 @@ export interface HomeMessages {
     description: string
     loading: string
     loadFailed: string
+    loadMoreFailed: string
+    refreshFailed: string
     emptyTitle: string
     emptyDescription: string
     browseSpaces: string

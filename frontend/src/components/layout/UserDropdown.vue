@@ -142,7 +142,7 @@ watch(() => props.isOpen, (isOpen) => {
         fallback-class="font-bold"
         class="border"
       />
-      <span class="sr-only md:not-sr-only font-medium">{{ authStore.user?.displayName || authStore.user?.loginId }}</span>
+      <span class="sr-only font-medium md:not-sr-only md:max-w-24 md:truncate">{{ authStore.user?.displayName || authStore.user?.loginId }}</span>
       <span class="sr-only">{{ $t('layout.userMenu.ariaLabel') }}</span>
       <ChevronDown class="hidden sm:inline-block h-3 w-3 sm:h-4 sm:w-4 nv-text-subtle" />
     </button>

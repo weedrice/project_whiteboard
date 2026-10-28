@@ -4,9 +4,14 @@ import { useAuthStore } from '@/stores/auth'
 import { createAuthSessionScope, type AuthSessionScope } from '@/utils/authSessionScope'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
+export interface ConfirmOptions {
+    signal?: AbortSignal
+}
+
 export const useConfirmStore = defineStore('confirm', () => {
     const authStore = useAuthStore()
     let scope: AuthSessionScope | null = null
+    let removeAbortListener: (() => void) | null = null
     const isOpen = ref(false)
     const title = ref('')
     const message = ref('')
@@ -18,8 +23,10 @@ export const useConfirmStore = defineStore('confirm', () => {
         msg: string,
         ttl: string = 'Confirm',
         confirmTxt: string = 'Confirm',
-        cancelTxt: string = 'Cancel'
+        cancelTxt: string = 'Cancel',
+        options: ConfirmOptions = {},
     ): Promise<boolean> {
+        if (options.signal?.aborted) return Promise.resolve(false)
         cancel()
         scope = createAuthSessionScope(authStore)
 
@@ -31,6 +38,15 @@ export const useConfirmStore = defineStore('confirm', () => {
 
         return new Promise((resolve) => {
             resolvePromise.value = resolve
+            const signal = options.signal
+            if (signal) {
+                const onAbort = () => {
+                    if (resolvePromise.value === resolve) cancel()
+                }
+                signal.addEventListener('abort', onAbort, { once: true })
+                removeAbortListener = () => signal.removeEventListener('abort', onAbort)
+                if (signal.aborted) onAbort()
+            }
         })
     }
 
@@ -49,6 +65,8 @@ export const useConfirmStore = defineStore('confirm', () => {
     }
 
     function close() {
+        removeAbortListener?.()
+        removeAbortListener = null
         scope?.dispose()
         scope = null
         isOpen.value = false

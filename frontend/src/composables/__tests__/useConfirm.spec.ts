@@ -39,6 +39,17 @@ describe('useConfirm', () => {
             await promise
         })
 
+        it('forwards caller cancellation while keeping the default labels', async () => {
+            const { confirm } = useConfirm()
+            const controller = new AbortController()
+            const pending = confirm('Discard?', undefined, undefined, undefined, { signal: controller.signal })
+            expect(confirmStore.title).toBe('Confirm')
+            expect(confirmStore.confirmText).toBe('Yes')
+            controller.abort()
+            await expect(pending).resolves.toBe(false)
+            expect(confirmStore.isOpen).toBe(false)
+        })
+
         it('uses default title from i18n', async () => {
             const { confirm } = useConfirm()
 

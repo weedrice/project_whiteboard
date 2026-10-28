@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
@@ -6,6 +6,7 @@ import { authApi } from '@/api/auth'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
 import { useSignupRegistration } from '../useSignupRegistration'
+import SignupPage from '@/views/auth/SignupPage.vue'
 
 const mocks = vi.hoisted(() => {
   const toastStore = {
@@ -40,6 +41,12 @@ const mocks = vi.hoisted(() => {
     }
   }
 })
+
+vi.mock('vue-router', async (importOriginal) => ({
+  ...await importOriginal<typeof import('vue-router')>(),
+  useRoute: () => ({ query: {}, fullPath: '/signup' }),
+  useRouter: () => mocks.router,
+}))
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => mocks.toastStore
@@ -126,6 +133,65 @@ describe('useSignupRegistration', () => {
     vi.mocked(authApi.getOAuthSignupTicket).mockRejectedValue({ response: { status: 400 } })
     vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
     vi.mocked(authApi.deleteOAuthSignupTicket).mockResolvedValue(apiSuccessResponse<typeof authApi.deleteOAuthSignupTicket>())
+  })
+
+  it.each([
+    ['login-id', 'a', 'login_1'],
+    ['password', 'a', 'Password1!'],
+    ['password-confirm', 'a', 'Password1!'],
+    ['signup-email', 'user', 'user@example.com'],
+    ['display-name', 'a', 'Display'],
+  ])('waits for blur before showing the first error for %s, then validates corrections while typing', async (id, invalid, valid) => {
+    const wrapper = mount(SignupPage)
+    await flushPromises()
+    if (id === 'password-confirm') await wrapper.get('#password').setValue('Password1!')
+    const input = wrapper.get(`#${id}`)
+    await input.setValue(invalid)
+    expect(input.attributes('aria-invalid')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    await input.trigger('blur')
+    expect(input.attributes('aria-invalid')).toBe('true')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+
+    await input.setValue(valid)
+    expect(input.attributes('aria-invalid')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('validates untouched fields on submit and clears errors while typing', async () => {
+    const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
+    Object.assign(composable.form.value, {
+      loginId: 'a', password: 'a', passwordConfirm: 'b', email: 'user', displayName: 'a',
+    })
+    await wrapper.vm.$nextTick()
+    expect(Object.values(composable.fieldErrors).every(error => !error)).toBe(true)
+    await composable.handleSignup()
+    expect(Object.values(composable.fieldErrors).every(Boolean)).toBe(true)
+    expect(authApi.signup).not.toHaveBeenCalled()
+    Object.assign(composable.form.value, {
+      loginId: 'login_1', password: 'Password1!', passwordConfirm: 'Password1!',
+      email: 'user@example.com', displayName: 'Display',
+    })
+    await wrapper.vm.$nextTick()
+    expect(Object.values(composable.fieldErrors).every(error => !error)).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('rechecks an already visited confirmation when the password changes', async () => {
+    const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
+    composable.form.value.password = 'Password1!'
+    composable.form.value.passwordConfirm = 'Password1!'
+    composable.touchField('passwordConfirm')
+    await wrapper.vm.$nextTick()
+    expect(composable.fieldErrors.passwordConfirm).toBe('')
+    composable.form.value.password = 'Different1!'
+    await wrapper.vm.$nextTick()
+    expect(composable.fieldErrors.passwordConfirm).toBe('auth.passwordMismatch')
+    wrapper.unmount()
   })
 
   it('hydrates query email and name without performing a reregister lookup', async () => {

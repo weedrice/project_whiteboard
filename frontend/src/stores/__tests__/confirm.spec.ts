@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useConfirmStore } from '../confirm'
 import { useAuthStore } from '../auth'
@@ -61,6 +61,56 @@ describe('Confirm Store', () => {
 
             store.cancel()
             await promise
+        })
+    })
+
+    describe('caller cancellation', () => {
+        it('settles and closes its pending dialog when the caller aborts', async () => {
+            const controller = new AbortController()
+            const pending = store.open('Discard?', undefined, undefined, undefined, { signal: controller.signal })
+            controller.abort()
+            await expect(pending).resolves.toBe(false)
+            expect(store.isOpen).toBe(false)
+        })
+
+        it('does not replace an unrelated dialog with an already aborted request', async () => {
+            const active = store.open('Current action')
+            const controller = new AbortController()
+            controller.abort()
+            await expect(store.open('Stale action', undefined, undefined, undefined, { signal: controller.signal }))
+                .resolves.toBe(false)
+            expect(store.isOpen).toBe(true)
+            expect(store.message).toBe('Current action')
+            store.confirm()
+            await expect(active).resolves.toBe(true)
+        })
+
+        it('detaches the replaced caller signal without dismissing the newer dialog', async () => {
+            const controller = new AbortController()
+            const remove = vi.spyOn(controller.signal, 'removeEventListener')
+            const old = store.open('Old action', undefined, undefined, undefined, { signal: controller.signal })
+            const current = store.open('New action')
+            await expect(old).resolves.toBe(false)
+            expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+            controller.abort()
+            expect(store.isOpen).toBe(true)
+            expect(store.message).toBe('New action')
+            store.confirm()
+            await expect(current).resolves.toBe(true)
+        })
+
+        it.each(['confirm', 'cancel'] as const)('detaches the caller signal after %s', async (action) => {
+            const controller = new AbortController()
+            const remove = vi.spyOn(controller.signal, 'removeEventListener')
+            const pending = store.open('Action', undefined, undefined, undefined, { signal: controller.signal })
+            store[action]()
+            await expect(pending).resolves.toBe(action === 'confirm')
+            expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+            const next = store.open('Next action')
+            controller.abort()
+            expect(store.message).toBe('Next action')
+            store.cancel()
+            await expect(next).resolves.toBe(false)
         })
     })
 

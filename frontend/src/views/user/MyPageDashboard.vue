@@ -155,7 +155,7 @@ onMounted(async () => {
           @page-change="handleMyPostsPageChange"
           @retry="fetchMyPosts"
         >
-          <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
+          <PostList show-mobile-sort :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
             :current-sort="myPostsSort" :show-board-name="true"
             :resolve-post-route="resolvePostDetailRoute" :resolve-board-route="resolveBoardRoute"
             @update:sort="handleMyPostsSortChange" />

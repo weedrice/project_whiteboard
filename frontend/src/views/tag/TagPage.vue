@@ -137,6 +137,7 @@ watch(data, (result) => {
 
     <template v-else>
       <PostList
+        show-mobile-sort
         :posts="posts"
         :current-sort="sort"
         :show-board-name="true"

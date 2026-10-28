@@ -18,6 +18,7 @@ const props = defineProps<{
   titleMaxLength: number
   content: string
   titleError?: string
+  contentError?: string
   tags: string[]
   poll: PostFormPoll | null
   pollReadOnly?: boolean
@@ -84,6 +85,16 @@ function handleOpenPoll() {
         @update:model-value="emit('update:title', String($event))"
         @blur="emit('blurTitle')"
       />
+
+      <p
+        v-if="contentError"
+        id="post-content-validation-error"
+        class="nv-form-error mb-3 text-sm nv-focus-ring"
+        tabindex="-1"
+        role="alert"
+      >
+        {{ contentError }}
+      </p>
 
       <PostFormEditorSection
         :model-value="content"
