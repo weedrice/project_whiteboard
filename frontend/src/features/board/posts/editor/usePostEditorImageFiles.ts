@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { hasCandidateImageFiles, isCandidateImageFile } from '@/components/board/editor/postEditorImageFiles'
 
 type ImageUploadQueue = {
-  enqueueFiles: (files: File[]) => void
+  enqueueFiles: (files: File[], dropEvent?: DragEvent) => void
 }
 
 export function usePostEditorImageFiles(
@@ -17,10 +17,11 @@ export function usePostEditorImageFiles(
     imageInput.value?.click()
   }
 
-  function queueImageFiles(files: File[]) {
+  function queueImageFiles(files: File[], dropEvent?: DragEvent) {
     const candidateFiles = files.filter(isCandidateImageFile)
     if (candidateFiles.length === 0) return false
-    imageUploadQueue.enqueueFiles(candidateFiles)
+    if (dropEvent) imageUploadQueue.enqueueFiles(candidateFiles, dropEvent)
+    else imageUploadQueue.enqueueFiles(candidateFiles)
     return true
   }
 
@@ -57,7 +58,7 @@ export function usePostEditorImageFiles(
   function onEditorDrop(event: DragEvent) {
     const files = Array.from(event.dataTransfer?.files ?? [])
     isDraggingImage.value = false
-    if (queueImageFiles(files)) {
+    if (queueImageFiles(files, event)) {
       event.preventDefault()
     }
   }

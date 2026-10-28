@@ -10,9 +10,21 @@ import {
     mountEditor,
     resetPostEditorTipTapTestState,
     selectors,
+    setEditorDocument,
+    setEditorSelection,
 } from './PostEditorTipTapTestHarness'
 
 const mocks = getPostEditorTipTapMocks()
+
+function expectImageInserted(serverSrc: string, fileId: number, position: number = expect.any(Number)) {
+    const attrs = { src: 'blob:https://noviis.kr/local-preview', serverSrc, fileId }
+    expect(mocks.chain.insertContentAt).toHaveBeenCalledWith(position, { type: 'image', attrs }, { updateSelection: false })
+    const images: unknown[] = []
+    mocks.editor.state.doc.descendants(node => {
+        if (node.type.name === 'image') images.push(node.attrs)
+    })
+    expect(images).toContainEqual(attrs)
+}
 
 describe('PostEditorTipTap image workflows', () => {
     afterEach(() => {
@@ -63,9 +75,7 @@ describe('PostEditorTipTap image workflows', () => {
         setFile('ok.png')
         await fileInput.trigger('change')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
+        expectImageInserted('https://cdn.test/u1.png', 88, 1)
         expect(wrapper.find('.image-alt-popover').exists()).toBe(false)
 
         const firstFile = new File(['a'], 'first.png', { type: 'image/png' })
@@ -87,8 +97,8 @@ describe('PostEditorTipTap image workflows', () => {
             expectedSession: { sessionGeneration: 0, userId: null },
             signal: expect.any(AbortSignal),
         }))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/first.png"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/second.webp"'))
+        expectImageInserted('https://cdn.test/first.png', 90)
+        expectImageInserted('https://cdn.test/second.webp', 91)
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
@@ -115,7 +125,7 @@ describe('PostEditorTipTap image workflows', () => {
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })
         await wrapper.findAll('.image-upload-status-btn')[0].trigger('click')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/retry.png"'))
+        expectImageInserted('https://cdn.test/retry.png', 89)
 
         wrapper.unmount()
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/local-preview')
@@ -142,7 +152,7 @@ describe('PostEditorTipTap image workflows', () => {
             expectedSession: { sessionGeneration: 0, userId: null },
             signal: expect.any(AbortSignal),
         }))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/pasted.png"'))
+        expectImageInserted('https://cdn.test/pasted.png', 101)
 
         const dragEnterEvent = new Event('dragenter', { bubbles: true, cancelable: true }) as DragEvent
         Object.defineProperty(dragEnterEvent, 'dataTransfer', {
@@ -164,7 +174,38 @@ describe('PostEditorTipTap image workflows', () => {
             expectedSession: { sessionGeneration: 0, userId: null },
             signal: expect.any(AbortSignal),
         }))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/dropped.webp"'))
+        expectImageInserted('https://cdn.test/dropped.webp', 102, 3)
+    })
+
+    it('applies the registered anchor plugin without replacing text selected during an upload', async () => {
+        const pending = createDeferred<{ url: string; fileId: number }>()
+        mocks.uploadImage.mockReturnValueOnce(pending.promise)
+        const wrapper = mountEditor()
+        setEditorDocument('start KEEP end')
+        setEditorSelection({ from: 1, to: 1 })
+        const fileInput = wrapper.get('input[type="file"]')
+        Object.defineProperty(fileInput.element, 'files', {
+            value: [new File(['image'], 'delayed.png', { type: 'image/png' })], configurable: true,
+        })
+        await fileInput.trigger('change')
+        await flushPromises()
+        expect(mocks.editor.registerPlugin).toHaveBeenCalledOnce()
+        const plugin = mocks.editor.state.plugins[0]!
+        expect(plugin.getState(mocks.editor.state).size).toBe(1)
+        setEditorSelection({ from: 7, to: 11 })
+        pending.resolve({ url: 'https://cdn.test/delayed.png', fileId: 103 })
+        await flushPromises()
+
+        expectImageInserted('https://cdn.test/delayed.png', 103, 1)
+        expect(mocks.editor.state.doc.textContent).toBe('start KEEP end')
+        const { from, to } = mocks.editor.state.selection
+        expect(mocks.editor.state.doc.textBetween(from, to)).toBe('KEEP')
+        expect(plugin.getState(mocks.editor.state).size).toBe(0)
+        expect(mocks.chain.focus).not.toHaveBeenCalled()
+        expect(wrapper.emitted('file-uploaded')).toEqual([[103]])
+        wrapper.unmount()
+        expect(mocks.editor.unregisterPlugin).toHaveBeenCalledOnce()
+        expect(mocks.editor.state.plugins).toHaveLength(0)
     })
 
     it.each(['owner', 'session'] as const)('clears queued images when the %s changes while the editor remains mounted', async (boundary) => {
@@ -184,7 +225,7 @@ describe('PostEditorTipTap image workflows', () => {
         pending.resolve({ url: '/old-session.png', fileId: 12 })
         await flushPromises()
         expect(mocks.uploadImage).toHaveBeenCalledOnce()
-        expect(mocks.chain.insertContent).not.toHaveBeenCalled()
+        expect(mocks.chain.insertContentAt).not.toHaveBeenCalled()
         expect(wrapper.emitted('file-uploaded')).toBeUndefined()
         expect(wrapper.emitted('upload-pending')?.at(-1)).toEqual([false])
     })

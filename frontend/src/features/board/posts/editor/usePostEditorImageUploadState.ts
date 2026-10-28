@@ -12,7 +12,8 @@ interface UsePostEditorImageUploadStateOptions<TUploaded> {
   upload: (file: File, config?: AxiosRequestConfig) => Promise<TUploaded | null>
   ownerIdentity?: Readonly<Ref<string | undefined>>
   isAbort: (error: unknown) => boolean
-  onUploaded: (uploaded: TUploaded, file: File) => void
+  onUploaded: (uploaded: TUploaded, file: File, itemId: number) => void
+  onItemReleased?: (itemId: number) => void
   onValidationError?: (error: 'type' | 'size', file: File) => void
   onFailed: (error: unknown, file: File) => void
   abort: () => void
@@ -23,6 +24,7 @@ export function usePostEditorImageUploadState<TUploaded>({
   upload,
   isAbort,
   onUploaded,
+  onItemReleased,
   onValidationError,
   onFailed,
   abort,
@@ -34,6 +36,7 @@ export function usePostEditorImageUploadState<TUploaded>({
     upload,
     isAbort,
     onUploaded,
+    onItemReleased,
     onValidationError: onValidationError
       ? (error, file) => {
         if (error === 'type' || error === 'size') {

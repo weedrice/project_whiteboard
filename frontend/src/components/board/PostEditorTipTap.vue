@@ -146,9 +146,10 @@ const {
   ownerIdentity: uploadOwnerIdentity,
   upload: uploadImage,
   isAbort: isAbortUploadError,
-  onUploaded: (uploaded, file) => {
-    insertUploadedImage(uploaded, file)
+  onUploaded: (uploaded, file, itemId) => {
+    insertUploadedImage(uploaded, file, itemId)
   },
+  onItemReleased: (itemId) => releaseUploadAnchor(itemId),
   onValidationError: (validationError) => {
     reportImageValidationError(validationError)
   },
@@ -162,6 +163,8 @@ const {
 const {
   fileIds,
   insertUploadedImage,
+  enqueueImageFiles,
+  releaseUploadAnchor,
   disposeUploadedImagePreviews,
   replaceUploadedImage,
 } = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
@@ -280,7 +283,9 @@ const {
   onEditorDrop,
   onEditorDragEnter,
   onEditorDragLeave,
-} = usePostEditorImageFiles(imageUploadQueue, (html) => {
+} = usePostEditorImageFiles({
+  enqueueFiles: (files, dropEvent) => enqueueImageFiles(imageUploadQueue, files, dropEvent),
+}, (html) => {
   if (!requiresPreservedPostHtml(html)) return false
   prepareInsertionAfterRawHtmlBlock()
   editor.value?.chain().focus().insertContent(encodeSandboxedPostHtml(html)).run()

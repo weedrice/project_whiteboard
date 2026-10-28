@@ -19,7 +19,8 @@ interface UseEditorImageUploadQueueOptions<TUploaded> {
     upload: (file: File, config?: AxiosRequestConfig) => Promise<TUploaded | null>
     authSource?: AuthSessionIntentSource
     isAbort: (error: unknown) => boolean
-    onUploaded: (uploaded: TUploaded, file: File) => void
+    onUploaded: (uploaded: TUploaded, file: File, itemId: number) => void
+    onItemReleased?: (itemId: number) => void
     onValidationError?: (error: unknown, file: File) => void
     onFailed?: (error: unknown, file: File) => void
     abort?: () => void
@@ -43,6 +44,7 @@ export function useEditorImageUploadQueue<TUploaded>(
         if (cancel) scope?.cancel()
         scope?.dispose()
         scopes.delete(id)
+        options.onItemReleased?.(id)
     }
 
     const queuedItems = computed(() => queuedItemIds.value
@@ -98,7 +100,7 @@ export function useEditorImageUploadQueue<TUploaded>(
                     if (uploaded) {
                         item.status = 'uploaded'
                         item.uploaded = uploaded
-                        options.onUploaded(uploaded, item.file)
+                        options.onUploaded(uploaded, item.file, item.id)
                     } else {
                         item.status = 'failed'
                         options.onFailed?.(null, item.file)
@@ -199,7 +201,7 @@ export function useEditorImageUploadQueue<TUploaded>(
     const clear = () => {
         processingRevision += 1
         cancel()
-        scopes.forEach(scope => { scope.cancel(); scope.dispose() })
+        items.value.forEach(item => releaseScope(item.id, true))
         scopes.clear()
         items.value = []
         currentItem.value = null
