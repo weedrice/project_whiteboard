@@ -291,6 +291,10 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Check dependency compatibility
+        run: npm run check:dependencies
+        working-directory: frontend
+
       - name: Lint
         run: npm run lint:ci
         working-directory: frontend
@@ -638,6 +642,13 @@ jobs:
           rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
           -ignore 'unexpected key.*queue.*concurrency'
           -ignore 'artifact-metadata'
+
+      - name: Setup Node for workflow validation
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install workflow AST validator
         run: npm ci --ignore-scripts
