@@ -14,6 +14,8 @@ export const NOTIFICATION_SSE_EVENTS = {
     CONNECT: 'connect',
     /** 새 알림 한 건. */
     NOTIFICATION: 'notification',
+    /** 알림 설정과 독립적인 수신 쪽지함 변경. */
+    MESSAGE_CHANGED: 'message-changed',
     /** 구독 중인 게시글의 댓글 변경. */
     COMMENT: 'comment',
     /** 스페이스 단위 댓글 구독 무효화. */

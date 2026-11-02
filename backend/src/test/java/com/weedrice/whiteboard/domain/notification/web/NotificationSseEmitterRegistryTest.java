@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.web;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
+import com.weedrice.whiteboard.domain.notification.dto.MessageChangedEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -28,6 +29,30 @@ class NotificationSseEmitterRegistryTest {
 
     private static final UUID FAMILY_A = UUID.fromString("00000000-0000-0000-0000-00000000000a");
     private static final UUID FAMILY_B = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+
+    @Test
+    void mailboxChangeOnlyReachesRecipientActiveSessions() {
+        CountingSseEmitter receiver = new CountingSseEmitter();
+        CountingSseEmitter sender = new CountingSseEmitter();
+        CountingSseEmitter unrelated = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry =
+                new SequenceEmitterNotificationSseEmitterRegistry(receiver, sender, unrelated);
+        registry.subscribe(1L, FAMILY_A);
+        registry.subscribe(2L, FAMILY_B);
+        registry.subscribe(3L, FAMILY_B);
+        MessageChangedEvent event = new MessageChangedEvent(8L, 2L);
+
+        registry.publishMessageChanged(1L, event);
+
+        assertThat(receiver.sendCount()).isEqualTo(2);
+        assertThat(sender.sendCount()).isEqualTo(1);
+        assertThat(unrelated.sendCount()).isEqualTo(1);
+        assertThat(receiver.lastEventData()).contains(event)
+                .anySatisfy(data -> assertThat(data.toString()).contains("message-changed"));
+        registry.disconnectSessionFamily(1L, FAMILY_A);
+        registry.publishMessageChanged(1L, event);
+        assertThat(receiver.sendCount()).isEqualTo(2);
+    }
 
     @Test
     void shopSaleStatusChangeIsBroadcastToEveryConnectedClient() {

@@ -8,7 +8,7 @@ import {
 } from '@/features/notifications/stream/notificationStreamController'
 import type { Notification } from '@/types'
 import { subscribeNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
-import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
+import { subscribeMessageStreamEvents, type MailboxStreamEvent } from '@/features/user/messages/messageStreamEvents'
 import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 
 vi.mock('@/utils/logger', () => ({
@@ -272,7 +272,7 @@ describe('notificationStreamController dependencies', () => {
             actorDisplayName: 'Sender',
             actorInitial: 'S',
         }
-        const received: Notification[] = []
+        const received: MailboxStreamEvent[] = []
         const unsubscribe = subscribeMessageStreamEvents((event) => received.push(event))
         const openStream = vi.fn(() => Promise.resolve({
             ok: true,
@@ -297,6 +297,61 @@ describe('notificationStreamController dependencies', () => {
 
         expect(received).toEqual([notification])
         unsubscribe()
+    })
+
+    it('accepts only valid mailbox signals without creating notifications', async () => {
+        const listener = vi.fn()
+        const stop = subscribeMessageStreamEvents(listener)
+        const queryClient = new QueryClient()
+        const updateNotifications = vi.spyOn(queryClient, 'setQueriesData')
+        const authStore = { accessToken: 'test-token', sessionGeneration: 7 }
+        const payloads = ['null', '[]', '{}', 'invalid',
+            '{"messageId":0,"partnerId":2}', '{"messageId":8,"partnerId":-1}',
+            '{"messageId":8.5,"partnerId":2}', '{"messageId":"8","partnerId":2}',
+            '{"messageId":8,"partnerId":2,"body":"must not propagate"}']
+        const stream = createNotificationStreamController(queryClient, {
+            openStream: vi.fn(async () => ({
+                ok: true,
+                body: createSseStream(payloads.map(payload => `event: message-changed\ndata: ${payload}\n\n`).join('')),
+            }) as Response),
+            resolveAuthStore: (() => authStore) as never,
+        })
+        try {
+            stream.connectToSse()
+            await flushAsync()
+            expect(listener).toHaveBeenCalledExactlyOnceWith({ messageId: 8, partnerId: 2 })
+            expect(updateNotifications).not.toHaveBeenCalled()
+        } finally {
+            stop()
+            stream.closeSse()
+            queryClient.clear()
+        }
+    })
+
+    it('ignores mailbox signals buffered by the previous authentication session', async () => {
+        const listener = vi.fn()
+        const stop = subscribeMessageStreamEvents(listener)
+        const queryClient = new QueryClient()
+        const authStore = { accessToken: 'test-token', sessionGeneration: 7 }
+        let source!: ReadableStreamDefaultController<Uint8Array>
+        const body = new ReadableStream<Uint8Array>({ start(controller) { source = controller } })
+        const stream = createNotificationStreamController(queryClient, {
+            openStream: vi.fn(async () => ({ ok: true, body }) as Response),
+            resolveAuthStore: (() => authStore) as never,
+        })
+        try {
+            stream.connectToSse()
+            await flushAsync()
+            authStore.sessionGeneration = 8
+            source.enqueue(new TextEncoder().encode('event: message-changed\ndata: {"messageId":8,"partnerId":2}\n\n'))
+            source.close()
+            await flushAsync()
+            expect(listener).not.toHaveBeenCalled()
+        } finally {
+            stop()
+            stream.closeSse()
+            queryClient.clear()
+        }
     })
 
     it('publishes the server connection id for session-bound comment topic subscriptions', async () => {
