@@ -8,6 +8,8 @@
 
 검증 job은 다음 책임을 가진다.
 
+Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all --package-lock-only`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24를 먼저 설정한다.
+
 - Backend: Java 25, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
 - Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 이미지 로딩·실패 상태는 `test:e2e:images`로 Chromium·WebKit에서 별도 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
