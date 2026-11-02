@@ -70,9 +70,18 @@ test('mobile selection tools hide when the selected text scrolls outside the edi
   await installMockApi(page, { postContents: '<p>Alpha Alpha</p>' + '<p>Other text</p>'.repeat(35) })
   await login(page)
   await page.goto('/board/general/post/1/edit')
-  await page.locator('.ProseMirror p').first().click()
-  await page.keyboard.press('Home')
-  await page.keyboard.press('Shift+End')
+  const editor = page.locator('.ProseMirror')
+  const paragraph = editor.locator('p').first()
+  await paragraph.click()
+  await expect(editor).toBeFocused()
+  // This case tests scrolling, so initialize the selection atomically instead of
+  // racing native Home/End selection changes with the editor's focus sync.
+  await paragraph.evaluate(element => {
+    const selection = window.getSelection()!
+    selection.setBaseAndExtent(element, 0, element, element.childNodes.length)
+    document.dispatchEvent(new Event('selectionchange'))
+  })
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('Alpha Alpha')
   const tools = page.getByRole('group', { name: '선택 영역 도구' })
   await expect(tools).toBeVisible()
   await page.locator('.tiptap-content').evaluate(element => { element.scrollTop += 90 })
