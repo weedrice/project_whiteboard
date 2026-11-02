@@ -12,6 +12,49 @@ import {
 const t = (key: string) => key
 
 describe('useUserSettingsForm', () => {
+  it('preserves remote general settings and applies the authoritative response after saving a different field', async () => {
+    const settingsData = ref<UserSettings>({ theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false })
+    const server: UserSettings = { ...settingsData.value }
+    const updateSettings = vi.fn(async (payload) => {
+      Object.assign(server, payload)
+      return { success: true, data: { ...server } }
+    })
+    const setLocale = vi.fn().mockResolvedValue(true)
+    const form = useUserSettingsForm({ settingsData, isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), setLocale, t })
+    form.form.theme = 'DARK'
+    Object.assign(server, { language: 'en', timezone: 'UTC', hideNsfw: false })
+    settingsData.value = { ...server }
+    await nextTick()
+
+    await form.save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK' })
+    expect(server).toMatchObject({ theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false })
+    expect(form.form).toMatchObject({ theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false })
+    expect(form.isDirty.value).toBe(false)
+    expect(setLocale).toHaveBeenLastCalledWith('en', expect.any(Function))
+  })
+
+  it('merges normalized server values without replacing edits made while the save is pending', async () => {
+    const original: UserSettings = { theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false }
+    const pending = createDeferred<ApiResponse<UserSettings>>()
+    const updateSettings = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(undefined)
+    const form = useUserSettingsForm({ settingsData: ref(original), isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
+    form.form.timezone = ' UTC '
+    const saving = form.save()
+    form.form.language = 'en'
+    form.form.hideNsfw = false
+    await form.save()
+    expect(updateSettings).toHaveBeenCalledOnce()
+    pending.resolve({ success: true, data: { ...original, timezone: 'UTC', theme: 'DARK' } })
+    await saving
+
+    expect(form.form).toMatchObject({ timezone: 'UTC', theme: 'DARK', language: 'en', hideNsfw: false })
+    expect(form.isDirty.value).toBe(true)
+    await form.save()
+    expect(updateSettings).toHaveBeenLastCalledWith({ language: 'en', hideNsfw: false })
+  })
+
   it.each([false, undefined])('keeps normal saves available and omits privacy when activation is %s', async (profilePrivacyEnabled) => {
     const settingsData = ref<UserSettings>({
       theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, pushEnabled: false,
@@ -25,7 +68,7 @@ describe('useUserSettingsForm', () => {
     expect(form.canSave.value).toBe(false)
     form.form.theme = 'DARK'
     await form.save()
-    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'AUTO', hideNsfw: true })
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK' })
     expect(form.form.profilePostsPublic).toBe(false)
     expect(form.isDirty.value).toBe(false)
   })
@@ -45,7 +88,7 @@ describe('useUserSettingsForm', () => {
     settingsData.value = { ...settingsData.value, profilePrivacyEnabled: false }
     localeLoading.resolve(true)
     await saving
-    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'AUTO', hideNsfw: true })
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK' })
     expect(form.profilePrivacyEnabled.value).toBe(false)
     expect(form.form.profilePostsPublic).toBe(true)
   })
@@ -68,7 +111,7 @@ describe('useUserSettingsForm', () => {
     expect(form.form.profilePostsPublic).toBe(false)
     await form.save()
     expect(updateSettings).toHaveBeenLastCalledWith({
-      theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: false,
+      profilePostsPublic: false,
     })
     expect(form.isDirty.value).toBe(false)
   })
@@ -91,7 +134,7 @@ describe('useUserSettingsForm', () => {
 
     await form.save()
 
-    expect(updateSettings).toHaveBeenCalledWith({ theme: 'LIGHT', language: 'en', timezone: 'AUTO', hideNsfw: true })
+    expect(updateSettings).toHaveBeenCalledWith({ language: 'en' })
     expect(form.form).toMatchObject({ profileOverviewPublic: false, profilePostsPublic: false, profileCommentsPublic: false })
     expect(form.isDirty.value).toBe(false)
   })
@@ -107,7 +150,7 @@ describe('useUserSettingsForm', () => {
     const form = useUserSettingsForm({ settingsData: ref(original), isSaving: ref(false), themeIsDark: () => false, updateSettings, setTheme: vi.fn(), t })
     form.form.profilePostsPublic = false
     const saving = form.save()
-    expect(updateSettings).toHaveBeenCalledWith({ theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: false })
+    expect(updateSettings).toHaveBeenCalledWith({ profilePostsPublic: false })
     form.form.profilePostsPublic = true
     form.form.profileCommentsPublic = false
     pending.resolve({ success: true, data: { ...original, profileOverviewPublic: false, profilePostsPublic: false } })
@@ -116,7 +159,7 @@ describe('useUserSettingsForm', () => {
     expect(form.form).toMatchObject({ profileOverviewPublic: false, profilePostsPublic: true, profileCommentsPublic: false })
     expect(form.isDirty.value).toBe(true)
     await form.save()
-    expect(updateSettings).toHaveBeenLastCalledWith({ theme: 'LIGHT', language: 'ko', timezone: 'AUTO', hideNsfw: true, profilePostsPublic: true, profileCommentsPublic: false })
+    expect(updateSettings).toHaveBeenLastCalledWith({ profilePostsPublic: true, profileCommentsPublic: false })
     expect(form.isDirty.value).toBe(false)
   })
 
@@ -175,10 +218,7 @@ describe('useUserSettingsForm', () => {
     await form.save()
 
     expect(updateSettings).toHaveBeenCalledWith({
-      theme: 'LIGHT',
       language: 'en',
-      timezone: 'Asia/Seoul',
-      hideNsfw: true
     })
     expect(setTheme).toHaveBeenCalledWith('LIGHT')
     expect(form.canSave.value).toBe(false)
@@ -383,10 +423,7 @@ describe('useUserSettingsForm', () => {
     await form.save()
 
     expect(updateSettings).toHaveBeenCalledWith({
-      theme: 'LIGHT',
-      language: 'ko',
       timezone: AUTO_TIME_ZONE,
-      hideNsfw: true
     })
     expect(form.message.value).toBe('user.settings.saved')
     // baseline이 보낸 값과 어긋나면 isDirty가 영원히 참으로 남아, 저장 버튼이 계속
@@ -427,6 +464,66 @@ describe('useUserSettingsForm', () => {
 })
 
 describe('useNotificationSettingsForm', () => {
+  it('does not re-enable an unrelated notification disabled remotely and merges the response', async () => {
+    const notificationData = ref<NotificationSettingsPayload[]>([
+      { notificationType: 'LIKE', isEnabled: true },
+      { notificationType: 'COMMENT', isEnabled: true },
+    ])
+    const server: NotificationSettingsPayload[] = notificationData.value.map(setting => ({ ...setting }))
+    const updateNotificationSettings = vi.fn(async (payload) => {
+      for (const change of payload.settings) {
+        server.find(setting => setting.notificationType === change.notificationType)!.isEnabled = change.isEnabled
+      }
+      return { success: true, data: server.map(setting => ({ ...setting })) }
+    })
+    const form = useNotificationSettingsForm({ notificationData, isSaving: ref(false), updateNotificationSettings, t })
+    form.settings.LIKE = false
+    server[1]!.isEnabled = false
+    notificationData.value = server.map(setting => ({ ...setting }))
+    await nextTick()
+
+    await form.save()
+
+    expect(updateNotificationSettings).toHaveBeenCalledWith({ settings: [{ notificationType: 'LIKE', isEnabled: false }] })
+    expect(server[1]!.isEnabled).toBe(false)
+    expect(form.settings.COMMENT).toBe(false)
+    expect(form.isDirty.value).toBe(false)
+  })
+
+  it('preserves later edits when a refetch arrives before the mutation response and blocks duplicate saves', async () => {
+    const notificationData = ref<NotificationSettingsPayload[]>([
+      { notificationType: 'LIKE', isEnabled: true },
+      { notificationType: 'COMMENT', isEnabled: true },
+      { notificationType: 'REPLY', isEnabled: true },
+    ])
+    const pending = createDeferred<ApiResponse<NotificationSettingsPayload[]>>()
+    const updateNotificationSettings = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(undefined)
+    const form = useNotificationSettingsForm({ notificationData, isSaving: ref(false), updateNotificationSettings, t })
+    form.settings.LIKE = false
+    const saving = form.save()
+    form.settings.LIKE = true
+    notificationData.value = [
+      { notificationType: 'LIKE', isEnabled: false },
+      { notificationType: 'COMMENT', isEnabled: false },
+      { notificationType: 'REPLY', isEnabled: true },
+    ]
+    await nextTick()
+    expect(form.settings.LIKE).toBe(true)
+    form.settings.REPLY = false
+    await form.save()
+    expect(updateNotificationSettings).toHaveBeenCalledOnce()
+    pending.resolve({ success: true, data: notificationData.value })
+    await saving
+
+    expect(form.settings).toMatchObject({ LIKE: true, COMMENT: false, REPLY: false })
+    expect(form.isDirty.value).toBe(true)
+    await form.save()
+    expect(updateNotificationSettings).toHaveBeenLastCalledWith({ settings: [
+      { notificationType: 'LIKE', isEnabled: true },
+      { notificationType: 'REPLY', isEnabled: false },
+    ] })
+  })
+
   it('hydrates notification settings without marking them dirty', async () => {
     const notificationData = ref<NotificationSettingsPayload[]>([
       { notificationType: 'LIKE', isEnabled: false },
@@ -456,7 +553,6 @@ describe('useNotificationSettingsForm', () => {
     expect(updateNotificationSettings).toHaveBeenCalledWith({
       settings: [
         { notificationType: 'LIKE', isEnabled: true },
-        { notificationType: 'COMMENT', isEnabled: true }
       ]
     })
     expect(form.canSave.value).toBe(false)
@@ -484,7 +580,6 @@ describe('useNotificationSettingsForm', () => {
     expect(updateNotificationSettings).toHaveBeenCalledWith({
       settings: [
         { notificationType: 'LIKE', isEnabled: false },
-        { notificationType: 'COMMENT', isEnabled: true },
       ],
     })
   })
@@ -569,7 +664,6 @@ describe('useNotificationSettingsForm', () => {
     expect(updateNotificationSettings).toHaveBeenCalledWith(expect.objectContaining({
       settings: expect.arrayContaining([
         { notificationType: 'LIKE', isEnabled: false },
-        { notificationType: 'COMMENT', isEnabled: true },
       ]),
     }))
     expect(form.isDirty.value).toBe(true)
