@@ -643,6 +643,13 @@ jobs:
           -ignore 'unexpected key.*queue.*concurrency'
           -ignore 'artifact-metadata'
 
+      - name: Setup Node for workflow validation
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install workflow AST validator
         run: npm ci --ignore-scripts
         working-directory: frontend

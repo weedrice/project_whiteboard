@@ -8,7 +8,7 @@
 
 검증 job은 다음 책임을 가진다.
 
-Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다.
+Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24를 먼저 설정한다.
 
 - Backend: Java 25, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
