@@ -14,7 +14,7 @@ for (const viewport of viewports) {
       postAuthor: { userId: 8, loginId: 'other', displayName: 'Other Author', profileImageUrl: null },
     })
     await page.goto('/board/general/post/1')
-    const author = page.locator('.nv-user-menu-button[title="Other Author"]').first()
+    const author = page.locator('.nv-post-shell .nv-user-menu-button[title="Other Author"]').first()
     const openMessage = async () => {
       await author.click()
       await page.getByRole('menuitem', { name: '쪽지 보내기', exact: true }).click()
@@ -77,7 +77,8 @@ for (const viewport of viewports) {
     await page.goto('/board/general/')
     await page.getByRole('link', { name: 'Accessible post', exact: true }).click()
     await expect(page).toHaveURL(/\/board\/general\/post\/1\/?$/)
-    await page.locator('.nv-user-menu-button[title="Other Author"]').first().click()
+    // The list stays mounted behind the detail route; select the owner that navigation will dispose.
+    await page.locator('.nv-post-shell .nv-user-menu-button[title="Other Author"]').first().click()
     await page.getByRole('menuitem', { name: '쪽지 보내기', exact: true }).click()
     const message = page.getByRole('dialog', { name: '쪽지 보내기', exact: true })
     await message.getByRole('textbox', { name: '내용', exact: true }).fill('Draft on the previous page')
