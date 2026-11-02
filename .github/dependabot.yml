@@ -36,6 +36,15 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
+      # Coordinate TypeScript majors with openapi-typescript and the Vue/ESLint toolchain.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      # 1.6.28 raises the TypeScript peer to >=6; openapi-typescript still requires ^5.x.
+      # Revisit the pin when a compatible plugin release is available.
+      - dependency-name: "@vitest/eslint-plugin"
+        versions:
+          - "1.6.28"
       - dependency-name: "pinia"
         versions:
           - "4.0.1"

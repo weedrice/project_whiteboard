@@ -121,10 +121,12 @@ nvm install $frontendNodeVersion
 nvm use $frontendNodeVersion
 node --version
 npm.cmd ci
-npm.cmd ls --depth=0
+npm.cmd run check:dependencies
 ```
 
-macOS/Linux의 nvm에서는 `nvm install`과 `nvm use`가 `.nvmrc`를 읽습니다. 다른 런타임 관리자를 사용해도 `package.json`의 Node 범위를 충족해야 합니다. `.npmrc`의 `engine-strict=true`는 지원하지 않는 Node에서 의존성 설치를 중단합니다. 브랜치 이동이나 잠금 파일 변경 후에는 `npm ci`를 다시 실행하고 `npm ls --depth=0`에 `invalid`/`missing` 항목이 없는지 확인한 뒤 테스트·타입 검사·빌드를 실행합니다. 기존 `node_modules`로 통과한 결과는 잠금 파일 버전의 검증을 대신하지 않습니다.
+macOS/Linux의 nvm에서는 `nvm install`과 `nvm use`가 `.nvmrc`를 읽습니다. 다른 런타임 관리자를 사용해도 `package.json`의 Node 범위를 충족해야 합니다. `.npmrc`의 `engine-strict=true`는 지원하지 않는 Node에서 의존성 설치를 중단합니다. 브랜치 이동이나 잠금 파일 변경 후에는 `npm ci`와 `npm run check:dependencies`를 실행한 뒤 테스트·타입 검사·빌드를 실행합니다. `check:dependencies`는 `npm ls --all`로 설치된 전체 의존성 트리의 `invalid`/`missing` 및 peer 충돌을 검사합니다. 잠금 파일을 사용하는 `npm ci`가 성공해도 optional peer의 버전 충돌을 놓칠 수 있으므로 CI에서도 설치 직후 이 검사를 실행합니다. 기존 `node_modules`로 통과한 결과는 잠금 파일 버전의 검증을 대신하지 않습니다.
+
+TypeScript major 업그레이드는 `openapi-typescript`, `typescript-eslint`, `vue-tsc`의 지원 범위를 함께 확인한 뒤 진행합니다. `@vitest/eslint-plugin`은 TypeScript 5와 호환되는 1.6.27로 고정합니다. 1.6.28은 TypeScript 6 이상을 요구하지만 현재 `openapi-typescript`는 5.x를 요구하므로 Dependabot에서 해당 버전만 제외합니다. 이후 호환 릴리스가 나오면 pin과 예외를 다시 검토합니다. peer 검사를 끄거나 `--legacy-peer-deps`로 충돌을 우회하지 않습니다.
 
 보안 패치를 위해 `package.json`의 `overrides`에서 Satori의 `fflate`를 0.7.5로,
 Tailwind typography의 `postcss-selector-parser`를 7.1.7로 지정합니다. 상위 패키지가
