@@ -6,13 +6,15 @@
 
 검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 자동 배포 범위는 현재 push 하나가 아니라 GitHub Actions 이력에서 찾은 component별 마지막 성공 production 배포 SHA부터 현재 SHA까지의 누적 diff로 계산한다. 이력 조회는 workflow run과 각 run의 전체 재실행 job 페이지를 모두 순회하므로 100개를 넘는 job 이력에서도 성공 배포를 빠뜨리지 않는다. 따라서 runtime 변경의 CI가 실패하고 테스트·설정만 수정한 후속 커밋이 성공해도 미배포 runtime 변경은 다음 성공 실행의 배포 범위에 남으며, 해당 component 검증도 다시 실행한다. 성공 배포 이력을 찾지 못하면 안전하게 해당 component를 검증·배포 대상으로 선택하고 contract migration으로 취급해 rollback 제한을 적용한다. `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 backend 배포도 마지막 성공 backend 배포 SHA를 조회하며, 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
 
+프로젝트의 Node 지원 범위는 `>=24.22.1 <25`다. changes job의 배포 기준 조회, frontend·ops 검증, frontend candidate, 배포 후 검증, SEO monitor의 shell Node는 검증된 보안 패치 버전 `24.22.1`로 고정한다. [CVE-2026-111497 Brotli 보안 수정](https://nodejs.org/en/blog/release/v24.22.1)을 포함하며, runner 캐시에서 취약한 이전 Node 24 버전이 선택되는 것을 방지한다.
+
 검증 job은 다음 책임을 가진다.
 
-Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all --package-lock-only`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24를 먼저 설정한다.
+Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all --package-lock-only`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24.22.1을 먼저 설정한다.
 
 - Backend: Java 25, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
-- Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 이미지 로딩·실패 상태는 `test:e2e:images`로 Chromium·WebKit에서 별도 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
+- Frontend: Node 24.22.1, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 이미지 로딩·실패 상태는 `test:e2e:images`로 Chromium·WebKit에서 별도 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
 - CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
 - Deployment gate: CI 성공 뒤 요청된 backend/frontend production 배포가 `success`가 아니면 workflow를 실패시켜 contract 승인 누락이나 조건식 skip을 숨기지 않음

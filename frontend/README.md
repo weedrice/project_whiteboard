@@ -102,7 +102,7 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 
 ### 요구 사항
 
-- Node.js `>=24.15.0 <25` (jsdom 30.1.x 요구 사항; Docker 빌드는 24.18.0 사용)
+- Node.js `>=24.22.1 <25` (CVE-2026-111497 보안 패치 최소 버전; Docker·CI·`.nvmrc`는 24.22.1 사용)
 - npm
 
 ### 설치
