@@ -22,11 +22,15 @@ const seriesResponse = (seriesId: number, title: string) => ({
 
 describe('PostForm series creation identity', () => {
   beforeEach(() => {
+    // Keep the restored draft fixture within retention without faking async timers.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-08T00:00:00.000Z'))
     resetPostFormTestState()
   })
 
   afterEach(() => {
     unmountPostFormWrappers()
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
