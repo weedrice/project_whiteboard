@@ -2,6 +2,9 @@ import type { NotificationMessages } from './types'
 
 export const notification: NotificationMessages = {
   title: '알림 목록',
+  navigating: '알림으로 이동하고 있습니다.',
+  navigationUnavailable: '삭제되었거나 접근할 수 없는 알림 대상입니다.',
+  navigationFailed: '알림을 열지 못했습니다. 다시 시도해 주세요.',
   read: '읽음',
   unread: '읽지 않음',
   unreadNotifications: '읽지 않은 알림 {count}개',

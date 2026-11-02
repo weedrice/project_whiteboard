@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     toastStore,
+    confirm: vi.fn(async () => false),
     router,
     verification,
     get flowOptions() {
@@ -46,6 +47,11 @@ vi.mock('vue-router', async (importOriginal) => ({
   ...await importOriginal<typeof import('vue-router')>(),
   useRoute: () => ({ query: {}, fullPath: '/signup' }),
   useRouter: () => mocks.router,
+  onBeforeRouteLeave: vi.fn(),
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm: mocks.confirm }),
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -85,7 +91,10 @@ vi.mock('@/composables/useEmailVerificationFlow', () => ({
 
 type SignupRegistration = ReturnType<typeof useSignupRegistration>
 
-function mountSignupRegistration(routeQuery: Record<string, unknown> = {}) {
+function mountSignupRegistration(
+  routeQuery: Record<string, unknown> = {},
+  navigation: Pick<Parameters<typeof useSignupRegistration>[0], 'confirmCancel' | 'beforeLoginNavigation'> = {},
+) {
   let composable = undefined as unknown as SignupRegistration
   const route = {
     query: routeQuery,
@@ -97,7 +106,8 @@ function mountSignupRegistration(routeQuery: Record<string, unknown> = {}) {
       composable = useSignupRegistration({
         route: route as RouteLocationNormalizedLoaded,
         router: mocks.router as Partial<Router> as Router,
-        t: (key: string) => key
+        t: (key: string) => key,
+        ...navigation,
       })
       return () => null
     }
@@ -119,6 +129,7 @@ async function flushMountedAsync() {
 describe('useSignupRegistration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.confirm.mockResolvedValue(false)
     mocks.setFlowOptions(null)
     Object.assign(mocks.verification, {
       email: '',
@@ -356,6 +367,104 @@ describe('useSignupRegistration', () => {
     expect(authApi.deleteOAuthSignupTicket).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) })
     expect(mocks.router.push).toHaveBeenCalledWith('/login')
     wrapper.unmount()
+  })
+
+  it('keeps signup inputs and OAuth ticket when leaving is declined', async () => {
+    const confirmCancel = vi.fn(async () => false)
+    const { composable, wrapper } = mountSignupRegistration({}, { confirmCancel })
+    await flushMountedAsync()
+    composable.form.value.loginId = 'unfinished'
+
+    await composable.cancelOAuthSignup()
+
+    expect(confirmCancel).toHaveBeenCalledOnce()
+    expect(authApi.deleteOAuthSignupTicket).not.toHaveBeenCalled()
+    expect(mocks.router.push).not.toHaveBeenCalled()
+    expect(composable.form.value.loginId).toBe('unfinished')
+    wrapper.unmount()
+  })
+
+  it('waits for leave approval and ticket cleanup before bypassing the route guard once', async () => {
+    const confirmation = createDeferred<boolean>()
+    const deletion = createDeferred<Awaited<ReturnType<typeof authApi.deleteOAuthSignupTicket>>>()
+    const beforeLoginNavigation = vi.fn()
+    const confirmCancel = vi.fn(() => confirmation.promise)
+    vi.mocked(authApi.deleteOAuthSignupTicket).mockReturnValueOnce(deletion.promise)
+    const { composable, wrapper } = mountSignupRegistration({}, { confirmCancel, beforeLoginNavigation })
+    await flushMountedAsync()
+
+    const leaving = composable.cancelOAuthSignup()
+    await composable.cancelOAuthSignup()
+    expect(confirmCancel).toHaveBeenCalledOnce()
+    expect(authApi.deleteOAuthSignupTicket).not.toHaveBeenCalled()
+    confirmation.resolve(true)
+    await flushPromises()
+    expect(authApi.deleteOAuthSignupTicket).toHaveBeenCalledOnce()
+    expect(beforeLoginNavigation).not.toHaveBeenCalled()
+    deletion.resolve(apiSuccessResponse<typeof authApi.deleteOAuthSignupTicket>())
+    await leaving
+    expect(beforeLoginNavigation).toHaveBeenCalledOnce()
+    expect(mocks.router.push).toHaveBeenCalledWith('/login')
+    wrapper.unmount()
+  })
+
+  it('does not clear the OAuth ticket for a stale leave confirmation after unmount', async () => {
+    const confirmation = createDeferred<boolean>()
+    const { composable, wrapper } = mountSignupRegistration({}, { confirmCancel: () => confirmation.promise })
+    await flushMountedAsync()
+    const leaving = composable.cancelOAuthSignup()
+    wrapper.unmount()
+    confirmation.resolve(true)
+    await leaving
+    expect(authApi.deleteOAuthSignupTicket).not.toHaveBeenCalled()
+    expect(mocks.router.push).not.toHaveBeenCalled()
+  })
+
+  it('blocks duplicate signup and cancellation while registration is pending, then bypasses on success', async () => {
+    const pending = createDeferred<Awaited<ReturnType<typeof authApi.signup>>>()
+    const beforeLoginNavigation = vi.fn()
+    const confirmCancel = vi.fn(async () => true)
+    vi.mocked(authApi.signup).mockReturnValueOnce(pending.promise)
+    const { composable, wrapper } = mountSignupRegistration({}, { beforeLoginNavigation, confirmCancel })
+    await flushMountedAsync()
+    Object.assign(composable.form.value, {
+      loginId: 'login_1', password: 'Password1!', passwordConfirm: 'Password1!',
+      email: 'user@example.com', displayName: 'Display',
+    })
+    Object.assign(composable.verification, { isVerified: true, verificationTicket: 'ticket-1' })
+
+    const signup = composable.handleSignup()
+    await composable.handleSignup()
+    await composable.cancelOAuthSignup()
+    expect(authApi.signup).toHaveBeenCalledOnce()
+    expect(confirmCancel).not.toHaveBeenCalled()
+    expect(authApi.deleteOAuthSignupTicket).not.toHaveBeenCalled()
+    pending.resolve(apiSuccessResponse<typeof authApi.signup>())
+    await signup
+    expect(composable.signupCompleted.value).toBe(true)
+    expect(beforeLoginNavigation).toHaveBeenCalledOnce()
+    expect(mocks.router.push).toHaveBeenCalledWith('/login')
+    wrapper.unmount()
+  })
+
+  it('protects browser unload for dirty inputs and removes the handler on unmount', async () => {
+    const wrapper = mount(SignupPage)
+    await flushPromises()
+    const clean = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(clean)
+    expect(clean.defaultPrevented).toBe(false)
+    await wrapper.get('#login-id').setValue('unfinished')
+    const dirty = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(dirty)
+    expect(dirty.defaultPrevented).toBe(true)
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(mocks.confirm).toHaveBeenCalled()
+    expect(authApi.deleteOAuthSignupTicket).not.toHaveBeenCalled()
+    wrapper.unmount()
+    const disposed = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(disposed)
+    expect(disposed.defaultPrevented).toBe(false)
   })
 
   it('aborts an in-flight signup and ignores its late success after unmount', async () => {

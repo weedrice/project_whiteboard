@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useNotification } from '@/features/notifications/queries/useNotification'
 import { useNotificationNavigation } from '@/features/notifications/navigation/useNotificationNavigation'
 import { Check, Bell } from 'lucide-vue-next'
@@ -10,13 +10,15 @@ import { useNotificationListState } from '@/features/notifications/list/useNotif
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
 import NotificationListItem from '@/components/notification/NotificationListItem.vue'
+import NotificationNavigationFeedback from '@/components/notification/NotificationNavigationFeedback.vue'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
 const { useMarkAllAsRead, useUnreadCount } = useNotification()
-const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
+const { navigateFromNotification, isNavigating, navigationError, retryNavigation, cancelPendingNavigation } = useNotificationNavigation()
 
 const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
+watch([page, size], cancelPendingNavigation)
 
 const { isLoading, isError, errorMessage, refetch, notifications, totalPages } = useNotificationListState(params, t)
 const { data: unreadCount } = useUnreadCount()
@@ -71,6 +73,12 @@ function handleMarkAllAsRead() {
         <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
       </BaseButton>
     </template>
+
+    <NotificationNavigationFeedback
+      :pending="isNavigating"
+      :error="navigationError"
+      @retry="retryNavigation"
+    />
 
     <ul class="divide-y divide-[var(--nv-line)]">
       <li v-for="notification in notifications" :key="notification.notificationId">

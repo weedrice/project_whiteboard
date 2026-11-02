@@ -210,14 +210,73 @@ describe('useNotificationNavigation', () => {
         expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/78/#comment-52')
     })
 
-    it('uses the toast option for comment navigation failures', async () => {
-        vi.mocked(commentApi.getComment).mockRejectedValueOnce(new Error('missing'))
+    it.each(['POST', 'COMMENT', 'MESSAGE'] as const)('shows a retryable error for a failed %s lookup', async (sourceType) => {
+        const request = { POST: postApi.getPost, COMMENT: commentApi.getComment, MESSAGE: messageApi.getMessage }[sourceType]
+        vi.mocked(request).mockRejectedValueOnce(new Error('offline'))
+        const navigation = useNotificationNavigation()
+        await navigation.navigateFromNotification(makeNotification({ sourceType }))
+        expect(navigation.navigationError.value).toBe('notification.navigationFailed')
+        expect(navigation.isNavigating.value).toBe(false)
+        expect(mocks.routerPush).not.toHaveBeenCalled()
+        expect(mocks.addToast).not.toHaveBeenCalled()
+    })
 
-        const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
-        await navigateFromNotification(makeNotification({ sourceType: 'COMMENT', sourceId: 51 }))
+    it('announces a deleted target and retries the same notification', async () => {
+        vi.mocked(postApi.getPost).mockRejectedValueOnce({ response: { status: 404 } })
+        const navigation = useNotificationNavigation()
+        await navigation.navigateFromNotification(makeNotification({ sourceId: 12 }))
+        expect(navigation.navigationError.value).toBe('notification.navigationUnavailable')
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(apiSuccessDataResponse<typeof postApi.getPost>({ board: { boardUrl: 'free' } }))
+        await navigation.retryNavigation()
+        expect(postApi.getPost).toHaveBeenLastCalledWith(12, expect.any(Object))
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/12/')
+        expect(navigation.navigationError.value).toBe('')
+    })
 
-        expect(mocks.addToast).toHaveBeenCalledWith('common.messages.notFound', 'warning')
-        expect(mocks.loggerError).toHaveBeenCalledWith('Failed to navigate to comment:', expect.any(Error))
+    it('reports a successful response with no navigable source', async () => {
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(apiSuccessDataResponse<typeof postApi.getPost>({ board: null }))
+        const navigation = useNotificationNavigation()
+        await navigation.navigateFromNotification(makeNotification({}))
+        expect(navigation.navigationError.value).toBe('notification.navigationUnavailable')
+    })
+
+    it('keeps the current pending state when an older lookup fails', async () => {
+        const older = createDeferred<Awaited<ReturnType<typeof postApi.getPost>>>()
+        const newer = createDeferred<Awaited<ReturnType<typeof postApi.getPost>>>()
+        vi.mocked(postApi.getPost).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+        const navigation = useNotificationNavigation()
+        const first = navigation.navigateFromNotification(makeNotification({ sourceId: 1 }))
+        const second = navigation.navigateFromNotification(makeNotification({ sourceId: 2 }))
+        older.reject(new Error('offline'))
+        await first
+        expect(navigation.isNavigating.value).toBe(true)
+        expect(navigation.navigationError.value).toBe('')
+        newer.resolve(apiSuccessDataResponse<typeof postApi.getPost>({ board: { boardUrl: 'free' } }))
+        await second
+        expect(navigation.isNavigating.value).toBe(false)
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/2/')
+    })
+
+    it('clears errors and retry intent when cancelled', async () => {
+        vi.mocked(postApi.getPost).mockRejectedValueOnce(new Error('offline'))
+        const navigation = useNotificationNavigation()
+        await navigation.navigateFromNotification(makeNotification({}))
+        navigation.cancelPendingNavigation()
+        await navigation.retryNavigation()
+        expect(navigation.navigationError.value).toBe('')
+        expect(postApi.getPost).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores failures after an account change', async () => {
+        const response = createDeferred<Awaited<ReturnType<typeof postApi.getPost>>>()
+        vi.mocked(postApi.getPost).mockReturnValueOnce(response.promise)
+        const navigation = useNotificationNavigation()
+        const pending = navigation.navigateFromNotification(makeNotification({}))
+        mocks.auth.sessionGeneration += 1
+        response.reject(new Error('offline'))
+        await pending
+        expect(navigation.navigationError.value).toBe('')
+        expect(mocks.routerPush).not.toHaveBeenCalled()
     })
 
     it('does not navigate system notifications', async () => {

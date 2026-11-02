@@ -1,6 +1,6 @@
 import { queryTestContext } from '@/test/authScopedQueryOptions'
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, unref, type MaybeRefOrGetter } from 'vue'
+import { defineComponent, h, reactive, unref, type MaybeRefOrGetter } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { emoticonApiData } from '@/test/emoticonApiFixtures'
 
@@ -59,7 +59,10 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
+const route = reactive<{ query: Record<string, string | undefined> }>({ query: {} })
+
 vi.mock('vue-router', () => ({
+  useRoute: () => route,
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -134,6 +137,11 @@ const getListQuery = () => {
 describe('EmoticonList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    route.query = {}
+    mocks.push.mockImplementation((target: { query?: Record<string, string | undefined> }) => {
+      if (target.query) route.query = target.query
+      return Promise.resolve()
+    })
     mocks.queryOptions.length = 0
     mocks.searchAll.mockResolvedValue(emoticonApiData(mocks.listPage))
     mocks.listPage.content = []

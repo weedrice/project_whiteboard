@@ -8,19 +8,22 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import { useSignupRegistration } from '@/composables/useSignupRegistration'
-import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
+import { useConfirm } from '@/composables/useConfirm'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const { confirm } = useConfirm()
 
 const {
   form,
   fieldErrors,
   touchField,
   isLoading,
+  signupCompleted,
   isReregister,
   oauthTicketLoading,
   oauthTicketLoadError,
@@ -35,14 +38,19 @@ const {
 } = useSignupRegistration({
   route,
   router,
-  t
+  t,
+  confirmCancel: () => confirmNavigation(),
+  beforeLoginNavigation: () => allowNextNavigation(),
 })
 
-usePwaReloadBlocker(computed(() => (
+const isOperationPending = computed(() => !signupCompleted.value && (
+  isLoading.value || verification.loading || oauthTicketCancelling.value
+))
+const { confirmNavigation, allowNextNavigation } = useUnsavedChangesGuard(computed(() => !signupCompleted.value && (
   Object.values(form.value).some((value) => value.trim().length > 0)
   || verification.isCodeSent
   || verification.isVerified
-)))
+)), isOperationPending, () => t('auth.signupLeaveConfirm'), confirm)
 </script>
 
 <template>
@@ -50,7 +58,7 @@ usePwaReloadBlocker(computed(() => (
     <div class="absolute top-4 left-4">
       <button type="button"
         class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-ink)]"
-        :disabled="oauthTicketCancelling"
+        :disabled="isOperationPending"
         @click="cancelOAuthSignup">
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>

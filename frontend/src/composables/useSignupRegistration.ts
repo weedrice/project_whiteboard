@@ -27,9 +27,11 @@ interface SignupRegistrationOptions {
   route: RouteLocationNormalizedLoaded
   router: Router
   t: ComposerTranslation
+  confirmCancel?: () => boolean | Promise<boolean>
+  beforeLoginNavigation?: () => void
 }
 
-export function useSignupRegistration({ route, router, t }: SignupRegistrationOptions) {
+export function useSignupRegistration({ route, router, t, confirmCancel, beforeLoginNavigation }: SignupRegistrationOptions) {
   const toastStore = useToastStore()
   const {
     validatePasswordValue,
@@ -45,12 +47,14 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   const error = ref('')
   const isLoading = ref(false)
+  const signupCompleted = ref(false)
   const isReregister = ref(false)
   const oauthTicketLoading = ref(false)
   const oauthTicketLoadError = ref(false)
   const oauthTicketCancelling = ref(false)
   let requestRevision = 0
   let requestController: AbortController | null = null
+  let cancelConfirmationPending = false
 
   const beginRequest = () => {
     requestController?.abort()
@@ -175,6 +179,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function handleSignup() {
+    if (isLoading.value || verification.loading || cancelConfirmationPending) return
     error.value = ''
 
     if (oauthTicketLoading.value || oauthTicketLoadError.value || oauthTicketCancelling.value) {
@@ -238,7 +243,9 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
         verification.verificationTicket,
       ), { signal: controller.signal })
       if (isCurrentRequest(revision, controller) && data.success) {
+        signupCompleted.value = true
         toastStore.addToast(t('auth.signupSuccess'), 'success')
+        beforeLoginNavigation?.()
         router.push('/login')
       }
     } catch (err: unknown) {
@@ -279,11 +286,23 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function cancelOAuthSignup() {
+    if (isLoading.value || verification.loading || oauthTicketCancelling.value || cancelConfirmationPending) return
+    const confirmationRevision = requestRevision
+    cancelConfirmationPending = true
+    try {
+      if (confirmCancel && !await confirmCancel()) return
+      if (confirmationRevision !== requestRevision || isLoading.value || verification.loading) return
+    } finally {
+      cancelConfirmationPending = false
+    }
     const { revision, controller } = beginRequest()
     oauthTicketCancelling.value = true
     try {
       await authApi.deleteOAuthSignupTicket({ signal: controller.signal })
-      if (isCurrentRequest(revision, controller)) await router.push('/login')
+      if (isCurrentRequest(revision, controller)) {
+        beforeLoginNavigation?.()
+        await router.push('/login')
+      }
     } catch (caughtError) {
       if (!isCurrentRequest(revision, controller) || isCancellationError(caughtError)) return
       toastStore.addToast(t('auth.oauthTicket.cancelFailed'), 'error')
@@ -342,6 +361,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     touchField,
     error,
     isLoading,
+    signupCompleted,
     isReregister,
     oauthTicketLoading,
     oauthTicketLoadError,

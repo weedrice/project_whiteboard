@@ -8,6 +8,7 @@ export const auth: AuthMessages = {
   loginFailed: '로그인에 실패했습니다.',
   alreadyHaveAccount: '이미 계정이 있으신가요?',
   creatingAccount: '계정 생성 중...',
+  signupLeaveConfirm: '작성 중인 회원가입 정보와 이메일 인증 진행 상태가 사라집니다. 이동하시겠습니까?',
   signup: '회원가입',
   signupSuccess: '회원가입이 완료되었습니다. 로그인해주세요.',
   signupFailed: '회원가입에 실패했습니다.',

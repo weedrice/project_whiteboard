@@ -2,6 +2,9 @@ import type { NotificationMessages } from './types'
 
 export const notificationEn: NotificationMessages = {
   title: 'Notifications',
+  navigating: 'Opening notification.',
+  navigationUnavailable: 'This notification target was deleted or is unavailable to you.',
+  navigationFailed: 'Could not open the notification. Please try again.',
   read: 'Read',
   unread: 'Unread',
   unreadNotifications: '{count} unread notifications',

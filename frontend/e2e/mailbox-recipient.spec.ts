@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { installMockApi } from './fixtures/mockApi'
 
-test('partner route changes clear drafts and send replies to the visible conversation', async ({ page }) => {
+test('partner route changes confirm draft discard and send replies to the visible conversation', async ({ page }) => {
   await installMockApi(page, { authenticated: true })
   const sends: Array<{ receiverId: number; content: string }> = []
   const messages = [2, 3].map((partnerId) => ({
@@ -15,7 +15,7 @@ test('partner route changes clear drafts and send replies to the visible convers
   await page.route('**/api/v1/messages**', async (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
-    let data: unknown = null
+    let data: unknown
     if (request.method() === 'POST' && path.endsWith('/messages')) {
       sends.push(request.postDataJSON() as { receiverId: number; content: string })
       data = 10
@@ -45,6 +45,9 @@ test('partner route changes clear drafts and send replies to the visible convers
     window.history.pushState(window.history.state, '', '/mypage/messages?partnerId=3')
     window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
   })
+  const confirmation = page.getByRole('dialog', { name: '확인', exact: true })
+  await expect(confirmation).toBeVisible()
+  await confirmation.getByRole('button', { name: '예', exact: true }).click()
   await expect(dialog.getByText('Conversation with 3', { exact: true })).toBeVisible()
   await expect(reply).toHaveValue('')
   await reply.fill('Reply for partner 3')
