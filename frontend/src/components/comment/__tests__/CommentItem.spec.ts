@@ -210,7 +210,7 @@ describe('CommentItem', () => {
         await flushPromises()
 
         expect((enabled as ReturnType<typeof computed>).value).toBe(false)
-        expect(wrapper.text()).not.toContain('child reply')
+        expect(wrapper.get('#comment-2').isVisible()).toBe(false)
     })
 
     it('opens surviving replies on deleted comments without enabling comment actions', async () => {
@@ -462,7 +462,7 @@ describe('CommentItem', () => {
         expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })
 
-    it.each([false, true])('keeps a child reply draft mounted through a loading error (next page %s)', async (nextPageError) => {
+    it.each([false, true])('keeps a child reply draft through a loading error and branch collapse (next page %s)', async (nextPageError) => {
         useAuthStoreMock.mockReturnValue({ isAuthenticated: true, user: { userId: 1 } })
         const query = useRepliesMock.getMockImplementation()!(ref(100), ref(1), ref({ size: 50 }), ref(true))
         query.isFetchNextPageError.value = nextPageError
@@ -500,7 +500,49 @@ describe('CommentItem', () => {
         await wrapper.vm.$nextTick()
         expect(child.get('textarea').element).toBe(textarea)
         expect(textarea.value).toBe('Keep this draft')
+        await wrapper.findAll('button').find(button => button.text() === commentLocale.hideReplies)!.trigger('click')
+        expect(child.isVisible()).toBe(false)
+        await wrapper.findAll('button').find(button => button.text() === commentLocale.viewReplies.replace('{count}', '51'))!.trigger('click')
+        expect(child.get('textarea').element).toBe(textarea)
+        expect(textarea.value).toBe('Keep this draft')
         wrapper.unmount()
+    })
+
+    it.each(['comment.reply', 'common.edit'])('asks the active form before closing %s', async (label) => {
+        const confirmDiscard = vi.fn().mockResolvedValue(false)
+        useAuthStoreMock.mockReturnValue({ isAuthenticated: true, user: { userId: 1 } })
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1, content: 'parent', author: { userId: 1, displayName: 'author', authorType: 'USER' },
+                    likeCount: 0, isDeleted: false, createdAt: '2026-04-20T12:00:00',
+                    hasReplies: false, replyCount: 0, children: [],
+                },
+                postId: 100, boardUrl: 'free',
+            },
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    UserMenu: true,
+                    CommentForm: {
+                        methods: { confirmDiscard },
+                        data: () => ({ draft: '' }),
+                        template: '<textarea v-model="draft" />',
+                    },
+                },
+            },
+        })
+        const toggle = () => wrapper.findAll('button').find(button => button.text() === label)!
+        await toggle().trigger('click')
+        await wrapper.get('textarea').setValue('Keep my draft')
+        await toggle().trigger('click')
+        await flushPromises()
+        expect(confirmDiscard).toHaveBeenCalledTimes(1)
+        expect(wrapper.get('textarea').element.value).toBe('Keep my draft')
+        confirmDiscard.mockResolvedValueOnce(true)
+        await toggle().trigger('click')
+        await flushPromises()
+        expect(wrapper.find('textarea').exists()).toBe(false)
     })
 
     it('shows a reply target and caps visual indentation for deep replies', async () => {

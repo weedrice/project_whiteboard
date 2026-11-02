@@ -1,16 +1,25 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CommentForm from '../CommentForm.vue'
 
 const createComment = vi.fn()
 const updateComment = vi.fn()
 const addToast = vi.fn()
+const confirm = vi.fn()
 const apiMocks = vi.hoisted(() => ({
   getMentionCandidates: vi.fn(),
 }))
 const isCreating = ref(false)
 const isUpdating = ref(false)
+const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
+
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm }) }))
+vi.mock('vue-router', async (importOriginal) => ({
+  ...await importOriginal<typeof import('vue-router')>(),
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
+}))
 
 vi.mock('vue-i18n', () => ({
   createI18n: vi.fn(() => ({
@@ -33,7 +42,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ isAuthenticated: true }),
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('@/api/userAccountApi', () => ({
@@ -115,6 +124,8 @@ const mountCommentForm = (props: Record<string, unknown> = {}) =>
 describe('CommentForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    confirm.mockResolvedValue(true)
+    authStore.sessionGeneration = 0
     isCreating.value = false
     isUpdating.value = false
     apiMocks.getMentionCandidates.mockResolvedValue({
@@ -542,5 +553,46 @@ describe('CommentForm', () => {
     options.onError({ suppressGlobalErrorToast: true })
 
     expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('keeps a reply on cancelled discard and emits cancel only after approval', async () => {
+    const wrapper = mountCommentForm({ parentId: 20 })
+    await wrapper.get('textarea').setValue('reply draft')
+    confirm.mockResolvedValueOnce(false)
+    const cancel = () => wrapper.findAll('button').find(button => button.text() === 'common.cancel')!
+    await cancel().trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    expect(wrapper.get('textarea').element.value).toBe('reply draft')
+    await cancel().trigger('click')
+    await flushPromises()
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+  })
+
+  it('does not ask when cancelling an untouched edit or whitespace-only reply', async () => {
+    const edit = mountCommentForm({ commentId: 30, initialContent: 'original' })
+    const reply = mountCommentForm({ parentId: 20 })
+    await reply.get('textarea').setValue('  \n ')
+    for (const wrapper of [edit, reply]) {
+      await wrapper.findAll('button').find(button => button.text() === 'common.cancel')!.trigger('click')
+    }
+    await flushPromises()
+    expect(confirm).not.toHaveBeenCalled()
+    expect(edit.emitted('cancel')).toHaveLength(1)
+    expect(reply.emitted('cancel')).toHaveLength(1)
+  })
+
+  it('clears a previous session draft and ignores its late submission callback', async () => {
+    const wrapper = mountCommentForm()
+    await wrapper.get('textarea').setValue('Previous session draft')
+    await wrapper.get('form').trigger('submit')
+    const callbacks = createComment.mock.calls[0]?.[1]
+    authStore.sessionGeneration++
+    await flushPromises()
+    expect(wrapper.get('textarea').element.value).toBe('')
+    await wrapper.get('textarea').setValue('Current session draft')
+    callbacks.onSuccess({ data: { success: true, data: { commentId: 1, earnedPoints: 0 } } })
+    expect(wrapper.get('textarea').element.value).toBe('Current session draft')
+    expect(wrapper.emitted('success')).toBeUndefined()
   })
 })
