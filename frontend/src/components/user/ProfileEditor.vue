@@ -44,7 +44,7 @@
       :delete-error="deleteError"
       :is-deleting="isDeletingAccount || isDeleteIntentPending"
       :loading="loading"
-      @save="updateProfile"
+      @save="handleProfileSubmit"
       @delete="handleDeleteAccount"
     />
   </div>

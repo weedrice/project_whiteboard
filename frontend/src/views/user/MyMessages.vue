@@ -48,7 +48,7 @@
                     type="button"
                     class="flex-1 min-w-0 text-left cursor-pointer nv-focus-ring rounded-md"
                     :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
-                    @click="openMessage(msg)"
+                    @click="openMessageWithDraftGuard(msg)"
                 >
                     <div class="flex justify-between items-baseline gap-2">
                         <div class="text-sm font-medium nv-accent-text truncate">
@@ -229,9 +229,8 @@ import type { MailboxMessageViewModel } from '@/types'
 import { formatDate } from '@/utils/date'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
-import { usePwaReloadBlocker } from '@/pwaReloadGuard'
-import { useDraftDiscardConfirmation } from '@/composables/useDraftDiscardConfirmation'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import { useMailboxDraftGuard } from '@/features/user/messages/useMailboxDraftGuard'
 import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const { t } = useI18n()
@@ -285,15 +284,26 @@ function removePartnerIdFromRoute() {
     void router.replace({ query })
 }
 
-const { requestClose: closeConversationAndSyncRoute } = useDraftDiscardConfirmation({
-    draftState: () => [selectedMessage.value?.partnerUserId, replyContent.value, isSending.value],
-    isDirty: () => replyContent.value.trim().length > 0,
-    canClose: () => !!selectedMessage.value && !isSending.value,
-    message: () => t('user.message.discardConfirm'),
-    close: () => {
-        closeConversation()
-        removePartnerIdFromRoute()
-    },
+const { confirmNavigation } = useMailboxDraftGuard(
+    replyContent,
+    isSending,
+    computed(() => selectedMessage.value?.partnerUserId),
+)
+
+async function closeConversationAndSyncRoute() {
+    if (!selectedMessage.value || !await confirmNavigation()) return
+    closeConversation()
+    removePartnerIdFromRoute()
+}
+
+async function openMessageWithDraftGuard(message: MailboxMessageViewModel) {
+    if (message.partnerUserId !== selectedMessage.value?.partnerUserId && !await confirmNavigation()) return
+    await openMessage(message)
+}
+
+onBeforeRouteUpdate((to, from) => {
+    if (to.query.partnerId === from.query.partnerId) return true
+    return confirmNavigation()
 })
 
 async function loadOlderWithScrollPreservation() {
@@ -324,7 +334,6 @@ function handleConversationScroll() {
 const replyContentError = computed(() => isMessageContentTooLong(replyContent.value)
     ? t('user.message.contentTooLong', { max: MESSAGE_CONTENT_MAX_LENGTH })
     : '')
-usePwaReloadBlocker(computed(() => replyContent.value.trim().length > 0))
 
 const conversationTitle = computed(() => selectedMessage.value
     ? t('user.message.conversationTitle', { name: selectedMessage.value.partnerName })

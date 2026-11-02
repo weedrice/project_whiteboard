@@ -10,6 +10,7 @@ export interface AuthMessages {
   loginFailed: string
   alreadyHaveAccount: string
   creatingAccount: string
+  signupLeaveConfirm: string
   signup: string
   signupSuccess: string
   signupFailed: string
@@ -669,6 +670,9 @@ export interface CommentMessages {
 
 // 알림 메시지 타입
 export interface NotificationMessages {
+  navigating: string
+  navigationUnavailable: string
+  navigationFailed: string
   title: string
   read: string
   unread: string

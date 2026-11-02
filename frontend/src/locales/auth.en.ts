@@ -8,6 +8,7 @@ export const authEn: AuthMessages = {
   loginFailed: 'Failed to sign in.',
   alreadyHaveAccount: 'Already have an account?',
   creatingAccount: 'Creating account...',
+  signupLeaveConfirm: 'Your signup details and email verification progress will be lost. Leave this page?',
   signup: 'Sign up',
   signupSuccess: 'Sign-up complete. Please sign in.',
   signupFailed: 'Failed to sign up.',

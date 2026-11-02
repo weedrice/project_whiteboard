@@ -14,6 +14,13 @@ const unreadCount = ref(0)
 const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
+const isNavigating = ref(false)
+const navigationError = ref('')
+const retryNavigation = vi.fn()
+const cancelPendingNavigation = vi.fn(() => {
+  isNavigating.value = false
+  navigationError.value = ''
+})
 let latestParams: Ref<{ page: number; size: number }> | undefined
 
 const testI18n = vi.hoisted(() => ({
@@ -41,7 +48,9 @@ vi.mock('@/features/notifications/queries/useNotification', () => ({
 }))
 
 vi.mock('@/features/notifications/navigation/useNotificationNavigation', () => ({
-  useNotificationNavigation: () => ({ navigateFromNotification }),
+  useNotificationNavigation: () => ({
+    navigateFromNotification, isNavigating, navigationError, retryNavigation, cancelPendingNavigation,
+  }),
 }))
 
 vi.mock('@/utils/date', () => ({
@@ -132,6 +141,8 @@ describe('MyNotifications', () => {
     error.value = null
     isMarkingAllAsRead.value = false
     unreadCount.value = 0
+    isNavigating.value = false
+    navigationError.value = ''
     notificationsData.value = makePage([])
     latestParams = undefined
   })
@@ -215,5 +226,28 @@ describe('MyNotifications', () => {
     listCard.vm.$emit('size-change', 30)
     await nextTick()
     expect(latestParams?.value).toEqual({ page: 0, size: 30 })
+  })
+
+  it('cancels navigation and clears stale retry feedback when the displayed page changes', async () => {
+    notificationsData.value = makePage([makeNotification(false)])
+    isNavigating.value = true
+    const wrapper = mountMyNotifications()
+    const listCard = wrapper.getComponent({ name: 'PaginatedListCard' })
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+
+    listCard.vm.$emit('page-change', 2)
+    await nextTick()
+    expect(cancelPendingNavigation).toHaveBeenCalledOnce()
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+
+    navigationError.value = 'notification.navigationFailed'
+    await nextTick()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    listCard.vm.$emit('size-change', 30)
+    await nextTick()
+    expect(cancelPendingNavigation).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(retryNavigation).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

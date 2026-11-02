@@ -227,6 +227,23 @@ describe('ProfileEditor', () => {
     mocks.confirm.mockResolvedValue(true)
   })
 
+  it.each(['button', 'form'])('validates %s submission before uploading a photo or saving', async (method) => {
+    const wrapper = mountProfileEditor()
+    await wrapper.get('#profile-display-name').setValue('x')
+    getExposedVm<ProfileEditorExposed>(wrapper).selectedFile = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    if (method === 'button') {
+      await findButtonByText(wrapper, 'common.save').trigger('click')
+    } else {
+      await wrapper.get('form').trigger('submit')
+    }
+    await flushPromises()
+    expect(wrapper.text()).toContain('auth.validation.displayNameLength')
+    expect(mocks.uploadFile).not.toHaveBeenCalled()
+    expect(mocks.updateProfile).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('preserves changed names on cancelled dismissal and closes after approval', async () => {
     const wrapper = mountProfileEditor()
     await wrapper.get('#profile-display-name').setValue('New name')

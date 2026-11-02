@@ -26,6 +26,8 @@ const extractErrorResponseMock = vi.hoisted(() => vi.fn())
 const routerMocks = vi.hoisted(() => ({
     route: { query: {} as Record<string, string | undefined> },
     replace: vi.fn(),
+    beforeLeave: undefined as undefined | (() => boolean | Promise<boolean>),
+    beforeUpdate: undefined as undefined | ((to: { query: Record<string, string> }, from: { query: Record<string, string> }) => boolean | Promise<boolean>),
 }))
 
 vi.mock('@/api/message', () => ({
@@ -74,6 +76,8 @@ vi.mock('vue-i18n', () => ({
 vi.mock('vue-router', () => ({
     useRoute: () => routerMocks.route,
     useRouter: () => ({ replace: routerMocks.replace }),
+    onBeforeRouteLeave: (guard: typeof routerMocks.beforeLeave) => { routerMocks.beforeLeave = guard },
+    onBeforeRouteUpdate: (guard: typeof routerMocks.beforeUpdate) => { routerMocks.beforeUpdate = guard },
 }))
 
 export { confirm, addToast, extractErrorResponseMock, messageApi, routerMocks }

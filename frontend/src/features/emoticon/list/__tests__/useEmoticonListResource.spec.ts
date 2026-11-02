@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref, type ComputedRef } from 'vue'
+import { reactive, ref, nextTick, type ComputedRef } from 'vue'
 import { useEmoticonListResource } from '../useEmoticonListResource'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 
@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => ({
   searchAll: vi.fn(),
 }))
 
+const route = reactive<{ query: Record<string, string | undefined> }>({ query: {} })
+
 vi.mock('vue-router', () => ({
+  useRoute: () => route,
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -57,6 +60,11 @@ vi.mock('@/composables/useApiQuery', () => ({
 describe('useEmoticonListResource', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    route.query = {}
+    mocks.push.mockImplementation((target: { query?: Record<string, string | undefined> }) => {
+      if (target.query) route.query = target.query
+      return Promise.resolve()
+    })
     mocks.useApiQueryOptions.length = 0
     mocks.useApiPageQueryOptions.length = 0
   })
@@ -101,4 +109,54 @@ describe('useEmoticonListResource', () => {
 
     expect(mocks.push).toHaveBeenCalledWith({ name: 'emoticon-detail', params: { emoticonId: 12 } })
   })
+
+  it('restores a shared list URL and reacts to browser history changes', async () => {
+    route.query = { q: 'cat', type: 'TAG', sort: 'popular', page: '3', period: 'monthly' }
+    const resource = useEmoticonListResource()
+    const pageOptions = mocks.useApiPageQueryOptions[0]
+
+    expect(resource.searchInput.value).toBe('cat')
+    expect(resource.searchType.value).toBe('TAG')
+    expect(resource.currentPage.value).toBe(2)
+    expect(resource.popularPeriod.value).toBe('monthly')
+    await (pageOptions.request as () => Promise<unknown>)()
+    expect(mocks.searchAll).toHaveBeenLastCalledWith({
+      page: 2, size: 20, sortBy: 'popular', keyword: 'cat', searchType: 'TAG',
+    })
+
+    route.query = { q: 'dog', type: 'NAME', page: '2' }
+    await nextTick()
+    expect(resource.searchInput.value).toBe('dog')
+    expect(resource.searchType.value).toBe('NAME')
+    expect(resource.currentPage.value).toBe(1)
+    expect(resource.sortBy.value).toBe('latest')
+  })
+
+  it('resets pagination when searching or sorting and clears the active keyword', () => {
+    route.query = { q: 'cat', type: 'TAG', sort: 'popular', page: '3', period: 'weekly' }
+    const resource = useEmoticonListResource()
+    resource.searchInput.value = ' dog '
+    resource.searchType.value = 'NAME'
+    resource.handleSearch()
+    expect(route.query).toEqual({ q: 'dog', type: 'NAME', sort: 'popular', period: 'weekly', page: undefined })
+    expect(resource.currentPage.value).toBe(0)
+
+    resource.changeSortBy('oldest')
+    expect(route.query.sort).toBe('oldest')
+    expect(route.query.q).toBe('dog')
+    resource.clearSearch()
+    expect(resource.isSearching.value).toBe(false)
+    expect(resource.searchInput.value).toBe('')
+    expect(route.query.q).toBeUndefined()
+  })
+
+  it.each(['-1', '1.5', 'bad', '9007199254740992'])('normalizes invalid URL values (%s)', (page) => {
+    route.query = { page, sort: 'invalid', type: 'invalid', period: 'invalid' }
+    const resource = useEmoticonListResource()
+    expect(resource.currentPage.value).toBe(0)
+    expect(resource.sortBy.value).toBe('latest')
+    expect(resource.searchType.value).toBe('ALL')
+    expect(resource.popularPeriod.value).toBe('daily')
+  })
+
 })

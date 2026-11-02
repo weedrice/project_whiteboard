@@ -9,12 +9,13 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import NotificationListItem from '@/components/notification/NotificationListItem.vue'
+import NotificationNavigationFeedback from '@/components/notification/NotificationNavigationFeedback.vue'
 import { useNotificationListState } from '@/features/notifications/list/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
 
 const { t } = useI18n()
 const { useMarkAllAsRead, useUnreadCount } = useNotification()
-const { navigateFromNotification } = useNotificationNavigation()
+const { navigateFromNotification, isNavigating, navigationError, retryNavigation } = useNotificationNavigation()
 
 // Default params for dropdown
 const params = ref<NotificationParams>({ page: 0, size: 20 })
@@ -58,6 +59,12 @@ function handleMarkAllAsRead() {
         {{ $t('notification.markAllRead') }}
       </BaseButton>
     </div>
+
+    <NotificationNavigationFeedback
+      :pending="isNavigating"
+      :error="navigationError"
+      @retry="retryNavigation"
+    />
 
     <div class="notification-scroll overflow-y-auto">
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">

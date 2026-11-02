@@ -90,6 +90,81 @@ describe('MyMessages', () => {
         wrapper.unmount()
     })
 
+    it('keeps the current conversation when a partner switch is cancelled', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Unsent reply'
+        confirm.mockResolvedValueOnce(false)
+        await messageOpenButtons(wrapper)[1].trigger('click')
+        await flushPromises()
+        expect(exposed.replyContent).toBe('Unsent reply')
+        expect(wrapper.getComponent(baseModalStub).props('title')).toBe('user.message.conversationTitle')
+        expect(messageApi.getConversation.mock.calls.every(([partnerId]) => partnerId !== 3)).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('protects partner route updates and page exit with the same discard decision', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Unsent reply'
+        confirm.mockResolvedValueOnce(false)
+        expect(await routerMocks.beforeUpdate?.({ query: { partnerId: '3' } }, { query: { partnerId: '2' } })).toBe(false)
+        expect(exposed.replyContent).toBe('Unsent reply')
+        confirm.mockResolvedValueOnce(false)
+        expect(await routerMocks.beforeLeave?.()).toBe(false)
+        expect(exposed.replyContent).toBe('Unsent reply')
+        expect(await routerMocks.beforeLeave?.()).toBe(true)
+        expect(exposed.replyContent).toBe('')
+        wrapper.unmount()
+    })
+
+    it('deduplicates close and route-exit prompts and preserves the reply after cancellation', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Unsent reply'
+        const decision = createDeferred<boolean>()
+        confirm.mockReturnValueOnce(decision.promise)
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        wrapper.getComponent(baseModalStub).vm.$emit('close')
+        expect(await routerMocks.beforeLeave?.()).toBe(false)
+        expect(confirm).toHaveBeenCalledOnce()
+        decision.resolve(false)
+        await flushPromises()
+        expect(exposed.replyContent).toBe('Unsent reply')
+        expect(wrapper.getComponent(baseModalStub).props('isOpen')).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('blocks page exit and browser unload while sending without another confirmation', async () => {
+        mockPartnerConversations()
+        routerMocks.route.query = { partnerId: '2' }
+        const sending = createDeferred<{ data: { success: boolean; data: number } }>()
+        messageApi.sendMessage.mockReturnValueOnce(sending.promise)
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Sending reply'
+        const request = exposed.sendReply()
+        expect(await routerMocks.beforeLeave?.()).toBe(false)
+        expect(await routerMocks.beforeUpdate?.({ query: { partnerId: '3' } }, { query: { partnerId: '2' } })).toBe(false)
+        const event = new Event('beforeunload', { cancelable: true })
+        window.dispatchEvent(event)
+        expect(event.defaultPrevented).toBe(true)
+        expect(confirm).not.toHaveBeenCalled()
+        sending.resolve({ data: { success: true, data: 10 } })
+        await request
+        wrapper.unmount()
+    })
+
     it('does not discard the next partner draft after a late confirmation', async () => {
         mockPartnerConversations()
         routerMocks.route.query = { partnerId: '2' }
