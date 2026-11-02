@@ -37,6 +37,7 @@ test('English messages load only when the user saves English', async ({ page }) 
 
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   expect(englishChunkRequests).toHaveLength(1)
-  expect(state.writes.find((write) => write.url === '/users/me/settings')?.payload)
+  // Applying the locale precedes the settings request, so wait for the write itself.
+  await expect.poll(() => state.writes.find((write) => write.url === '/users/me/settings')?.payload)
     .toMatchObject({ language: 'en' })
 })
