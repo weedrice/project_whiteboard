@@ -22,16 +22,16 @@ const seriesResponse = (seriesId: number, title: string) => ({
 
 describe('PostForm series creation identity', () => {
   beforeEach(() => {
-    // Keep the restored draft fixture within retention without faking async timers.
+    // Keep recovery fixtures inside the 90-day retention window without faking async timers.
     vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-10-08T00:00:00.000Z'))
+    vi.setSystemTime(new Date('2026-10-15T00:00:00.000Z'))
     resetPostFormTestState()
   })
 
   afterEach(() => {
     unmountPostFormWrappers()
-    vi.useRealTimers()
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('ignores a late success from the previous form while preserving the current request state', async () => {

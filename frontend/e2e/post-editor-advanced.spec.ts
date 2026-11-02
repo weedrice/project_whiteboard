@@ -52,9 +52,16 @@ for (const width of [390, 1280]) {
     await expect(editor).toBeFocused()
     await page.getByRole('button', { name: '문서 개요', exact: true }).click()
 
-    await editor.getByText('Alpha Alpha', { exact: true }).click()
-    await page.keyboard.press('Home')
-    await page.keyboard.press('Shift+End')
+    const paragraph = editor.getByText('Alpha Alpha', { exact: true })
+    await paragraph.click()
+    await expect(editor).toBeFocused()
+    // Initialize the formatting range before the editor's delayed focus sync.
+    await paragraph.evaluate(element => {
+      const selection = window.getSelection()!
+      selection.setBaseAndExtent(element, 0, element, element.childNodes.length)
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+    await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('Alpha Alpha')
     const selectionTools = page.getByRole('group', { name: '선택 영역 도구', exact: true })
     await expect(selectionTools).toBeVisible()
     await selectionTools.locator('button').first().click()
@@ -81,7 +88,9 @@ for (const width of [390, 1280]) {
     await expect(editor.locator('aside[data-callout="warning"]')).toContainText('Paste here')
     await page.getByRole('button', { name: '블록 아래에 쓰기', exact: true }).click()
     await insertBlock(page, '체크리스트')
+    await expect(editor).toBeFocused()
     await page.keyboard.type('Task item')
+    await expect(editor.locator('.post-editor-task-content p')).toHaveText('Task item')
     await editor.getByRole('checkbox', { name: '완료 상태 변경' }).click()
     await expect(editor.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true')
     await editor.getByText('Task item', { exact: true }).click()

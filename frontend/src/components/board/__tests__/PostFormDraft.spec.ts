@@ -26,9 +26,9 @@ describe('PostForm draft behavior', () => {
   })
 
   beforeEach(() => {
-    // Keep fixed draft fixtures within retention while debounce/retry timers remain real.
+    // Keep recovery fixtures inside the 90-day retention window without faking async timers.
     vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-10-08T00:00:00.000Z'))
+    vi.setSystemTime(new Date('2026-10-15T00:00:00.000Z'))
     resetPostFormTestState()
   })
 
