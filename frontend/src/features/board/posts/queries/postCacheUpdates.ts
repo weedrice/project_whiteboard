@@ -10,6 +10,28 @@ import { sessionQueryKey } from '@/queryAuthScope'
 
 type PostId = string | number
 
+export function getPostDetailQueryFilters(sessionGeneration: number, postId: PostId) {
+  // Routes use string IDs; API responses use numbers. Both view-count variants
+  // hold Post objects, while versions and related posts share only the prefix.
+  const postIds = new Set<PostId>([postId, String(postId)])
+  const numericPostId = Number(postId)
+  if (Number.isSafeInteger(numericPostId)) postIds.add(numericPostId)
+  return [...postIds].flatMap((id) => [true, false].map((incrementView) => ({
+    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detail(id, incrementView)),
+    exact: true as const,
+  })))
+}
+
+export function invalidatePostDetailCaches(
+  queryClient: QueryClient,
+  sessionGeneration: number,
+  postId: PostId,
+) {
+  getPostDetailQueryFilters(sessionGeneration, postId).forEach((filters) => {
+    void queryClient.invalidateQueries(filters)
+  })
+}
+
 interface InfiniteQueryData {
   pages: Array<{ content: Partial<Post>[]; [key: string]: unknown }>
   pageParams: unknown[]
@@ -26,11 +48,11 @@ export function updatePostInAllCaches(
   postId: PostId,
   updater: (post: Partial<Post>) => Partial<Post>
 ) {
-  queryClient.setQueriesData<Post>({
-    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
-  }, (old) => {
-    if (!old) return old
-    return updater(old) as Post
+  getPostDetailQueryFilters(sessionGeneration, postId).forEach((filters) => {
+    queryClient.setQueriesData<Post>(filters, (old) => {
+      if (!old) return old
+      return updater(old) as Post
+    })
   })
 
   queryClient.setQueriesData<InfiniteQueryData>(
@@ -92,9 +114,8 @@ export function savePostCacheSnapshots(
   postId: PostId,
 ) {
   return {
-    postDetailQueries: queryClient.getQueriesData({
-      queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
-    }),
+    postDetailQueries: getPostDetailQueryFilters(sessionGeneration, postId)
+      .flatMap((filters) => queryClient.getQueriesData(filters)),
     postsQueries: queryClient.getQueriesData({
       queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists),
     }),

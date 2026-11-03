@@ -7,8 +7,10 @@ import type { Post } from '@/types'
 import { postApi, type PollVotePayload, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData, type ScheduledPostData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
+    getPostDetailQueryFilters,
     invalidatePostCaches,
     invalidatePostCollectionCaches,
+    invalidatePostDetailCaches,
     restorePostCacheSnapshots,
     savePostCacheSnapshots,
     updatePostInAllCaches,
@@ -176,7 +178,8 @@ export function usePost() {
             mutationFn: (postId: string | number, context) => mutationFn(postId, context.requestConfig),
             onMutate: async (postId, context) => {
                 const sessionGeneration = authStore.sessionGeneration
-                await queryClient.cancelQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)) })
+                await Promise.all(getPostDetailQueryFilters(sessionGeneration, postId)
+                    .map((filters) => queryClient.cancelQueries(filters)))
                 context.assertCurrent()
                 await queryClient.cancelQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists) })
                 context.assertCurrent()
@@ -193,7 +196,8 @@ export function usePost() {
             },
             onSettled: (_, __, postId, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
-                invalidatePostCaches(queryClient, context.sessionGeneration, postId)
+                invalidatePostDetailCaches(queryClient, context.sessionGeneration, postId)
+                invalidatePostCollectionCaches(queryClient, context.sessionGeneration)
                 invalidateOnSettled?.(context.sessionGeneration)
             },
         })
@@ -288,14 +292,7 @@ export function usePost() {
         poll: Post['poll'],
         mutationContext: AuthScopedMutationFunctionContext,
     ) => {
-        // Routes use string IDs; the poll response/view model uses numeric IDs.
-        const postIds = new Set<string | number>([postId, String(postId)])
-        const numericPostId = Number(postId)
-        if (Number.isSafeInteger(numericPostId)) postIds.add(numericPostId)
-        const detailFilters = [...postIds].flatMap((id) => [true, false].map((incrementView) => ({
-            queryKey: sessionQueryKey(mutationContext.intent.sessionGeneration, postDetailQueryKey(id, incrementView)),
-            exact: true,
-        })))
+        const detailFilters = getPostDetailQueryFilters(mutationContext.intent.sessionGeneration, postId)
         // Stop older detail reads, including ones started during the vote.
         // Related posts and versions share the prefix but must keep loading.
         await Promise.all(detailFilters.map((filters) => queryClient.cancelQueries(filters)))

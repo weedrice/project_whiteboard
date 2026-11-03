@@ -33,17 +33,19 @@ const mocks = vi.hoisted(() => {
         return nextValue
     })
 
-    const getQueriesData = vi.fn((filters: { queryKey?: QueryKey }) => {
+    const getQueriesData = vi.fn((filters: { queryKey?: QueryKey; exact?: boolean }) => {
         const prefix = filters.queryKey ?? []
         return Array.from(queryStore.values())
-            .filter(({ key }) => prefix.every((segment, index) => key[index] === segment))
+            .filter(({ key }) => (!filters.exact || key.length === prefix.length)
+                && prefix.every((segment, index) => JSON.stringify(key[index]) === JSON.stringify(segment)))
             .map(({ key, data }) => [key, data] as [QueryKey, unknown])
     })
 
-    const setQueriesData = vi.fn((filters: { queryKey?: QueryKey }, updater: (old: unknown) => unknown) => {
+    const setQueriesData = vi.fn((filters: { queryKey?: QueryKey; exact?: boolean }, updater: (old: unknown) => unknown) => {
         const prefix = filters.queryKey ?? []
         const entries = Array.from(queryStore.values()).filter(({ key }) =>
-            prefix.every((segment, index) => key[index] === segment),
+            (!filters.exact || key.length === prefix.length)
+            && prefix.every((segment, index) => JSON.stringify(key[index]) === JSON.stringify(segment)),
         )
         entries.forEach(({ key, data }) => {
             queryStore.set(keyToString(key), { key, data: updater(data) })
@@ -164,6 +166,7 @@ const getPostPageItem = (key: QueryKey, itemIndex: number) => (getQueryDataValue
 describe('usePost', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.cancelQueries.mockReset()
         mocks.queryStore.clear()
         mocks.queryOptions.length = 0
     })
@@ -322,7 +325,7 @@ describe('usePost', () => {
     it('applies optimistic like updates across all caches and invalidates on settle', async () => {
         vi.mocked(postApi.likePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.likePost>())
 
-        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 2, liked: false })
+        seedQueryData(sessionKey(postDetailQueryKey(1)), { postId: 1, likeCount: 2, liked: false })
         seedQueryData(sessionKey(['posts']), {
             pages: [
                 { content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 2, likeCount: 7, liked: false }] },
@@ -343,9 +346,9 @@ describe('usePost', () => {
         const mutation = useLikePost()
         await mutation.mutate(1)
 
-        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
+        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: sessionKey(postDetailQueryKey(1)), exact: true })
         expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ liked: true, likeCount: 3 })
         expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({ liked: true, likeCount: 3 })
         expect(getInfinitePostItem(sessionKey(['posts']), 1)).toMatchObject({ postId: 2, likeCount: 7, liked: false })
         expect(getInfinitePostContent(sessionKey(['posts']), 1)).toBe('not-an-array')
@@ -353,7 +356,7 @@ describe('usePost', () => {
         expect(getInfinitePostItem(sessionKey(['board', 'posts', 'free']), 1)).toMatchObject({ postId: 99, likeCount: 10, liked: false })
         expect(getPostPageItem(sessionKey(['board', 'posts', 'hot']), 0)).toMatchObject({ liked: true, likeCount: 3 })
         expect(postApi.likePost).toHaveBeenCalledWith(1, authMutationConfig())
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(postDetailQueryKey(1)), exact: true })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             predicate: expect.any(Function),
@@ -414,7 +417,7 @@ describe('usePost', () => {
         vi.mocked(postApi.likePost).mockRejectedValueOnce(new Error('like failed'))
 
         const snapshot = { postId: 1, likeCount: 4, liked: false }
-        seedQueryData(sessionKey(['post', 1]), snapshot)
+        seedQueryData(sessionKey(postDetailQueryKey(1)), snapshot)
         seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, likeCount: 4, liked: false }] }],
             pageParams: [],
@@ -428,7 +431,7 @@ describe('usePost', () => {
 
         await expect(mutation.mutate(1)).rejects.toThrow('like failed')
 
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toEqual(snapshot)
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toEqual(snapshot)
         expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             likeCount: 4,
             liked: false,
@@ -441,18 +444,18 @@ describe('usePost', () => {
 
     it('unlikes without dropping below zero', async () => {
         vi.mocked(postApi.unlikePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.unlikePost>())
-        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 0, liked: true })
+        seedQueryData(sessionKey(postDetailQueryKey(1)), { postId: 1, likeCount: 0, liked: true })
 
         const { useUnlikePost } = usePost()
         const mutation = useUnlikePost()
         await mutation.mutate(1)
 
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ likeCount: 0, liked: false })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ likeCount: 0, liked: false })
     })
 
     it('rolls back optimistic unlike update when API call fails', async () => {
         vi.mocked(postApi.unlikePost).mockRejectedValueOnce(new Error('unlike failed'))
-        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 3, liked: true })
+        seedQueryData(sessionKey(postDetailQueryKey(1)), { postId: 1, likeCount: 3, liked: true })
         seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, likeCount: 3, liked: true }] }],
             pageParams: [],
@@ -461,7 +464,7 @@ describe('usePost', () => {
         const { useUnlikePost } = usePost()
         await expect(useUnlikePost().mutate(1)).rejects.toThrow('unlike failed')
 
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ postId: 1, likeCount: 3, liked: true })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ postId: 1, likeCount: 3, liked: true })
         expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 1,
             likeCount: 3,
@@ -470,7 +473,7 @@ describe('usePost', () => {
     })
 
     it('applies optimistic scrap/unscrap updates and supports rollback', async () => {
-        seedQueryData(sessionKey(['post', 1]), { postId: 1, scrapped: false })
+        seedQueryData(sessionKey(postDetailQueryKey(1)), { postId: 1, scrapped: false })
         seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, scrapped: false }] }],
             pageParams: [],
@@ -482,7 +485,7 @@ describe('usePost', () => {
         vi.mocked(postApi.scrapPost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.scrapPost>())
         const { useScrapPost } = usePost()
         await useScrapPost().mutate(1)
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ scrapped: true })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ scrapped: true })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: sessionKey(['user', 'scraps']),
         })
@@ -490,11 +493,11 @@ describe('usePost', () => {
         vi.mocked(postApi.unscrapPost).mockRejectedValueOnce(new Error('unscrap failed'))
         const { useUnscrapPost } = usePost()
         await expect(useUnscrapPost().mutate(1)).rejects.toThrow('unscrap failed')
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ scrapped: true })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ scrapped: true })
     })
 
     it('rolls back optimistic scrap update when API call fails', async () => {
-        seedQueryData(sessionKey(['post', 1]), { postId: 1, scrapped: false })
+        seedQueryData(sessionKey(postDetailQueryKey(1)), { postId: 1, scrapped: false })
         seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, scrapped: false }] }],
             pageParams: [],
@@ -504,7 +507,7 @@ describe('usePost', () => {
         const { useScrapPost } = usePost()
         await expect(useScrapPost().mutate(1)).rejects.toThrow('scrap failed')
 
-        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ postId: 1, scrapped: false })
+        expect(getQueryDataValue(sessionKey(postDetailQueryKey(1)))).toMatchObject({ postId: 1, scrapped: false })
         expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 1,
             scrapped: false,
@@ -513,11 +516,7 @@ describe('usePost', () => {
 
     it('keeps rollback paths safe when onMutate fails before snapshot creation', async () => {
         const cancelError = new Error('cancel failed')
-        mocks.cancelQueries
-            .mockRejectedValueOnce(cancelError)
-            .mockRejectedValueOnce(cancelError)
-            .mockRejectedValueOnce(cancelError)
-            .mockRejectedValueOnce(cancelError)
+        mocks.cancelQueries.mockRejectedValue(cancelError)
 
         const { useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()
 
