@@ -7,6 +7,7 @@ import { isConcurrentModificationError } from '@/utils/errorHandler'
 
 export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE', 'INQUIRY']
 const PROFILE_PRIVACY_FIELDS = ['profileOverviewPublic', 'profilePostsPublic', 'profileCommentsPublic'] as const
+const SETTINGS_FIELDS = ['theme', 'language', 'timezone', 'hideNsfw', ...PROFILE_PRIVACY_FIELDS] as const
 
 interface UserSettingsForm {
   theme: 'LIGHT' | 'DARK'
@@ -37,7 +38,7 @@ interface UseNotificationSettingsFormOptions {
   notificationData: Ref<NotificationSettingsPayload[] | undefined>
   notificationTypes?: Ref<NotificationSettingType[]>
   isSaving: Ref<boolean>
-  updateNotificationSettings: (payload: NotificationSettingsBulkPayload) => Promise<unknown>
+  updateNotificationSettings: (payload: NotificationSettingsBulkPayload) => Promise<ApiResponse<NotificationSettingsPayload[]> | void>
   getSessionGeneration?: () => number
   t: (key: string) => string
 }
@@ -147,15 +148,16 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     // 방문에도 유지된다. 빼고 보내면 서버는 "변경 없음"으로 읽어 이전에 고른 지역이
     // 그대로 남고, 화면에는 저장 성공으로 보이는 조용한 실패가 된다.
     const submittedForm = { ...form }
-    const payload: UserSettingsUpdatePayload & { theme: UserSettings['theme']; language: UserSettings['language'] } = {
-      theme: form.theme,
-      language: form.language as UserSettings['language'],
-      timezone: form.timezone,
-      hideNsfw: form.hideNsfw
+    const payload: UserSettingsUpdatePayload = {
+      ...(submittedForm.theme !== baseline.value?.theme ? { theme: submittedForm.theme } : {}),
+      ...(submittedForm.language !== baseline.value?.language ? { language: submittedForm.language as UserSettings['language'] } : {}),
+      ...(submittedForm.timezone !== baseline.value?.timezone ? { timezone: submittedForm.timezone } : {}),
+      ...(submittedForm.hideNsfw !== baseline.value?.hideNsfw ? { hideNsfw: submittedForm.hideNsfw } : {}),
     }
+    const requestedLanguage = payload.language ?? options.settingsData.value?.language ?? previousLanguage ?? 'ko'
     try {
       const localeApplied = options.setLocale
-        ? await options.setLocale(payload.language, isCurrentSave)
+        ? await options.setLocale(requestedLanguage, isCurrentSave)
         : true
       if (!isCurrentSave()) return
       if (!localeApplied) {
@@ -174,18 +176,29 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       const response = await options.updateSettings(payload)
       if (!isCurrentSave()) return
 
-      applySavedTheme(payload.theme)
-      rememberUserTimeZone(payload.timezone)
-      const savedForm = { ...submittedForm }
-      for (const field of PROFILE_PRIVACY_FIELDS) {
-        savedForm[field] = response?.data?.[field]
-          ?? payload[field] ?? baseline.value?.[field] ?? submittedForm[field]
-        // Keep edits made while saving, but reflect authoritative untouched values.
+      // The response includes changes from other tabs. Only the submitted changes
+      // may override the latest read when a caller has no response body.
+      const latestSettings = options.settingsData.value
+      const savedForm: UserSettingsForm = response?.data
+        ? toFormSnapshot(response.data)
+        : { ...(latestSettings ? toFormSnapshot(latestSettings) : baseline.value ?? submittedForm), ...payload }
+      for (const field of SETTINGS_FIELDS) {
         if (form[field] === submittedForm[field]) {
-          form[field] = savedForm[field]
+          Object.assign(form, { [field]: savedForm[field] })
         }
       }
       baseline.value = savedForm
+      applySavedTheme(savedForm.theme)
+      rememberUserTimeZone(savedForm.timezone)
+      if (options.setLocale && savedForm.language !== requestedLanguage) {
+        const applied = await options.setLocale(savedForm.language as UserSettings['language'], isCurrentSave)
+        if (!isCurrentSave()) return
+        if (!applied) {
+          message.value = options.t('user.settings.failed')
+          isError.value = true
+          return
+        }
+      }
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {
       if (!isCurrentSave()) return
@@ -247,6 +260,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
 
 export function useNotificationSettingsForm(options: UseNotificationSettingsFormOptions) {
   let saveRevision = 0
+  const savePending = ref(false)
   const createDefaultSettings = (): Record<NotificationSettingType, boolean> => ({
     LIKE: true,
     COMMENT: true,
@@ -272,10 +286,10 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     baseline.value !== null
     && availableTypes.value.some((type) => settings[type] !== baseline.value?.[type])
   ))
-  const canSave = computed(() => isDirty.value && !options.isSaving.value)
+  const canSave = computed(() => isDirty.value && !options.isSaving.value && !savePending.value)
 
   watch(options.notificationData, (value) => {
-    if (!value || isDirty.value) {
+    if (!value || isDirty.value || savePending.value) {
       return
     }
 
@@ -289,6 +303,7 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
 
   watch(() => options.getSessionGeneration?.(), () => {
     saveRevision += 1
+    savePending.value = false
     Object.assign(settings, createDefaultSettings())
     baseline.value = null
     message.value = ''
@@ -303,27 +318,43 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     message.value = ''
     isError.value = false
     const revision = ++saveRevision
+    savePending.value = true
     const sessionGeneration = options.getSessionGeneration?.()
     const isCurrentSave = () => revision === saveRevision
       && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
     const submittedSettings = { ...settings }
     const payload: NotificationSettingsBulkPayload = {
-      settings: availableTypes.value.map((notificationType) => ({
+      settings: availableTypes.value.filter((type) => submittedSettings[type] !== baseline.value?.[type]).map((notificationType) => ({
         notificationType,
         isEnabled: submittedSettings[notificationType]
       }))
     }
     try {
-      await options.updateNotificationSettings(payload)
+      const response = await options.updateNotificationSettings(payload)
       if (!isCurrentSave()) return
 
-      baseline.value = submittedSettings
+      const savedSettings = { ...baseline.value } as Record<NotificationSettingType, boolean>
+      for (const setting of options.notificationData.value ?? []) {
+        savedSettings[setting.notificationType] = setting.isEnabled
+      }
+      for (const setting of payload.settings) {
+        savedSettings[setting.notificationType] = setting.isEnabled
+      }
+      for (const setting of response?.data ?? []) {
+        savedSettings[setting.notificationType] = setting.isEnabled
+      }
+      for (const type of NOTIFICATION_TYPES) {
+        if (settings[type] === submittedSettings[type]) settings[type] = savedSettings[type]
+      }
+      baseline.value = savedSettings
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {
       if (!isCurrentSave()) return
       logger.error('Failed to save notification settings:', error)
       message.value = options.t('user.settings.failed')
       isError.value = true
+    } finally {
+      if (revision === saveRevision) savePending.value = false
     }
   }
 

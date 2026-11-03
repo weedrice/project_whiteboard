@@ -1,6 +1,5 @@
 import { onScopeDispose } from 'vue'
-import type { Notification } from '@/types'
-import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
+import { subscribeMessageStreamEvents, type MailboxStreamEvent } from '@/features/user/messages/messageStreamEvents'
 
 interface MailboxRealtimeSyncOptions {
     isConversationOpen: () => boolean
@@ -12,22 +11,27 @@ interface MailboxRealtimeSyncOptions {
 }
 
 export function useMailboxRealtimeSync(options: MailboxRealtimeSyncOptions) {
-    const recentNotificationIds = new Set<number>()
+    const recentMessageKeys = new Set<string>()
 
-    function remember(notificationId: number) {
-        if (recentNotificationIds.has(notificationId)) return false
-        recentNotificationIds.add(notificationId)
-        if (recentNotificationIds.size > 100) {
-            const oldestNotificationId = recentNotificationIds.values().next().value
-            if (oldestNotificationId != null) recentNotificationIds.delete(oldestNotificationId)
+    function remember(key: string) {
+        if (recentMessageKeys.has(key)) return false
+        recentMessageKeys.add(key)
+        if (recentMessageKeys.size > 100) {
+            const oldestKey = recentMessageKeys.values().next().value
+            if (oldestKey != null) recentMessageKeys.delete(oldestKey)
         }
         return true
     }
 
-    function handleMessageStreamEvent(notification: Notification) {
-        if (!remember(notification.notificationId)) return
+    function handleMessageStreamEvent(event: MailboxStreamEvent) {
+        const isMailboxChange = 'messageId' in event
+        const messageId = isMailboxChange ? event.messageId : event.sourceId
+        const key = Number.isSafeInteger(messageId) && Number(messageId) > 0
+            ? `message:${messageId}`
+            : `notification:${isMailboxChange ? '' : event.notificationId}`
+        if (!remember(key)) return
 
-        const partnerId = notification.actor.userId
+        const partnerId = isMailboxChange ? event.partnerId : event.actor.userId
         const currentPartnerId = options.getConversationPartnerId()
         if (options.isConversationOpen()) {
             options.deferMailboxRefresh()
@@ -46,7 +50,7 @@ export function useMailboxRealtimeSync(options: MailboxRealtimeSyncOptions) {
     const unsubscribe = subscribeMessageStreamEvents(handleMessageStreamEvent)
 
     function reset() {
-        recentNotificationIds.clear()
+        recentMessageKeys.clear()
     }
 
     function stop() {

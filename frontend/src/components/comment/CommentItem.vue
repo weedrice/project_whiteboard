@@ -72,6 +72,26 @@ const isLikePending = useCommentLikePending(() => props.comment.commentId)
 
 const isReplying = ref(false)
 const isEditing = ref(false)
+const replyForm = ref<InstanceType<typeof CommentForm> | null>(null)
+const editForm = ref<InstanceType<typeof CommentForm> | null>(null)
+
+async function toggleReplyForm() {
+  if (!isReplying.value) {
+    isReplying.value = true
+    return
+  }
+  const form = replyForm.value
+  if (await form?.confirmDiscard() && replyForm.value === form) isReplying.value = false
+}
+
+async function toggleEditForm() {
+  if (!isEditing.value) {
+    isEditing.value = true
+    return
+  }
+  const form = editForm.value
+  if (await form?.confirmDiscard() && editForm.value === form) isEditing.value = false
+}
 const commentRef = computed(() => props.comment)
 const {
   replies,
@@ -86,6 +106,10 @@ const {
   loadMoreReplies,
   retryReplies,
 } = useCommentReplies(commentRef, computed(() => props.postId), computed(() => props.deepLinkCommentIds))
+const hasOpenedReplies = ref(isRepliesOpen.value)
+watch(isRepliesOpen, (open) => {
+  if (open) hasOpenedReplies.value = true
+})
 const {
   isBlockedAuthor,
   canUseCommentActions,
@@ -343,6 +367,7 @@ onUnmounted(cancelPendingCommentReport)
 
         <div v-if="isEditing" class="mt-2">
           <CommentForm
+            ref="editForm"
             :postId="postId"
             :commentId="comment.commentId"
             :initialContent="comment.content ?? ''"
@@ -411,7 +436,7 @@ onUnmounted(cancelPendingCommentReport)
             v-if="!props.readOnly && isAuthenticated && canUseCommentActions && !isBlinded"
             type="button"
             class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
-            @click="isReplying = !isReplying"
+            @click="toggleReplyForm"
           >
             {{ $t('comment.reply') }}
           </button>
@@ -430,7 +455,7 @@ onUnmounted(cancelPendingCommentReport)
               v-if="!isEmoticonOnly"
               type="button"
               class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
-              @click="isEditing = !isEditing"
+              @click="toggleEditForm"
             >
               {{ $t('common.edit') }}
             </button>
@@ -450,6 +475,7 @@ onUnmounted(cancelPendingCommentReport)
           :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >
           <CommentForm
+            ref="replyForm"
             :postId="postId"
             :parentId="comment.commentId"
             @success="handleReplySuccess"
@@ -459,7 +485,8 @@ onUnmounted(cancelPendingCommentReport)
         </div>
 
         <div
-          v-if="isRepliesOpen"
+          v-if="hasOpenedReplies"
+          v-show="isRepliesOpen"
           class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-line)] pl-3 sm:mt-4 sm:pl-4"
           :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >

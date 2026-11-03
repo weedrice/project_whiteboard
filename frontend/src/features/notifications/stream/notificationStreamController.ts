@@ -24,7 +24,7 @@ import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardE
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
 import { setNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
-import { emitMessageStreamEvent } from '@/features/user/messages/messageStreamEvents'
+import { emitMessageChangedEvent, emitMessageStreamEvent, type MessageChangedEvent } from '@/features/user/messages/messageStreamEvents'
 import { invalidateScheduledPostNotificationCaches } from '@/features/board/posts/queries/scheduledPostNotificationCacheInvalidation'
 import { NOTIFICATION_SSE_EVENTS, SSE_DEFAULT_EVENT_NAME } from '@/features/notifications/stream/notificationSseEvents'
 import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
@@ -122,6 +122,10 @@ export function createNotificationStreamController(
             handleCommentSseEvent(payload, sessionGeneration)
             return
         }
+        if (eventType === NOTIFICATION_SSE_EVENTS.MESSAGE_CHANGED) {
+            handleMessageChanged(payload, sessionGeneration)
+            return
+        }
         if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_INVALIDATED
             || eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_ACCESS_REVOKED) {
             if (resolveAuthStore().sessionGeneration === sessionGeneration) {
@@ -160,6 +164,20 @@ export function createNotificationStreamController(
             }
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
+        }
+    }
+
+    const handleMessageChanged = (payload: string, sessionGeneration: number) => {
+        try {
+            const event: unknown = JSON.parse(payload)
+            if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
+            if (!event || typeof event !== 'object') return
+            const { messageId, partnerId } = event as Partial<MessageChangedEvent>
+            if (!Number.isSafeInteger(messageId) || Number(messageId) <= 0
+                || !Number.isSafeInteger(partnerId) || Number(partnerId) <= 0) return
+            emitMessageChangedEvent({ messageId: messageId!, partnerId: partnerId! })
+        } catch (error: unknown) {
+            logger.error('Failed to parse SSE mailbox change event:', error)
         }
     }
 

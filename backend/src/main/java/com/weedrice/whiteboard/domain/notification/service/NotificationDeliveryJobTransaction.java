@@ -25,6 +25,7 @@ class NotificationDeliveryJobTransaction {
     private final NotificationDeliveryJobRepository jobRepository;
     private final NotificationCommandService notificationCommandService;
     private final NotificationDeliveryPublisher deliveryPublisher;
+    private final MessageChangeDeliveryPublisher messageChangeDeliveryPublisher;
     private final EntityManager entityManager;
     private final NotificationPayloadValidator payloadValidator;
     private final Clock clock;
@@ -54,6 +55,7 @@ class NotificationDeliveryJobTransaction {
             return DeliveryJobTransitionResult.REJECTED_INVALID;
         }
         Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
+        messageChangeDeliveryPublisher.publishAfterCommit(job);
         job.complete();
         if (notification != null) {
             deliveryPublisher.publishAfterCommit(job.getReceiverUserId(), notification);

@@ -1,6 +1,7 @@
 import type { CommentMessages } from './types'
 
 export const commentJa: CommentMessages = {
+  discardConfirm: '入力中のコメントを破棄しますか？',
   like: 'いいね',
   unlike: 'いいねを取り消す',
   title: 'コメント',

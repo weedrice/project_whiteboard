@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthScopedMutation } from '@/composables/useAuthScopedMutation'
 import { useAuthScopedOperation } from '@/composables/useAuthScopedOperation'
@@ -48,10 +49,25 @@ const closureReasonLabel = (value: InquiryClosureReason) => t(`inquiry.closureRe
 
 const detailQuery = useApiQuery({
   queryKey,
-  request: ({ requestConfig }) => inquiryApi.getMineDetail(inquiryId.value, requestConfig),
+  request: ({ requestConfig }) => inquiryApi.getMineDetail(inquiryId.value, { ...requestConfig, skipGlobalErrorHandler: true }),
   enabled: computed(() => Number.isSafeInteger(inquiryId.value) && inquiryId.value > 0),
-  meta: AUTH_SCOPED_QUERY_META,
+  meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
 })
+const accessUnavailable = ref(false)
+const hasVisibleDetail = computed(() => !!detailQuery.data.value && !accessUnavailable.value)
+
+// A failed background read must not unmount the uploader and discard its files.
+// Access failures are different: clear private drafts and keep cached content hidden
+// until a successful read confirms access again.
+watch([detailQuery.error, detailQuery.isSuccess], ([error, isSuccess]) => {
+  const status = isAxiosError(error) ? error.response?.status : undefined
+  if (status !== undefined && [401, 403, 404, 410].includes(status)) {
+    accessUnavailable.value = true
+    resetDraft()
+  } else if (isSuccess) {
+    accessUnavailable.value = false
+  }
+}, { immediate: true })
 
 async function refresh(targetInquiryId: number, generation: number) {
   await queryClient.invalidateQueries({
@@ -159,7 +175,7 @@ onBeforeRouteUpdate((to, from) => (
 ))
 
 function addMessage() {
-  if (interactionPending.value) return
+  if (interactionPending.value || accessUnavailable.value) return
   errorMessage.value = ''
   if (uploadsPending.value) { errorMessage.value = t('inquiry.upload.uploading'); return }
   if (!content.value.trim() || content.value.trim().length > 10_000) { errorMessage.value = t('inquiry.detail.messageValidation'); return }
@@ -180,7 +196,7 @@ function addMessage() {
 }
 
 async function runAction(action: 'withdraw' | 'close') {
-  if (interactionPending.value) return
+  if (interactionPending.value || accessUnavailable.value) return
   writeCompleted.value = false
   await operations.run('action', async (scope) => {
     const targetInquiryId = inquiryId.value
@@ -201,12 +217,18 @@ async function runAction(action: 'withdraw' | 'close') {
 
 <template>
   <section class="mx-auto max-w-4xl space-y-5">
-    <PageHeader :title="detailQuery.data.value?.title || t('inquiry.detail.title')" :description="t('inquiry.detail.description')">
+    <PageHeader :title="(hasVisibleDetail && detailQuery.data.value?.title) || t('inquiry.detail.title')" :description="t('inquiry.detail.description')">
       <template #actions><BaseButton variant="secondary" @click="router.push('/inquiries')">{{ t('inquiry.detail.list') }}</BaseButton></template>
     </PageHeader>
-    <div v-if="detailQuery.isLoading.value" class="flex justify-center py-8" role="status" aria-live="polite"><BaseSpinner /><span class="sr-only">{{ t('inquiry.common.loading') }}</span></div>
-    <ErrorState v-else-if="detailQuery.error.value || !detailQuery.data.value" :message="t('inquiry.common.notFound')" />
-    <template v-else>
+    <div v-if="detailQuery.isLoading.value && !hasVisibleDetail" class="flex justify-center py-8" role="status" aria-live="polite"><BaseSpinner /><span class="sr-only">{{ t('inquiry.common.loading') }}</span></div>
+    <ErrorState
+      v-else-if="!hasVisibleDetail"
+      :message="accessUnavailable ? t('inquiry.common.notFound') : t('inquiry.common.loadFailed')"
+      show-retry
+      @retry="detailQuery.refetch()"
+    />
+    <template v-else-if="detailQuery.data.value">
+      <ErrorState v-if="detailQuery.error.value" :message="t('inquiry.common.loadFailed')" :show-icon="false" show-retry @retry="detailQuery.refetch()" />
       <BaseCard bordered elevation="none" padding="sm">
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <InquiryStatusBadge :status="detailQuery.data.value.status" /><span>{{ categoryLabel(detailQuery.data.value.category) }}</span>

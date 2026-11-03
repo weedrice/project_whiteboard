@@ -30,6 +30,7 @@ export const commentEn: CommentMessages = {
   loginRequired: ' to write a comment.',
   deleteFailed: 'Failed to delete comment.',
   saveFailed: 'Failed to save comment.',
+  discardConfirm: 'Discard your unsaved comment?',
   writeReply: 'Write a reply...',
   writeComment: 'Write a comment...',
   posting: 'Posting...',

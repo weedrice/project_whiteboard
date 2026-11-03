@@ -101,7 +101,13 @@ export function useComment() {
     }
 
     const invalidatePostDetailQueries = (postId: string | number) => {
-        queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) })
+        // Route detail queries use string IDs; comment responses use numbers.
+        const postIds = new Set<string | number>([postId, String(postId)])
+        const numericPostId = Number(postId)
+        if (Number.isSafeInteger(numericPostId)) postIds.add(numericPostId)
+        postIds.forEach((id) => {
+            queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.detailPrefix(id)) })
+        })
     }
 
     const invalidateCommentMutationTargets = (postId?: string | number, includePostDetail = false) => {
