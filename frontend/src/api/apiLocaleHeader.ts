@@ -11,7 +11,7 @@ export function configureApiLocaleResolver(resolver: ApiLocaleResolver): void {
 
 export function getApiLocale(): SupportedLocale {
   const locale = localeResolver()?.trim().toLowerCase()
-  return locale === 'en' ? 'en' : 'ko'
+  return locale === 'en' || locale === 'ja' ? locale : 'ko'
 }
 
 export function applyApiLocaleHeader(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {

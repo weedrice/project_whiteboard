@@ -127,6 +127,7 @@ class NotificationCommandService {
         String language = userSettingsRepository.findSettingsReadByUserId(userId)
                 .map(UserSettingsRepository.SettingsReadProjection::getLanguage)
                 .orElse("ko");
+        if ("ja".equalsIgnoreCase(language)) return Locale.JAPANESE;
         return "en".equalsIgnoreCase(language) ? Locale.ENGLISH : Locale.KOREAN;
     }
 

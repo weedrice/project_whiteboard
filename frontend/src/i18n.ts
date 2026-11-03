@@ -23,18 +23,23 @@ type AppI18n = Omit<typeof rawI18n, 'global'> & {
 }
 
 const i18n = rawI18n as AppI18n
-let englishMessagesPromise: Promise<Messages> | null = null
+type LazyLocale = Exclude<SupportedLocale, 'ko'>
+const localeLoaders: Record<LazyLocale, () => Promise<Messages>> = {
+    en: () => import('./locales/en').then((module) => module.default),
+    ja: () => import('./locales/ja').then((module) => module.default),
+}
+const localeMessagePromises: Partial<Record<LazyLocale, Promise<Messages>>> = {}
 
 export async function ensureLocaleMessages(locale: SupportedLocale): Promise<void> {
     if (locale === 'ko' || i18n.global.availableLocales.includes(locale)) {
         return
     }
 
-    englishMessagesPromise ??= import('./locales/en').then((module) => module.default)
+    localeMessagePromises[locale] ??= localeLoaders[locale]()
     try {
-        i18n.global.setLocaleMessage('en', await englishMessagesPromise)
+        i18n.global.setLocaleMessage(locale, await localeMessagePromises[locale])
     } catch (error) {
-        englishMessagesPromise = null
+        delete localeMessagePromises[locale]
         throw error
     }
 }

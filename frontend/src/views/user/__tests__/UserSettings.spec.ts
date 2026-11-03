@@ -540,20 +540,20 @@ describe('UserSettings', () => {
     expect(wrapper.find('fieldset[aria-describedby="profile-privacy-help"]').exists()).toBe(false)
   })
 
-  it('saves only general settings from the general section', async () => {
+  it.each(['en', 'ja'])('saves %s from the general settings section', async (language) => {
     const wrapper = mountUserSettings()
     await nextTick()
 
     const selects = wrapper.findAll('select')
     await selects[0].setValue('DARK')
-    await selects[1].setValue('en')
+    await selects[1].setValue(language)
 
     await getSaveButtons(wrapper).generalSaveButton.trigger('click')
     await nextTick()
 
     expect(updateSettings).toHaveBeenCalledWith({
       theme: 'DARK',
-      language: 'en',
+      language,
       timezone: 'Asia/Seoul',
       hideNsfw: true,
     })

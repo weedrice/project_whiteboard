@@ -108,6 +108,7 @@ watch(
         <BaseSelect v-model="form.language" :label="$t('user.settings.language')">
           <option value="ko">{{ $t('common.languages.ko') }}</option>
           <option value="en">{{ $t('common.languages.en') }}</option>
+          <option value="ja">{{ $t('common.languages.ja') }}</option>
         </BaseSelect>
 
         <div>

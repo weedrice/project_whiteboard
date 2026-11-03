@@ -70,13 +70,13 @@ describe('useAppUserSettingsSync', () => {
     expect(localeMocks.setAppLocale).not.toHaveBeenCalledWith('en', expect.any(Function))
   })
 
-  it('applies settings while still authenticated', async () => {
+  it.each(['en', 'ja'] as const)('restores saved %s settings while still authenticated', async (language) => {
     const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0, user: { userId: 1 } })
     const setTheme = vi.fn()
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
         theme: 'DARK',
-        language: 'en',
+        language,
         timezone: 'Asia/Seoul',
         hideNsfw: false,
         pushEnabled: false,
@@ -92,7 +92,7 @@ describe('useAppUserSettingsSync', () => {
     await sync.loadSettings()
 
     expect(setTheme).toHaveBeenCalledWith('DARK')
-    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en', expect.any(Function))
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith(language, expect.any(Function))
   })
 
   it('ignores account A settings after logout and account B login', async () => {

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { getIntlLocale } from '@/utils/locale'
 import type { BoardListItem } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 
@@ -13,7 +14,7 @@ defineProps<{
 }>()
 
 const { t, locale } = useI18n()
-const numberFormatter = computed(() => new Intl.NumberFormat(locale.value === 'ko' ? 'ko-KR' : 'en-US'))
+const numberFormatter = computed(() => new Intl.NumberFormat(getIntlLocale(locale.value)))
 const formatNumber = (value: number) => numberFormatter.value.format(value)
 </script>
 

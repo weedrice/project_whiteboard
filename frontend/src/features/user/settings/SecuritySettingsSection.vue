@@ -8,6 +8,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { formatDateTimeOrDash } from '@/utils/date'
+import type { SupportedLocale } from '@/locales/types'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
@@ -49,7 +50,7 @@ const {
 
 const sessions = computed(() => sessionsData.value ?? [])
 const loginHistory = computed(() => loginHistoryData.value?.content ?? [])
-const currentLocale = computed(() => locale.value as 'ko' | 'en')
+const currentLocale = computed(() => locale.value as SupportedLocale)
 
 useAuthSessionReset(() => {
   loginHistoryParams.value = { page: 0, size: 10 }

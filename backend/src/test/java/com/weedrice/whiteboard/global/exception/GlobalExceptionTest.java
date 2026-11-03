@@ -91,6 +91,36 @@ class GlobalExceptionTest {
                         .hasSize(1));
     }
 
+    @Test
+    void japaneseMessagesCoverEveryKeyAndPreserveInterpolation() throws Exception {
+        Properties korean = loadMessages("messages.properties");
+        Properties japanese = loadMessages("messages_ja.properties");
+        assertThat(japanese.stringPropertyNames()).isEqualTo(korean.stringPropertyNames());
+        var parameterPattern = java.util.regex.Pattern.compile("\\{([0-9]+)(?:[,}])");
+        for (String key : korean.stringPropertyNames()) {
+            String translated = japanese.getProperty(key);
+            assertThat(translated).as(key).isNotBlank().doesNotContainPattern("[가-힣]");
+            assertThat(parameterPattern.matcher(translated).results().map(match -> match.group(1)).sorted().toList())
+                    .as("Interpolation for %s", key)
+                    .isEqualTo(parameterPattern.matcher(korean.getProperty(key)).results()
+                            .map(match -> match.group(1)).sorted().toList());
+            new MessageFormat(translated, Locale.JAPANESE).format(new Object[]{"Alice", "https://example.com"});
+        }
+    }
+
+    @Test
+    void japaneseRegionalRequestsUseJapaneseMessagesAndUnknownLocalesKeepKoreanFallback() {
+        var source = new com.weedrice.whiteboard.global.config.MessageConfig().messageSource();
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.addHeader("Accept-Language", "ja-JP,ja;q=0.9,en;q=0.8");
+        var locale = new org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver().resolveLocale(request);
+        assertThat(source.getMessage("error.user.notFound", null, locale)).isEqualTo("ユーザーが見つかりません。");
+        assertThat(source.getMessage("mail.verification.body", new Object[]{"123456"}, locale))
+                .contains("メール認証コード", "<h3>123456</h3>");
+        assertThat(source.getMessage("error.user.notFound", null, Locale.FRENCH))
+                .isEqualTo(source.getMessage("error.user.notFound", null, Locale.KOREAN));
+    }
+
     private Properties loadMessages(String resourceName) throws Exception {
         Properties properties = new Properties();
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {

@@ -48,7 +48,7 @@ public class UserSettingsService {
         public static final String AUTO_TIMEZONE = "AUTO";
 
         private static final Set<String> SUPPORTED_THEMES = Set.of("LIGHT", "DARK");
-        private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en");
+        private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en", "ja");
 
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;

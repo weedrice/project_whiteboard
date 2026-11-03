@@ -178,6 +178,28 @@ class NotificationServiceTest {
     }
 
     @Test
+    void handleNotificationEvent_rendersJapaneseForRecipientAndEnqueuesPush() {
+        UserSettingsRepository.SettingsReadProjection settings =
+                mock(UserSettingsRepository.SettingsReadProjection.class);
+        when(settings.getLanguage()).thenReturn("ja");
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.of(settings));
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository, new NotificationPreferenceService(userNotificationSettingsRepository),
+                userRepository, pushDeliveryJobEnqueuer, userSettingsRepository,
+                new com.weedrice.whiteboard.global.config.MessageConfig().messageSource());
+        NotificationEvent event = NotificationEvent.localized(user, actor, NotificationType.COMMENT,
+                NotificationSourceType.POST, 1L, "notification.comment.created", "Alice");
+
+        Notification saved = commandService.handleNotificationEvent(event);
+
+        assertThat(saved.getContent()).isEqualTo("Aliceさんがあなたの投稿にコメントしました。");
+        assertThat(saved.getMessageKey()).isEqualTo("notification.comment.created");
+        assertThat(NotificationMessageParamsCodec.decode(saved.getMessageParams())).containsExactly("Alice");
+        verify(pushDeliveryJobEnqueuer).enqueue(event, saved);
+    }
+
+    @Test
     @DisplayName("Notification message parameter decoding ignores null entries and malformed JSON")
     void decodeNotificationMessageParams_isDefensive() {
         assertThat(NotificationMessageParamsCodec.decode("[\"Alice\",null,\"Post\"]"))

@@ -139,8 +139,8 @@ public class PasswordResetService {
         }
         return userSettingsRepository.findSettingsReadByUserId(userId)
                 .map(UserSettingsRepository.SettingsReadProjection::getLanguage)
-                .filter("en"::equalsIgnoreCase)
-                .map(ignored -> Locale.ENGLISH)
+                .map(language -> "ja".equalsIgnoreCase(language) ? Locale.JAPANESE
+                        : "en".equalsIgnoreCase(language) ? Locale.ENGLISH : Locale.KOREAN)
                 .orElse(Locale.KOREAN);
     }
 

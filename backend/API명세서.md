@@ -214,6 +214,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 ### Users
 
+언어 설정(적용): `PUT /api/v1/users/me/settings`의 `language`는 `ko`, `en`, `ja`를 지원한다. 앞뒤 공백과 대문자는 정규화하며, 그 외 값은 HTTP 400으로 거부한다. `GET` 응답은 저장된 언어를 반환한다. API 오류·검증·성공 메시지는 요청의 `Accept-Language`를 사용하며 일본어 `ja` 및 `ja-JP`를 지원한다. 알림과 비밀번호 재설정 메일은 수신자의 저장된 언어를 사용한다.
+
 프로필 공개 범위 설정(적용):
 
 - `GET/PUT /api/v1/users/me/settings`는 Boolean `profileOverviewPublic`, `profilePostsPublic`, `profileCommentsPublic`을 제공한다. 기존·신규 계정과 설정 레코드 없는 계정의 기본값은 모두 `true`이며 수정 요청에서 생략한 값은 유지한다.

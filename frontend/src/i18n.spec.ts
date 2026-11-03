@@ -27,6 +27,21 @@ describe('i18n locale behavior', () => {
     expect(i18n.global.t('common.terms.title')).toBe('서비스 이용약관')
   })
 
+  it('loads Japanese messages and updates the document language', async () => {
+    await expect(setAppLocale('ja')).resolves.toBe(true)
+
+    expect(document.documentElement.lang).toBe('ja')
+    expect(i18n.global.t('search.doSearch')).toBe('検索')
+    expect(i18n.global.t('user.settings.language')).toBe('言語')
+    expect(i18n.global.t('comment.title')).toBe('コメント')
+    expect(i18n.global.t('common.terms.title')).toBe('利用規約')
+    expect(i18n.global.t('common.time.minutesAgo', { count: 3 })).toBe('3分前')
+
+    await setAppLocale('en')
+    expect(document.documentElement.lang).toBe('en')
+    expect(i18n.global.t('search.doSearch')).toBe('Search')
+  })
+
   it('falls back to Korean for an unsupported locale assigned by a third party', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     locale.value = 'fr'
@@ -36,12 +51,12 @@ describe('i18n locale behavior', () => {
     expect(i18n.global.t('admin.menu.users')).toBe('사용자 관리')
   })
 
-  it('loads locale messages without committing after the session guard becomes stale', async () => {
+  it.each(['en', 'ja'] as const)('does not commit %s after the session guard becomes stale', async (targetLocale) => {
     locale.value = 'ko'
 
-    await expect(setAppLocale('en', () => false)).resolves.toBe(true)
+    await expect(setAppLocale(targetLocale, () => false)).resolves.toBe(true)
 
     expect(locale.value).toBe('ko')
-    expect(document.documentElement.lang).not.toBe('en')
+    expect(document.documentElement.lang).not.toBe(targetLocale)
   })
 })
