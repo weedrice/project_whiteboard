@@ -85,6 +85,10 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 - 확인·사유 입력은 `useConfirm()`의 `confirm` 또는 `confirmWithReason`을 사용합니다. 생산 코드에서 브라우저 기본 `window.alert`, `window.confirm`, `window.prompt`를 직접 호출하지 않습니다.
 - 새 UI는 `npm run check:ui`로 중복 패딩, 구형 액션 wrapper, 분류되지 않은 raw dialog가 없는지 확인합니다.
 
+## 지원 언어
+
+한국어(`ko`), 영어(`en`), 일본어(`ja`)를 지원합니다. 내 정보 → 설정 → 일반에서 언어를 저장하면 화면과 API 응답 언어가 바뀌고, 다음 로그인에도 저장한 설정을 불러옵니다. 기본 언어는 한국어이며 영어·일본어 번역은 선택할 때 지연 로딩합니다. 날짜·숫자는 선택한 언어 형식으로 표시하고, 표시 시간대는 별도 설정을 따릅니다.
+
 ## 주요 기능
 
 - 반응형 커뮤니티 UI와 다크모드

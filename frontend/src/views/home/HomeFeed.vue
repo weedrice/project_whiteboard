@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
+import { getIntlLocale } from '@/utils/locale'
 import { useRoute, useRouter } from 'vue-router'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
@@ -99,7 +100,7 @@ const visibleTrending = computed(() => filterHomePostsExcludingHero(trending.val
 const visibleLiveActivity = computed(() => filterHomePostsExcludingHero(liveActivity.value, heroPostId.value))
 const boardStrip = computed(() => getHomeBoardStrip(spotlightBoards.value))
 const remainingBoardSlots = computed(() => getHomeRemainingBoardSlots(boardStrip.value.length))
-const numberFormatter = computed(() => new Intl.NumberFormat(locale.value === 'ko' ? 'ko-KR' : 'en-US'))
+const numberFormatter = computed(() => new Intl.NumberFormat(getIntlLocale(locale.value)))
 const formatNumber = (value: number) => numberFormatter.value.format(value)
 
 const siteStatsCards = computed(() => createHomeStatsCards(stats.value, {

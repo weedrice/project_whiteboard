@@ -1,3 +1,5 @@
+import type { SupportedLocale } from '@/locales/types'
+
 // User-related types
 export interface BadgeCompact {
     badgeCode: string
@@ -70,7 +72,7 @@ export interface UserSummary {
 // User settings
 export interface UserSettings {
     theme: 'LIGHT' | 'DARK'
-    language: 'ko' | 'en'
+    language: SupportedLocale
     timezone: string
     hideNsfw: boolean
     pushEnabled: boolean

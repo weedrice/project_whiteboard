@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { installMockApi, login } from './fixtures/mockApi'
+import { installMockApi, login, mockSettings } from './fixtures/mockApi'
 
 test('post create and update requests preserve their payloads', async ({ page }) => {
   const state = await installMockApi(page)
@@ -41,3 +41,38 @@ test('English messages load only when the user saves English', async ({ page }) 
   await expect.poll(() => state.writes.find((write) => write.url === '/users/me/settings')?.payload)
     .toMatchObject({ language: 'en' })
 })
+
+for (const width of [1280, 390]) {
+  test(`Japanese settings persist after reload at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await installMockApi(page)
+    let savedSettings = { ...mockSettings }
+    let savedLanguageHeader: string | undefined
+    const japaneseChunks: string[] = []
+    page.on('request', (request) => {
+      if (/\/js\/ja-[^/]+\.js$/.test(new URL(request.url()).pathname)) japaneseChunks.push(request.url())
+    })
+    await page.route('**/api/v1/users/me/settings', async (route) => {
+      if (route.request().method() === 'PUT') {
+        savedSettings = { ...savedSettings, ...route.request().postDataJSON() }
+        savedLanguageHeader = route.request().headers()['accept-language']
+      }
+      await route.fulfill({ json: { success: true, data: savedSettings, error: null } })
+    })
+    await login(page)
+    expect(japaneseChunks).toHaveLength(0)
+    await page.goto('/mypage/settings')
+    await page.getByLabel('언어', { exact: true }).selectOption('ja')
+    await page.getByRole('button', { name: '설정 저장', exact: true }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+    await expect(page.getByLabel('言語', { exact: true })).toHaveValue('ja')
+    await expect.poll(() => savedSettings.language).toBe('ja')
+    expect(savedLanguageHeader).toBe('ja')
+    expect(japaneseChunks).toHaveLength(1)
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+    await expect(page.getByLabel('言語', { exact: true })).toHaveValue('ja')
+    await expect(page.getByRole('button', { name: '設定を保存', exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+}

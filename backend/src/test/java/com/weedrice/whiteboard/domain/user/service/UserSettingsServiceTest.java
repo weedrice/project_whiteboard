@@ -127,6 +127,24 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    void updateSettings_japaneseLanguageIsNormalizedAndRetainedOnRead() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse updated = userSettingsService.updateSettings(1L, null, " JA ", null, null);
+
+        assertThat(updated.getLanguage()).isEqualTo("ja");
+        assertThat(settings.getLanguage()).isEqualTo("ja");
+        when(userSettingsRepository.findSettingsReadByUserId(1L))
+                .thenReturn(Optional.of(settingsProjection(1L, "LIGHT", "ja", "Asia/Seoul", true)));
+        assertThat(userSettingsService.getSettings(1L).getLanguage()).isEqualTo("ja");
+    }
+
+    @Test
     @DisplayName("Settings update rejects unsupported theme")
     void updateSettings_invalidTheme() {
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "SYSTEM", null, null, null))

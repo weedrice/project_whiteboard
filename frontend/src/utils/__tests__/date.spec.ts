@@ -34,6 +34,18 @@ describe('date utilities', () => {
         expect(formatted).toContain('26')
     })
 
+    it('formats Japanese dates in the selected display time zone', () => {
+        rememberUserTimeZone('Asia/Tokyo')
+        try {
+            expect(formatDateOnlyLongOrDash('2026-11-03T01:02:03+09:00', 'ja')).toBe('2026年11月3日')
+            expect(formatDateOnly('2026-11-03T01:02:03+09:00', 'ja')).toBe('2026/11/03')
+            expect(formatDateTimeOrDash('2026-11-03T01:02:03+09:00', 'ja')).toBe('2026/11/03 01:02:03')
+        } finally {
+            resetUserTimeZoneResolverForTest()
+            Storage.remove('displayTimeZone')
+        }
+    })
+
     it('returns dash for missing or invalid values', () => {
         expect(formatDateTimeOrDash(undefined)).toBe('-')
         expect(formatDateTimeOrDash('not-a-date')).toBe('-')

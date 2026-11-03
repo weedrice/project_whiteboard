@@ -277,6 +277,7 @@ export interface CommonMessages {
   languages: {
     ko: string
     en: string
+    ja: string
   }
   terms: TermsOfServiceMessages
 }

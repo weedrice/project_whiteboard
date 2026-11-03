@@ -197,6 +197,23 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
+    void sendPasswordResetLinkByEmail_usesSavedJapaneseLanguage() {
+        var settings = org.mockito.Mockito.mock(UserSettingsRepository.SettingsReadProjection.class);
+        when(settings.getLanguage()).thenReturn("ja");
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.of(settings));
+        ReflectionTestUtils.setField(passwordResetService, "messageSource",
+                new com.weedrice.whiteboard.global.config.MessageConfig().messageSource());
+
+        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-ja");
+
+        var body = forClass(String.class);
+        verify(emailService).sendEmail(eq("test@example.com"),
+                eq("[NoviIs] パスワード再設定リンク"), body.capture());
+        assertThat(body.getValue()).contains("パスワード再設定", "<strong>testuser</strong>",
+                "http://localhost:5173/reset-password#token=").doesNotContain("{0}", "{1}");
+    }
+
+    @Test
     @DisplayName("sendPasswordResetLinkByEmail invalidates previous sent token on success")
     void sendPasswordResetLinkByEmail_success_invalidatesPreviousSentToken() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));

@@ -70,6 +70,6 @@ export interface Messages {
   inquiry: InquiryMessages
 }
 
-export type SupportedLocale = 'ko' | 'en'
+export type SupportedLocale = 'ko' | 'en' | 'ja'
 
 export type LocaleMessages = Record<SupportedLocale, Messages>

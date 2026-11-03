@@ -202,6 +202,7 @@ export const commonEn: CommonMessages = {
   languages: {
     ko: 'Korean',
     en: 'English',
+    ja: '日本語',
   },
   terms: termsOfServiceEn,
 }
