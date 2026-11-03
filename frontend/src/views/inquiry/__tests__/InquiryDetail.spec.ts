@@ -1,9 +1,10 @@
 import { failAuthScopedMutation } from '@/test/authScopedMutationOptions'
 import { useAuthStore as getMutationTestAuthStore } from '@/stores/auth'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, onBeforeUnmount, type Ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import InquiryDetail from '../InquiryDetail.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { createDeferred } from '@/test/async'
 
 const { state } = vi.hoisted(() => {
@@ -16,6 +17,7 @@ const { state } = vi.hoisted(() => {
         commitUploads: ReturnType<typeof vi.fn>
         beginSubmission: ReturnType<typeof vi.fn>
         failSubmission: ReturnType<typeof vi.fn>
+        unmount: ReturnType<typeof vi.fn>
       }>,
       mutationOptions: [] as Array<{
         onSuccess?: (response: unknown, variables: Record<string, unknown>) => unknown
@@ -28,6 +30,9 @@ const { state } = vi.hoisted(() => {
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
       setQueryData: vi.fn(),
       confirm: vi.fn(),
+      queryError: null as unknown as Ref<unknown>,
+      querySuccess: null as unknown as Ref<boolean>,
+      refetch: vi.fn(),
       refOf,
     },
   }
@@ -44,8 +49,12 @@ vi.mock('vue-router', async (importOriginal) => {
   }
 })
 vi.mock('@/api/inquiry', () => ({ inquiryApi: { addMessage: vi.fn(), withdraw: vi.fn(), close: vi.fn(), getMineDetail: vi.fn() } }))
-vi.mock('@/composables/useApiQuery', () => ({
-  useApiQuery: () => ({
+vi.mock('@/composables/useApiQuery', async () => {
+  const { ref } = await import('vue')
+  return { useApiQuery: () => {
+    state.queryError = ref(null)
+    state.querySuccess = ref(true)
+    return {
     data: state.refOf({
       inquiryId: 41,
       title: 'Question',
@@ -56,9 +65,12 @@ vi.mock('@/composables/useApiQuery', () => ({
       messages: [],
     }),
     isLoading: state.refOf(false),
-    error: state.refOf(null),
-  }),
-}))
+    error: state.queryError,
+    isSuccess: state.querySuccess,
+    refetch: state.refetch,
+  }
+  } }
+})
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: state.confirm }),
 }))
@@ -80,7 +92,9 @@ const UploaderStub = defineComponent({
       commitUploads: vi.fn(),
       beginSubmission: vi.fn(() => true),
       failSubmission: vi.fn().mockResolvedValue(undefined),
+      unmount: vi.fn(),
     }
+    onBeforeUnmount(instance.unmount)
     state.uploaderInstances.push(instance)
     expose(instance)
     return () => h('div')
@@ -118,6 +132,63 @@ describe('InquiryDetail', () => {
     state.invalidateQueries.mockClear()
     state.setQueryData.mockClear()
     state.confirm.mockReset().mockResolvedValue(true)
+    state.refetch.mockReset().mockResolvedValue(undefined)
+  })
+
+  it.each([new Error('Network Error'), { isAxiosError: true, response: { status: 503 } }])('keeps the draft uploader mounted on a recoverable background error: %j', async (error) => {
+    const wrapper = mountView()
+    await wrapper.get('textarea').setValue('unsent answer')
+    const vm = wrapper.vm as unknown as { fileIds: number[] }
+    vm.fileIds = [202]
+    const uploader = state.uploaderInstances[0]!
+
+    state.querySuccess.value = false
+    state.queryError.value = error
+    await nextTick()
+
+    expect(wrapper.get('textarea').element.value).toBe('unsent answer')
+    expect(vm.fileIds).toEqual([202])
+    expect(state.uploaderInstances).toHaveLength(1)
+    expect(uploader.unmount).not.toHaveBeenCalled()
+    expect(uploader.discardUploads).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('inquiry.common.loadFailed')
+    const errorState = wrapper.getComponent(ErrorState)
+    expect(errorState.props('showRetry')).toBe(true)
+    await errorState.get('button').trigger('click')
+    expect(state.refetch).toHaveBeenCalledOnce()
+
+    state.queryError.value = null
+    state.querySuccess.value = true
+    await nextTick()
+    expect(wrapper.text()).not.toContain('inquiry.common.loadFailed')
+    expect(state.uploaderInstances).toHaveLength(1)
+    expect(vm.fileIds).toEqual([202])
+  })
+
+  it.each([401, 403, 404, 410])('clears private drafts and hides cached content after access error %s until a successful retry', async (status) => {
+    const wrapper = mountView()
+    const vm = wrapper.vm as unknown as { content: string; fileIds: number[] }
+    vm.content = 'private draft'
+    vm.fileIds = [202]
+    const uploader = state.uploaderInstances[0]!
+
+    state.querySuccess.value = false
+    state.queryError.value = { isAxiosError: true, response: { status } }
+    await nextTick()
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    expect(wrapper.text()).toContain('inquiry.common.notFound')
+    expect(vm.content).toBe('')
+    expect(vm.fileIds).toEqual([])
+    expect(uploader.discardUploads).toHaveBeenCalledOnce()
+    expect(uploader.unmount).toHaveBeenCalledOnce()
+
+    state.queryError.value = new Error('retry still failing')
+    await nextTick()
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    state.queryError.value = null
+    state.querySuccess.value = true
+    await nextTick()
+    expect(wrapper.get('textarea').element.value).toBe('')
   })
 
   it('discards temporary uploads when adding a message fails', async () => {

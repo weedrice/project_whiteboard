@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
+import com.weedrice.whiteboard.domain.notification.dto.MessageChangedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProperties;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
@@ -174,6 +175,20 @@ public class NotificationSseEmitterRegistry
             }
 
             commentTopics.register(userId, boardId, postId, subscriberId);
+        }
+    }
+
+    public void publishMessageChanged(Long userId, MessageChangedEvent event) {
+        Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+        if (userEmitters == null || userEmitters.isEmpty()) return;
+        for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+            try {
+                entry.getValue().emitter().send(SseEmitter.event()
+                        .name(NotificationSseEvents.MESSAGE_CHANGED)
+                        .data(event));
+            } catch (IOException | RuntimeException exception) {
+                completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
+            }
         }
     }
 

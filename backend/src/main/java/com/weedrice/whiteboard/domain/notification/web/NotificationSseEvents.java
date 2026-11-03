@@ -22,6 +22,9 @@ public final class NotificationSseEvents {
     /** 새 알림 한 건. */
     public static final String NOTIFICATION = "notification";
 
+    /** 수신자 쪽지함 변경. 알림 수신 설정과 독립적이다. */
+    public static final String MESSAGE_CHANGED = "message-changed";
+
     /** 구독 중인 게시글의 댓글 변경. */
     public static final String COMMENT = "comment";
 
@@ -37,6 +40,7 @@ public final class NotificationSseEvents {
     public static final Set<String> ALL = Set.of(
             CONNECT,
             NOTIFICATION,
+            MESSAGE_CHANGED,
             COMMENT,
             COMMENT_TOPIC_INVALIDATED,
             COMMENT_TOPIC_ACCESS_REVOKED,

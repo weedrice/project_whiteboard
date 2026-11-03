@@ -31,6 +31,7 @@ export const comment: CommentMessages = {
   loginRequired: '후 댓글을 작성할 수 있습니다.',
   deleteFailed: '댓글 삭제에 실패했습니다.',
   saveFailed: '댓글 저장에 실패했습니다.',
+  discardConfirm: '작성 중인 댓글을 폐기하시겠습니까?',
   writeReply: '답글을 입력하세요...',
   writeComment: '댓글을 입력하세요...',
   posting: '등록 중...',

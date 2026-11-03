@@ -632,6 +632,7 @@ export interface BoardMessages {
 
 // 댓글 메시지 타입
 export interface CommentMessages {
+  discardConfirm: string
   title: string
   deleted: string
   blockedAuthor: string

@@ -19,7 +19,8 @@ import type { EmoticonImage } from '@/types/emoticon'
 import type { CommentMention, MentionCandidate } from '@/types'
 import { Smile } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
-import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useCommentDraftGuard } from '@/features/comments/useCommentDraftGuard'
+import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 
 const toastStore = useToastStore()
 const authStore = useAuthStore()
@@ -52,10 +53,21 @@ let formRevision = 0
 onUnmounted(() => { formRevision += 1 })
 
 const content = ref(props.initialContent)
+const initialContent = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const trimmedContent = computed(() => content.value.trim())
 const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
-usePwaReloadBlocker(computed(() => content.value !== props.initialContent))
+const { confirmDiscard } = useCommentDraftGuard(
+  content,
+  computed(() => content.value.trim() !== initialContent.value.trim()),
+  isSubmitting,
+  computed(() => `${props.postId}:${props.parentId ?? ''}:${props.commentId ?? ''}`),
+)
+defineExpose({ confirmDiscard })
+
+async function handleCancel() {
+  if (await confirmDiscard()) emit('cancel')
+}
 const commentValues = computed(() => ({ content: content.value }))
 const commentValidation = useFieldValidation<'content'>({
   validators: {
@@ -180,6 +192,7 @@ watch(
   () => {
     formRevision += 1
     content.value = props.initialContent
+    initialContent.value = props.initialContent
     selectedMentionUsers.value = props.initialMentions.map((mention) => ({
       userId: mention.userId,
       displayName: mention.displayName,
@@ -190,6 +203,16 @@ watch(
     commentValidation.clearValidation()
   },
 )
+
+useAuthSessionReset(() => {
+  formRevision += 1
+  content.value = ''
+  initialContent.value = ''
+  selectedMentionUsers.value = []
+  showEmoticonPicker.value = false
+  closeMentionMenu()
+  commentValidation.clearValidation()
+}, authStore)
 
 const shouldShowLocalErrorToast = (error: unknown) => {
   return !(error && typeof error === 'object' && (error as { suppressGlobalErrorToast?: boolean }).suppressGlobalErrorToast)
@@ -359,7 +382,7 @@ async function handleSubmit() {
       </div>
       
       <div class="flex items-center">
-        <BaseButton v-if="parentId" type="button" :disabled="isSubmitting" @click="emit('cancel')" variant="secondary" size="sm" class="mr-3">
+        <BaseButton v-if="parentId || commentId" type="button" :disabled="isSubmitting" @click="handleCancel" variant="secondary" size="sm" class="mr-3">
           {{ $t('common.cancel') }}
         </BaseButton>
         <BaseButton type="submit" :loading="isSubmitting" :disabled="!canSubmit" variant="primary" size="sm">

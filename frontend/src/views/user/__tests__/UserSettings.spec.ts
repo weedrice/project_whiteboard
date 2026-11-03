@@ -524,7 +524,7 @@ describe('UserSettings', () => {
     await wrapper.findAll('select')[0].setValue('DARK')
     await getSaveButtons(wrapper).generalSaveButton.trigger('click')
     await flushAll()
-    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true })
+    expect(updateSettings).toHaveBeenCalledWith({ theme: 'DARK' })
     expect(wrapper.text()).toContain('user.settings.saved')
   })
 
@@ -554,8 +554,6 @@ describe('UserSettings', () => {
     expect(updateSettings).toHaveBeenCalledWith({
       theme: 'DARK',
       language: 'en',
-      timezone: 'Asia/Seoul',
-      hideNsfw: true,
     })
     expect(updateNotificationSettings).not.toHaveBeenCalled()
     expect(setTheme).toHaveBeenCalledWith('DARK')
@@ -597,13 +595,6 @@ describe('UserSettings', () => {
         { notificationType: 'LIKE', isEnabled: true },
         { notificationType: 'COMMENT', isEnabled: false },
         { notificationType: 'REPLY', isEnabled: false },
-        { notificationType: 'MENTION', isEnabled: true },
-        { notificationType: 'MESSAGE', isEnabled: true },
-        { notificationType: 'SYSTEM', isEnabled: true },
-        { notificationType: 'SANCTION', isEnabled: true },
-        { notificationType: 'KEYWORD', isEnabled: true },
-        { notificationType: 'BADGE', isEnabled: true },
-        { notificationType: 'INQUIRY', isEnabled: true },
       ],
     })
     expect(wrapper.text()).toContain('user.settings.saved')
