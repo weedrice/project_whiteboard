@@ -1,4 +1,4 @@
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, shallowRef } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
@@ -163,7 +163,7 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
     usePostDetail: () => ({
       data: ref(postValue),
       isLoading: ref(false),
-      error: ref(null)
+      error: postQueryError
     }),
     useRelatedPosts: () => ({
       data: ref([]),
@@ -210,9 +210,8 @@ vi.mock('@/utils/keyboard', async (importOriginal) => ({
   isInputFocused: () => false
 }))
 
-vi.mock('@/utils/errorHandler', () => ({
-  isRestrictedResourceError: () => false
-}))
+
+const postQueryError = shallowRef<unknown>(null)
 
 const PostTagsStub = defineComponent({
   name: 'PostTags',
@@ -228,6 +227,7 @@ const PostTagsStub = defineComponent({
 
 describe('PostDetail', () => {
   beforeEach(() => {
+    postQueryError.value = null
     resetNotificationStreamConnectionForTest()
     subscribeCommentTopic.mockReset().mockResolvedValue(undefined)
     unsubscribeCommentTopic.mockReset().mockResolvedValue(undefined)
@@ -277,6 +277,44 @@ describe('PostDetail', () => {
       },
       share: vi.fn().mockResolvedValue(undefined)
     })
+  })
+
+  it.each([403, 404])('hides cached post, comments, and open history after HTTP %s access denial', async (status) => {
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostDetailHeader: true,
+          PostDetailArticleContent: true,
+          PostDetailQuickActions: true,
+          PostVersionHistoryModal: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true,
+          ReportModal: true,
+        },
+      },
+    })
+    await flushPromises()
+    wrapper.findComponent({ name: 'PostDetailHeader' }).vm.$emit('show-history')
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'PostVersionHistoryModal' }).props('isOpen')).toBe(true)
+    expect(wrapper.findComponent({ name: 'CommentList' }).exists()).toBe(true)
+
+    // Vue Query retains the prior successful payload on background refetch failure.
+    postQueryError.value = { isAxiosError: true, response: { status }, message: 'access denied' }
+    await flushPromises()
+
+    expect(postValue.title).toBe('테스트 글')
+    expect(wrapper.findComponent({ name: 'PostDetailArticleContent' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'CommentList' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'PostDetailQuickActions' }).props('visible')).toBe(false)
+    expect(wrapper.findComponent({ name: 'PostVersionHistoryModal' }).props('isOpen')).toBe(false)
+    expect(wrapper.findComponent({ name: 'ReportModal' }).props('targetText')).not.toContain(postValue.title)
+    expect(wrapper.text()).toContain('board.postDetail.restricted')
+    wrapper.unmount()
   })
 
   it('renders only the bottom quick actions and header URL chip', async () => {

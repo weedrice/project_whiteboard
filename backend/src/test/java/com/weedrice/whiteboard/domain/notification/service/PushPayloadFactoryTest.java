@@ -16,7 +16,7 @@ class PushPayloadFactoryTest {
                 7L,
                 "content",
                 "comment",
-                "/board/free/post/7#comment-11");
+                "/board/free/post/7#comment-11", "COMMENT", 11L);
 
         String first = factory.create(command);
         String second = factory.create(command);
@@ -26,6 +26,8 @@ class PushPayloadFactoryTest {
                 .contains("\"url\":\"/board/free/post/7#comment-11\"")
                 .contains("\"actorUserId\":11");
         assertThat(factory.readActorUserId(first)).isEqualTo(11L);
+        assertThat(factory.readSource(first)).isEqualTo(
+                new PushPayloadFactory.SourceSnapshot("comment", "COMMENT", 11L, 11L, 7L));
     }
 
     @Test
@@ -33,11 +35,11 @@ class PushPayloadFactoryTest {
         PushPayloadFactory factory = new PushPayloadFactory(new ObjectMapper());
 
         String external = factory.create(new PushDispatchCommand(
-                3L, null, 7L, "content", "comment", "https://evil.example/path"));
+                3L, null, 7L, "content", "comment", "https://evil.example/path", "COMMENT", 11L));
         String protocolRelative = factory.create(new PushDispatchCommand(
-                3L, null, 8L, "content", "comment", "//evil.example/path"));
+                3L, null, 8L, "content", "comment", "//evil.example/path", "COMMENT", 11L));
         String missing = factory.create(new PushDispatchCommand(
-                3L, null, 9L, "content", "comment", null));
+                3L, null, 9L, "content", "comment", null, "COMMENT", 11L));
 
         assertThat(external).contains("\"url\":\"/mypage/notifications\"");
         assertThat(protocolRelative).contains("\"url\":\"/mypage/notifications\"");

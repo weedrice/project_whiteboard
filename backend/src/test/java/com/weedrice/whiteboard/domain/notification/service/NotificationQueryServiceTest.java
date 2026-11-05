@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
@@ -24,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,6 +42,8 @@ class NotificationQueryServiceTest {
     private NotificationRepository notificationRepository;
     @Mock
     private UserBlockRepository userBlockRepository;
+    @Mock
+    private ContentAuthorVisibilityRepository authorVisibilityRepository;
 
     private NotificationQueryService queryService;
     private Notification notification;
@@ -49,7 +53,7 @@ class NotificationQueryServiceTest {
         queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Map.of(),
-                new NotificationActorVisibilityService(userBlockRepository));
+                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         notification = Notification.builder()
@@ -98,6 +102,7 @@ class NotificationQueryServiceTest {
                 .thenReturn(new PageImpl<>(List.of(blockedNotification), PageRequest.of(0, 10), 17));
         when(userBlockRepository.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L)))
                 .thenReturn(List.of(2L));
+        when(authorVisibilityRepository.findVisibleUserIds(Set.of(2L))).thenReturn(Set.of(2L));
 
         var response = queryService.getNotifications(1L, PageRequest.of(0, 10));
 
@@ -163,11 +168,12 @@ class NotificationQueryServiceTest {
         queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Map.of(50L, "/posts/10"),
-                new NotificationActorVisibilityService(userBlockRepository));
+                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(agentNotification), PageRequest.of(1, 10), 25));
         when(userBlockRepository.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L)))
                 .thenReturn(blocked ? List.of(2L) : List.of());
+        when(authorVisibilityRepository.findVisibleUserIds(Set.of(2L))).thenReturn(Set.of(2L));
 
         var response = queryService.getNotifications(1L, PageRequest.of(1, 10));
 
@@ -206,6 +212,35 @@ class NotificationQueryServiceTest {
         });
         verify(userBlockRepository).findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L));
         verifyNoMoreInteractions(userBlockRepository);
+    }
+
+    @Test
+    void getNotifications_bannedActorMasksIdentityButKeepsHistoryAndPageCount() {
+        User bannedActor = User.builder().displayName("Banned Actor").build();
+        ReflectionTestUtils.setField(bannedActor, "userId", 2L);
+        Notification banned = Notification.builder()
+                .actor(bannedActor)
+                .notificationType(NotificationType.COMMENT)
+                .sourceType("POST")
+                .sourceId(10L)
+                .content("Banned Actor commented")
+                .messageKey("notification.comment.created")
+                .messageParams("[\"Banned Actor\",\"Post title\"]")
+                .build();
+        when(authorVisibilityRepository.findVisibleUserIds(Set.of(2L))).thenReturn(Set.of());
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(banned, notification), PageRequest.of(0, 10), 17));
+
+        var response = queryService.getNotifications(1L, PageRequest.of(0, 10));
+
+        assertThat(response.getTotalElements()).isEqualTo(17);
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().getFirst().getActor().getUserId()).isNull();
+        assertThat(response.getContent().getFirst().getActor().getDisplayName()).isEmpty();
+        assertThat(response.getContent().getFirst().getMessage()).isEqualTo(" commented");
+        assertThat(response.getContent().getFirst().getMessageParams()).containsExactly("", "Post title");
+        assertThat(response.getContent().getLast().getActor().getAuthorType()).isEqualTo("SYSTEM");
+        verify(authorVisibilityRepository).findVisibleUserIds(Set.of(2L));
     }
 
     @Test

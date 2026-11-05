@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFanoutJob;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +64,7 @@ class KeywordNotificationFanoutProcessorTest {
     @Mock private NotificationDeliveryJobService deliveryJobService;
     @Mock private NotificationDeliveryJobRepository deliveryJobRepository;
     @Mock private UserBlockService userBlockService;
+    @Mock private ContentAuthorVisibilityRepository authorVisibilityRepository;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private KeywordNotificationFanoutMetrics metrics;
 
@@ -78,6 +81,7 @@ class KeywordNotificationFanoutProcessorTest {
                 deliveryJobService,
                 deliveryJobRepository,
                 userBlockService,
+                authorVisibilityRepository,
                 FIXED_CLOCK,
                 transactionTemplate,
                 metrics);
@@ -105,6 +109,56 @@ class KeywordNotificationFanoutProcessorTest {
         assertThat(processor.processPage(1L)).isTrue();
 
         assertThat(job.getStatus()).isEqualTo(KeywordNotificationFanoutJob.Status.COMPLETED);
+        verify(subscriptionRepository, never()).findMatchingTitleAfter(any(), any(), any());
+        verify(deliveryJobService, never()).enqueue(any());
+    }
+
+    @Test
+    void processPage_hiddenAuthor_completesWithoutFanoutOrRetry() {
+        KeywordNotificationFanoutJob job = givenDueJob(visiblePost());
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(1L))).thenReturn(Set.of());
+
+        assertThat(processor.processPage(1L)).isTrue();
+
+        assertThat(job.getStatus()).isEqualTo(KeywordNotificationFanoutJob.Status.COMPLETED);
+        assertThat(job.getRetryCount()).isZero();
+        assertThat(job.getLastSubscriptionId()).isZero();
+        assertThat(job.getProcessingStartedAt()).isNull();
+        verify(subscriptionRepository, never()).findMatchingTitleAfter(any(), any(), any());
+        verify(deliveryJobService, never()).enqueue(any());
+    }
+
+    @Test
+    void processPage_authorHiddenBetweenPages_stopsRemainingFanout() {
+        KeywordNotificationFanoutJob job = givenDueJob(visiblePost());
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(1L)))
+                .thenReturn(Set.of(1L)).thenReturn(Set.of());
+        List<UserKeywordSubscription> firstPage = java.util.stream.LongStream.rangeClosed(1, 100)
+                .mapToObj(id -> subscription(id, user(id + 1), "vue")).toList();
+        when(subscriptionRepository.findMatchingTitleAfter(any(), eq(0L), any())).thenReturn(firstPage);
+
+        assertThat(processor.processPage(1L)).isTrue();
+        assertThat(job.getStatus()).isEqualTo(KeywordNotificationFanoutJob.Status.PENDING);
+        assertThat(job.getLastSubscriptionId()).isEqualTo(100L);
+        assertThat(processor.processPage(1L)).isTrue();
+
+        assertThat(job.getStatus()).isEqualTo(KeywordNotificationFanoutJob.Status.COMPLETED);
+        assertThat(job.getLastSubscriptionId()).isEqualTo(100L);
+        assertThat(job.getRetryCount()).isZero();
+        verify(subscriptionRepository, times(1)).findMatchingTitleAfter(any(), any(), any());
+        verify(deliveryJobService, times(100)).enqueue(any());
+    }
+
+    @Test
+    void processPage_missingAuthorId_completesWithoutFanout() {
+        Post post = visiblePost();
+        ReflectionTestUtils.setField(post, "userId", null);
+        KeywordNotificationFanoutJob job = givenDueJob(post);
+
+        assertThat(processor.processPage(1L)).isTrue();
+
+        assertThat(job.getStatus()).isEqualTo(KeywordNotificationFanoutJob.Status.COMPLETED);
+        verify(authorVisibilityRepository, never()).findVisibleUserIds(any());
         verify(subscriptionRepository, never()).findMatchingTitleAfter(any(), any(), any());
         verify(deliveryJobService, never()).enqueue(any());
     }
@@ -235,6 +289,7 @@ class KeywordNotificationFanoutProcessorTest {
 
     @Test
     void subscriptionWithinCooldown_doesNotEnqueueOrChangeTimestamp() {
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(1L))).thenReturn(Set.of(1L));
         givenDueJob(visiblePost());
         var subscription = subscription(1L, user(2L), "vue");
         subscription.markNotified(FIXED_NOW.minusMinutes(9));
@@ -252,6 +307,7 @@ class KeywordNotificationFanoutProcessorTest {
     private NotificationDeliveryJobRepository durableRepository;
 
     private Map<UUID, NotificationDeliveryJob> useDurableDeliveryService(Clock clock) {
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(1L))).thenReturn(Set.of(1L));
         var jobs = new HashMap<UUID, NotificationDeliveryJob>();
         durableRepository = mock(NotificationDeliveryJobRepository.class);
         durableKickoff = mock(NotificationDeliveryJobKickoff.class);
@@ -285,7 +341,7 @@ class KeywordNotificationFanoutProcessorTest {
         processor = new KeywordNotificationFanoutProcessor(
                 jobRepository, subscriptionRepository, postRepository, userRepository, agentRepository,
                 deliveryJobService, durableRepository != null ? durableRepository : deliveryJobRepository,
-                userBlockService, clock, transactionTemplate, metrics);
+                userBlockService, authorVisibilityRepository, clock, transactionTemplate, metrics);
     }
 
     private UserKeywordSubscription subscription(Long id, User receiver, String keyword) {
@@ -315,6 +371,7 @@ class KeywordNotificationFanoutProcessorTest {
                 .email("author@example.com")
                 .displayName("Author")
                 .build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
         Board board = Board.builder()
                 .boardName("Public")
                 .boardUrl("public")

@@ -7,6 +7,7 @@ import { commentApi } from '@/api/comment'
 import { apiDataResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import { emitCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
+import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { useComment } from '@/features/comments/queries/useComment'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { usePostCommentRealtimeSync } from '../usePostCommentRealtimeSync'
@@ -25,6 +26,7 @@ let queryClient: QueryClient
 let wrapper: VueWrapper | undefined
 let stopOtherSession: (() => void) | undefined
 let contentVersion = 0
+const postObservers: Array<() => void> = []
 
 function setup() {
   const postId = ref('100')
@@ -51,6 +53,15 @@ function setup() {
     },
   }), { global: { plugins: [[VueQueryPlugin, { queryClient }]] } })
   return { postId, authenticated, sync, get replies() { return replies } }
+}
+
+function observePostCount(postId: string | number, session = 0) {
+  const queryKey = sessionQueryKey(session, postQueryKeys.detail(postId))
+  queryClient.setQueryData(queryKey, { commentCount: 5 })
+  const request = vi.fn(async () => ({ commentCount: contentVersion }))
+  const observer = new QueryObserver(queryClient, { queryKey, queryFn: request })
+  postObservers.push(observer.subscribe(() => {}))
+  return { request, observer }
 }
 
 async function settle() {
@@ -95,6 +106,7 @@ describe('post comment realtime cache refresh', () => {
     wrapper = undefined
     stopOtherSession?.()
     stopOtherSession = undefined
+    postObservers.splice(0).forEach(stop => stop())
     queryClient.clear()
     vi.useRealTimers()
   })
@@ -125,17 +137,75 @@ describe('post comment realtime cache refresh', () => {
     expect(otherSessionRequest).not.toHaveBeenCalled()
   })
 
+  it.each(['UPDATED', 'DELETED', 'INVALIDATED'] as const)('refreshes current post counts for %s after the debounce', async (action) => {
+    setup()
+    const routePost = observePostCount('100')
+    const numericPost = observePostCount(100)
+    const otherPost = observePostCount('200')
+    const otherSession = observePostCount('100', 99)
+    await settle()
+    contentVersion = 1
+    if (action === 'INVALIDATED') {
+      emitCommentStreamEvent({ action, postId: 100, sessionGeneration: 0, occurredAt: '2026-11-05T12:00:00' })
+    } else {
+      event(action)
+    }
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(routePost.request).not.toHaveBeenCalled()
+    expect(numericPost.request).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await settle()
+    expect(routePost.observer.getCurrentResult().data?.commentCount).toBe(1)
+    expect(numericPost.observer.getCurrentResult().data?.commentCount).toBe(1)
+    expect(routePost.request).toHaveBeenCalledTimes(1)
+    expect(numericPost.request).toHaveBeenCalledTimes(1)
+    expect(otherPost.request).not.toHaveBeenCalled()
+    expect(otherSession.request).not.toHaveBeenCalled()
+  })
+
+  it('refreshes anonymous invalidation without showing a new-comment banner', async () => {
+    const state = setup()
+    await settle()
+    clearRequestCounts()
+    contentVersion = 3
+    emitCommentStreamEvent({ action: 'INVALIDATED', postId: 100, sessionGeneration: 0,
+      occurredAt: '2026-11-05T12:00:00' })
+    expect(state.sync.pendingCommentCount.value).toBe(0)
+    await vi.advanceTimersByTimeAsync(2000)
+    await settle()
+    expect(state.sync.pendingCommentCount.value).toBe(0)
+    expect(vi.mocked(commentApi.getComments).mock.calls.map(([id]) => id)).toEqual([100])
+    expect(state.replies.data.value?.pages[0]?.content[0]?.content).toBe('reply 3')
+  })
+
+  it('drops anonymous invalidation from another post or an old session', async () => {
+    const state = setup()
+    await settle()
+    clearRequestCounts()
+    emitCommentStreamEvent({ action: 'INVALIDATED', postId: 200, sessionGeneration: 0, occurredAt: 'now' })
+    emitCommentStreamEvent({ action: 'INVALIDATED', postId: 100, sessionGeneration: 99, occurredAt: 'now' })
+    await vi.advanceTimersByTimeAsync(2000)
+    await settle()
+    expect(commentApi.getComments).not.toHaveBeenCalled()
+    expect(commentApi.getReplies).not.toHaveBeenCalled()
+    expect(state.sync.pendingCommentCount.value).toBe(0)
+  })
+
   it('refreshes expanded replies when the user accepts a new-comment notification', async () => {
     const state = setup()
     await settle()
     clearRequestCounts()
+    const postCount = observePostCount('100')
     event('CREATED')
+    expect(postCount.request).not.toHaveBeenCalled()
     expect(state.sync.pendingCommentCount.value).toBe(1)
     expect(commentApi.getReplies).not.toHaveBeenCalled()
     contentVersion = 2
     state.sync.refreshComments()
     await settle()
     expect(state.sync.pendingCommentCount.value).toBe(0)
+    expect(postCount.observer.getCurrentResult().data?.commentCount).toBe(2)
+    expect(postCount.request).toHaveBeenCalledTimes(1)
     expect(state.replies.data.value?.pages[0]?.content[0]?.content).toBe('reply 2')
     expect(vi.mocked(commentApi.getReplies).mock.calls.map(([id]) => id)).toEqual([1, 2])
   })
@@ -143,6 +213,7 @@ describe('post comment realtime cache refresh', () => {
   it.each(['post', 'session', 'logout'] as const)('drops a scheduled refresh after a %s change', async (change) => {
     const state = setup()
     await settle()
+    const postCount = observePostCount('100')
     event('UPDATED')
     if (change === 'post') state.postId.value = '200'
     if (change === 'session') authStore.sessionGeneration += 1
@@ -153,6 +224,7 @@ describe('post comment realtime cache refresh', () => {
     await settle()
     expect(commentApi.getComments).not.toHaveBeenCalled()
     expect(commentApi.getReplies).not.toHaveBeenCalled()
+    expect(postCount.request).not.toHaveBeenCalled()
   })
 
   it('ignores events from other posts and old sessions', async () => {

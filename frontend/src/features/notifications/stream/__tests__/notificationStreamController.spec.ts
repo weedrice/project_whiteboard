@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { QueryClient } from '@tanstack/vue-query'
+import { QueryClient, QueryObserver } from '@tanstack/vue-query'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { notificationListQueryKey, notificationUnreadCountQueryKey } from '@/features/notifications/queries/notificationQueryKeys'
 import {
@@ -219,6 +219,30 @@ describe('notificationStreamController dependencies', () => {
             sessionGeneration: 7,
         }))
 
+        controller.closeSse()
+        stop()
+    })
+
+    it('forwards anonymous invalidation without identifiers and rejects unidentified creates', async () => {
+        const commentEvents: unknown[] = []
+        const stop = onCommentStreamEvent((event) => commentEvents.push(event))
+        const openStream = vi.fn().mockResolvedValue({
+            ok: true,
+            body: createSseStream(
+                'event: comment\ndata: {"action":"INVALIDATED","postId":3,"occurredAt":"2026-11-05T12:00:00","actorUserId":7,"commentId":9}\n\n'
+                + 'event: comment\ndata: {"action":"CREATED","postId":3,"occurredAt":"2026-11-05T12:00:00"}\n\n',
+            ),
+        } as Response)
+        const queryClient = { invalidateQueries: vi.fn() } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => ({ accessToken: 'token', sessionGeneration: 7 })) as never,
+        })
+        controller.connectToSse()
+        await flushAsync()
+        expect(commentEvents).toEqual([{
+            action: 'INVALIDATED', postId: 3, occurredAt: '2026-11-05T12:00:00', sessionGeneration: 7,
+        }])
         controller.closeSse()
         stop()
     })
@@ -485,12 +509,57 @@ describe('notificationStreamController dependencies', () => {
         expect(openStream).toHaveBeenCalledTimes(2)
         expect(openStream).toHaveBeenLastCalledWith('test-token', expect.any(AbortSignal))
         expect(vi.mocked(queryClient.invalidateQueries).mock.calls).toEqual(
-            eventType === 'comment-topic-access-revoked'
-                ? [[{ queryKey: ['session', 7] }]]
-                : [],
+            [[{ queryKey: ['session', 7] }]],
         )
 
         controller.closeSse()
+    })
+
+    it.each([200, 403, 404])('revalidates cached post and comment queries on board invalidation (HTTP %s)', async (status) => {
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+        const keys = [
+            sessionQueryKey(7, ['post', '3', { incrementView: true }]),
+            sessionQueryKey(7, ['comments', 'post', 3]),
+            sessionQueryKey(7, ['comments', 'replies', 'post', '3', 9, 'infinite']),
+        ]
+        const otherSessionKey = sessionQueryKey(8, ['post', '3', { incrementView: true }])
+        client.setQueryData(otherSessionKey, 'other session')
+        const fetchers = keys.map(() => vi.fn(async () => {
+            if (status !== 200) throw Object.assign(new Error('access denied'), { response: { status } })
+            return 'current accessible data'
+        }))
+        const observers = keys.map((queryKey, index) => {
+            client.setQueryData(queryKey, 'previously visible data')
+            return new QueryObserver(client, { queryKey, queryFn: fetchers[index] })
+        })
+        const unsubscribe = observers.map(observer => observer.subscribe(() => undefined))
+        const encoder = new TextEncoder()
+        let stream!: ReadableStreamDefaultController<Uint8Array>
+        const body = new ReadableStream<Uint8Array>({ start(controller) { stream = controller } })
+        const controller = createNotificationStreamController(client, {
+            openStream: vi.fn().mockResolvedValue({ ok: true, body } as Response),
+            resolveAuthStore: (() => ({ accessToken: 'test-token', sessionGeneration: 7 })) as never,
+        })
+        controller.connectToSse()
+        await flushAsync()
+        stream.enqueue(encoder.encode('event: comment-topic-invalidated\ndata: {"boardId":100}\n\n'))
+        await flushAsync(30)
+
+        fetchers.forEach(fetcher => expect(fetcher).toHaveBeenCalledTimes(1))
+        const deniedError = expect.objectContaining({ response: { status } })
+        observers.forEach(observer => {
+            expect(observer.getCurrentResult().data).toBe(
+                status === 200 ? 'current accessible data' : 'previously visible data',
+            )
+            expect(observer.getCurrentResult().error).toEqual(
+                status === 200 ? null : deniedError,
+            )
+        })
+        expect(client.getQueryData(otherSessionKey)).toBe('other session')
+        expect(client.getQueryState(otherSessionKey)?.isInvalidated).toBe(false)
+        controller.closeSse()
+        unsubscribe.forEach(stop => stop())
+        client.clear()
     })
 
     it('applies newer grouped SSE payloads while ignoring replayed and older revisions', async () => {

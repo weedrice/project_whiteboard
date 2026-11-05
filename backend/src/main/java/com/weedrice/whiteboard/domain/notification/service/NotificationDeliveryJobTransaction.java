@@ -29,6 +29,7 @@ class NotificationDeliveryJobTransaction {
     private final EntityManager entityManager;
     private final NotificationPayloadValidator payloadValidator;
     private final Clock clock;
+    private final NotificationSourceDeliveryPolicy sourceDeliveryPolicy;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public LocalDateTime claim(Long jobId, LocalDateTime claimedAt) {
@@ -53,6 +54,10 @@ class NotificationDeliveryJobTransaction {
         if (invalidReason != null) {
             job.rejectInvalidPayload(invalidReason, now());
             return DeliveryJobTransitionResult.REJECTED_INVALID;
+        }
+        if (!sourceDeliveryPolicy.canDeliver(job)) {
+            job.complete();
+            return DeliveryJobTransitionResult.APPLIED_SUCCESS;
         }
         Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
         messageChangeDeliveryPublisher.publishAfterCommit(job);

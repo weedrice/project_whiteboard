@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
@@ -60,6 +61,8 @@ class NotificationSettingsFlowTest {
 
     @Mock
     private UserBlockRepository userBlockRepository;
+    @Mock
+    private ContentAuthorVisibilityRepository authorVisibilityRepository;
 
     @Mock
     private UserSettingsRepository userSettingsRepository;
@@ -83,6 +86,10 @@ class NotificationSettingsFlowTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(authorVisibilityRepository.findVisibleUserIds(
+                org.mockito.ArgumentMatchers.anyCollection()))
+                .thenAnswer(invocation -> java.util.Set.copyOf(
+                        invocation.<java.util.Collection<Long>>getArgument(0)));
         userSettingsService = new UserSettingsService(
                 userSettingsRepository,
                 userNotificationSettingsRepository,
@@ -103,11 +110,11 @@ class NotificationSettingsFlowTest {
         NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
                 streamPublisher,
                 notifications -> Map.of(),
-                new NotificationActorVisibilityService(userBlockRepository));
+                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Map.of(),
-                new NotificationActorVisibilityService(userBlockRepository));
+                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         notificationService = new NotificationService(
