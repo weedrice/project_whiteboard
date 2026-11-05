@@ -24,12 +24,14 @@ class SemanticSearchJobMetricsTest {
     @Test
     void refreshesBothGaugesTogether() {
         when(repository.countPendingJobs()).thenReturn(7L);
+        when(repository.countFailedJobs()).thenReturn(2L);
         when(repository.findOldestPendingCreatedAt())
                 .thenReturn(Optional.of(LocalDateTime.of(2026, 7, 17, 11, 58)));
 
         metrics.refresh();
 
         assertThat(gauge("noviis.semantic.jobs.pending")).isEqualTo(7);
+        assertThat(gauge("noviis.semantic.jobs.failed")).isEqualTo(2);
         assertThat(gauge("noviis.semantic.jobs.oldest.age")).isEqualTo(120);
     }
 
@@ -48,6 +50,14 @@ class SemanticSearchJobMetricsTest {
                 .hasMessage("database unavailable");
         assertThat(gauge("noviis.semantic.jobs.pending")).isEqualTo(3);
         assertThat(gauge("noviis.semantic.jobs.oldest.age")).isEqualTo(60);
+    }
+
+    @Test
+    void failedJobsRemainObservableWhenBacklogIsEmpty() {
+        when(repository.countFailedJobs()).thenReturn(5L);
+        metrics.refresh();
+        assertThat(gauge("noviis.semantic.jobs.pending")).isZero();
+        assertThat(gauge("noviis.semantic.jobs.failed")).isEqualTo(5);
     }
 
     private double gauge(String name) {

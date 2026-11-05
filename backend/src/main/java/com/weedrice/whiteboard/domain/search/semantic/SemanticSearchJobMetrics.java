@@ -16,6 +16,7 @@ class SemanticSearchJobMetrics {
     private final SemanticSearchJobRepository jobRepository;
     private final Clock clock;
     private final AtomicLong pendingCount = new AtomicLong();
+    private final AtomicLong failedCount = new AtomicLong();
     private final AtomicLong oldestPendingAgeSeconds = new AtomicLong();
 
     SemanticSearchJobMetrics(
@@ -24,6 +25,7 @@ class SemanticSearchJobMetrics {
             MeterRegistry meterRegistry) {
         this.jobRepository = jobRepository;
         this.clock = clock;
+        Gauge.builder("noviis.semantic.jobs.failed", failedCount, AtomicLong::get).register(meterRegistry);
         Gauge.builder("noviis.semantic.jobs.pending", pendingCount, AtomicLong::get)
                 .register(meterRegistry);
         Gauge.builder("noviis.semantic.jobs.oldest.age", oldestPendingAgeSeconds, AtomicLong::get)
@@ -37,7 +39,9 @@ class SemanticSearchJobMetrics {
         long nextOldestPendingAgeSeconds = jobRepository.findOldestPendingCreatedAt()
                 .map(createdAt -> Duration.between(createdAt, LocalDateTime.now(clock)).getSeconds())
                 .orElse(0L);
+        long nextFailedCount = jobRepository.countFailedJobs();
         pendingCount.set(nextPendingCount);
+        failedCount.set(nextFailedCount);
         oldestPendingAgeSeconds.set(Math.max(0L, nextOldestPendingAgeSeconds));
     }
 }

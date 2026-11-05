@@ -145,7 +145,7 @@ Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 
 의미 검색·관련 글 추천의 작성자 노출 필터도 실제 pgvector 쿼리로 검증합니다. 이 검증은
 테스트별 독립 스키마를 트랜잭션 안에서 생성하고 전체 롤백하며, 외부 임베딩 API를 호출하지 않습니다.
 추가 JPA 통합 테스트는 마이그레이션된 스키마에서 일반 검색·작성자 일괄 조회·게시판별 최신 글에
-같은 필터가 적용되고 BAN 만료 후 다시 노출되는지 검증하며, 생성한 데이터는 롤백합니다.
+같은 필터가 적용되고 BAN 만료 후 다시 노출되는지 검증하며, 생성한 데이터는 롤백합니다. 색인 복구 테스트는 기존 벡터의 FAILED backfill, 삭제 작업 lease 변경, 복구된 게시글·댓글에 대한 늦은 삭제 방지도 실제 PostgreSQL에서 확인합니다.
 
 For online-index migrations, use the two Flyway lock settings above as CI does.
 

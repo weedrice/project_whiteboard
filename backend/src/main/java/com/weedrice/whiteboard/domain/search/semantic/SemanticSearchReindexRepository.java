@@ -13,6 +13,17 @@ import java.util.UUID;
 class SemanticSearchReindexRepository {
     private final JdbcTemplate jdbcTemplate;
 
+    List<Long> findBoardIdsForAuthorContent(Long userId) {
+        return jdbcTemplate.queryForList("""
+                SELECT p.board_id FROM posts p
+                WHERE p.user_id = ? AND p.is_deleted = 'N'
+                UNION
+                SELECT p.board_id FROM comments c JOIN posts p ON p.post_id = c.post_id
+                WHERE c.user_id = ? AND c.is_deleted = 'N' AND p.is_deleted = 'N'
+                ORDER BY board_id
+                """, Long.class, userId, userId);
+    }
+
     void enqueue(String scopeType, Long scopeId) {
         String phase = "BOARD".equals(scopeType) ? "POST" : "COMMENT";
         jdbcTemplate.update("""

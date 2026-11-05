@@ -50,6 +50,18 @@ class SemanticSearchTextBuilderTest {
     }
 
     @Test
+    void buildPostTextBoundsTheSameTextUsedForHashAndProviderInput() {
+        User user = User.builder().displayName("writer").build();
+        Board board = Board.builder().boardName("게시판").boardUrl("free").creator(user).build();
+        Post post = Post.builder().board(board).user(user).title("日本語 😀")
+                .contents("<p>" + "긴본문日本語😀".repeat(2_000) + "</p>").build();
+        String text = textBuilder.buildPostText(post);
+        assertThat(text.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(8_000);
+        assertThat(SemanticSearchEmbeddingInput.limit(text)).isEqualTo(text);
+        assertThat(textBuilder.hash(SemanticSearchEmbeddingInput.limit(text))).isEqualTo(textBuilder.hash(text));
+    }
+
+    @Test
     void buildPostText_decodesPreservedHtmlBeforeEmbedding() {
         User user = User.builder().displayName("writer").build();
         Board board = Board.builder().boardName("free").boardUrl("free").creator(user).build();

@@ -35,8 +35,9 @@ class SemanticSearchIndexServiceTest {
 
         var inOrder = inOrder(transactionService, embeddingClient);
         inOrder.verify(transactionService).loadPostIndexPayload(1L);
-        inOrder.verify(embeddingClient).embed("post text");
         inOrder.verify(embeddingClient).model();
+        inOrder.verify(transactionService).reusePostEmbedding(payload, "text-embedding");
+        inOrder.verify(embeddingClient).embed("post text");
         inOrder.verify(transactionService).upsertPost(payload, "text-embedding", embedding);
     }
 
@@ -63,8 +64,9 @@ class SemanticSearchIndexServiceTest {
 
         var inOrder = inOrder(transactionService, embeddingClient);
         inOrder.verify(transactionService).loadCommentIndexPayload(2L);
-        inOrder.verify(embeddingClient).embed("comment text");
         inOrder.verify(embeddingClient).model();
+        inOrder.verify(transactionService).reuseCommentEmbedding(payload, "text-embedding");
+        inOrder.verify(embeddingClient).embed("comment text");
         inOrder.verify(transactionService).upsertComment(payload, "text-embedding", embedding);
     }
 
@@ -76,6 +78,32 @@ class SemanticSearchIndexServiceTest {
 
         verify(transactionService).tombstoneComment(2L);
         verifyNoInteractions(embeddingClient);
+    }
+
+    @Test
+    void skipsProviderForReusablePostEmbedding() {
+        var payload = new SemanticSearchPostIndexPayload(1L, 10L, 100L, null, "text", "hash");
+        when(transactionService.loadPostIndexPayload(1L)).thenReturn(payload);
+        when(embeddingClient.model()).thenReturn("model");
+        when(transactionService.reusePostEmbedding(payload, "model")).thenReturn(true);
+
+        indexService.upsertPost(1L);
+
+        verify(embeddingClient, never()).embed(anyString());
+        verify(transactionService, never()).upsertPost(any(), any(), any());
+    }
+
+    @Test
+    void skipsProviderForReusableCommentEmbedding() {
+        var payload = new SemanticSearchCommentIndexPayload(2L, 1L, 10L, 100L, null, "text", "hash");
+        when(transactionService.loadCommentIndexPayload(2L)).thenReturn(payload);
+        when(embeddingClient.model()).thenReturn("model");
+        when(transactionService.reuseCommentEmbedding(payload, "model")).thenReturn(true);
+
+        indexService.upsertComment(2L);
+
+        verify(embeddingClient, never()).embed(anyString());
+        verify(transactionService, never()).upsertComment(any(), any(), any());
     }
 
     @Test
