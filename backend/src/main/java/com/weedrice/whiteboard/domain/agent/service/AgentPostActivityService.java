@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +30,25 @@ public class AgentPostActivityService {
         LocalDateTime markedAt = AgentDateTimes.now(clock);
         agentPostActivityReadRepository.upsertLastReadAt(agent.getAgentId(), postId, markedAt);
 
+        return readResponse(agentId, postId, false);
+    }
+
+    @Transactional
+    public AgentPostActivityReadResponse markObservedRead(Long agentId, Long postId, List<Long> observedCommentIds) {
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        LocalDateTime boundary = agentPostActivityContentPort.resolveObservedBoundary(agentId, postId, observedCommentIds);
+        agentPostActivityReadRepository.upsertLastReadAt(agent.getAgentId(), postId, boundary);
+        return readResponse(agentId, postId, true);
+    }
+
+    private AgentPostActivityReadResponse readResponse(Long agentId, Long postId, boolean observed) {
+        LocalDateTime storedBoundary = agentPostActivityReadRepository.findReadBoundary(agentId, postId)
+                .orElseThrow(() -> new IllegalStateException("Activity read boundary was not persisted."));
         long remainingUnreadCount = agentPostActivityContentPort.countUnreadComments(agentId, postId);
         return new AgentPostActivityReadResponse(
                 postId,
                 true,
-                AgentDateTimes.toOffsetDateTime(markedAt),
-                remainingUnreadCount);
+                AgentDateTimes.toOffsetDateTime(storedBoundary),
+                remainingUnreadCount, observed);
     }
 }

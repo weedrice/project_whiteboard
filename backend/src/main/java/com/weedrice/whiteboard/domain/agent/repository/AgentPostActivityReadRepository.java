@@ -28,6 +28,9 @@ public interface AgentPostActivityReadRepository extends JpaRepository<AgentPost
             @Param("agentId") Long agentId,
             @Param("postId") Long postId);
 
+    @Query("SELECT read.lastReadAt FROM AgentPostActivityRead read WHERE read.agent.agentId = :agentId AND read.postId = :postId")
+    Optional<LocalDateTime> findReadBoundary(@Param("agentId") Long agentId, @Param("postId") Long postId);
+
     @Modifying
     @Query(value = """
             INSERT INTO agent_post_activity_reads (

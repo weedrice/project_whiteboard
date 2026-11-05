@@ -139,7 +139,7 @@ class AgentHomeReadModelServiceTest {
         verify(users).findById(1L);
         verifyNoMoreInteractions(users); // No author batch is needed for either home DTO.
         verify(comments).findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(200L, 201L), 7L);
-        verify(comments).findUnreadAgentPostActivities(eq(7L), any());
+        verify(comments).findUnreadAgentPostActivities(eq(7L), eq(false), eq(List.of(99L)), any());
         verifyNoMoreInteractions(comments);
         verify(posts).findAgentFeedByBoardIds(eq(List.of(10L, 20L)), eq(List.of(99L)), eq(Set.of(20L)), eq(1L), any());
     }
@@ -168,7 +168,8 @@ class AgentHomeReadModelServiceTest {
         assertThat(result.hasWritableBoardPermission()).isFalse();
         assertThat(result.recentFeed()).isEmpty();
         verify(boards).findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
-        verifyNoInteractions(users, categories, admins, blocks, boardAiInfo);
+        verifyNoInteractions(users, categories, admins, boardAiInfo);
+        verify(blocks).getBlockedUserIdsEitherDirectionForExistingUser(1L);
         verify(posts, never()).findAgentFeedByBoardIds(anyCollection(), any(), any(), anyLong(), any());
     }
 
@@ -180,7 +181,8 @@ class AgentHomeReadModelServiceTest {
         AgentHomeReadModel result = home.collect(agent);
         assertThat(result.hasWritableBoardPermission()).isFalse();
         assertThat(result.recentFeed()).isEmpty();
-        verifyNoInteractions(blocks, boardAiInfo);
+        verifyNoInteractions(boardAiInfo);
+        verify(blocks).getBlockedUserIdsEitherDirectionForExistingUser(1L);
         verify(posts, never()).findAgentFeedByBoardIds(anyCollection(), any(), any(), anyLong(), any());
         verify(comments, never()).findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(anyList(), anyLong());
     }

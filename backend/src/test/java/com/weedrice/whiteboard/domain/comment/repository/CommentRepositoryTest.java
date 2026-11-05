@@ -575,7 +575,7 @@ class CommentRepositoryTest {
         entityManager.clear();
 
         List<CommentRepository.UnreadAgentPostActivityProjection> result =
-                commentRepository.findUnreadAgentPostActivities(ownerAgent.getAgentId(), PageRequest.of(0, 5));
+                commentRepository.findUnreadAgentPostActivities(ownerAgent.getAgentId(), true, List.of(-1L), PageRequest.of(0, 5));
 
         assertThat(result)
                 .extracting(
@@ -891,6 +891,62 @@ class CommentRepositoryTest {
         entityManager.clear();
 
         assertThat(commentRepository.findById(commentId).orElseThrow().getLikeCount()).isZero();
+    }
+
+    @Test
+    void activityVisibilityExcludesBlindedAndBlockedFromPreviewCountAndBoundary() {
+        Agent owner = persistAgent("visibility-owner");
+        User visibleUser = persistUser("visible", "visible@test.com", "Visible");
+        User blockedUser = persistUser("blocked", "blocked@test.com", "Blocked");
+        Post owned = persistPost("Owned", board, false, false, user, owner);
+        Comment visible = entityManager.persist(commentFor(owned, "Visible content", visibleUser));
+        Comment hidden = entityManager.persist(commentFor(owned, "Moderated content", visibleUser));
+        hidden.blind("moderated", LocalDateTime.now());
+        Comment blocked = entityManager.persist(commentFor(owned, "Blocked content", blockedUser));
+        entityManager.flush();
+        LocalDateTime at = LocalDateTime.now().plusMinutes(10).truncatedTo(ChronoUnit.MICROS);
+        updateCreatedAt(visible, at);
+        updateCreatedAt(hidden, at.plusMinutes(1));
+        updateCreatedAt(blocked, at.plusMinutes(2));
+        entityManager.flush();
+        entityManager.clear();
+        List<Long> blockedIds = List.of(blockedUser.getUserId());
+        var activities = commentRepository.findUnreadAgentPostActivities(owner.getAgentId(), false, blockedIds, PageRequest.of(0, 5));
+        assertThat(activities).singleElement().satisfies(activity -> {
+            assertThat(activity.getLatestCommentContent()).isEqualTo("Visible content");
+            assertThat(activity.getUnreadCount()).isEqualTo(1);
+        });
+        assertThat(commentRepository.countUnreadCommentsOnAgentPost(owner.getAgentId(), owned.getPostId(), false, blockedIds)).isEqualTo(1);
+        assertThat(commentRepository.findFirstUnobservedActivityAt(owner.getAgentId(), owned.getPostId(), false, blockedIds,
+                at.plusMinutes(3), List.of(visible.getCommentId()))).isEmpty();
+    }
+
+    @Test
+    void observedBoundaryPreservesUnseenTimestampPeersAndLaterArrivals() {
+        Agent owner = persistAgent("boundary-owner");
+        User writer = persistUser("boundary-writer", "boundary@test.com", "Writer");
+        Post owned = persistPost("Owned", board, false, false, user, owner);
+        Comment first = entityManager.persist(commentFor(owned, "First", writer));
+        Comment peer = entityManager.persist(commentFor(owned, "Unseen peer", writer));
+        Comment later = entityManager.persist(commentFor(owned, "After observation", writer));
+        entityManager.flush();
+        LocalDateTime at = LocalDateTime.now().plusMinutes(10).truncatedTo(ChronoUnit.MICROS);
+        updateCreatedAt(first, at);
+        updateCreatedAt(peer, at);
+        updateCreatedAt(later, at.plusSeconds(1));
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(commentRepository.findFirstUnobservedActivityAt(owner.getAgentId(), owned.getPostId(), true, NO_BLOCKED_USER_IDS,
+                at, List.of(first.getCommentId()))).contains(at);
+        AgentPostActivityRead read = entityManager.persist(AgentPostActivityRead.builder().agent(owner).post(owned)
+                .lastReadAt(at.minusNanos(1000)).build());
+        entityManager.flush();
+        assertThat(commentRepository.countUnreadCommentsOnAgentPost(owner.getAgentId(), owned.getPostId(), true, NO_BLOCKED_USER_IDS)).isEqualTo(3);
+        assertThat(commentRepository.findFirstUnobservedActivityAt(owner.getAgentId(), owned.getPostId(), true, NO_BLOCKED_USER_IDS,
+                at, List.of(first.getCommentId(), peer.getCommentId()))).isEmpty();
+        read.markReadAt(at);
+        entityManager.flush();
+        assertThat(commentRepository.countUnreadCommentsOnAgentPost(owner.getAgentId(), owned.getPostId(), true, NO_BLOCKED_USER_IDS)).isEqualTo(1);
     }
 
     private Comment commentFor(Post post, String content) {
