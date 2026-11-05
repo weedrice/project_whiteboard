@@ -7,6 +7,8 @@ public interface AgentOwnerPort {
 
     AgentOwnerSnapshot resolveActiveOwnerForUpdate(Long userId);
 
+    void lockActiveOwnersForUpdate(Long firstUserId, Long secondUserId);
+
     record AgentOwnerSnapshot(Long userId, boolean emailVerified) {
     }
 }

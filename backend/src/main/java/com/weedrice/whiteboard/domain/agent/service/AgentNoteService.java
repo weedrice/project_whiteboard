@@ -25,6 +25,7 @@ import java.time.Clock;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -48,6 +49,8 @@ public class AgentNoteService {
     private final AgentAuditService agentAuditService;
     private final AgentNoteSendPolicy agentNoteSendPolicy;
     private final AgentNoteSendCommandService agentNoteSendCommandService;
+    private final com.weedrice.whiteboard.domain.agent.port.AgentOwnerPort agentOwnerPort;
+    private final jakarta.persistence.EntityManager entityManager;
     private final Clock clock;
 
     public AgentNoteResponses.ThreadListResponse getNotes(Long agentId, String box, Pageable pageable) {
@@ -98,14 +101,31 @@ public class AgentNoteService {
     @Transactional
     public AgentNoteResponses.SendResponse sendNote(Long agentId, AgentNoteSendRequest request,
             AgentRequestContext requestContext) {
-        Agent sender = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
+        // Identify participants before taking locks; all eligibility checks are repeated after refresh.
+        Agent sender = agentOwnershipService.resolveActiveAgent(agentId);
         AgentPolicySnapshot policy = agentPolicyService.resolve(sender);
         agentNoteSendPolicy.validateCanSendNote(policy);
-
-        String recipientName = normalizeRecipientName(request.getRecipientAgentName());
-        Agent recipient = agentRepository.findByNameAndIsDeletedFalse(recipientName)
-                .orElseThrow(() -> agentNoteSendPolicy.recipientNotFound(policy));
+        Agent recipient = resolveNoteRecipient(sender, request, policy);
         agentNoteSendPolicy.validateRecipient(sender, recipient, policy);
+        Long senderOwnerId = sender.getUserId();
+        Long recipientOwnerId = recipient.getUserId();
+        // Match lifecycle/block ordering: User IDs, then Agent IDs, then note thread/quota.
+        agentOwnerPort.lockActiveOwnersForUpdate(senderOwnerId, recipientOwnerId);
+        for (Long id : java.util.stream.Stream.of(sender.getAgentId(), recipient.getAgentId()).distinct().sorted().toList()) {
+            Agent locked = agentRepository.findByAgentIdForUpdate(id)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+            entityManager.refresh(locked, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            if (id.equals(sender.getAgentId())) sender = locked;
+            else recipient = locked;
+        }
+        if (!Objects.equals(senderOwnerId, sender.getUserId()) || !Objects.equals(recipientOwnerId, recipient.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        agentOwnershipService.validateAuthenticatedAgent(sender);
+        policy = agentPolicyService.resolve(sender);
+        agentNoteSendPolicy.validateCanSendNote(policy);
+        agentNoteSendPolicy.validateRecipient(sender, recipient, policy);
+        validateExpectedRecipientName(request, recipient);
         agentNoteSendPolicy.validateNotBlocked(sender, recipient, policy);
         String content = agentNoteSendPolicy.normalizeContent(request.getContent(), policy);
         AgentNoteSendResult result = agentNoteSendCommandService.send(
@@ -123,6 +143,26 @@ public class AgentNoteService {
                 .noteId(note.getNoteId())
                 .sentAt(AgentDateTimes.toOffsetDateTime(note.getCreatedAt(), AgentDateTimes.now(clock)))
                 .build();
+    }
+
+    private Agent resolveNoteRecipient(Agent sender, AgentNoteSendRequest request, AgentPolicySnapshot policy) {
+        if (request.getNoteThreadId() != null) {
+            if (request.getNoteThreadId() <= 0) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            Agent recipient = resolveParticipatingThread(sender.getAgentId(), request.getNoteThreadId())
+                    .counterpartOf(sender.getAgentId());
+            validateExpectedRecipientName(request, recipient);
+            return recipient;
+        }
+        String name = normalizeRecipientName(request.getRecipientAgentName());
+        return agentRepository.findByNameAndIsDeletedFalse(name)
+                .orElseThrow(() -> agentNoteSendPolicy.recipientNotFound(policy));
+    }
+
+    private void validateExpectedRecipientName(AgentNoteSendRequest request, Agent recipient) {
+        if (request.getRecipientAgentName() != null
+                && !normalizeRecipientName(request.getRecipientAgentName()).equals(recipient.getName())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 
     @Transactional

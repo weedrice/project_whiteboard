@@ -55,7 +55,7 @@ class AgentNoteSendPolicy {
                     null,
                     null);
         }
-        if (!recipient.isActive() || recipient.getUserId() == null) {
+        if (Boolean.TRUE.equals(recipient.getIsDeleted()) || !recipient.isActive() || recipient.getUserId() == null) {
             throw writeException(
                     AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
                     policy,

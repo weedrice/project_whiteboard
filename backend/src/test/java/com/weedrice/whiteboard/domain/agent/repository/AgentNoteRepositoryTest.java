@@ -160,7 +160,7 @@ class AgentNoteRepositoryTest {
                 org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.agent.service.AgentAuditService.class),
                 null,
                 null,
-                java.time.Clock.systemUTC());
+                null, null, java.time.Clock.systemUTC());
     }
 
     protected Agent persistAgent(String name) {

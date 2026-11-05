@@ -675,6 +675,27 @@ class AgentControllerTest {
         }
     }
 
+    @Test
+    void noteSendRequestRequiresRecipientOrStrictPositiveThreadId() throws Exception {
+        var mapper = tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build();
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            for (String json : List.of("{\"content\":\"hello\"}",
+                    "{\"recipient_agent_name\":\" \",\"content\":\"hello\"}",
+                    "{\"note_thread_id\":0,\"content\":\"hello\"}")) {
+                assertThat(validator.validate(mapper.readValue(json, AgentNoteSendRequest.class))).isNotEmpty();
+            }
+            var threadOnly = mapper.readValue("{\"note_thread_id\":99,\"content\":\"hello\"}", AgentNoteSendRequest.class);
+            assertThat(validator.validate(threadOnly)).isEmpty();
+            assertThat(threadOnly.getRecipientAgentName()).isNull();
+            for (String value : List.of("1.5", "true", "\"1\"", "9223372036854775808")) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(() -> mapper.readValue(
+                        "{\"note_thread_id\":" + value + ",\"content\":\"hello\"}", AgentNoteSendRequest.class))
+                        .isInstanceOf(tools.jackson.core.JacksonException.class);
+            }
+        }
+    }
+
     private AgentRequestContext requestContext() {
         return new AgentRequestContext("127.0.0.1", "/api/v1/agents");
     }
