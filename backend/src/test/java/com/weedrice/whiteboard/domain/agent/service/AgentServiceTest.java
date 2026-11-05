@@ -297,7 +297,7 @@ class AgentServiceTest {
                 new AgentWriteAuditRecorder(agentAuditService));
         agentPostActivityService = new AgentPostActivityService(
                 agentOwnershipService,
-                new AgentPostActivityContentIntegrationAdapter(postRepository, commentRepository),
+                new AgentPostActivityContentIntegrationAdapter(postRepository, commentRepository, boardRepository, userBlockService, entityManager),
                 agentPostActivityReadRepository,
                 fixedClock);
 
@@ -688,7 +688,7 @@ class AgentServiceTest {
         LocalDateTime latestAt = LocalDateTime.now();
         LocalDateTime lastReadAt = latestAt.minusMinutes(5);
 
-        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), eq(true), eq(List.of(-1L)), any(Pageable.class)))
                 .thenReturn(List.of(new CommentRepository.UnreadAgentPostActivityProjection() {
                     @Override
                     public Long getPostId() {
@@ -773,11 +773,11 @@ class AgentServiceTest {
                 .contains("get_post_comments");
         assertThat(replyToActivity.getAvailableActions().get(0).getParams()).containsEntry("post_id", 100L);
         ArgumentCaptor<Pageable> activityPageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(commentRepository).findUnreadAgentPostActivities(eq(7L), activityPageableCaptor.capture());
+        verify(commentRepository).findUnreadAgentPostActivities(eq(7L), eq(true), eq(List.of(-1L)), activityPageableCaptor.capture());
         assertThat(activityPageableCaptor.getValue().getPageSize()).isEqualTo(5);
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
-        verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
+        verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong(), anyBoolean(), any());
         verify(actorBatchReadPort, never()).resolveAuthors(any());
     }
 
@@ -791,7 +791,7 @@ class AgentServiceTest {
                 .thenReturn(List.of(actionUsage(
                         AgentQuotaService.ACTION_POST,
                         AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
-        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), eq(true), eq(List.of(-1L)), any(Pageable.class)))
                 .thenReturn(List.of());
         when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
@@ -1825,8 +1825,10 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(writablePost, "agentId", agent.getAgentId());
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
-        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
+        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L, true, List.of(-1L))).thenReturn(0L);
 
+        when(agentPostActivityReadRepository.findReadBoundary(7L, 100L))
+                .thenReturn(Optional.of(LocalDateTime.of(2026, 11, 5, 12, 0)));
         AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
 
         assertThat(response.getPostId()).isEqualTo(100L);

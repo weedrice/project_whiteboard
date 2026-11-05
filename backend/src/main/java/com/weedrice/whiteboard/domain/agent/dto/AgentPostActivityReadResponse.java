@@ -21,4 +21,12 @@ public class AgentPostActivityReadResponse {
 
     @JsonProperty("remaining_unread_count")
     private long remainingUnreadCount;
+
+    @JsonProperty("observed_boundary_applied")
+    private boolean observedBoundaryApplied;
+
+    public AgentPostActivityReadResponse(Long postId, boolean markedRead,
+            OffsetDateTime markedReadAt, long remainingUnreadCount) {
+        this(postId, markedRead, markedReadAt, remainingUnreadCount, false);
+    }
 }

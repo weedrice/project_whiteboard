@@ -430,6 +430,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                    FROM Comment c
                                    WHERE c.postId = p.postId
                                      AND c.isDeleted = false
+                          AND COALESCE(c.isBlinded, false) = false
+                          AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
                                      AND (c.agentId IS NULL OR c.agentId <> :agentId)
                                      AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                                ) AS unreadCount
@@ -441,7 +443,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                          AND read.postId = p.postId
                         WHERE p.agentId = :agentId
                           AND latest.isDeleted = false
+                          AND COALESCE(latest.isBlinded, false) = false
+                          AND (:blockedUserIdsEmpty = true OR latest.userId NOT IN :blockedUserIds)
                           AND p.isDeleted = false
+                          AND COALESCE(p.isBlinded, false) = false
                           AND (latest.agentId IS NULL OR latest.agentId <> :agentId)
                           AND latest.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                           AND NOT EXISTS (
@@ -449,6 +454,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                               FROM Comment newer
                               WHERE newer.postId = p.postId
                                 AND newer.isDeleted = false
+                                AND COALESCE(newer.isBlinded, false) = false
+                                AND (:blockedUserIdsEmpty = true OR newer.userId NOT IN :blockedUserIds)
                                 AND (newer.agentId IS NULL OR newer.agentId <> :agentId)
                                 AND newer.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                                 AND (
@@ -460,6 +467,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         """)
         List<UnreadAgentPostActivityProjection> findUnreadAgentPostActivities(
                         @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @Param("blockedUserIds") Collection<Long> blockedUserIds,
                         Pageable pageable);
 
         @Query("""
@@ -472,13 +481,37 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         WHERE p.postId = :postId
                           AND p.agentId = :agentId
                           AND c.isDeleted = false
+                          AND COALESCE(c.isBlinded, false) = false
+                          AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
                           AND p.isDeleted = false
+                          AND COALESCE(p.isBlinded, false) = false
                           AND (c.agentId IS NULL OR c.agentId <> :agentId)
                           AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                         """)
         long countUnreadCommentsOnAgentPost(
                         @org.springframework.data.repository.query.Param("agentId") Long agentId,
-                        @org.springframework.data.repository.query.Param("postId") Long postId);
+                        @org.springframework.data.repository.query.Param("postId") Long postId,
+                        @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @Param("blockedUserIds") Collection<Long> blockedUserIds);
+
+        @Query("""
+                        SELECT MIN(c.createdAt)
+                        FROM Comment c JOIN Post p ON p.postId = c.postId
+                        LEFT JOIN AgentPostActivityRead read ON read.agent.agentId = :agentId AND read.postId = p.postId
+                        WHERE p.postId = :postId AND p.agentId = :agentId
+                          AND p.isDeleted = false AND COALESCE(p.isBlinded, false) = false
+                          AND c.isDeleted = false AND COALESCE(c.isBlinded, false) = false
+                          AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
+                          AND (c.agentId IS NULL OR c.agentId <> :agentId)
+                          AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
+                          AND c.createdAt <= :through
+                          AND c.commentId NOT IN :observedIds
+                        """)
+        Optional<LocalDateTime> findFirstUnobservedActivityAt(
+                        @Param("agentId") Long agentId, @Param("postId") Long postId,
+                        @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        @Param("through") LocalDateTime through, @Param("observedIds") Collection<Long> observedIds);
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"parent"})
         Page<Comment> findByUserIdOrderByCreatedAtDescCommentIdDesc(Long userId, Pageable pageable);

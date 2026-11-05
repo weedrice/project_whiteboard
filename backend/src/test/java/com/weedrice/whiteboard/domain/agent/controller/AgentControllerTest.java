@@ -592,6 +592,40 @@ class AgentControllerTest {
         assertThat(response.getData().getRemainingUnreadCount()).isZero();
     }
 
+    @Test
+    void observedReadEndpointRequiresValidatedBodyAndDoesNotUseLegacyMutation() throws Exception {
+        var validator = new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(agentController)
+                .setValidator(validator)
+                .setCustomArgumentResolvers(new org.springframework.web.method.support.HandlerMethodArgumentResolver() {
+                    public boolean supportsParameter(org.springframework.core.MethodParameter parameter) {
+                        return parameter.hasParameterAnnotation(com.weedrice.whiteboard.global.security.CurrentAgentId.class);
+                    }
+                    public Object resolveArgument(org.springframework.core.MethodParameter parameter,
+                            org.springframework.web.method.support.ModelAndViewContainer container,
+                            org.springframework.web.context.request.NativeWebRequest request,
+                            org.springframework.web.bind.support.WebDataBinderFactory factory) { return 7L; }
+                }).build();
+        String path = "/api/v1/agents/posts/101/activity/read/observed";
+        for (String body : List.of("", "{}", "{\"observed_comment_ids\":[]}",
+                "{\"observed_comment_ids\":[0]}", "{\"observed_comment_ids\":[null]}")) {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path)
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+        }
+        var ids = List.of(11L, 12L);
+        given(agentPostActivityService.markObservedRead(7L, 101L, ids)).willReturn(
+                new AgentPostActivityReadResponse(101L, true, OffsetDateTime.parse("2026-11-05T12:00:00+09:00"), 1, true));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"observed_comment_ids\":[11,12]}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.observed_boundary_applied").value(true));
+        org.mockito.Mockito.verify(agentPostActivityService, org.mockito.Mockito.never()).markRead(any(), any());
+        validator.close();
+    }
+
     private AgentRequestContext requestContext() {
         return new AgentRequestContext("127.0.0.1", "/api/v1/agents");
     }

@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentDateTimes;
 import com.weedrice.whiteboard.domain.agent.service.AgentHomeReadModel;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.BlockedUserIdsParameter;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -46,18 +47,20 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     public AgentHomeReadModel collect(Agent agent) {
         AgentBoardListReadService.WritableBoards boards = agentBoardListReadService.getWritableBoardsWithAccess(agent);
         AgentBoardListResponse writableBoards = boards.response();
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(agent.getUserId());
         return new AgentHomeReadModel(
                 !writableBoards.getBoards().isEmpty(),
                 agentNoteService.getSummary(agent.getAgentId()),
-                getActivityOnMyPosts(agent.getAgentId()),
+                getActivityOnMyPosts(agent, blockedUserIds),
                 getHomeMyRecentPosts(agent),
                 getHomeRecommendedBoards(writableBoards),
-                getHomeRecentFeed(agent, boards));
+                getHomeRecentFeed(agent, boards, blockedUserIds));
     }
 
-    private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
+    private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Agent agent, List<Long> blockedUserIds) {
+        BlockedUserIdsParameter blocked = BlockedUserIdsParameter.from(blockedUserIds);
         List<CommentRepository.UnreadAgentPostActivityProjection> activities = commentRepository.findUnreadAgentPostActivities(
-                agentId,
+                agent.getAgentId(), blocked.empty(), blocked.ids(),
                 PageRequest.of(0, HOME_ACTIVITY_LIMIT));
         if (activities.isEmpty()) {
             return List.of();
@@ -114,7 +117,7 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     }
 
     private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(
-            Agent agent, AgentBoardListReadService.WritableBoards boards) {
+            Agent agent, AgentBoardListReadService.WritableBoards boards, List<Long> blockedUserIds) {
         List<AgentBoardItem> accessibleBoards = boards.response().getBoards();
         if (accessibleBoards.isEmpty()) {
             return List.of();
@@ -123,8 +126,6 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
         List<Long> accessibleBoardIds = accessibleBoards.stream()
                 .map(AgentBoardItem::getBoardId)
                 .toList();
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(agent.getUserId());
-
         Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 accessibleBoardIds,
                 blockedUserIds,
