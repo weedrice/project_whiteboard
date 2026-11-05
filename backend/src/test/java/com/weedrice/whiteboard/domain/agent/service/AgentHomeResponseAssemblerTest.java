@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
+import com.weedrice.whiteboard.domain.agent.config.AgentHomeProperties;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
@@ -8,6 +9,10 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import java.time.Clock;
+import java.time.Instant;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -20,7 +25,64 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class AgentHomeResponseAssemblerTest {
 
-    private final AgentHomeResponseAssembler assembler = new AgentHomeResponseAssembler();
+    private final AgentHomeResponseAssembler assembler = new AgentHomeResponseAssembler(new AgentHomeProperties(), java.time.Clock.system(java.time.ZoneId.of("Asia/Seoul")));
+
+    @ParameterizedTest
+    @CsvSource({
+            "2026-11-01T03:00:00Z, true",
+            "2026-11-08T02:59:59.999999999Z, true",
+            "2026-11-08T03:00:00Z, false",
+            "2026-12-01T03:00:00Z, false",
+            "2026-11-01T02:59:59Z, false"
+    })
+    void newAgentUsesRegistrationAgeWithExclusiveExpiry(String now, boolean expected) {
+        Agent agent = Agent.builder().name("writer").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(agent, "createdAt", LocalDateTime.of(2026, 11, 1, 12, 0));
+        for (String zone : List.of("UTC", "Asia/Seoul")) {
+            AgentHomeResponseAssembler fixed = new AgentHomeResponseAssembler(new AgentHomeProperties(),
+                    Clock.fixed(Instant.parse(now), ZoneId.of(zone)));
+            for (int postsToday : List.of(0, 10)) {
+                assertThat(fixed.assemble(agent, policy(postsToday), AgentHomeReadModel.empty())
+                        .getAgent().isNewAgent()).isEqualTo(expected);
+            }
+        }
+    }
+
+    @Test
+    void configuredPeriodChangesExpiryWithoutChangingRegistrationDate() {
+        AgentHomeProperties properties = new AgentHomeProperties();
+        properties.setNewAgentDays(3);
+        Agent agent = Agent.builder().name("writer").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(agent, "createdAt", LocalDateTime.of(2026, 11, 1, 12, 0));
+        AgentHomeResponseAssembler fixed = new AgentHomeResponseAssembler(properties,
+                Clock.fixed(Instant.parse("2026-11-04T03:00:00Z"), ZoneId.of("Asia/Seoul")));
+        assertThat(fixed.assemble(agent, policy(0), AgentHomeReadModel.empty()).getAgent().isNewAgent()).isFalse();
+    }
+
+    @Test
+    void missingCreationTimeIsNotClassifiedAsNew() {
+        Agent agent = Agent.builder().name("writer").status(Agent.STATUS_ACTIVE).build();
+        assertThat(assembler.assemble(agent, policy(0), AgentHomeReadModel.empty()).getAgent().isNewAgent()).isFalse();
+    }
+
+    @Test
+    void midnightAndSuspensionDoNotResetRegistrationAge() {
+        Agent agent = Agent.builder().name("writer").status(Agent.STATUS_SUSPENDED).build();
+        ReflectionTestUtils.setField(agent, "createdAt", LocalDateTime.of(2026, 5, 1, 12, 0));
+        for (String now : List.of("2026-11-04T14:59:59Z", "2026-11-04T15:00:00Z")) {
+            AgentHomeResponseAssembler fixed = new AgentHomeResponseAssembler(new AgentHomeProperties(),
+                    Clock.fixed(Instant.parse(now), ZoneId.of("Asia/Seoul")));
+            assertThat(fixed.assemble(agent, policy(0), AgentHomeReadModel.empty()).getAgent().isNewAgent()).isFalse();
+        }
+    }
+
+    private AgentPolicySnapshot policy(int postsToday) {
+        return new AgentPolicySnapshot(
+                new AgentDailyStatus(LocalDate.of(2026, 11, 5), postsToday, postsToday,
+                        OffsetDateTime.parse("2026-11-06T00:00:00+09:00")),
+                AgentLimits.builder().postsRemaining(50).commentsRemaining(100).notesRemaining(20).build(),
+                AgentRestrictions.builder().canPost(true).canComment(true).canSendNote(true).build(), false);
+    }
 
     @Test
     void assemble_preservesHomeSectionsAndActionContracts() {

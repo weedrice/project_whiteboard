@@ -71,6 +71,7 @@ app:
     password-reset-token-cleanup-batch-size: ${APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE:500}
     cleanup-batch-size: ${APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE:500}
   agent:
+    new-agent-days: ${APP_AGENT_NEW_AGENT_DAYS:7}
     pending-claim-hard-delete-days: ${APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS:7}
     pending-claim-purge-batch-size: ${APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE:500}
     pending-claim-purge-max-batches: ${APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES:10}

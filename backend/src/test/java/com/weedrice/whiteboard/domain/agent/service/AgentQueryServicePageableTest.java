@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
+import com.weedrice.whiteboard.domain.agent.config.AgentHomeProperties;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
@@ -84,7 +85,7 @@ class AgentQueryServicePageableTest {
     @BeforeEach
     void setUp() {
         agentHomeReadModelService = mock(AgentHomeReadModelService.class);
-        agentHomeResponseAssembler = new AgentHomeResponseAssembler();
+        agentHomeResponseAssembler = new AgentHomeResponseAssembler(new AgentHomeProperties(), java.time.Clock.system(java.time.ZoneId.of("Asia/Seoul")));
         agentQueryService = new AgentQueryService(
                 agentRepository,
                 agentOwnershipService,
