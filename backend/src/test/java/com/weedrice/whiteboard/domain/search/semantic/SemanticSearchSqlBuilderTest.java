@@ -29,16 +29,15 @@ class SemanticSearchSqlBuilderTest {
             assertVectorCountSelection(countSql, contentType);
             assertThat(searchSql)
                     .contains("CAST(:queryEmbedding AS vector)")
-                    .contains("ORDER BY similarity DESC, created_at DESC, content_id DESC")
+                    .contains("ORDER BY similarity DESC, created_at DESC, content_type ASC, content_id DESC")
                     .contains("LIMIT :limit OFFSET :offset");
             assertThat(countSql)
                     .contains("SELECT COUNT(*) FROM")
-                    .doesNotContain("ORDER BY")
+                    .contains("similarity >= :minSimilarity")
+                    .contains("LIMIT :candidateLimit")
+                    .contains("CAST(:queryEmbedding AS vector)")
                     .doesNotContain("LIMIT :limit")
-                    .doesNotContain("OFFSET :offset")
-                    .doesNotContain("CAST(:queryEmbedding AS vector)")
-                    .doesNotContain(" AS similarity")
-                    .doesNotContain("author_display_name");
+                    .doesNotContain("OFFSET :offset");
         }
     }
 
@@ -55,7 +54,7 @@ class SemanticSearchSqlBuilderTest {
             assertThat(searchSql)
                     .contains("LIKE :keywordPattern ESCAPE '!'")
                     .contains("p.is_blinded = 'N'")
-                    .contains("ORDER BY created_at DESC, content_type ASC, content_id DESC")
+                    .contains("ORDER BY keyword_rank ASC, created_at DESC, content_type ASC, content_id DESC")
                     .contains("LIMIT :limit OFFSET :offset");
             assertThat(countSql)
                     .contains("SELECT COUNT(*) FROM")

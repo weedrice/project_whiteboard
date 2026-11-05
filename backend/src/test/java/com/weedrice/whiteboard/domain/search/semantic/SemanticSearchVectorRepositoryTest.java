@@ -31,6 +31,16 @@ class SemanticSearchVectorRepositoryTest {
     }
 
     @Test
+    void candidateBudgetUsesTransactionLocalSettingAndPreservesLargerSessionBudget() {
+        repository.configureCandidateSearch(200);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> parameters = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).queryForObject(sql.capture(), parameters.capture(), eq(String.class));
+        assertThat(sql.getValue()).contains("set_config('hnsw.ef_search'", "GREATEST(:candidateLimit, 40", "current_setting('hnsw.ef_search', true)", "true)");
+        assertThat(parameters.getValue().getValue("candidateLimit")).isEqualTo(200);
+    }
+
+    @Test
     void search_buildsUnionSqlWithSimilarityAndResponseColumns() {
         when(jdbcTemplate.query(
                 anyString(),
@@ -61,16 +71,22 @@ class SemanticSearchVectorRepositoryTest {
                 .contains("p.contents AS excerpt")
                 .contains("c.content AS excerpt")
                 .doesNotContain("e.embedding_text")
-                .contains("ORDER BY similarity DESC, created_at DESC, content_id DESC")
-                .contains("LIMIT :limit OFFSET :offset");
+                .contains("ORDER BY similarity DESC, created_at DESC, content_type ASC, content_id DESC")
+                .contains("LIMIT :limit OFFSET :offset")
+                .contains("ORDER BY e.embedding <=> CAST(:queryEmbedding AS vector) ASC")
+                .contains("FETCH FIRST :candidateLimit ROWS WITH TIES")
+                .contains("WHERE similarity >= :minSimilarity")
+                .contains("LIMIT :candidateLimit");
         assertThat(paramsCaptor.getValue().getValue("queryEmbedding")).isEqualTo("[0.1,0.2]");
         assertThat(paramsCaptor.getValue().getValue("blockedUserIds")).isEqualTo(List.of(9L));
         assertThat(paramsCaptor.getValue().getValue("limit")).isEqualTo(20);
         assertThat(paramsCaptor.getValue().getValue("offset")).isEqualTo(40L);
+        assertThat(paramsCaptor.getValue().getValue("candidateLimit")).isEqualTo(200);
+        assertThat(paramsCaptor.getValue().getValue("minSimilarity")).isEqualTo(0.20);
     }
 
     @Test
-    void count_usesDedicatedCountSqlWithoutResponseColumns() {
+    void count_usesSameBoundedSimilarityCandidatesAsResults() {
         when(jdbcTemplate.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
                 .thenReturn(5L);
         SemanticSearchQuery query = new SemanticSearchQuery(
@@ -98,10 +114,10 @@ class SemanticSearchVectorRepositoryTest {
                 .contains("UPPER(s.type) = 'BAN'")
                 .doesNotContain(":viewerSuperAdmin = TRUE")
                 .doesNotContain("adm.is_active = 'Y'")
-                .doesNotContain("e.embedding <=>")
-                .doesNotContain("LEFT JOIN agents")
-                .doesNotContain("author_display_name")
-                .doesNotContain("ORDER BY")
+                .contains("ORDER BY e.embedding <=> CAST(:queryEmbedding AS vector) ASC")
+                .contains("FETCH FIRST :candidateLimit ROWS WITH TIES")
+                .contains("WHERE similarity >= :minSimilarity")
+                .contains("LIMIT :candidateLimit")
                 .doesNotContain("LIMIT :limit")
                 .doesNotContain("OFFSET :offset");
     }

@@ -147,7 +147,7 @@ Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 
 추가 JPA 통합 테스트는 마이그레이션된 스키마에서 일반 검색·작성자 일괄 조회·게시판별 최신 글에
 같은 필터가 적용되고 BAN 만료 후 다시 노출되는지 검증하며, 생성한 데이터는 롤백합니다.
 
-For online-index migrations, use the two Flyway lock settings above as CI does.
+For online-index migrations, use the two Flyway lock settings above as CI does. To additionally verify HNSW index usability, set `$env:POSTGRES_VECTOR_EXPLAIN='true'` before running the task. That fixture forces an index-capable plan on small test data; it is not a production performance benchmark.
 
 ### 배포 버전 확인
 

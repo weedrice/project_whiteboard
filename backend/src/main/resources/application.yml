@@ -125,5 +125,8 @@ rate-limit:
   user-limit: 500
 
 semantic-search:
+  retrieval:
+    min-similarity: ${SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY:0.20}
+    candidate-limit: ${SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT:200}
   related-post:
     min-similarity: ${SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY:0.55}

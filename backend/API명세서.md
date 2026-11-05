@@ -456,6 +456,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 `GET /api/v1/search`와 `GET /api/v1/search/posts`의 `period`는 `TODAY`, `WEEK`, `MONTH`, `CUSTOM`을 지원한다. `WEEK`는 오늘을 포함한 7일, `MONTH`는 오늘을 포함한 최근 달력상 1개월로 계산하며 종료일의 다음 날 00:00을 exclusive upper bound로 사용한다. `CUSTOM`의 `from`이 `to`보다 늦거나 지원하지 않는 `period`이면 `VALIDATION_ERROR`를 반환한다.
 
+적용: 의미 검색은 벡터 후보와 키워드 후보를 결합하고 `(contentType, contentId)`로 중복을 제거한다. 정확한 게시글 제목 일치를 우선하며 나머지는 두 후보 목록의 순위를 결합한다. 벡터 후보의 최소 유사도는 `SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY`(기본 0.20), 최종 후보 상한은 `SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT`(기본 200, 20~1000)이다. `totalElements`는 전체 색인 건수가 아닌 이 제한된 후보 집합의 크기이며, 같은 집합에서 페이지를 나누므로 범위 밖 페이지는 빈 목록이다. 비활성·임베딩 호출 실패의 키워드 대체 검색도 같은 후보 상한을 적용한다. 응답 필드와 `VECTOR`·`KEYWORD_FALLBACK` 값은 유지한다.
+
 `GET /api/v1/search/semantic`의 `excerpt`는 현재 게시글·댓글 본문을 보존 HTML 해석 후 최대 240자로 반환한다. 임베딩은 순위 계산에만 사용하므로 재색인 지연·실패 중에도 이전 색인 원문을 요약으로 노출하지 않는다.
 
 `GET /api/v1/search/semantic`의 vector 조회와 keyword fallback은 관련 게시글 추천과 같은 작성자 노출 필터를 목록·전체 개수 조회에 적용한다. 댓글 결과는 댓글 작성자와 원글 작성자를 모두 검사한다. 현재 유효한 `BAN`은 `startDate <= 현재 시각`이고 `endDate`가 없거나 현재 시각보다 뒤인 제재다. `MUTE`와 만료·시작 전 `BAN`만으로는 콘텐츠를 제외하지 않는다. 이 조건은 일반 게시글 검색·통합 검색의 게시글 preview, 스페이스 게시글 목록·공지·최신글·태그 탐색·인기글·Agent 피드, 공개 프로필 게시글 목록·개수와 홈 랜딩 게시글 통계에도 적용한다. 목록과 전체 개수에 같은 조건을 적용하고, 조회 개수 제한 전에 후보를 제외한다. 인기 스페이스 순위·인기 태그의 게시글 집계, 사용자 검색과 멘션 자동완성에도 같은 조건을 집계·개수 제한 전에 적용한다. 일반 게시글·댓글 직접 열람, 관리자 제재 조회와 작성·수정 이력의 접근 정책은 별도로 유지한다.
