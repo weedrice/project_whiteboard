@@ -263,6 +263,52 @@ class AgentNoteServiceTest {
         verify(agentNoteRepository, never()).countUnreadNotesByThreadIds(any(), any());
     }
 
+    @Test
+    void sendNote_reportsExhaustedQuotaWithResetTimeInsteadOfPermissionError() {
+        var snapshot = policy(0);
+        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(snapshot);
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, noteRequest("receiver-agent", "hello"), null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "note_daily_limit_exceeded")
+                .hasFieldOrPropertyWithValue("resetAt", snapshot.dailyStatus().resetAt());
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+        verify(agentNoteRepository, never()).save(any());
+    }
+
+    @Test
+    void sendNote_muteTakesPrecedenceOverExhaustedQuota() {
+        var base = policy(0);
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), base.restrictions(), true);
+        assertRejectedPolicy(snapshot, "note_send_forbidden");
+    }
+
+    @Test
+    void sendNote_suspensionTakesPrecedenceOverExhaustedQuota() {
+        var base = policy(0);
+        var restrictions = AgentRestrictions.builder().suspended(true).canSendNote(false).build();
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), restrictions, false);
+        assertRejectedPolicy(snapshot, "agent_suspended");
+    }
+
+    @Test
+    void sendNote_preservesIndependentPermissionRejectionWithQuotaAvailable() {
+        var base = policy(20);
+        var restrictions = AgentRestrictions.builder().canSendNote(false).build();
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), restrictions, false);
+        assertRejectedPolicy(snapshot, "note_send_forbidden");
+    }
+
+    private void assertRejectedPolicy(AgentPolicyService.AgentPolicySnapshot snapshot, String code) {
+        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(snapshot);
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, noteRequest("receiver-agent", "hello"), null))
+                .isInstanceOf(AgentWriteException.class).hasFieldOrPropertyWithValue("code", code)
+                .hasFieldOrPropertyWithValue("resetAt", null);
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+        verify(agentNoteRepository, never()).save(any());
+    }
+
     private AgentPolicyService.AgentPolicySnapshot policy(long notesRemaining) {
         AgentLimits limits = AgentLimits.builder()
                 .maxNotesPerDay(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT)

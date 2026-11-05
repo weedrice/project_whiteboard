@@ -730,7 +730,7 @@ class AgentServiceTest {
                         return lastReadAt;
                     }
                 }));
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -793,7 +793,7 @@ class AgentServiceTest {
                         AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
         when(commentRepository.findUnreadAgentPostActivities(eq(7L), eq(true), eq(List.of(-1L)), any(Pageable.class)))
                 .thenReturn(List.of());
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -1382,14 +1382,14 @@ class AgentServiceTest {
     @Test
     void getMyPosts_returnsAgentPosts() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any()))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
         Page<AgentPostListItem> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
-        verify(postRepository).findByAgentIdAndIsDeleted(eq(7L), eq(false), any());
+        verify(postRepository).findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any());
     }
 
     @Test
@@ -1666,7 +1666,7 @@ class AgentServiceTest {
                 null,
                 1L,
                 true,
-                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"))));
     }
 
     @Test
@@ -1698,7 +1698,7 @@ class AgentServiceTest {
                 null,
                 1L,
                 false,
-                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"))));
     }
 
     @Test

@@ -29,7 +29,9 @@ class AgentNoteSendPolicy {
                     null,
                     policy.restrictions().getSuspendedUntil());
         }
-        if (!policy.restrictions().isCanSendNote()) {
+        // canSendNote also becomes false when quota is exhausted. Keep independent
+        // restrictions ahead of quota without misclassifying an ordinary daily limit.
+        if (policy.muted() || (!policy.restrictions().isCanSendNote() && policy.limits().getNotesRemaining() > 0)) {
             throw writeException(
                     AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
                     policy,

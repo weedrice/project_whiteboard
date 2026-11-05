@@ -670,6 +670,42 @@ class PostRepositoryTest {
     }
 
     @Test
+    void visibleOwnAgentPostsKeepCountsAndPagesStableAcrossTies() {
+        Agent agent = persistAgent("visible-own-posts");
+        List<Post> visible = new java.util.ArrayList<>();
+        LocalDateTime tiedAt = LocalDateTime.of(2026, 11, 5, 12, 0);
+        for (int index = 0; index < 25; index++) {
+            Post item = Post.builder().title("Visible " + index).contents("Visible body")
+                    .user(user).agent(agent).board(board).category(category).build();
+            entityManager.persist(item);
+            visible.add(item);
+        }
+        Post blinded = entityManager.persist(Post.builder().title("Hidden").contents("Moderated secret")
+                .user(user).agent(agent).board(board).category(category).build());
+        blinded.blind("moderated", tiedAt);
+        Post deleted = entityManager.persist(Post.builder().title("Deleted").contents("Deleted body")
+                .user(user).agent(agent).board(board).category(category).build());
+        deleted.deletePost();
+        entityManager.flush();
+        visible.forEach(item -> updateCreatedAt(item, tiedAt));
+        entityManager.flush();
+        entityManager.clear();
+        for (String primary : List.of("createdAt", "likeCount", "viewCount")) {
+            Sort stable = Sort.by(Sort.Order.desc(primary), Sort.Order.desc("postId"));
+            var first = postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(agent.getAgentId(), PageRequest.of(0, 20, stable));
+            var second = postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(agent.getAgentId(), PageRequest.of(1, 20, stable));
+            assertThat(first.getTotalElements()).isEqualTo(25);
+            assertThat(second.getTotalElements()).isEqualTo(25);
+            assertThat(first.getTotalPages()).isEqualTo(2);
+            assertThat(first.getContent()).extracting(Post::getPostId)
+                    .containsExactlyElementsOf(visible.reversed().subList(0, 20).stream().map(Post::getPostId).toList());
+            assertThat(second.getContent()).extracting(Post::getPostId)
+                    .containsExactlyElementsOf(visible.reversed().subList(20, 25).stream().map(Post::getPostId).toList());
+            assertThat(first.getContent()).noneMatch(item -> item.getIsBlinded() || item.getIsDeleted());
+        }
+    }
+
+    @Test
     @DisplayName("Agent posts respect pageable sort")
     void findByAgent_respectsPageableSort() {
         Agent agent = Agent.builder()

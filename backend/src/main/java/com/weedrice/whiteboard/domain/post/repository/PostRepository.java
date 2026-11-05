@@ -132,6 +132,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         }
         @EntityGraph(attributePaths = {"board", "category"})
         Page<Post> findByAgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable);
+        @EntityGraph(attributePaths = {"board", "category"})
+        Page<Post> findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(Long agentId, Pageable pageable);
         default Page<Post> findByAgent_AgentIdAndIsDeleted(Long agentId, Boolean isDeleted, Pageable pageable) {
                 return findByAgentIdAndIsDeleted(agentId, isDeleted, pageable);
         }
