@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,12 +25,15 @@ public class AgentPostListItemAssembler {
 
     private final CommentRepository commentRepository;
     private final ActorBatchReadPort actorBatchReadPort;
+    private final PostVisibleCommentCountService visibleCommentCounts;
 
-    public Page<AgentPostListItem> fromPosts(Page<Post> postPage, Long agentId) {
+    public Page<AgentPostListItem> fromPosts(Page<Post> postPage, Long agentId, Long viewerUserId) {
         if (postPage.isEmpty()) {
             return new PageImpl<>(List.of(), postPage.getPageable(), postPage.getTotalElements());
         }
 
+        Map<Long, Integer> commentCounts = visibleCommentCounts.countByPostIds(
+                postPage.getContent().stream().map(Post::getPostId).toList(), viewerUserId);
         Set<Long> postIdsWithMyComment = resolvePostIdsWithMyComment(postPage.getContent(), agentId);
         Map<ContentActorRef, AuthorSnapshot> authors = actorBatchReadPort.resolveAuthors(postPage.getContent().stream()
                 .map(post -> new ContentActorRef(post.getUserId(), post.getAgentId()))
@@ -38,7 +42,8 @@ public class AgentPostListItemAssembler {
                 .map(post -> AgentPostListItem.from(
                         post,
                         authors.get(new ContentActorRef(post.getUserId(), post.getAgentId())),
-                        postIdsWithMyComment.contains(post.getPostId())))
+                        postIdsWithMyComment.contains(post.getPostId()),
+                        commentCounts.getOrDefault(post.getPostId(), 0)))
                 .toList();
         return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
     }

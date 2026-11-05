@@ -109,7 +109,7 @@ public class SearchService {
                 canonicalBoardUrl, canonicalAuthor, dateRange.from(), dateRange.to(), blockedUserIds, includeSecret,
                 currentUserId, normalizedPageable);
 
-        Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage);
+        Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
         return response;
     }
 

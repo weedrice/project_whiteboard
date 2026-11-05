@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.tag.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
@@ -46,6 +47,9 @@ public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCu
               AND b.isActive = true
               AND b.isPublic = true
               AND (b.isListed = true OR b.isListed IS NULL)
+              AND p.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
             GROUP BY t.tagId, t.tagName
             ORDER BY COUNT(pt) DESC, t.tagName ASC, t.tagId ASC
             """)

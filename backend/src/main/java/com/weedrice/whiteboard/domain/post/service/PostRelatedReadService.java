@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -28,6 +30,7 @@ class PostRelatedReadService {
     private final PostRepository postRepository;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
+    private final BoardAccessPolicy boardAccessPolicy;
     private final SemanticRelatedPostService semanticRelatedPostService;
     private final PostFacadeReadService postFacadeReadService;
 
@@ -41,16 +44,25 @@ class PostRelatedReadService {
         postAccessPolicy.validateReadable(sourcePost, context.viewer(), context.isAuthorBlocked(sourcePost),
                 context.activeAdminBoardIds());
 
+        Board sourceBoard = sourcePost.getBoard();
+        if (!Boolean.TRUE.equals(sourceBoard.getIsActive())
+                || !Boolean.TRUE.equals(sourceBoard.getIsPublic())
+                || boardAccessPolicy.isInquiryBoard(sourceBoard)) {
+            return List.of();
+        }
+
         SemanticRelatedPostResult semanticResult = semanticRelatedPostService.findRelatedPostIds(
                 sourcePost.getPostId(),
-                sourcePost.getBoard().getBoardUrl(),
+                sourceBoard.getBoardUrl(),
                 currentUserId,
                 normalizedSize);
         List<Long> relatedPostIds = semanticResult.postIds();
         if (!semanticResult.sourceEmbeddingAvailable()) {
             relatedPostIds = postRepository.findPublicRelatedFallbackPostIds(
-                    sourcePost.getBoard().getBoardId(),
+                    sourceBoard.getBoardId(),
                     sourcePost.getPostId(),
+                    context.blockedUserIds() == null || context.blockedUserIds().isEmpty()
+                            ? List.of(-1L) : context.blockedUserIds(),
                     PageRequest.of(0, normalizedSize));
         }
 

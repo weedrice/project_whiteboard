@@ -106,6 +106,7 @@ Set these variables when the defaults do not match your local or CI database:
 | `POSTGRES_SMOKE_DATASOURCE_URL` | JDBC URL for the smoke-test PostgreSQL database |
 | `POSTGRES_SMOKE_DATASOURCE_USERNAME` | Smoke-test database user |
 | `POSTGRES_SMOKE_DATASOURCE_PASSWORD` | Smoke-test database password |
+| `FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK` / `SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK` | Set both to `false`, matching CI, for migrations that create indexes concurrently. |
 
 ## Local Development
 

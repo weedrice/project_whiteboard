@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserLifecycleService;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,6 +65,7 @@ class SanctionServiceTest {
     @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private UserReadableResolver userReadableResolver;
     @Mock private CommonCodeReader commonCodeReader;
+    @Mock private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     private SanctionService sanctionService;
 
@@ -91,7 +93,8 @@ class SanctionServiceTest {
                 new SanctionTargetResolver(userRepository, postRepository, new CommentReadSupport(commentRepository)),
                 new SanctionEffectApplier(userLifecycleService),
                 userReadableResolver,
-                FIXED_CLOCK);
+                FIXED_CLOCK,
+                anonymousReadCacheInvalidator);
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         lenient().when(commonCodeReader.isActiveDetail(eq("SANCTION_TYPE"), anyString()))
@@ -159,6 +162,7 @@ class SanctionServiceTest {
 
         assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
         verify(userLifecycleService, never()).suspendPrelockedUser(any(User.class));
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test

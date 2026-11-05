@@ -8,7 +8,10 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserBlock;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +47,9 @@ class CommentRepositoryTest {
 
     @Autowired
     private CommentRepository commentRepository;
+
+    @Autowired
+    private UserBlockRepository userBlockRepository;
 
     private User user;
     private Board board;
@@ -98,6 +104,9 @@ class CommentRepositoryTest {
         User incomingBlockedAuthor = entityManager.persist(User.builder()
                 .loginId("blocked-incoming").email("blocked-incoming@example.com")
                 .password("password").displayName("Incoming Block").build());
+        User viewer = persistUser("profile-viewer", "profile-viewer@example.com", "Viewer");
+        UserBlock outgoingBlock = entityManager.persist(UserBlock.builder().user(viewer).target(outgoingBlockedAuthor).build());
+        UserBlock incomingBlock = entityManager.persist(UserBlock.builder().user(incomingBlockedAuthor).target(viewer).build());
         Post outgoingPost = entityManager.persist(Post.builder().title("Outgoing blocked post")
                 .contents("Body").board(board).user(outgoingBlockedAuthor).build());
         Post incomingPost = entityManager.persist(Post.builder().title("Incoming blocked post")
@@ -108,7 +117,8 @@ class CommentRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Long> blockedAuthorIds = List.of(outgoingBlockedAuthor.getUserId(), incomingBlockedAuthor.getUserId());
+        List<Long> blockedAuthorIds = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(viewer.getUserId());
+        assertThat(blockedAuthorIds).containsExactlyInAnyOrder(outgoingBlockedAuthor.getUserId(), incomingBlockedAuthor.getUserId());
         Page<Comment> firstPage = commentRepository.findPublicProfileCommentsByUser(
                 user.getUserId(), false, blockedAuthorIds,
                 PageRequest.of(0, 1, org.springframework.data.domain.Sort.by("commentId")));
@@ -124,6 +134,22 @@ class CommentRepositoryTest {
         assertThat(secondPage.getTotalElements()).isEqualTo(2);
         assertThat(firstPage.getTotalPages()).isEqualTo(2);
         assertThat(unfiltered.getTotalElements()).isEqualTo(4);
+        assertThat(commentRepository.countPublicProfileCommentsByUser(user.getUserId(), false, blockedAuthorIds))
+                .isEqualTo(firstPage.getTotalElements());
+        assertThat(commentRepository.countPublicProfileCommentsByUser(user.getUserId(), true, NO_BLOCKED_USER_IDS))
+                .isEqualTo(unfiltered.getTotalElements());
+
+        userBlockRepository.deleteById(outgoingBlock.getRelationId());
+        userBlockRepository.deleteById(incomingBlock.getRelationId());
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(viewer.getUserId())).isEmpty();
+        long restoredCount = commentRepository.countPublicProfileCommentsByUser(user.getUserId(), true, NO_BLOCKED_USER_IDS);
+        assertThat(restoredCount).isEqualTo(4);
+        assertThat(commentRepository.findPublicProfileCommentsByUser(
+                user.getUserId(), true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 1)).getTotalElements())
+                .isEqualTo(restoredCount);
+        assertThat(commentRepository.countByUserIdAndIsDeleted(user.getUserId(), false)).isEqualTo(4);
     }
 
     @Test
@@ -389,7 +415,7 @@ class CommentRepositoryTest {
         entityManager.persist(blindedComment);
         entityManager.flush();
 
-        long count = commentRepository.countPublicProfileCommentsByUser(user);
+        long count = commentRepository.countPublicProfileCommentsByUser(user.getUserId(), true, NO_BLOCKED_USER_IDS);
         Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(user, PageRequest.of(0, 20));
 
         assertThat(count).isEqualTo(1L);
@@ -521,6 +547,7 @@ class CommentRepositoryTest {
     @Test
     @DisplayName("findUnreadAgentPostActivities groups latest unread comments by post")
     void findUnreadAgentPostActivities_groupsLatestUnreadCommentsByPost() {
+        org.springframework.test.util.ReflectionTestUtils.setField(board, "agentUseYn", true);
         User commenter = persistUser("unread-commenter", "unread-commenter@test.com", "Unread Commenter");
         Agent ownerAgent = persistAgent("unread-owner-agent");
         Agent otherAgent = persistAgent("unread-other-agent");
@@ -895,6 +922,7 @@ class CommentRepositoryTest {
 
     @Test
     void activityVisibilityExcludesBlindedAndBlockedFromPreviewCountAndBoundary() {
+        org.springframework.test.util.ReflectionTestUtils.setField(board, "agentUseYn", true);
         Agent owner = persistAgent("visibility-owner");
         User visibleUser = persistUser("visible", "visible@test.com", "Visible");
         User blockedUser = persistUser("blocked", "blocked@test.com", "Blocked");
@@ -923,6 +951,7 @@ class CommentRepositoryTest {
 
     @Test
     void observedBoundaryPreservesUnseenTimestampPeersAndLaterArrivals() {
+        org.springframework.test.util.ReflectionTestUtils.setField(board, "agentUseYn", true);
         Agent owner = persistAgent("boundary-owner");
         User writer = persistUser("boundary-writer", "boundary@test.com", "Writer");
         Post owned = persistPost("Owned", board, false, false, user, owner);
@@ -960,6 +989,118 @@ class CommentRepositoryTest {
                 .post(post)
                 .depth(0)
                 .build();
+    }
+
+    @Test
+    void discoveryFiltersAuthorsBeforePaginationAndKeepsProfileAndLandingCountsAligned() {
+        LocalDateTime now = LocalDateTime.now();
+        User banned = persistUser("eligibility-ban", "ban@eligibility.test", "Banned");
+        User muted = persistUser("eligibility-mute", "mute@eligibility.test", "Muted");
+        User expired = persistUser("eligibility-expired", "expired@eligibility.test", "Expired");
+        User future = persistUser("eligibility-future", "future@eligibility.test", "Future");
+        User suspended = persistUser("eligibility-suspended", "suspended@eligibility.test", "Suspended");
+        User deleted = persistUser("eligibility-deleted", "deleted@eligibility.test", "Deleted");
+        persistVisibilitySanction(banned, "ban", now.minusDays(1), null);
+        persistVisibilitySanction(banned, "BAN", now.minusDays(1), now.plusDays(1));
+        persistVisibilitySanction(muted, "MUTE", now.minusDays(1), null);
+        persistVisibilitySanction(expired, "BAN", now.minusDays(2), now.minusDays(1));
+        persistVisibilitySanction(future, "BAN", now.plusDays(1), null);
+        suspended.suspend();
+        deleted.delete(now.minusDays(1));
+        for (User author : List.of(user, banned, muted, expired, future, suspended, deleted)) {
+            entityManager.persist(commentFor(post, "eligibility comment", author));
+        }
+        Post bannedPost = persistPost("Banned parent", board, false, false, banned);
+        entityManager.persist(commentFor(bannedPost, "eligibility hidden parent", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> firstPage = commentRepository.searchCommentsByKeyword(
+                "eligibility", null, null, PageRequest.of(0, 2));
+        Page<Comment> secondPage = commentRepository.searchCommentsByKeyword(
+                "eligibility", null, null, PageRequest.of(1, 2));
+        assertThat(firstPage.getTotalElements()).isEqualTo(4);
+        assertThat(secondPage.getTotalElements()).isEqualTo(4);
+        assertThat(java.util.stream.Stream.concat(firstPage.stream(), secondPage.stream())
+                .map(Comment::getUserId).toList())
+                .containsExactlyInAnyOrder(user.getUserId(), muted.getUserId(), expired.getUserId(), future.getUserId());
+        assertThat(commentRepository.countPublicProfileCommentsByUser(user.getUserId(), true, NO_BLOCKED_USER_IDS)).isEqualTo(2);
+        assertThat(commentRepository.findPublicProfileCommentsByUser(user, PageRequest.of(0, 1))
+                .getTotalElements()).isEqualTo(2);
+        assertThat(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                now.minusDays(1), now.plusDays(1), BoardPolicyConstants.INQUIRY_BOARD_URL)).isEqualTo(5);
+    }
+
+    @Test
+    void threadFiltersHiddenLeavesButKeepsHiddenAncestorsOfEligibleDescendants() {
+        User banned = persistUser("thread-ban", "thread-ban@test.com", "Banned");
+        persistVisibilitySanction(banned, "BAN", LocalDateTime.now().minusDays(1), null);
+        Comment hiddenRoot = persistVisibilityComment(banned, null, "Hidden root");
+        Comment hiddenChild = persistVisibilityComment(banned, hiddenRoot, "Hidden child");
+        Comment hiddenLeaf = persistVisibilityComment(banned, hiddenRoot, "Hidden leaf");
+        Comment visibleGrandchild = persistVisibilityComment(user, hiddenChild, "Visible grandchild");
+        entityManager.persist(CommentClosure.builder().ancestor(hiddenRoot).descendant(visibleGrandchild).depth(2).build());
+        persistVisibilityComment(banned, null, "Hidden standalone root");
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> roots = commentRepository.findParentsWithChildrenOrNotDeletedOrderByCreatedAtDesc(
+                post.getPostId(), true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 1));
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(
+                hiddenRoot.getCommentId(), false, true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 1));
+        assertThat(roots.getTotalElements()).isEqualTo(2);
+        assertThat(roots.getContent()).extracting(Comment::getCommentId).containsExactly(hiddenRoot.getCommentId());
+        assertThat(replies.getTotalElements()).isEqualTo(1);
+        assertThat(replies.getContent()).extracting(Comment::getCommentId).containsExactly(hiddenChild.getCommentId());
+        assertThat(commentRepository.countVisibleRepliesByParentIds(
+                List.of(hiddenRoot.getCommentId(), hiddenChild.getCommentId()), true, NO_BLOCKED_USER_IDS))
+                .extracting(CommentRepository.ReplyCountProjection::getParentId,
+                        CommentRepository.ReplyCountProjection::getReplyCount)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(hiddenRoot.getCommentId(), 1L),
+                        org.assertj.core.groups.Tuple.tuple(hiddenChild.getCommentId(), 1L));
+        assertThat(commentRepository.existsVisibleReplyByParentId(hiddenLeaf.getCommentId(), true, NO_BLOCKED_USER_IDS))
+                .isFalse();
+        assertThat(commentRepository.findByIdWithRelations(hiddenRoot.getCommentId())).isPresent();
+        assertThat(commentRepository.findByIdWithRelations(hiddenRoot.getCommentId()).orElseThrow().getIsBlinded())
+                .isFalse();
+    }
+
+    @Test
+    void bestCommentsExcludeHiddenAuthorsBeforeTopThreeLimit() {
+        User banned = persistUser("best-ban", "best-ban@test.com", "Banned");
+        persistVisibilitySanction(banned, "BAN", LocalDateTime.now().minusDays(1), null);
+        Comment hidden = persistVisibilityComment(banned, null, "Hidden best");
+        Comment first = persistVisibilityComment(user, null, "First eligible");
+        Comment second = persistVisibilityComment(user, null, "Second eligible");
+        Comment third = persistVisibilityComment(user, null, "Third eligible");
+        entityManager.flush();
+        for (Comment candidate : List.of(hidden, first, second, third)) {
+            entityManager.getEntityManager().createQuery("UPDATE Comment c SET c.likeCount = :likes WHERE c.commentId = :id")
+                    .setParameter("likes", candidate == hidden ? 100 : 10)
+                    .setParameter("id", candidate.getCommentId()).executeUpdate();
+        }
+        entityManager.clear();
+
+        assertThat(commentRepository.findBestRootComments(
+                post.getPostId(), 1, true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 3)))
+                .extracting(Comment::getCommentId)
+                .containsExactly(first.getCommentId(), second.getCommentId(), third.getCommentId());
+    }
+
+    private Comment persistVisibilityComment(User author, Comment parent, String content) {
+        Comment target = entityManager.persist(Comment.builder().user(author).post(post).parent(parent)
+                .depth(parent == null ? 0 : parent.getDepth() + 1).content(content).build());
+        entityManager.persist(CommentClosure.builder().ancestor(target).descendant(target).depth(0).build());
+        if (parent != null) {
+            entityManager.persist(CommentClosure.builder().ancestor(parent).descendant(target).depth(1).build());
+        }
+        return target;
+    }
+
+    private void persistVisibilitySanction(User target, String type, LocalDateTime start, LocalDateTime end) {
+        entityManager.persist(Sanction.builder().targetUser(target).processorUser(user).type(type)
+                .startDate(start).endDate(end).remark("Visibility test").build());
     }
 
     private User persistUser(String loginId, String email, String displayName) {

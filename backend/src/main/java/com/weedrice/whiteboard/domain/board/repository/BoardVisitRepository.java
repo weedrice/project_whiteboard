@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardVisit;
 import com.weedrice.whiteboard.domain.board.entity.BoardVisitId;
@@ -33,6 +34,14 @@ public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVis
             WHERE p.board.boardId IN :boardIds
               AND p.isDeleted = false
               AND p.isBlinded = false
+              AND p.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
+              AND NOT EXISTS (
+                    SELECT 1 FROM UserBlock authorBlock
+                    WHERE (authorBlock.user.userId = :userId AND authorBlock.target.userId = p.userId)
+                       OR (authorBlock.target.userId = :userId AND authorBlock.user.userId = p.userId)
+              )
               AND p.createdAt > :recentCutoff
               AND (
                     p.isSecret = false

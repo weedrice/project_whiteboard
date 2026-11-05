@@ -24,6 +24,7 @@ public class PostResponse {
     private List<String> tags;
     private int viewCount;
     private int likeCount;
+    @lombok.Setter
     private int commentCount;
     @JsonProperty("isNotice")
     @Getter(onMethod_ = @JsonProperty("isNotice"))

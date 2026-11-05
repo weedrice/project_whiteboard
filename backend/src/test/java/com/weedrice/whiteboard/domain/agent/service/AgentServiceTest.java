@@ -177,6 +177,8 @@ class AgentServiceTest {
     private ActorBatchReadPort actorBatchReadPort;
     @Mock
     private ActorWritePort actorWritePort;
+    @Mock
+    private com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService visibleListCommentCounts;
 
     private AgentOwnershipService agentOwnershipService;
     private AgentAuditService agentAuditService;
@@ -217,7 +219,8 @@ class AgentServiceTest {
                         boardCategoryRepository,
                         new BoardCategoryWritePolicy(boardAccessPolicy)),
                 userRepository));
-        agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository, actorBatchReadPort));
+        agentPostListItemAssembler = spy(new AgentPostListItemAssembler(
+                commentRepository, actorBatchReadPort, visibleListCommentCounts));
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         Clock fixedClock = Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul"));
@@ -253,7 +256,8 @@ class AgentServiceTest {
                 commentRepository,
                 userBlockService,
                 agentBoardListReadService,
-                agentNoteService);
+                agentNoteService,
+                mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class));
         agentHomeResponseAssembler = new AgentHomeResponseAssembler(new AgentHomeProperties(), fixedClock);
         AgentWritePolicy writePolicy = agentWritePolicy();
         AgentWriteTargetResolver writeTargetResolver = agentWriteTargetResolver();
@@ -278,7 +282,8 @@ class AgentServiceTest {
                 postAccessPolicy,
                 userBlockService,
                 userRepository,
-                fixedClock);
+                fixedClock,
+                mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class));
         agentQueryService = new AgentQueryService(
                 agentRepository,
                 agentOwnershipService,
@@ -416,6 +421,8 @@ class AgentServiceTest {
     @Test
     @DisplayName("feed는 agent가 글을 쓸 수 없는 노드의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
+        ReflectionTestUtils.setField(writablePost, "commentCount", 12);
+        when(visibleListCommentCounts.countByPostIds(List.of(100L), 1L)).thenReturn(Map.of(100L, 1));
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, blockedBoard));
@@ -432,6 +439,9 @@ class AgentServiceTest {
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getCommentCount()).isEqualTo(1);
+        assertThat(writablePost.getCommentCount()).isEqualTo(12);
+        verify(visibleListCommentCounts).countByPostIds(List.of(100L), 1L);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getTotalElements()).isEqualTo(1);
         verify(commentRepository).findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(100L), 7L);
@@ -443,7 +453,7 @@ class AgentServiceTest {
         when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));
         when(postRepository.findPublicProfilePostsByAgentId(eq(7L), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
-        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), any()))
+        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), anyBoolean(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
         when(postRepository.findPrimaryBoardsByAgentPosts(eq(7L), any())).thenReturn(List.of());
 
@@ -475,7 +485,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
 
         verify(postRepository, never()).countPublicProfilePostsByAgentId(anyLong());
-        verify(commentRepository, never()).countPublicProfileCommentsByAgentId(anyLong());
+        verify(commentRepository, never()).countPublicProfileCommentsByAgentId(anyLong(), anyBoolean(), any());
         verify(postRepository, never()).findPublicProfilePostsByAgentId(anyLong(), any());
     }
 
@@ -485,7 +495,7 @@ class AgentServiceTest {
         when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));
         when(postRepository.findPublicProfilePostsByAgentId(eq(7L), any()))
                 .thenReturn(new PageImpl<>(List.of(blockedPost, writablePost), PageRequest.of(0, 20), 2));
-        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), any()))
+        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), anyBoolean(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
         when(postRepository.findPrimaryBoardsByAgentPosts(eq(7L), any())).thenReturn(List.of());
 
@@ -495,6 +505,28 @@ class AgentServiceTest {
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findPublicProfilePostsByAgentId(eq(7L), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
+    void getProfile_appliesViewerBlocksToRecentCommentsAndPublicCommentStatistics() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L, 3L));
+        when(postRepository.findPublicProfilePostsByAgentId(eq(7L), any())).thenReturn(Page.empty());
+        when(postRepository.findPrimaryBoardsByAgentPosts(eq(7L), any())).thenReturn(List.of());
+        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), eq(false), eq(List.of(2L, 3L)), any()))
+                .thenReturn(Page.empty());
+        when(commentRepository.countPublicProfileCommentsByAgentId(7L, false, List.of(2L, 3L))).thenReturn(2L);
+        when(commentRepository.sumPublicProfileCommentLikesByAgentId(7L, false, List.of(2L, 3L))).thenReturn(5L);
+        when(postRepository.sumPublicProfilePostLikesByAgentId(7L)).thenReturn(4L);
+
+        var response = agentQueryService.getProfile(7L, "agent");
+
+        assertThat(response.getAgent().getStats().getCommentsCount()).isEqualTo(2L);
+        assertThat(response.getAgent().getStats().getLikesReceivedCount()).isEqualTo(9L);
+        verify(commentRepository).findPublicProfileCommentsByAgentId(
+                7L, false, List.of(2L, 3L), PageRequest.of(0, 20));
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
     }
 
     @Test
@@ -737,7 +769,7 @@ class AgentServiceTest {
         doReturn(new com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort.BoardAccess(
                 Set.of(10L), Set.of())).when(agentBoardAccessService)
                 .resolveBoardAccess(eq(agent), eq(List.of(writableBoard)), any());
-        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+        when(postRepository.countPublicVisiblePostsByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
             @Override
             public Long getBoardId() {
                 return 10L;
@@ -800,7 +832,7 @@ class AgentServiceTest {
         doReturn(new com.weedrice.whiteboard.domain.agent.port.AgentBoardAccessPort.BoardAccess(
                 Set.of(10L), Set.of())).when(agentBoardAccessService)
                 .resolveBoardAccess(eq(agent), eq(List.of(writableBoard)), any());
-        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+        when(postRepository.countPublicVisiblePostsByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
             @Override
             public Long getBoardId() {
                 return 10L;
@@ -1381,6 +1413,8 @@ class AgentServiceTest {
 
     @Test
     void getMyPosts_returnsAgentPosts() {
+        ReflectionTestUtils.setField(writablePost, "commentCount", 12);
+        when(visibleListCommentCounts.countByPostIds(List.of(100L), 1L)).thenReturn(Map.of());
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
@@ -1388,6 +1422,9 @@ class AgentServiceTest {
         Page<AgentPostListItem> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getCommentCount()).isEqualTo(0);
+        assertThat(writablePost.getCommentCount()).isEqualTo(12);
+        verify(visibleListCommentCounts).countByPostIds(List.of(100L), 1L);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         verify(postRepository).findByAgentIdAndIsDeleted(eq(7L), eq(false), any());
     }
@@ -1646,6 +1683,8 @@ class AgentServiceTest {
 
     @Test
     void getBoardPosts_returnsAgentPostContract() {
+        ReflectionTestUtils.setField(writablePost, "commentCount", 12);
+        when(visibleListCommentCounts.countByPostIds(List.of(100L), 1L)).thenReturn(Map.of(100L, 2));
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
         when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), eq(true), any()))
@@ -1656,6 +1695,9 @@ class AgentServiceTest {
         Page<AgentPostListItem> response = agentQueryService.getBoardPosts(7L, 10L, 9L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getCommentCount()).isEqualTo(2);
+        assertThat(writablePost.getCommentCount()).isEqualTo(12);
+        verify(visibleListCommentCounts).countByPostIds(List.of(100L), 1L);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         assertThat(response.getContent().get(0).isHasMyComment()).isTrue();
         assertThat(response.getContent().get(0).getBoardUrl()).isEqualTo("free");

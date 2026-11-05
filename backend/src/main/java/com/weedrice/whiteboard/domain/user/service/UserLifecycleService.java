@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class UserLifecycleService {
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public void updateAdminManagedStatus(Long userId, String status) {
@@ -53,6 +55,7 @@ public class UserLifecycleService {
                 throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
             }
             user.activate();
+            anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
             return;
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -85,6 +88,7 @@ public class UserLifecycleService {
         accountCredentialInvalidationService.invalidateForLockedUser(user);
         user.delete(LocalDateTime.now(clock));
         user.advanceSecurityVersion();
+        anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
     }
 
     private void suspendUser(User user, Long actorUserId) {
@@ -96,6 +100,7 @@ public class UserLifecycleService {
         cleanupOperationalAccessForLockedUser(user, actorUserId);
         user.suspend();
         user.advanceSecurityVersion();
+        anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
     }
 
     private void validateLifecycleMutationTarget(User user) {

@@ -70,7 +70,7 @@ public class SearchPreviewReadService {
 
         Page<Post> postPage = postRepository.searchPostsByKeyword(canonicalKeyword,
                 blockedUserIds, currentUserId, previewPageable);
-        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
+        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
 
         Page<CommentResponse> comments = commentSummaryAssembler.assemble(commentRepository
                 .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable));
@@ -126,7 +126,7 @@ public class SearchPreviewReadService {
                 boardContext.includeSecret(),
                 currentUserId,
                 postPreviewPageable);
-        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
+        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
 
         Page<CommentResponse> comments = hasPostOnlyFilters
                 ? Page.empty(commentPreviewPageable)

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,7 +46,7 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_SELECT = """
             SELECT
@@ -77,7 +79,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private static final String POST_COUNT_SELECT = """
             SELECT p.post_id AS content_id
@@ -92,7 +94,7 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_COUNT_SELECT = """
             SELECT c.comment_id AS content_id
@@ -108,7 +110,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 

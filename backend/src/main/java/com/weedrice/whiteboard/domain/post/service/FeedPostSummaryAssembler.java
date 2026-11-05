@@ -27,6 +27,7 @@ class FeedPostSummaryAssembler {
     private final PostInteractionContextResolver interactionContextResolver;
     private final PostContentSummaryExtractor contentSummaryExtractor;
     private final ActorBatchReadPort actorBatchReadPort;
+    private final PostVisibleCommentCountService visibleCommentCountService;
 
     List<FeedPostSummary> assembleTrendingPosts(List<Post> posts, Long currentUserId) {
         return assembleFeedPosts(posts, currentUserId, true, true);
@@ -43,6 +44,7 @@ class FeedPostSummaryAssembler {
         }
 
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
@@ -53,14 +55,14 @@ class FeedPostSummaryAssembler {
         return posts.stream()
                 .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
                         authors.get(new ContentActorRef(post.getUserId(), post.getAgentId())),
-                        includeContentsExcerpt, includeFirstMedia))
+                        includeContentsExcerpt, includeFirstMedia, visibleCommentCounts.getOrDefault(post.getPostId(), 0)))
                 .collect(Collectors.toList());
     }
 
     private FeedPostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages,
             Map<Long, Long> thumbnailFileIdsByPostId, PostUserInteractionContext interactionContext,
             AuthorSnapshot author,
-            boolean includeContentsExcerpt, boolean includeFirstMedia) {
+            boolean includeContentsExcerpt, boolean includeFirstMedia, int visibleCommentCount) {
         String summaryText = contentSummaryExtractor.extractSummary(post);
         PostContentSummaryExtractor.FeedMedia feedMedia = includeFirstMedia
                 ? contentSummaryExtractor.resolveFeedMedia(post, postIdsWithImages, thumbnailFileIdsByPostId)
@@ -104,7 +106,7 @@ class FeedPostSummaryAssembler {
                         .build() : null)
                 .viewCount(fields.counts().viewCount())
                 .likeCount(fields.counts().likeCount())
-                .commentCount(fields.counts().commentCount())
+                .commentCount(visibleCommentCount)
                 .isNotice(fields.flags().isNotice())
                 .isNsfw(fields.flags().isNsfw())
                 .isSpoiler(fields.flags().isSpoiler())

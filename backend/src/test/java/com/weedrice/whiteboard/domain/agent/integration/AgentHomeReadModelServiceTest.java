@@ -55,6 +55,7 @@ import static org.mockito.Mockito.when;
 class AgentHomeReadModelServiceTest {
     private static final List<Long> CANDIDATE_IDS = List.of(10L, 20L, 30L);
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 9, 20, 12, 34);
+    private final com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService visibleCounts = mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class);
     private BoardRepository boards;
     private BoardCategoryRepository categories;
     private BoardAiInfoRepository boardAiInfo;
@@ -89,7 +90,7 @@ class AgentHomeReadModelServiceTest {
                 new PostAuthorCommandPolicy(boardPolicy, categories, new BoardCategoryWritePolicy(boardPolicy)), users);
         boardList = new AgentBoardListReadService(
                 boards, boardAiInfo, new AgentBoardPostCountIntegrationAdapter(posts), access);
-        home = new AgentHomeReadModelService(posts, comments, blocks, boardList, notes);
+        home = new AgentHomeReadModelService(posts, comments, blocks, boardList, notes, visibleCounts);
         owner = User.builder().displayName("Owner").build();
         ReflectionTestUtils.setField(owner, "userId", 1L);
         agent = Agent.builder().user(owner).name("Agent").status(Agent.STATUS_ACTIVE).build();
@@ -121,12 +122,14 @@ class AgentHomeReadModelServiceTest {
         when(comments.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(List.of(200L, 201L), 7L))
                 .thenReturn(List.of(201L));
 
+        when(visibleCounts.countByPostIds(List.of(100L), 1L)).thenReturn(java.util.Map.of(100L, 1));
+        when(visibleCounts.countByPostIds(List.of(200L, 201L), 1L)).thenReturn(java.util.Map.of(200L, 2, 201L, 2));
         AgentHomeReadModel result = home.collect(agent);
 
         assertThat(result.hasWritableBoardPermission()).isTrue();
         assertThat(result.myRecentPosts()).singleElement().usingRecursiveComparison().isEqualTo(
                 AgentHomeResponse.MyRecentPost.builder().postId(100L).title("Post 100")
-                        .boardId(10L).boardName("Board 10").commentCount(2).likeCount(3)
+                        .boardId(10L).boardName("Board 10").commentCount(1).likeCount(3)
                         .createdAt(CREATED_AT).build());
         assertThat(result.recentFeed()).usingRecursiveComparison().isEqualTo(List.of(
                 expectedFeed(200L, 10L, false), expectedFeed(201L, 20L, true)));
@@ -145,12 +148,47 @@ class AgentHomeReadModelServiceTest {
     }
 
     @Test
+    void homeRecommendationsExcludeOrdinaryBoardsWithOnlyHiddenPostsAndKeepManagedCounts() {
+        ReflectionTestUtils.setField(publicBoard, "description", "");
+        ReflectionTestUtils.setField(adminBoard, "description", "");
+        when(posts.countPublicVisiblePostsByBoardIds(List.of(10L))).thenReturn(List.of());
+        when(posts.countActiveByBoardIds(List.of(20L))).thenReturn(List.of(boardCount(20L, 7L)));
+
+        AgentHomeReadModel result = home.collect(agent);
+
+        assertThat(result.recommendedBoards()).singleElement().satisfies(board -> {
+            assertThat(board.getBoardId()).isEqualTo(20L);
+            assertThat(board.getPostCount()).isEqualTo(7L);
+        });
+        verify(posts).countPublicVisiblePostsByBoardIds(List.of(10L));
+        verify(posts).countActiveByBoardIds(List.of(20L));
+        verify(admins).findByUserAndBoard_BoardIdInAndIsActive(owner, CANDIDATE_IDS, true);
+        verifyNoMoreInteractions(admins);
+    }
+
+    @Test
+    void boardListShowsPublicCountsAlongsideManagedCountsAndDefaultsMissingRowsToZero() {
+        when(posts.countPublicVisiblePostsByBoardIds(List.of(10L))).thenReturn(List.of());
+        when(posts.countActiveByBoardIds(List.of(20L))).thenReturn(List.of(boardCount(20L, 7L)));
+
+        var result = boardList.getWritableBoardsWithAccess(agent);
+
+        assertThat(result.response().getBoards()).extracting(AgentBoardItem::getPostCount).containsExactly(0L, 7L);
+        assertThat(result.secretVisibleBoardIds()).containsExactly(20L);
+        verify(posts).countPublicVisiblePostsByBoardIds(List.of(10L));
+        verify(posts).countActiveByBoardIds(List.of(20L));
+        verifyNoMoreInteractions(posts);
+    }
+
+    @Test
     void superAdminSeesAllWritableBoardsWithoutAdminLookup() {
         ReflectionTestUtils.setField(owner, "isSuperAdmin", true);
         home.collect(agent);
         verify(posts).findAgentFeedByBoardIds(eq(CANDIDATE_IDS), eq(List.of(99L)),
                 eq(Set.of(10L, 20L, 30L)), eq(1L), any());
         verifyNoInteractions(admins);
+        verify(posts).countActiveByBoardIds(CANDIDATE_IDS);
+        verify(posts, never()).countPublicVisiblePostsByBoardIds(anyCollection());
     }
 
     @Test
@@ -170,6 +208,8 @@ class AgentHomeReadModelServiceTest {
         verify(boards).findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
         verifyNoInteractions(users, categories, admins, boardAiInfo);
         verify(blocks).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(posts, never()).countActiveByBoardIds(anyCollection());
+        verify(posts, never()).countPublicVisiblePostsByBoardIds(anyCollection());
         verify(posts, never()).findAgentFeedByBoardIds(anyCollection(), any(), any(), anyLong(), any());
     }
 
@@ -210,6 +250,13 @@ class AgentHomeReadModelServiceTest {
         assertThat(boardList.getWritableBoards(agent).getBoards()).extracting(AgentBoardItem::getBoardId)
                 .containsExactly(10L, 20L);
         assertThat(access.getAccessibleFeedBoards(agent, null)).containsExactly(publicBoard, adminBoard);
+    }
+
+    private PostRepository.BoardPostCountProjection boardCount(Long boardId, long postCount) {
+        return new PostRepository.BoardPostCountProjection() {
+            @Override public Long getBoardId() { return boardId; }
+            @Override public Long getPostCount() { return postCount; }
+        };
     }
 
     private Board board(Long id) {

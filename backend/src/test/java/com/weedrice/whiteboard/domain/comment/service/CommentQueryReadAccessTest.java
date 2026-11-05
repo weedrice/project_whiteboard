@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -59,6 +60,7 @@ class CommentQueryReadAccessTest {
     private CommentRepository commentRepository;
     private UserBlockService userBlockService;
     private CommentQueryService service;
+    private ContentAuthorVisibilityRepository authorVisibilityRepository;
     private Post post;
 
     enum ReadOperation {
@@ -71,6 +73,9 @@ class CommentQueryReadAccessTest {
 
     @BeforeEach
     void setUp() {
+        authorVisibilityRepository = mock(ContentAuthorVisibilityRepository.class);
+        when(authorVisibilityRepository.findVisibleUserIds(any()))
+                .thenAnswer(invocation -> new java.util.HashSet<>(invocation.<java.util.Collection<Long>>getArgument(0)));
         postRepository = mock(PostRepository.class);
         userRepository = mock(UserRepository.class);
         commentRepository = mock(CommentRepository.class);
@@ -88,7 +93,7 @@ class CommentQueryReadAccessTest {
                 commentRepository, inquiryPolicy, postPort,
                 new CommentUserIntegrationAdapter(org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.ProfilePrivacyPolicy.class),userResolver, userBlockService, mock(UserBlockRepository.class)),
                 readSupport, new CommentReadModelAssembler(readSupport), mock(CommentMentionRepository.class),
-                new StaticMessageSource(), mock(ActorBatchReadPort.class));
+                new StaticMessageSource(), mock(ActorBatchReadPort.class), authorVisibilityRepository);
 
         User author = User.builder().displayName("Author").build();
         ReflectionTestUtils.setField(author, "userId", 1L);
@@ -112,6 +117,28 @@ class CommentQueryReadAccessTest {
                 .thenReturn(List.of(comment));
         when(commentRepository.findRepliesWithRelations(eq(20L), eq(false), anyBoolean(), anyCollection(), any()))
                 .thenReturn(new PageImpl<>(List.of(comment), PAGE, 1));
+    }
+
+    @org.junit.jupiter.api.Test
+    void hiddenThreadAncestor_isMaskedWithoutChangingStoredModerationStateOrDirectRead() {
+        org.mockito.Mockito.doReturn(java.util.Set.of()).when(authorVisibilityRepository).findVisibleUserIds(any());
+        Comment ancestor = commentRepository.findByIdWithRelations(20L).orElseThrow();
+        CommentRepository.ReplyCountProjection replies = mock(CommentRepository.ReplyCountProjection.class);
+        when(replies.getParentId()).thenReturn(20L);
+        when(replies.getReplyCount()).thenReturn(1L);
+        when(commentRepository.countVisibleRepliesByParentIds(any(), anyBoolean(), any()))
+                .thenReturn(List.of(replies));
+
+        CommentResponse response = service.getComments(10L, 2L, PAGE).getContent().getFirst();
+
+        assertThat(response.isBlinded()).isTrue();
+        assertThat(response.getContent()).isNull();
+        assertThat(response.getAuthor()).isNull();
+        assertThat(response.getMentions()).isEmpty();
+        assertThat(response.getReplyCount()).isEqualTo(1);
+        assertThat(ancestor.getIsBlinded()).isFalse();
+        assertThat(service.getComment(20L, 2L).getContent()).isEqualTo("Comment");
+        verify(authorVisibilityRepository).findVisibleUserIds(java.util.Set.of(1L));
     }
 
     @ParameterizedTest

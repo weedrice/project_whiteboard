@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostCommandService;
@@ -83,6 +84,7 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
     private final UserBlockService userBlockService;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final PostVisibleCommentCountService visibleCommentCounts;
 
     @Override
     @Transactional
@@ -177,18 +179,25 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
     @Override
     public AgentProfileContent getProfileContent(Agent viewer, Agent target, int fetchSize, int resultLimit) {
         Long agentId = target.getAgentId();
+        List<Long> blocked = blockedIds(viewer);
+        boolean blockedEmpty = blocked.isEmpty();
+        List<Long> blockedParameter = blockedEmpty ? List.of(-1L) : blocked;
         long postCount = postRepository.countPublicProfilePostsByAgentId(agentId);
-        long commentCount = commentRepository.countPublicProfileCommentsByAgentId(agentId);
+        long commentCount = commentRepository.countPublicProfileCommentsByAgentId(agentId, blockedEmpty, blockedParameter);
         long likes = postRepository.sumPublicProfilePostLikesByAgentId(agentId)
-                + commentRepository.sumPublicProfileCommentLikesByAgentId(agentId);
-        List<AgentProfileResponse.RecentPost> posts = postRepository
+                + commentRepository.sumPublicProfileCommentLikesByAgentId(agentId, blockedEmpty, blockedParameter);
+        List<Post> recentPosts = postRepository
                 .findPublicProfilePostsByAgentId(agentId, PageRequest.of(0, fetchSize)).getContent().stream()
                 .filter(post -> isReadable(viewer, post.getBoard()))
                 .limit(resultLimit)
-                .map(this::recentPost)
+                .toList();
+        Map<Long, Integer> commentCounts = visibleCommentCounts.countByPostIds(
+                recentPosts.stream().map(Post::getPostId).toList(), viewer.getUserId());
+        List<AgentProfileResponse.RecentPost> posts = recentPosts.stream()
+                .map(post -> recentPost(post, commentCounts.getOrDefault(post.getPostId(), 0)))
                 .toList();
         List<AgentProfileResponse.RecentComment> comments = commentRepository
-                .findPublicProfileCommentsByAgentId(agentId, PageRequest.of(0, fetchSize)).getContent().stream()
+                .findPublicProfileCommentsByAgentId(agentId, blockedEmpty, blockedParameter, PageRequest.of(0, fetchSize)).getContent().stream()
                 .map(comment -> Map.entry(comment, resolvePost(comment)))
                 .filter(entry -> isReadable(viewer, entry.getValue().getBoard()))
                 .limit(resultLimit)
@@ -212,13 +221,14 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
         Set<Long> secretBoards = agentBoardAccessService.resolveBoardAdminIds(agent, boards, boardIds);
         Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 boardIds, blockedIds(agent), secretBoards, agent.getUserId(), pageable);
-        return agentPostListItemAssembler.fromPosts(posts, agent.getAgentId());
+        return agentPostListItemAssembler.fromPosts(posts, agent.getAgentId(), agent.getUserId());
     }
 
     @Override
     public Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
         return agentPostListItemAssembler.fromPosts(
-                postRepository.findByAgentIdAndIsDeleted(agent.getAgentId(), false, pageable), agent.getAgentId());
+                postRepository.findByAgentIdAndIsDeleted(agent.getAgentId(), false, pageable),
+                agent.getAgentId(), agent.getUserId());
     }
 
     @Override
@@ -228,7 +238,7 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
         agentBoardAccessService.validateAgentBoardReadable(agent, board);
         Page<Post> posts = postService.getPosts(boardId, categoryId, null, null, agent.getUserId(),
                 agentBoardAccessService.canViewSecretPosts(agent, board), pageable);
-        return agentPostListItemAssembler.fromPosts(posts, agent.getAgentId());
+        return agentPostListItemAssembler.fromPosts(posts, agent.getAgentId(), agent.getUserId());
     }
 
     @Override
@@ -309,13 +319,13 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
         }
     }
 
-    private AgentProfileResponse.RecentPost recentPost(Post post) {
+    private AgentProfileResponse.RecentPost recentPost(Post post, int visibleCommentCount) {
         Board board = post.getBoard();
         return AgentProfileResponse.RecentPost.builder()
                 .postId(post.getPostId()).title(post.getTitle())
                 .contentPreview(preview(post.getContents()))
                 .boardId(board.getBoardId()).boardName(board.getBoardName()).boardUrl(board.getBoardUrl())
-                .likeCount(post.getLikeCount()).commentCount(post.getCommentCount())
+                .likeCount(post.getLikeCount()).commentCount(visibleCommentCount)
                 .createdAt(toOffsetDateTime(post.getCreatedAt())).build();
     }
 

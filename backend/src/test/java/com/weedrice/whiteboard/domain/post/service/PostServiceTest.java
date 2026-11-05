@@ -166,6 +166,8 @@ class PostServiceTest {
     private ActorBatchReadPort actorBatchReadPort;
     @Mock
     private ActorReadPort actorReadPort;
+    @Mock
+    private PostVisibleCommentCountService visibleCommentCountService;
     private PostDraftCleanupService postDraftCleanupService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
@@ -209,12 +211,12 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postInteractionContextResolver,
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, visibleCommentCountService);
         FeedPostSummaryAssembler feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 postInteractionContextResolver,
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, visibleCommentCountService);
         inquiryLegacyWritePolicy = mock(
                 com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy.class);
         lenient().when(inquiryLegacyWritePolicy.areLegacyWritesEnabled()).thenReturn(true);
@@ -273,7 +275,7 @@ class PostServiceTest {
                 postDetailContextResolver,
                 pollService,
                 mock(PostSeriesService.class),
-                actorReadPort);
+                actorReadPort, visibleCommentCountService);
         postDetailViewCommandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
@@ -1386,6 +1388,9 @@ class PostServiceTest {
     }
 
     // --- Update Post ---
+
+
+
 
     @Test
     void updatePostKeepsEmoticonContentWithoutMovingItIntoPostOwnership() {
@@ -3622,6 +3627,8 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 응답 조회 성공")
     void getPostResponse_success() {
+        ReflectionTestUtils.setField(post, "commentCount", 15);
+        when(visibleCommentCountService.countByPostIds(List.of(1L), 1L)).thenReturn(Map.of(1L, 2));
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
@@ -3650,6 +3657,9 @@ class PostServiceTest {
         assertThat(response.getTitle()).isEqualTo("Test Post");
         assertThat(response.getViewCount()).isEqualTo(1);
         assertThat(response.getBoardListPage()).isEqualTo(2);
+        assertThat(response.getCommentCount()).isEqualTo(2);
+        assertThat(post.getCommentCount()).isEqualTo(15);
+        verify(visibleCommentCountService).countByPostIds(List.of(1L), 1L);
         assertThat(response.isLiked()).isTrue();
         assertThat(response.isScrapped()).isTrue();
         assertThat(response.getEditCount()).isEqualTo(2);

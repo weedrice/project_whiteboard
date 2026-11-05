@@ -79,7 +79,7 @@ class SearchBoardAccessTest {
         when(users.findById(1L)).thenReturn(Optional.of(viewer));
         when(posts.searchPosts(anyString(), anyString(), anyString(), any(), any(), any(), any(),
                 anyBoolean(), any(), any())).thenReturn(Page.empty());
-        when(summaries.assembleSearchPage(any())).thenReturn(Page.empty());
+        when(summaries.assembleSearchPage(any(), org.mockito.ArgumentMatchers.nullable(Long.class))).thenReturn(Page.empty());
         when(config.getConfigFresh(GlobalConfigService.INQUIRY_LEGACY_WRITE_ENABLED_CONFIG_KEY)).thenReturn("N");
     }
 

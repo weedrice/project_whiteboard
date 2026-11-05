@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -117,6 +118,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             JOIN p.board b
             WHERE p.isDeleted = false
               AND p.isBlinded = false
+              AND p.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
               AND b.isActive = true
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
@@ -129,6 +133,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             JOIN p.board b
             WHERE p.isDeleted = false
               AND p.isBlinded = false
+              AND p.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
               AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
@@ -147,6 +154,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             JOIN p.board b
             WHERE p.isDeleted = false
               AND p.isBlinded = false
+              AND p.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
               AND (
                     p.isSecret = false
                     OR :isSuperAdmin = true

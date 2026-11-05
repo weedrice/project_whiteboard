@@ -67,6 +67,9 @@ class PostSummaryAssemblerTest {
     @Mock
     private ActorBatchReadPort actorBatchReadPort;
 
+    @Mock
+    private PostVisibleCommentCountService visibleCommentCountService;
+
     private PostSummaryAssembler postSummaryAssembler;
     private FeedPostSummaryAssembler feedPostSummaryAssembler;
 
@@ -84,7 +87,7 @@ class PostSummaryAssemblerTest {
                         scrapRepository,
                         boardSubscriptionRepository),
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, visibleCommentCountService);
         feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 new PostInteractionContextResolver(
@@ -95,7 +98,7 @@ class PostSummaryAssemblerTest {
                         scrapRepository,
                         boardSubscriptionRepository),
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, visibleCommentCountService);
         org.mockito.Mockito.lenient().when(actorBatchReadPort.resolveAuthors(anyCollection()))
                 .thenAnswer(invocation -> invocation.<Collection<ContentActorRef>>getArgument(0).stream()
                         .collect(java.util.stream.Collectors.toMap(
@@ -144,7 +147,7 @@ class PostSummaryAssemblerTest {
                 PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt"))),
                 5);
 
-        List<PostSummary> summaries = postSummaryAssembler.assembleSearchPage(page).getContent();
+        List<PostSummary> summaries = postSummaryAssembler.assembleSearchPage(page, null).getContent();
 
         assertThat(summaries).extracting(PostSummary::getRowNum).containsExactly(3L, 2L);
         assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
@@ -182,13 +185,13 @@ class PostSummaryAssemblerTest {
                 PageRequest.of(0, 2, Sort.by(Sort.Order.desc("postId"), Sort.Order.asc("createdAt"))),
                 5);
 
-        assertThat(postSummaryAssembler.assembleSearchPage(createdAtDescPage).getContent())
+        assertThat(postSummaryAssembler.assembleSearchPage(createdAtDescPage, null).getContent())
                 .extracting(PostSummary::getRowNum)
                 .containsExactly(5L, 4L);
-        assertThat(postSummaryAssembler.assembleSearchPage(createdAtAscPage).getContent())
+        assertThat(postSummaryAssembler.assembleSearchPage(createdAtAscPage, null).getContent())
                 .extracting(PostSummary::getRowNum)
                 .containsExactly(1L, 2L);
-        assertThat(postSummaryAssembler.assembleSearchPage(postIdDescPage).getContent())
+        assertThat(postSummaryAssembler.assembleSearchPage(postIdDescPage, null).getContent())
                 .extracting(PostSummary::getRowNum)
                 .containsExactly(5L, 4L);
     }
@@ -229,7 +232,7 @@ class PostSummaryAssemblerTest {
                 PageRequest.of(0, 2),
                 2);
 
-        List<PostSummary> summaries = postSummaryAssembler.assembleTagPage(page).getContent();
+        List<PostSummary> summaries = postSummaryAssembler.assembleTagPage(page, null).getContent();
 
         assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
         assertThat(summaries).extracting(PostSummary::getThumbnailUrl)
@@ -265,7 +268,7 @@ class PostSummaryAssemblerTest {
         PageImpl<Post> page = new PageImpl<>(List.of(inquiryPost), PageRequest.of(0, 20), 1);
 
         PostSummary summary = postSummaryAssembler
-                .assembleBoardPage(page, PageRequest.of(0, 20), false, true)
+                .assembleBoardPage(page, PageRequest.of(0, 20), false, true, null)
                 .getContent()
                 .get(0);
 
@@ -479,12 +482,14 @@ class PostSummaryAssemblerTest {
                 1);
 
         PostSummary summary = postSummaryAssembler
-                .assembleBoardListProjectionPage(page, page.getPageable(), true, true)
+                .assembleBoardListProjectionPage(page, page.getPageable(), true, true, null)
                 .getContent()
                 .get(0);
 
         assertThat(summary.getPostId()).isEqualTo(100L);
         assertThat(summary.getBoardId()).isEqualTo(10L);
+        assertThat(summary.getCommentCount()).isZero();
+        verify(visibleCommentCountService).countByPostIds(List.of(100L), null);
         assertThat(summary.getCategory().getName()).isEqualTo("General");
         assertThat(summary.getAuthor().getDisplayName()).isEqualTo("Author");
         assertThat(summary.isHasImage()).isTrue();
@@ -494,6 +499,58 @@ class PostSummaryAssemblerTest {
         assertThat(summary.getRowNum()).isEqualTo(1L);
         assertThat(summary.getBoardUrl()).isEqualTo("inquiry");
         assertThat(summary.getBoardIconUrl()).isEqualTo("icon.png");
+    }
+
+    @Test
+    void batchCountsOverrideStoredCountsForSearchTagAndBoardPages() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardName("Free").boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        Post first = post(100L, author, board);
+        Post second = post(101L, author, board);
+        ReflectionTestUtils.setField(first, "commentCount", 50);
+        ReflectionTestUtils.setField(second, "commentCount", 40);
+        PageImpl<Post> page = new PageImpl<>(List.of(first, second), PageRequest.of(0, 20), 2);
+        when(visibleCommentCountService.countByPostIds(List.of(100L, 101L), 7L))
+                .thenReturn(Map.of(100L, 3));
+
+        assertThat(postSummaryAssembler.assembleSearchPage(page, 7L))
+                .extracting(PostSummary::getCommentCount).containsExactly(3, 0);
+        assertThat(postSummaryAssembler.assembleTagPage(page, 7L))
+                .extracting(PostSummary::getCommentCount).containsExactly(3, 0);
+        assertThat(postSummaryAssembler.assembleBoardPage(page, page.getPageable(), false, false, 7L))
+                .extracting(PostSummary::getCommentCount).containsExactly(3, 0);
+        verify(visibleCommentCountService, times(3)).countByPostIds(List.of(100L, 101L), 7L);
+        assertThat(first.getCommentCount()).isEqualTo(50);
+        assertThat(second.getCommentCount()).isEqualTo(40);
+    }
+
+    @Test
+    void batchCountsOverrideStoredCountsForLatestTrendingAndFeedCards() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardName("Free").boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        Post first = post(100L, author, board);
+        Post second = post(101L, author, board);
+        ReflectionTestUtils.setField(first, "commentCount", 50);
+        ReflectionTestUtils.setField(second, "commentCount", 40);
+        List<Post> posts = List.of(first, second);
+        when(visibleCommentCountService.countByPostIds(List.of(100L, 101L), null))
+                .thenReturn(Map.of(100L, 2));
+
+        assertThat(postSummaryAssembler.assembleLatestPosts(posts, null))
+                .extracting(PostSummary::getCommentCount).containsExactly(2, 0);
+        assertThat(postSummaryAssembler.assembleTrendingPosts(posts, null))
+                .extracting(PostSummary::getCommentCount).containsExactly(2, 0);
+        assertThat(feedPostSummaryAssembler.assembleLatestPosts(posts, null))
+                .extracting(FeedPostSummary::getCommentCount).containsExactly(2, 0);
+        assertThat(feedPostSummaryAssembler.assembleTrendingPosts(posts, null))
+                .extracting(FeedPostSummary::getCommentCount).containsExactly(2, 0);
+        verify(visibleCommentCountService, times(4)).countByPostIds(List.of(100L, 101L), null);
+        assertThat(first.getCommentCount()).isEqualTo(50);
+        assertThat(second.getCommentCount()).isEqualTo(40);
     }
 
     private Post post(Long postId, User author, Board board) {

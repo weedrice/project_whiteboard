@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.actor.ActorWritePort;
 import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.actor.ContentActorRef;
@@ -148,6 +149,8 @@ class CommentServiceTest {
     @Mock
     private ActorBatchReadPort actorBatchReadPort;
     @Mock
+    private ContentAuthorVisibilityRepository authorVisibilityRepository;
+    @Mock
     private ActorWritePort actorWritePort;
     @Mock
     private SanctionService sanctionService;
@@ -185,6 +188,8 @@ class CommentServiceTest {
                 .thenAnswer(invocation -> Optional.of(defaultBoard(invocation.getArgument(0))));
         lenient().when(actorWritePort.validateForWrite(any(ContentActorRef.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(authorVisibilityRepository.findVisibleUserIds(any()))
+                .thenAnswer(invocation -> new java.util.HashSet<>(invocation.<java.util.Collection<Long>>getArgument(0)));
         lenient().when(actorBatchReadPort.resolveAuthors(any())).thenAnswer(invocation -> {
             Collection<ContentActorRef> refs = invocation.getArgument(0);
             Map<ContentActorRef, AuthorSnapshot> snapshots = new LinkedHashMap<>();
@@ -247,7 +252,7 @@ class CommentServiceTest {
                 commentReadModelAssembler,
                 commentMentionRepository,
                 new StaticMessageSource(),
-                actorBatchReadPort);
+                actorBatchReadPort, authorVisibilityRepository);
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,
