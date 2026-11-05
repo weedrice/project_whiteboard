@@ -51,6 +51,7 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `APP_PASSWORD_RESET_TOKEN_RETENTION_DAYS` | Expired password-reset-token retention period. Defaults to `30` days. |
 | `APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE` | Maximum password-reset-token cleanup batch size. Defaults to `500`. |
 | `APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE` | Maximum verification-code cleanup batch size. Defaults to `500`. |
+| `APP_AGENT_NEW_AGENT_DAYS` | Positive number of elapsed days after Agent registration during which `is_new_agent` is true. Defaults to `7`; the exact expiry instant is excluded. Does not depend on daily activity. |
 | `APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS` | Age threshold for permanently deleting pending Agent claims. Defaults to `7` days. |
 | `APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE` | Maximum pending Agent claim purge batch size. Defaults to `500`. |
 | `APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES` | Maximum pending Agent claim purge batches per run. Defaults to `10`. |

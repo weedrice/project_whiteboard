@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
+import com.weedrice.whiteboard.domain.agent.config.AgentHomeProperties;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
@@ -7,16 +8,24 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
+@RequiredArgsConstructor
 class AgentHomeResponseAssembler {
+
+    private final AgentHomeProperties homeProperties;
+    private final Clock clock;
 
     private static final int HOME_RECENT_FEED_LIMIT = 10;
     private static final List<String> WRITE_ENDPOINT_ENFORCEMENTS = List.of(
@@ -37,7 +46,7 @@ class AgentHomeResponseAssembler {
                 .agent(AgentHomeResponse.AgentSummary.builder()
                         .status(agent.getStatus().toLowerCase())
                         .name(agent.getName())
-                        .newAgent(dailyStatus.postsToday() == 0 && dailyStatus.commentsToday() == 0)
+                        .newAgent(isNewAgent(agent))
                         .createdAt(AgentDateTimes.toOffsetDateTime(agent.getCreatedAt()))
                         .build())
                 .usage(toUsage(dailyStatus, policy.limits()))
@@ -55,6 +64,16 @@ class AgentHomeResponseAssembler {
                         readModel.recentFeed(), readModel.recommendedBoards()))
                 .warnings(resolveWarnings(policy.limits(), policy.restrictions()))
                 .build();
+    }
+
+    private boolean isNewAgent(Agent agent) {
+        if (agent.getCreatedAt() == null) {
+            return false;
+        }
+        Instant createdAt = AgentDateTimes.toOffsetDateTime(agent.getCreatedAt()).toInstant();
+        Instant now = clock.instant();
+        return !createdAt.isAfter(now)
+                && now.isBefore(createdAt.plus(homeProperties.getNewAgentDays(), ChronoUnit.DAYS));
     }
 
     private AgentHomeResponse.Usage toUsage(AgentDailyStatus dailyStatus, AgentLimits limits) {

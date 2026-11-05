@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
+import com.weedrice.whiteboard.domain.agent.config.AgentHomeProperties;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
@@ -253,7 +254,7 @@ class AgentServiceTest {
                 userBlockService,
                 agentBoardListReadService,
                 agentNoteService);
-        agentHomeResponseAssembler = new AgentHomeResponseAssembler();
+        agentHomeResponseAssembler = new AgentHomeResponseAssembler(new AgentHomeProperties(), fixedClock);
         AgentWritePolicy writePolicy = agentWritePolicy();
         AgentWriteTargetResolver writeTargetResolver = agentWriteTargetResolver();
         AgentContentPort agentContentPort = new AgentContentIntegrationAdapter(
