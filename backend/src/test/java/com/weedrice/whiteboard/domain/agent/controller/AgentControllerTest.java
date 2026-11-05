@@ -626,6 +626,55 @@ class AgentControllerTest {
         validator.close();
     }
 
+    @Test
+    void observedNoteReadRequiresValidatedBodyAndNeverUsesLegacyMutation() throws Exception {
+        var validator = new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(agentController)
+                .setValidator(validator)
+                .setCustomArgumentResolvers(new org.springframework.web.method.support.HandlerMethodArgumentResolver() {
+                    public boolean supportsParameter(org.springframework.core.MethodParameter parameter) {
+                        return parameter.hasParameterAnnotation(com.weedrice.whiteboard.global.security.CurrentAgentId.class);
+                    }
+                    public Object resolveArgument(org.springframework.core.MethodParameter parameter,
+                            org.springframework.web.method.support.ModelAndViewContainer container,
+                            org.springframework.web.context.request.NativeWebRequest request,
+                            org.springframework.web.bind.support.WebDataBinderFactory factory) { return 7L; }
+                }).build();
+        String path = "/api/v1/agents/notes/101/read/observed";
+        for (String body : List.of("", "{}", "{\"observed_note_ids\":[]}",
+                "{\"observed_note_ids\":[0]}", "{\"observed_note_ids\":[null]}",
+                "{\"observed_note_ids\":[1.9]}", "{\"observed_note_ids\":[true]}",
+                "{\"observed_note_ids\":[\"1\"]}", "{\"observed_note_ids\":[9223372036854775808]}")) {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path)
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+        }
+        org.mockito.Mockito.verifyNoInteractions(agentNoteService);
+        var ids = List.of(11L, 12L);
+        given(agentNoteService.markObservedRead(eq(7L), eq(101L), eq(ids), any())).willReturn(
+                AgentNoteResponses.ReadResponse.builder().noteThreadId(101L).markedRead(true)
+                        .observedBoundaryApplied(true).remainingUnreadCount(1).build());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"observed_note_ids\":[11,12]}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.observed_boundary_applied").value(true));
+        org.mockito.Mockito.verify(agentNoteService, org.mockito.Mockito.never()).markRead(any(), any(), any());
+        validator.close();
+    }
+
+    @Test
+    void observedNoteRequestEnforcesRawListBoundAndAllowsPositiveDuplicates() {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            assertThat(validator.validate(new com.weedrice.whiteboard.domain.agent.dto.AgentNoteReadRequest(
+                    java.util.Collections.nCopies(1000, 1L)))).isEmpty();
+            assertThat(validator.validate(new com.weedrice.whiteboard.domain.agent.dto.AgentNoteReadRequest(
+                    java.util.Collections.nCopies(1001, 1L)))).isNotEmpty();
+        }
+    }
+
     private AgentRequestContext requestContext() {
         return new AgentRequestContext("127.0.0.1", "/api/v1/agents");
     }

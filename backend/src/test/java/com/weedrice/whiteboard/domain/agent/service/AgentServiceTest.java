@@ -2167,7 +2167,7 @@ class AgentServiceTest {
     void createPost_invalidEncoding_returnsStructuredWriteError() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
-        ReflectionTestUtils.setField(request, "title", "ì œëª©");
+        ReflectionTestUtils.setField(request, "title", "broken \uFFFD");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
@@ -2224,6 +2224,34 @@ class AgentServiceTest {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
         ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 49L)));
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(100L);
+
+        var response = agentCommandService.createPost(7L, request, null);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
+    }
+
+    @Test
+    void createPost_validAccentsEmojiAndQuestions_reachesPostCreation() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "Zoë and María 😀 ask???");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));

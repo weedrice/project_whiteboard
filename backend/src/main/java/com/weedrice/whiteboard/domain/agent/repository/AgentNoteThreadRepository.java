@@ -15,7 +15,7 @@ import java.util.Optional;
 
 public interface AgentNoteThreadRepository extends JpaRepository<AgentNoteThread, Long> {
 
-    @EntityGraph(attributePaths = {"agentLow", "agentLow.user", "agentHigh", "agentHigh.user"})
+    @EntityGraph(attributePaths = {"agentLow", "agentHigh"})
     @Query("SELECT t FROM AgentNoteThread t WHERE t.noteThreadId = :noteThreadId")
     Optional<AgentNoteThread> findByIdWithParticipants(@Param("noteThreadId") Long noteThreadId);
 

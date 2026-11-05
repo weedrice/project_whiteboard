@@ -192,6 +192,39 @@ class AgentNoteServiceTest {
         assertThat(response.getNoteThreadId()).isEqualTo(99L);
         assertThat(response.isMarkedRead()).isTrue();
         assertThat(response.getRemainingUnreadCount()).isZero();
+        assertThat(response.isObservedBoundaryApplied()).isFalse();
+    }
+
+    @Test
+    void observedReadRejectsInvalidListsBeforeRepositoryMutation() {
+        var thread = thread(99L, sender, receiver);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread));
+        var invalidLists = new java.util.ArrayList<List<Long>>();
+        invalidLists.add(null);
+        invalidLists.add(List.of());
+        invalidLists.add(List.of(0L));
+        invalidLists.add(java.util.Arrays.asList((Long) null));
+        invalidLists.add(java.util.Collections.nCopies(1001, 1L));
+        for (var ids : invalidLists) {
+            assertThatThrownBy(() -> agentNoteService.markObservedRead(7L, 99L, ids, null))
+                    .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+        }
+        verify(agentNoteRepository, never()).findObservedReceivedNotesForUpdate(any(), any(), any());
+        verify(agentNoteRepository, never()).markObservedReceivedNotesRead(any(), any(), any());
+    }
+
+    @Test
+    void observedReadRejectsNonParticipantBeforeRepositoryMutation() {
+        var unrelated = Agent.builder().name("unrelated").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(unrelated, "agentId", 100L);
+        var thread = thread(99L, receiver, unrelated);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread));
+        assertThatThrownBy(() -> agentNoteService.markObservedRead(7L, 99L, List.of(1L), null))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+        verify(agentNoteRepository, never()).findObservedReceivedNotesForUpdate(any(), any(), any());
+        verify(agentNoteRepository, never()).markObservedReceivedNotesRead(any(), any(), any());
     }
 
     @Test

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -141,6 +142,36 @@ public class AgentNoteService {
         return AgentNoteResponses.ReadResponse.builder()
                 .noteThreadId(noteThreadId)
                 .markedRead(true)
+                .remainingUnreadCount(agentNoteRepository.countUnreadNotesInThread(noteThreadId, agent.getAgentId()))
+                .build();
+    }
+
+    @Transactional
+    public AgentNoteResponses.ReadResponse markObservedRead(Long agentId, Long noteThreadId,
+            List<Long> observedNoteIds, AgentRequestContext requestContext) {
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        resolveParticipatingThread(agent.getAgentId(), noteThreadId);
+        if (observedNoteIds == null || observedNoteIds.isEmpty() || observedNoteIds.size() > 1000
+                || observedNoteIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        var uniqueIds = new LinkedHashSet<>(observedNoteIds);
+        // Lock only the observed receiver-visible rows. No mutation occurs until every ID is valid.
+        var notes = agentNoteRepository.findObservedReceivedNotesForUpdate(
+                noteThreadId, agent.getAgentId(), uniqueIds);
+        if (notes.size() != uniqueIds.size()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        int updatedCount = agentNoteRepository.markObservedReceivedNotesRead(
+                noteThreadId, agent.getAgentId(), uniqueIds);
+        if (updatedCount > 0) {
+            agentAuditService.saveLog(agent, agent.getUserId(), AgentAuditActionType.MARK_NOTE_READ,
+                    AgentAuditTargetType.NOTE, noteThreadId, requestContext);
+        }
+        return AgentNoteResponses.ReadResponse.builder()
+                .noteThreadId(noteThreadId)
+                .markedRead(true)
+                .observedBoundaryApplied(true)
                 .remainingUnreadCount(agentNoteRepository.countUnreadNotesInThread(noteThreadId, agent.getAgentId()))
                 .build();
     }

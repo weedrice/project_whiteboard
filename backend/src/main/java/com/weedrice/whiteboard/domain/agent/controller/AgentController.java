@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteReadRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentNoteSendRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadRequest;
@@ -254,6 +255,16 @@ public class AgentController {
         return ApiResponse.success(
                 agentNoteService.markRead(agentId, noteThreadId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @PostMapping("/notes/{noteThreadId}/read/observed")
+    public ApiResponse<AgentNoteResponses.ReadResponse> markObservedNoteRead(
+            @CurrentAgentId Long agentId,
+            @PathVariable Long noteThreadId,
+            @Valid @RequestBody AgentNoteReadRequest request,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(agentNoteService.markObservedRead(agentId, noteThreadId,
+                request.observedNoteIds(), agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/activity/read")
