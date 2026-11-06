@@ -147,7 +147,7 @@ Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 
 추가 JPA 통합 테스트는 마이그레이션된 스키마에서 일반 검색·작성자 일괄 조회·게시판별 최신 글에
 같은 필터가 적용되고 BAN 만료 후 다시 노출되는지 검증하며, 생성한 데이터는 롤백합니다. 색인 복구 테스트는 기존 벡터의 FAILED backfill, 삭제 작업 lease 변경, 복구된 게시글·댓글에 대한 늦은 삭제 방지도 실제 PostgreSQL에서 확인합니다.
 
-For online-index migrations, use the two Flyway lock settings above as CI does.
+For online-index migrations, use the two Flyway lock settings above as CI does. To additionally verify HNSW index usability, set `$env:POSTGRES_VECTOR_EXPLAIN='true'` before running the task. That fixture forces an index-capable plan on small test data; it is not a production performance benchmark. Selective board/type/author fixtures always create an HNSW index and verify recovery when ANN neighbors fail eligibility filters. An underfilled per-type ANN pool is replaced by an exact scan with the same predicates in the same SQL statement; a full pool skips that scan. This does not require iterative-scan support. Selective or small result sets can therefore incur an exact scan; production latency still needs measurement.
 
 ### 배포 버전 확인
 

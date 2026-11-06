@@ -37,8 +37,11 @@ public class SemanticSearchService {
                         context.blockedUserIds(),
                         SemanticSearchVectorFormatter.format(queryEmbedding),
                         pageable.getPageSize(),
-                        pageable.getOffset());
-                SemanticSearchQueryRows rows = transactionService.searchVector(query);
+                        pageable.getOffset(),
+                        properties.getRetrieval().getMinSimilarity(),
+                        properties.getRetrieval().getCandidateLimit());
+                SemanticSearchKeywordQuery keywords = keywordQuery(canonicalKeyword, normalizedContentType, context, pageable);
+                SemanticSearchQueryRows rows = transactionService.searchHybrid(query, keywords);
                 List<SemanticSearchResultResponse> results = rows.results()
                         .stream()
                         .map(this::toSearchResponse)
@@ -61,19 +64,19 @@ public class SemanticSearchService {
 
     private Page<SemanticSearchResultResponse> fallbackKeywordSearch(String keyword,
             SemanticSearchContentType contentType, SemanticSearchQueryContext context, Pageable pageable) {
-        SemanticSearchKeywordQuery query = new SemanticSearchKeywordQuery(
-                contentType,
-                keyword,
-                context.boardUrl(),
-                context.blockedUserIds(),
-                pageable.getPageSize(),
-                pageable.getOffset());
+        SemanticSearchKeywordQuery query = keywordQuery(keyword, contentType, context, pageable);
         SemanticSearchQueryRows rows = transactionService.searchKeyword(query);
         List<SemanticSearchResultResponse> results = rows.results()
                 .stream()
                 .map(this::toSearchResponse)
                 .toList();
         return new PageImpl<>(results, pageable, rows.totalElements());
+    }
+
+    private SemanticSearchKeywordQuery keywordQuery(String keyword, SemanticSearchContentType contentType,
+                                                    SemanticSearchQueryContext context, Pageable pageable) {
+        return new SemanticSearchKeywordQuery(contentType, keyword, context.boardUrl(), context.blockedUserIds(),
+                pageable.getPageSize(), pageable.getOffset(), properties.getRetrieval().getCandidateLimit());
     }
 
     private SemanticSearchResultResponse toSearchResponse(SemanticSearchRow row) {

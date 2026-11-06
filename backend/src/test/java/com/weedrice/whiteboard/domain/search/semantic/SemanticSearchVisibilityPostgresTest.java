@@ -6,9 +6,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -124,6 +128,197 @@ class SemanticSearchVisibilityPostgresTest {
                 .contains("COMMENT:110", "COMMENT:203");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM semantic_search_embeddings", Long.class))
                 .isEqualTo(embeddingCount);
+    }
+
+    @Test
+    void hybridIncludesUnindexedExactTitleAndLowSimilarityKeywordWithoutHiddenAuthors() {
+        jdbc.update("""
+                INSERT INTO posts (post_id, board_id, user_id, title, contents, created_at)
+                VALUES (500, 1, 1, 'opposite vector', 'needle body', CURRENT_TIMESTAMP),
+                       (501, 1, 1, 'needle', 'not yet indexed', CURRENT_TIMESTAMP),
+                       (502, 1, 6, 'needle', 'blocked author', CURRENT_TIMESTAMP)
+                """);
+        String opposite = "[-1" + ",0".repeat(1535) + "]";
+        jdbc.update("INSERT INTO semantic_search_embeddings (content_type, content_id, embedding) VALUES ('POST', 500, CAST(? AS vector))", opposite);
+        var vectorQuery = new SemanticSearchQuery(SemanticSearchContentType.POST, "free", BLOCKED_USERS, VECTOR, 2, 0, 0.8, 200);
+        var keywordQuery = new SemanticSearchKeywordQuery(SemanticSearchContentType.POST, "needle", "free", BLOCKED_USERS, 2, 0, 200);
+        assertThat(keys(vectors.search(vectorQuery.candidates()))).doesNotContain("POST:500", "POST:501", "POST:502");
+        assertThat(vectors.count(vectorQuery)).isEqualTo(VISIBLE_AUTHORS.size());
+        var service = new SemanticSearchQueryTransactionService(vectors, keywords,
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.board.repository.BoardRepository.class),
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy.class),
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.repository.UserRepository.class),
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.user.service.UserBlockService.class));
+        var first = service.searchHybrid(vectorQuery, keywordQuery);
+        assertThat(first.results().getFirst().contentId()).isEqualTo(501L);
+        assertThat(first.results().getFirst().rankSource()).isEqualTo("KEYWORD_FALLBACK");
+        assertThat(first.totalElements()).isEqualTo(VISIBLE_AUTHORS.size() + 2L);
+        List<String> allPages = new ArrayList<>();
+        for (int offset = 0; offset < 10; offset += 2) {
+            var page = service.searchHybrid(new SemanticSearchQuery(SemanticSearchContentType.POST, "free",
+                    BLOCKED_USERS, VECTOR, 2, offset, 0.8, 200), keywordQuery);
+            assertThat(page.totalElements()).isEqualTo(first.totalElements());
+            allPages.addAll(keys(page.results()));
+        }
+        assertThat(allPages).hasSize(8).doesNotHaveDuplicates().contains("POST:500", "POST:501").doesNotContain("POST:502");
+    }
+
+    @ParameterizedTest
+    @EnumSource(SemanticSearchContentType.class)
+    void exactScanRetainsBoundaryTiesBeforeStableCandidateCap(SemanticSearchContentType type) {
+        // No ANN index in this fixture: this verifies exact SQL tie semantics, not ANN recall.
+        jdbc.update("INSERT INTO boards VALUES (2, 'ties', 'Tied vectors', 'Y', 'Y', 'Y')");
+        jdbc.update("""
+                INSERT INTO posts (post_id, board_id, user_id, title, contents, created_at)
+                SELECT id, 2, 1, 'same title', 'same body', CURRENT_TIMESTAMP
+                FROM generate_series(1001, 1230) AS id
+                """);
+        jdbc.update("""
+                INSERT INTO comments (comment_id, post_id, user_id, content, created_at)
+                SELECT id, 1001, 1, 'same comment', CURRENT_TIMESTAMP
+                FROM generate_series(1001, 1230) AS id
+                """);
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id, embedding)
+                SELECT content_type, id, CAST(? AS vector)
+                FROM generate_series(1001, 1230) AS id
+                CROSS JOIN (VALUES ('POST'), ('COMMENT')) AS types(content_type)
+                """, VECTOR);
+        String expectedType = type == SemanticSearchContentType.POST ? "POST" : "COMMENT";
+        List<String> expected = java.util.stream.IntStream.range(0, 200)
+                .mapToObj(index -> expectedType + ":" + (1230 - index)).toList();
+        var query = new SemanticSearchQuery(type, "ties", BLOCKED_USERS, VECTOR, 200, 0, 0.2, 200);
+
+        assertThat(keys(vectors.search(query))).containsExactlyElementsOf(expected);
+        assertThat(vectors.count(query)).isEqualTo(200);
+        List<String> pages = new ArrayList<>();
+        for (int offset = 0; offset <= 200; offset += 50) {
+            pages.addAll(keys(vectors.search(new SemanticSearchQuery(
+                    type, "ties", BLOCKED_USERS, VECTOR, 50, offset, 0.2, 200))));
+        }
+        assertThat(pages).containsExactlyElementsOf(expected).doesNotHaveDuplicates();
+    }
+
+    @Test
+    @EnabledIfEnvironmentVariable(named = "POSTGRES_VECTOR_EXPLAIN", matches = "true")
+    void vectorCandidatePlanCanUseHnswDistanceOrder() {
+        jdbc.execute("CREATE INDEX semantic_visibility_hnsw ON semantic_search_embeddings USING hnsw (embedding vector_cosine_ops) WHERE deleted_at IS NULL");
+        jdbc.execute("SET LOCAL enable_seqscan = off");
+        jdbc.execute("ANALYZE semantic_search_embeddings");
+        var query = vectorQuery(SemanticSearchContentType.POST, 5, 0);
+        vectors.configureCandidateSearch(query.candidateLimit());
+        assertThat(jdbc.queryForObject("SELECT current_setting('hnsw.ef_search')::integer", Integer.class)).isGreaterThanOrEqualTo(200);
+        var plan = new NamedParameterJdbcTemplate(jdbc).queryForList(
+                "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + vectors.searchSql(query), vectors.params(query));
+        String output = plan.toString();
+        System.out.println("Semantic vector HNSW plan: " + output);
+        assertThat(output).contains("semantic_visibility_hnsw");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"POST,board", "COMMENT,board", "POST,type", "COMMENT,type", "POST,author", "COMMENT,author"})
+    void indexedSearchRecoversCandidatesRejectedBySelectiveFilters(SemanticSearchContentType type, String filter) {
+        jdbc.update("INSERT INTO boards VALUES (2, 'selective', 'Selective board', 'Y', 'Y', 'Y')");
+        int distractorBoard = filter.equals("board") ? 1 : 2;
+        int distractorAuthor = filter.equals("author") ? 4 : 1;
+        String distractorType = filter.equals("type")
+                ? (type == SemanticSearchContentType.POST ? "COMMENT" : "POST") : type.name();
+        jdbc.update("""
+                INSERT INTO posts (post_id, board_id, user_id, title, contents, created_at)
+                SELECT id, ?, ?, 'unrelated', 'unrelated', CURRENT_TIMESTAMP
+                FROM generate_series(2000, 2599) id
+                """, distractorBoard, distractorAuthor);
+        jdbc.update("""
+                INSERT INTO comments (comment_id, post_id, user_id, content, created_at)
+                SELECT post_id, post_id, user_id, 'unrelated', created_at FROM posts WHERE post_id >= 2000
+                """);
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id, embedding)
+                SELECT ?, id, CAST(? AS vector) FROM generate_series(2000, 2599) id
+                """, distractorType, VECTOR);
+        String relevantVector = "[0.8,0.6" + ",0".repeat(1534) + "]";
+        for (long id = 1000; id < 1003; id++) {
+            jdbc.update("""
+                    INSERT INTO posts (post_id, board_id, user_id, title, contents, created_at)
+                    VALUES (?, 2, 1, 'meaning only', 'no literal match', CURRENT_TIMESTAMP)
+                    """, id);
+            jdbc.update("""
+                    INSERT INTO comments (comment_id, post_id, user_id, content, created_at)
+                    VALUES (?, ?, 1, 'no literal match', CURRENT_TIMESTAMP)
+                    """, id, id);
+            jdbc.update("INSERT INTO semantic_search_embeddings VALUES (?, ?, CAST(? AS vector), NULL)",
+                    type.name(), id, relevantVector);
+        }
+        jdbc.execute("CREATE INDEX selective_hnsw ON semantic_search_embeddings USING hnsw (embedding vector_cosine_ops) WHERE deleted_at IS NULL");
+        jdbc.execute("ANALYZE");
+        jdbc.execute("SET LOCAL enable_seqscan = off");
+        jdbc.execute("SET LOCAL enable_sort = off");
+        jdbc.execute("SET LOCAL jit = off");
+        // Reproduce the non-iterative ANN behavior, even if the server enables iterative scans by default.
+        if (Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_settings WHERE name = 'hnsw.iterative_scan')", Boolean.class))) {
+            jdbc.execute("SET LOCAL hnsw.iterative_scan = off");
+        }
+        var query = new SemanticSearchQuery(type, "selective", BLOCKED_USERS, VECTOR, 20, 0, 0.7, 20);
+        vectors.configureCandidateSearch(query.candidateLimit());
+        var namedJdbc = new NamedParameterJdbcTemplate(jdbc);
+        String initialAnn = """
+                SELECT e.content_id
+                FROM semantic_search_embeddings e JOIN posts p ON p.post_id = e.content_id
+                JOIN boards b ON b.board_id = p.board_id JOIN users u ON u.user_id = p.user_id
+                WHERE e.deleted_at IS NULL AND e.content_type = :contentType
+                  AND b.board_url = :boardUrl AND u.status = 'ACTIVE'
+                ORDER BY e.embedding <=> CAST(:queryEmbedding AS vector) ASC
+                FETCH FIRST :candidateLimit ROWS WITH TIES
+                """;
+        var parameters = vectors.params(query).addValue("contentType", type.name());
+        assertThat(namedJdbc.queryForList(initialAnn, parameters)).hasSizeLessThan(3);
+        assertThat(namedJdbc.queryForList("EXPLAIN " + initialAnn, parameters).toString()).contains("selective_hnsw");
+        assertThat(namedJdbc.queryForList("EXPLAIN " + vectors.searchSql(query), parameters).toString()).contains("selective_hnsw");
+
+        assertThat(keys(vectors.search(query))).containsExactly(type + ":1002", type + ":1001", type + ":1000");
+        assertThat(vectors.count(query)).isEqualTo(3);
+        var keywordQuery = new SemanticSearchKeywordQuery(type, "needle", "selective", BLOCKED_USERS, 2, 0, 20);
+        assertThat(keywords.search(keywordQuery)).isEmpty();
+        var service = new SemanticSearchQueryTransactionService(vectors, keywords, null, null, null, null);
+        var firstPage = service.searchHybrid(new SemanticSearchQuery(type, "selective", BLOCKED_USERS, VECTOR, 2, 0, 0.7, 20), keywordQuery);
+        var lastPage = service.searchHybrid(new SemanticSearchQuery(type, "selective", BLOCKED_USERS, VECTOR, 2, 2, 0.7, 20), keywordQuery);
+        assertThat(firstPage.totalElements()).isEqualTo(3);
+        assertThat(keys(firstPage.results())).containsExactly(type + ":1002", type + ":1001");
+        assertThat(lastPage.totalElements()).isEqualTo(3);
+        assertThat(keys(lastPage.results())).containsExactly(type + ":1000");
+    }
+
+    @Test
+    void fullIndexedPoolDoesNotExecuteExactFallback() {
+        jdbc.execute("CREATE INDEX full_pool_hnsw ON semantic_search_embeddings USING hnsw (embedding vector_cosine_ops) WHERE deleted_at IS NULL");
+        jdbc.execute("SET LOCAL enable_seqscan = off");
+        jdbc.execute("SET LOCAL jit = off");
+        jdbc.execute("ANALYZE");
+        var query = new SemanticSearchQuery(SemanticSearchContentType.POST, "free", BLOCKED_USERS, VECTOR, 2, 0, 0.7, 2);
+        vectors.configureCandidateSearch(query.candidateLimit());
+        assertThat(vectors.search(query)).hasSize(2);
+        String json = new NamedParameterJdbcTemplate(jdbc).queryForObject(
+                "EXPLAIN (ANALYZE, FORMAT JSON) " + vectors.searchSql(query), vectors.params(query), String.class);
+        assertThat(json).contains("full_pool_hnsw");
+        List<JsonNode> nodes = planNodes(new ObjectMapper().readTree(json).get(0).get("Plan"));
+        JsonNode guard = nodes.stream()
+                .filter(node -> node.path("One-Time Filter").asString().contains("<"))
+                .findFirst().orElseThrow();
+        assertThat(guard.path("Actual Rows").asInt()).isZero();
+        List<JsonNode> fallbackScans = planNodes(guard).stream()
+                .filter(node -> node.path("Relation Name").asString().equals("semantic_search_embeddings")).toList();
+        assertThat(fallbackScans).isNotEmpty().allSatisfy(scan ->
+                assertThat(scan.path("Actual Loops").asInt()).isZero());
+    }
+
+    private List<JsonNode> planNodes(JsonNode node) {
+        List<JsonNode> nodes = new ArrayList<>();
+        nodes.add(node);
+        for (JsonNode child : node.path("Plans")) {
+            nodes.addAll(planNodes(child));
+        }
+        return nodes;
     }
 
     private void createTables() {

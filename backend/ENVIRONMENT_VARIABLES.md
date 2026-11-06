@@ -57,6 +57,8 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES` | Maximum pending Agent claim purge batches per run. Defaults to `10`. |
 | `SEMANTIC_SEARCH_ENABLED` | Enables OpenAI/pgvector semantic search. Defaults to `false`. |
 | `OPENAI_API_KEY` | OpenAI API key used for embeddings when semantic search is enabled. |
+| `SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY` | Vector candidate similarity floor for hybrid search, independently configured from related posts. Defaults to `0.20`; initial value, not a production-calibrated quality guarantee. |
+| `SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT` | Maximum final search candidate pool and page total. Defaults to `200`; allowed range `20–1000`. Keyword fallback uses the same cap. Exact vector scans may retain more intermediate distance ties before the final cap; HNSW retrieval remains approximate. |
 | `SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY` | Minimum similarity for related posts. Defaults to `0.55`. |
 | `WEB_PUSH_PUBLIC_KEY` | Browser-facing VAPID public key. |
 | `WEB_PUSH_PRIVATE_KEY` | Secret VAPID private key used to sign Web Push requests. |
@@ -107,6 +109,7 @@ Set these variables when the defaults do not match your local or CI database:
 | `POSTGRES_SMOKE_DATASOURCE_USERNAME` | Smoke-test database user |
 | `POSTGRES_SMOKE_DATASOURCE_PASSWORD` | Smoke-test database password |
 | `FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK` / `SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK` | Set both to `false`, matching CI, for migrations that create indexes concurrently. |
+| `POSTGRES_VECTOR_EXPLAIN` | Optional `true` enables the controlled HNSW query-plan fixture; not a production benchmark. |
 
 ## Local Development
 

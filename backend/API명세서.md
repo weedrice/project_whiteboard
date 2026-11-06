@@ -456,6 +456,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 `GET /api/v1/search`와 `GET /api/v1/search/posts`의 `period`는 `TODAY`, `WEEK`, `MONTH`, `CUSTOM`을 지원한다. `WEEK`는 오늘을 포함한 7일, `MONTH`는 오늘을 포함한 최근 달력상 1개월로 계산하며 종료일의 다음 날 00:00을 exclusive upper bound로 사용한다. `CUSTOM`의 `from`이 `to`보다 늦거나 지원하지 않는 `period`이면 `VALIDATION_ERROR`를 반환한다.
 
+적용: 의미 검색은 벡터 후보와 키워드 후보를 결합하고 `(contentType, contentId)`로 중복을 제거한다. 정확한 게시글 제목 일치를 우선하며 나머지는 두 후보 목록의 순위를 결합한다. 벡터 후보의 최소 유사도는 `SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY`(기본 0.20), 최종 후보 상한은 `SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT`(기본 200, 20~1000)이다. `totalElements`는 전체 색인 건수가 아닌 이 제한된 후보 집합의 크기이며, 같은 집합에서 페이지를 나누므로 범위 밖 페이지는 빈 목록이다. 비활성·임베딩 호출 실패의 키워드 대체 검색도 같은 후보 상한을 적용한다. 응답 필드와 `VECTOR`·`KEYWORD_FALLBACK` 값은 유지한다. 유형별 HNSW 후보가 상한보다 적으면 같은 공개·게시판·작성자 조건의 정확 검색으로 후보를 대체하여 필터로 인한 누락을 보완한다. 후보가 충분하면 기존 근사 검색을 유지한다.
+
 `POST /api/v1/admin/search/semantic/backfill`은 미색인·삭제된 벡터뿐 아니라 기존 벡터가 남아 있는 `FAILED` 상태의 `UPSERT` 작업도 재등록한다. 콘텐츠 유형별 `limit` 안에서 `FAILED DELETE`를 삭제 동작 그대로 우선 재등록하고, 남은 한도로 미색인·실패한 `UPSERT`를 선택한다. `ALL`은 게시글·댓글에 각각 한도를 적용하며 반환 건수는 둘의 합계다. `PENDING`·`PROCESSING` 대상은 제외하고, UPSERT 후보에서는 미색인 작업을 실패 작업보다 먼저 선택한다. 재시도 한도 소진 후 자동 무한 재시도는 하지 않으며 원인 해소 후 관리자가 backfill을 실행한다. 일반 색인 실패 수는 `noviis_semantic_jobs_failed`로 제공한다.
 
 임베딩 입력은 유니코드 코드 포인트를 보존하며 UTF-8 8,000바이트 이하로 제한한다. 이는 토큰을 직접 세는 방식이 아니라 API 한도 이내로 제한하기 위한 보수적 상한이며, 한·일 문자는 더 적게 포함될 수 있다. 기능 비활성화·키 미설정 시에도 이미 등록된 `DELETE` 작업은 처리하며, 삭제 직전 현재 공개 상태를 잠금 아래 다시 검사하여 복구된 글의 벡터를 늦은 작업이 지우지 않도록 한다.

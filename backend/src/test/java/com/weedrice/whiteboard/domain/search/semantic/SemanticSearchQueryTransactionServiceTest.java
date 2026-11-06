@@ -28,6 +28,8 @@ import static org.mockito.Mockito.when;
 class SemanticSearchQueryTransactionServiceTest {
 
     private SemanticSearchQueryTransactionService transactionService;
+    private SemanticSearchVectorRepository vectors;
+    private SemanticSearchKeywordFallbackRepository keywords;
     private BoardRepository boardRepository;
     private UserRepository userRepository;
     private UserBlockService userBlockService;
@@ -37,9 +39,11 @@ class SemanticSearchQueryTransactionServiceTest {
         boardRepository = mock(BoardRepository.class);
         userRepository = mock(UserRepository.class);
         userBlockService = mock(UserBlockService.class);
+        vectors = mock(SemanticSearchVectorRepository.class);
+        keywords = mock(SemanticSearchKeywordFallbackRepository.class);
         transactionService = new SemanticSearchQueryTransactionService(
-                mock(SemanticSearchVectorRepository.class),
-                mock(SemanticSearchKeywordFallbackRepository.class),
+                vectors,
+                keywords,
                 boardRepository,
                 new BoardAccessPolicy(mock(AdminRepository.class)),
                 userRepository,
@@ -51,6 +55,62 @@ class SemanticSearchQueryTransactionServiceTest {
         assertThat(transactionalAnnotation("loadQueryContext", String.class, Long.class).readOnly()).isTrue();
         assertThat(transactionalAnnotation("searchVector", SemanticSearchQuery.class).readOnly()).isTrue();
         assertThat(transactionalAnnotation("searchKeyword", SemanticSearchKeywordQuery.class).readOnly()).isTrue();
+    }
+
+    @Test
+    void hybridFetchesEachFixedPoolOnceAndPagesAfterDedupWithoutCounts() throws NoSuchMethodException {
+        var vectorQuery = new SemanticSearchQuery(SemanticSearchContentType.ALL, "board", List.of(9L), "[1,0]", 1, 1, 0.3, 20);
+        var keywordQuery = new SemanticSearchKeywordQuery(SemanticSearchContentType.ALL, "needle", "board", List.of(9L), 1, 1, 20);
+        var indexed = SemanticSearchHybridRankingTest.row("POST", 1, "other", "VECTOR", 0.9);
+        var unindexed = SemanticSearchHybridRankingTest.row("POST", 2, "needle", "KEYWORD_FALLBACK", null);
+        when(vectors.search(vectorQuery.candidates())).thenReturn(List.of(indexed));
+        when(keywords.search(keywordQuery.candidates())).thenReturn(List.of(unindexed));
+
+        var result = transactionService.searchHybrid(vectorQuery, keywordQuery);
+
+        assertThat(result.results()).containsExactly(indexed);
+        assertThat(result.totalElements()).isEqualTo(2);
+        verify(vectors).configureCandidateSearch(20);
+        verify(vectors).search(vectorQuery.candidates());
+        verify(keywords).search(keywordQuery.candidates());
+        org.mockito.Mockito.verifyNoMoreInteractions(vectors, keywords);
+        var transaction = transactionalAnnotation("searchHybrid", SemanticSearchQuery.class, SemanticSearchKeywordQuery.class);
+        assertThat(transaction.readOnly()).isTrue();
+        assertThat(transaction.isolation()).isEqualTo(org.springframework.transaction.annotation.Isolation.REPEATABLE_READ);
+    }
+
+    @Test
+    void filteredVectorPoolCanBeEmptyWhileKeywordCandidatesStillFillResults() {
+        var vectorQuery = new SemanticSearchQuery(SemanticSearchContentType.POST, "board", List.of(9L), "[1,0]", 10, 0);
+        var keywordQuery = new SemanticSearchKeywordQuery(SemanticSearchContentType.POST, "needle", "board", List.of(9L), 10, 0);
+        var unindexed = SemanticSearchHybridRankingTest.row("POST", 2, "needle", "KEYWORD_FALLBACK", null);
+        when(vectors.search(vectorQuery.candidates())).thenReturn(List.of());
+        when(keywords.search(keywordQuery.candidates())).thenReturn(List.of(unindexed));
+
+        var result = transactionService.searchHybrid(vectorQuery, keywordQuery);
+
+        assertThat(result.results()).containsExactly(unindexed);
+        assertThat(result.totalElements()).isEqualTo(1);
+        verify(vectors).configureCandidateSearch(200);
+        verify(vectors).search(vectorQuery.candidates());
+        verify(keywords).search(keywordQuery.candidates());
+        org.mockito.Mockito.verifyNoMoreInteractions(vectors, keywords);
+    }
+
+    @Test
+    void keywordFallbackFetchesFixedPoolAndCalculatesTotalFromReturnedRows() {
+        var query = new SemanticSearchKeywordQuery(SemanticSearchContentType.POST, "needle", "board", List.of(), 1, 1, 20);
+        var first = SemanticSearchHybridRankingTest.row("POST", 1, "needle", "KEYWORD_FALLBACK", null);
+        var second = SemanticSearchHybridRankingTest.row("POST", 2, "needle", "KEYWORD_FALLBACK", null);
+        when(keywords.search(query.candidates())).thenReturn(List.of(first, second));
+
+        var result = transactionService.searchKeyword(query);
+
+        assertThat(result.results()).containsExactly(second);
+        assertThat(result.totalElements()).isEqualTo(2);
+        verify(keywords).search(query.candidates());
+        org.mockito.Mockito.verifyNoMoreInteractions(keywords);
+        org.mockito.Mockito.verifyNoInteractions(vectors);
     }
 
     @Test
