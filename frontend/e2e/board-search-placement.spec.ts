@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { installMockApi } from './fixtures/mockApi'
 
-for (const width of [390, 1280]) {
-  test(`board search stays before results at ${width}px`, async ({ page }) => {
+for (const width of [390, 639, 640, 1280]) {
+  test(`board search and writing use responsive placement at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })
-    await installMockApi(page)
+    await installMockApi(page, { authenticated: true })
     const requests: URL[] = []
     await page.route('**/api/v1/**', async (route) => {
       const url = new URL(route.request().url())
@@ -31,12 +31,35 @@ for (const width of [390, 1280]) {
     await expect(search).toBeInViewport()
     const searchBox = await search.boundingBox()
     const postBox = await firstPost.boundingBox()
-    expect(searchBox!.y + searchBox!.height).toBeLessThan(postBox!.y)
+    const write = page.locator('.nv-board-search-write-btn')
+    await expect(write).toHaveCount(1)
+    await expect(write).toHaveAttribute('href', '/board/general/write')
+    const writeBox = await write.boundingBox()
+    if (width < 640) {
+      expect(searchBox!.y + searchBox!.height).toBeLessThan(postBox!.y)
+      expect(writeBox!.y + writeBox!.height).toBeLessThan(postBox!.y)
+    } else {
+      const lastPostBox = await page.locator('tbody tr').last().boundingBox()
+      expect(searchBox!.y).toBeGreaterThan(lastPostBox!.y + lastPostBox!.height)
+      expect(writeBox!.y).toBeGreaterThan(lastPostBox!.y + lastPostBox!.height)
+    }
     expect(requests.every((url) => Number(url.searchParams.get('page') ?? 0) === 0)).toBe(true)
     await search.fill('needle')
     await search.press('Enter')
     await expect(firstPost).toContainText('Needle result')
     await expect.poll(() => requests.at(-1)?.searchParams.get('q')).toBe('needle')
     await expect(search).toHaveValue('needle')
+    await search.fill('unsent query')
+    const resizedWidth = width < 640 ? 1280 : 390
+    await page.setViewportSize({ width: resizedWidth, height: 844 })
+    await expect(search).toHaveCount(1)
+    await expect(search).toHaveValue('unsent query')
+    await expect(write).toHaveCount(1)
+    const resizedPost = page.locator(resizedWidth < 640 ? '.nv-post-card' : 'tbody tr').first()
+    await expect(resizedPost).toContainText('Needle result')
+    await expect.poll(() => search.evaluate((input) => {
+      const list = document.querySelector('#board-post-list .nv-post-card, #board-post-list tbody tr')
+      return list ? Boolean(input.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING) : null
+    })).toBe(resizedWidth < 640)
   })
 }

@@ -204,8 +204,8 @@ describe('BoardDetail', () => {
     subscribeMutate.mockReset()
   })
 
-  it('keeps one search field before the mobile infinite list and submits its query', async () => {
-    isMobilePostList.value = true
+  it.each([true, false])('places one search and write row on the correct side of the list (mobile=%s)', async (mobile) => {
+    isMobilePostList.value = mobile
     const wrapper = mount(BoardDetail, {
       global: {
         mocks: { $t: (key: string) => key },
@@ -218,7 +218,11 @@ describe('BoardDetail', () => {
     const search = wrapper.get('#board-search-input')
     const list = wrapper.get('post-list-stub')
     expect(wrapper.findAll('#board-search-input')).toHaveLength(1)
-    expect(search.element.compareDocumentPosition(list.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const direction = mobile ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING
+    expect(search.element.compareDocumentPosition(list.element) & direction).toBeTruthy()
+    const write = wrapper.get('.nv-board-search-write-btn')
+    expect(wrapper.findAll('.nv-board-search-write-btn')).toHaveLength(1)
+    expect(write.element.compareDocumentPosition(list.element) & direction).toBeTruthy()
     await search.setValue('needle')
     await search.trigger('keyup.enter')
     await nextTick()

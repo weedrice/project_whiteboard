@@ -184,6 +184,7 @@ useHead({
         />
 
         <BoardPostSearch
+          v-if="mobilePostListEnabled"
           v-model:search-query="searchQuery"
           v-model:search-type="searchType"
           :search-input-element-id="searchInputElementId"
@@ -215,6 +216,19 @@ useHead({
           :show-density-control="false"
           @update:sort="handleSortChange"
           @load-more="loadMorePosts"
+        />
+
+        <BoardPostSearch
+          v-if="!mobilePostListEnabled"
+          v-model:search-query="searchQuery"
+          v-model:search-type="searchType"
+          :search-input-element-id="searchInputElementId"
+          :is-searching="isSearching"
+          :can-write="canWrite"
+          :board-url="board.boardUrl"
+          :transient-list-error="transientListError"
+          @search="handleSearch"
+          @clear="clearSearch"
         />
 
         <div
