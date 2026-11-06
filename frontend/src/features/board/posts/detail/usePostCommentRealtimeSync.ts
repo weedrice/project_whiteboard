@@ -4,6 +4,7 @@ import { isAxiosError } from 'axios'
 import { notificationApi } from '@/api/notification'
 import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
+import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import {
   getNotificationStreamConnection,
   subscribeNotificationStreamConnection,
@@ -118,6 +119,12 @@ export function usePostCommentRealtimeSync({
     clearCommentRefreshTimer()
     if (expectedSessionGeneration !== sessionGeneration.value) return
     pendingCommentCount.value = 0
+    // Route details use string IDs; comment responses can carry numeric IDs.
+    for (const id of new Set([postId.value, commentQueryPostId.value])) {
+      void queryClient?.invalidateQueries({
+        queryKey: sessionQueryKey(expectedSessionGeneration, postQueryKeys.detailPrefix(id)),
+      })
+    }
     void queryClient?.invalidateQueries({
       queryKey: sessionQueryKey(
         expectedSessionGeneration,
@@ -145,7 +152,7 @@ export function usePostCommentRealtimeSync({
     if (event.sessionGeneration !== sessionGeneration.value) return
     if (String(event.postId) !== String(postId.value)) return
 
-    if (event.action === 'UPDATED' || event.action === 'DELETED') {
+    if (event.action === 'UPDATED' || event.action === 'DELETED' || event.action === 'INVALIDATED') {
       scheduleCommentRefresh(event.sessionGeneration)
       return
     }

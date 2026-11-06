@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
@@ -17,6 +18,7 @@ import java.util.Set;
 class NotificationActorVisibilityService {
 
     private final UserBlockRepository userBlockRepository;
+    private final ContentAuthorVisibilityRepository authorVisibilityRepository;
 
     Set<Long> resolveHiddenActorUserIds(Long receiverUserId, Collection<Notification> notifications) {
         Set<Long> hiddenActorUserIds = new HashSet<>();
@@ -36,6 +38,12 @@ class NotificationActorVisibilityService {
             }
         }
         if (!activeActorUserIds.isEmpty()) {
+            Set<Long> visibleActorUserIds = authorVisibilityRepository.findVisibleUserIds(activeActorUserIds);
+            for (Long actorUserId : activeActorUserIds) {
+                if (!visibleActorUserIds.contains(actorUserId)) {
+                    hiddenActorUserIds.add(actorUserId);
+                }
+            }
             List<Long> blockedUserIds = userBlockRepository.findBlockedCandidateUserIdsEitherDirection(
                     receiverUserId, List.copyOf(activeActorUserIds));
             if (blockedUserIds != null) {
@@ -51,6 +59,11 @@ class NotificationActorVisibilityService {
         }
         User actor = notification.getActor();
         if (isInactive(actor)) {
+            return true;
+        }
+        if (actor.getUserId() != null
+                && !authorVisibilityRepository.findVisibleUserIds(List.of(actor.getUserId()))
+                        .contains(actor.getUserId())) {
             return true;
         }
         return receiverUserId != null

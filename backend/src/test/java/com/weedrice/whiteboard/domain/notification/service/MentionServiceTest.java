@@ -52,11 +52,14 @@ class MentionServiceTest {
     @Mock AdminRepository admins;
     @Mock PostAccessPolicy postAccessPolicy;
     @Mock AgentRepository agents;
+    @Mock com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository authors;
     MentionService service;
 
     @BeforeEach
     void setUp() {
-        service = new MentionService(users, blocks, events, posts, comments, admins, postAccessPolicy, agents);
+        when(authors.findVisibleUserIds(any())).thenReturn(java.util.Set.of(1L));
+        service = new MentionService(users, blocks, events, agents,
+                new MentionNotificationReadPolicy(posts, comments, blocks, admins, postAccessPolicy, authors));
     }
 
     @Test
@@ -127,6 +130,7 @@ class MentionServiceTest {
         User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
         Post sourcePost = post(10L);
         Comment sourceComment = mock(Comment.class);
+        when(sourceComment.getUserId()).thenReturn(1L);
         when(sourceComment.getIsBlinded()).thenReturn(false);
         when(sourceComment.getPostId()).thenReturn(10L);
         when(comments.findNonDeletedByIdWithRelations(20L)).thenReturn(java.util.Optional.of(sourceComment));
@@ -172,13 +176,15 @@ class MentionServiceTest {
         when(source.getIsSecret()).thenReturn(true);
         when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(source));
         Comment comment = mock(Comment.class);
+        when(comment.getUserId()).thenReturn(1L);
         when(comment.getPostId()).thenReturn(10L);
         when(comments.findNonDeletedByIdWithRelations(10L)).thenReturn(java.util.Optional.of(comment));
         when(users.findAllById(any())).thenReturn(List.of(actor, manager, nonManager, blockedManager, inactive));
         when(blocks.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L, 3L, 4L))).thenReturn(List.of(4L));
         when(admins.findActiveUserIdsByBoardIdAndUserIds(100L, List.of(2L, 3L, 4L))).thenReturn(List.of(2L, 4L));
-        service = new MentionService(users, blocks, events, posts, comments, admins,
-                new PostAccessPolicy(new BoardAccessPolicy(admins), mock(InquiryLegacyWritePolicy.class)), agents);
+        service = new MentionService(users, blocks, events, agents,
+                new MentionNotificationReadPolicy(posts, comments, blocks, admins,
+                        new PostAccessPolicy(new BoardAccessPolicy(admins), mock(InquiryLegacyWritePolicy.class)), authors));
 
         service.publishMentions(actor, null, sourceType, 10L, List.of(1L, 2L, 3L, 4L, 5L));
 
@@ -212,6 +218,27 @@ class MentionServiceTest {
         verify(events).publishEvent(any(NotificationEvent.class));
     }
 
+    @Test
+    void commentParentAuthorBlockAlsoPreventsNewMentionPublication() {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
+        Post source = post(10L);
+        when(source.getUserId()).thenReturn(3L);
+        Comment sourceComment = mock(Comment.class);
+        when(sourceComment.getUserId()).thenReturn(1L);
+        when(sourceComment.getPostId()).thenReturn(10L);
+        when(comments.findNonDeletedByIdWithRelations(20L)).thenReturn(java.util.Optional.of(sourceComment));
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(source));
+        when(users.findAllById(List.of(2L))).thenReturn(List.of(recipient));
+        when(blocks.findBlockedCandidateUserIdsEitherDirection(3L, List.of(2L))).thenReturn(List.of(2L));
+
+        service.publishMentions(actor, null, NotificationSourceType.COMMENT, 20L, List.of(2L));
+
+        verify(events, never()).publishEvent(any());
+        verify(blocks).findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L));
+        verify(blocks).findBlockedCandidateUserIdsEitherDirection(3L, List.of(2L));
+    }
+
     private static User user(Long id, String name, String status) {
         User user = mock(User.class);
         when(user.getUserId()).thenReturn(id);
@@ -223,6 +250,7 @@ class MentionServiceTest {
     private static Post post(Long id) {
         Post post = mock(Post.class);
         when(post.getPostId()).thenReturn(id);
+        when(post.getUserId()).thenReturn(1L);
         return post;
     }
 }
