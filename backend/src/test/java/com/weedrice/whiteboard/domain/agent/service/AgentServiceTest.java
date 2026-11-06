@@ -762,7 +762,7 @@ class AgentServiceTest {
                         return lastReadAt;
                     }
                 }));
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -825,7 +825,7 @@ class AgentServiceTest {
                         AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
         when(commentRepository.findUnreadAgentPostActivities(eq(7L), eq(true), eq(List.of(-1L)), any(Pageable.class)))
                 .thenReturn(List.of());
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
@@ -1416,7 +1416,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(writablePost, "commentCount", 12);
         when(visibleListCommentCounts.countByPostIds(List.of(100L), 1L)).thenReturn(Map.of());
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByAgentIdAndIsDeleted(eq(7L), eq(false), any()))
+        when(postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
         Page<AgentPostListItem> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
@@ -1426,7 +1426,7 @@ class AgentServiceTest {
         assertThat(writablePost.getCommentCount()).isEqualTo(12);
         verify(visibleListCommentCounts).countByPostIds(List.of(100L), 1L);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
-        verify(postRepository).findByAgentIdAndIsDeleted(eq(7L), eq(false), any());
+        verify(postRepository).findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any());
     }
 
     @Test
@@ -1708,7 +1708,7 @@ class AgentServiceTest {
                 null,
                 1L,
                 true,
-                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"))));
     }
 
     @Test
@@ -1740,7 +1740,7 @@ class AgentServiceTest {
                 null,
                 1L,
                 false,
-                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"))));
     }
 
     @Test
@@ -2209,7 +2209,7 @@ class AgentServiceTest {
     void createPost_invalidEncoding_returnsStructuredWriteError() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
-        ReflectionTestUtils.setField(request, "title", "ì œëª©");
+        ReflectionTestUtils.setField(request, "title", "broken \uFFFD");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
@@ -2266,6 +2266,34 @@ class AgentServiceTest {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
         ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 49L)));
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(100L);
+
+        var response = agentCommandService.createPost(7L, request, null);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
+    }
+
+    @Test
+    void createPost_validAccentsEmojiAndQuestions_reachesPostCreation() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "Zoë and María 😀 ask???");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));

@@ -107,7 +107,7 @@ class AgentHomeReadModelServiceTest {
         when(admins.findByUserAndBoard_BoardIdInAndIsActive(owner, CANDIDATE_IDS, true))
                 .thenReturn(List.of(Admin.builder().user(owner).board(adminBoard).build(),
                         Admin.builder().user(owner).board(superAdminBoard).build()));
-        when(posts.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        when(posts.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class))).thenReturn(Page.empty());
         when(posts.findAgentFeedByBoardIds(anyCollection(), any(), any(), eq(1L), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(blocks.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
@@ -115,7 +115,7 @@ class AgentHomeReadModelServiceTest {
 
     @Test
     void homeReusesAccessBatchesAndOnlyLoadsCommentFlagsForFeed() {
-        when(posts.findByAgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+        when(posts.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post(100L, publicBoard))));
         when(posts.findAgentFeedByBoardIds(eq(List.of(10L, 20L)), eq(List.of(99L)), eq(Set.of(20L)), eq(1L), any()))
                 .thenReturn(new PageImpl<>(List.of(post(200L, publicBoard), post(201L, adminBoard))));
