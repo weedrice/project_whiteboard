@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.user.dto.BlockedUserResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
@@ -41,7 +43,7 @@ public class UserBlockService {
                 userWritableResolver.lockUserPairForUpdate(userId, targetUserId);
         User user = userWritableResolver.validateWritable(lockedUsers.firstUser());
         User target = lockedUsers.secondUser();
-        if (!target.isActiveAccount()) {
+        if (!ContentAuthorVisibility.retainsContent(target.getStatus(), target.getDeletedAt())) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
@@ -78,11 +80,12 @@ public class UserBlockService {
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_BLOCK_PAGE_SIZE);
         Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, safePageable);
 
-        return blocks.map(block -> new BlockedUserResponse(
-                block.getTarget().getUserId(),
-                block.getTarget().getLoginId(),
-                block.getTarget().getDisplayName(),
-                block.getCreatedAt()));
+        return blocks.map(block -> {
+            User target = block.getTarget();
+            boolean withdrawn = AuthorPresentation.isWithdrawn(target.getStatus(), target.getDeletedAt());
+            return new BlockedUserResponse(target.getUserId(), withdrawn ? null : target.getLoginId(),
+                    AuthorPresentation.displayName(withdrawn, target.getDisplayName()), block.getCreatedAt(), withdrawn);
+        });
     }
 
     public boolean isBlocked(Long userId, Long targetUserId) {

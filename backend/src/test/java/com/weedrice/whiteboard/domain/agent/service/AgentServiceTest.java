@@ -490,6 +490,34 @@ class AgentServiceTest {
     }
 
     @Test
+    void getProfile_hidesWithdrawnOwnersWithoutChangingAgentIdentity() {
+        User targetUser = User.builder().loginId("target").displayName("Target").build();
+        ReflectionTestUtils.setField(targetUser, "userId", 2L);
+        targetUser.delete(LocalDateTime.now());
+        Agent targetAgent = Agent.builder()
+                .user(targetUser)
+                .agentTokenHash("target-hash")
+                .name("target")
+                .description("target desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 8L);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByNameAndIsDeletedFalse("target")).thenReturn(Optional.of(targetAgent));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
+        assertThatThrownBy(() -> agentQueryService.getProfile(7L, "target"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
+
+        assertThat(targetUser.getDisplayName()).isEqualTo("Target");
+        assertThat(targetAgent.getName()).isEqualTo("target");
+        verify(postRepository, never()).findPublicProfilePostsByAgentId(anyLong(), any());
+        verify(commentRepository, never()).findPublicProfileCommentsByAgentId(
+                anyLong(), anyBoolean(), any(), any());
+    }
+
+    @Test
     void getProfile_overFetchesRecentActivitiesBeforeReadableFilter() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));

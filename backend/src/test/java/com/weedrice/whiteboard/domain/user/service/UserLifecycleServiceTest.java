@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
 import com.weedrice.whiteboard.domain.user.port.UserContentReindexPort;
+import com.weedrice.whiteboard.domain.user.port.UserScheduledPostLifecyclePort;
 import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
@@ -51,6 +52,7 @@ class UserLifecycleServiceTest {
     @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
     @Mock private UserAgentLifecyclePort agentLifecycleService;
     @Mock private UserContentReindexPort userContentReindexPort;
+    @Mock private UserScheduledPostLifecyclePort userScheduledPostLifecyclePort;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
     @Mock private Clock clock;
@@ -148,7 +150,7 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 
     @Test
@@ -160,6 +162,7 @@ class UserLifecycleServiceTest {
         userLifecycleService.deleteAccount(1L);
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
+        verify(userScheduledPostLifecyclePort).cancelUnpublishedForLockedUser(user.getUserId());
         assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
         verify(userRepository).findByIdForUpdate(1L);
         var inOrder = inOrder(
@@ -182,6 +185,7 @@ class UserLifecycleServiceTest {
         userLifecycleService.deletePrelockedAccount(user);
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
+        verify(userScheduledPostLifecyclePort).cancelUnpublishedForLockedUser(user.getUserId());
         assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
         verifyNoInteractions(userRepository);
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
@@ -207,7 +211,7 @@ class UserLifecycleServiceTest {
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
         verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(user);
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 
     @Test
@@ -255,7 +259,7 @@ class UserLifecycleServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 
     @Test
@@ -269,7 +273,7 @@ class UserLifecycleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 
     @Test
@@ -283,7 +287,7 @@ class UserLifecycleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 
     @Test
@@ -298,6 +302,6 @@ class UserLifecycleServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(sanctionRepository, never()).existsActiveBan(eq(user), any(LocalDateTime.class));
-        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort, userScheduledPostLifecyclePort);
     }
 }

@@ -2,6 +2,10 @@ package com.weedrice.whiteboard.domain.post.integration;
 
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.StringExpression;
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import static com.weedrice.whiteboard.domain.agent.entity.QAgent.agent;
@@ -22,20 +26,24 @@ public final class PostAuthorQueryIntegration {
         query.leftJoin(agent).on(agent.agentId.eq(agentId));
     }
 
-    public static Expression<String> userDisplayName() {
-        return user.displayName;
+    public static StringExpression userDisplayName() {
+        return new CaseBuilder().when(withdrawn()).then(AuthorPresentation.WITHDRAWN_DISPLAY_NAME).otherwise(user.displayName);
     }
 
     public static Expression<String> userProfileImageUrl() {
-        return user.profileImageUrl;
+        return new CaseBuilder().when(withdrawn()).then(Expressions.nullExpression(String.class)).otherwise(user.profileImageUrl);
     }
 
-    public static Expression<String> agentName() {
-        return agent.name;
+    public static StringExpression agentName() {
+        return new CaseBuilder().when(withdrawn()).then(AuthorPresentation.WITHDRAWN_DISPLAY_NAME).otherwise(agent.name);
+    }
+
+    public static BooleanExpression withdrawn() {
+        return user.status.eq("DELETED").or(user.deletedAt.isNotNull());
     }
 
     public static BooleanExpression displayAuthorContains(String keyword) {
-        return user.displayName.containsIgnoreCase(keyword)
-                .or(agent.name.containsIgnoreCase(keyword));
+        return userDisplayName().containsIgnoreCase(keyword)
+                .or(agentName().containsIgnoreCase(keyword));
     }
 }

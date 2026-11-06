@@ -60,6 +60,38 @@ class ActorIntegrationAdapterTest {
         verifyNoInteractions(userRepository, agentRepository);
     }
 
+    @Test
+    void withdrawalMasksPublicIdentityWithoutChangingStoredIdentityAndRestoresOnReactivation() {
+        User owner = user(2L, "Original owner");
+        owner.updateProfileImage("https://example.com/owner.png");
+        owner.updateRepresentativeBadgeCode("FIRST_POST");
+        Agent agent = Agent.builder().user(owner).name("Original agent").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(agent, "agentId", 20L);
+        var userRef = ContentActorRef.user(2L);
+        var agentRef = new ContentActorRef(2L, 20L);
+        when(userRepository.findAllById(Set.of(2L))).thenReturn(List.of(owner));
+        when(agentRepository.findAllById(Set.of(20L))).thenReturn(List.of(agent));
+        owner.delete(java.time.LocalDateTime.now());
+
+        var authors = adapter().resolveAuthors(List.of(userRef, agentRef));
+        for (var ref : List.of(userRef, agentRef)) {
+            assertThat(authors.get(ref).displayName()).isEqualTo("탈퇴한 사용자");
+            assertThat(authors.get(ref).withdrawn()).isTrue();
+            assertThat(authors.get(ref).ownerUserId()).isEqualTo(2L);
+            assertThat(authors.get(ref).profileImageUrl()).isNull();
+            assertThat(authors.get(ref).representativeBadgeCode()).isNull();
+        }
+        assertThat(owner.getDisplayName()).isEqualTo("Original owner");
+        assertThat(agent.getName()).isEqualTo("Original agent");
+        assertThat(owner.getProfileImageUrl()).isEqualTo("https://example.com/owner.png");
+
+        owner.activate();
+        var restored = adapter().resolveAuthors(List.of(userRef, agentRef));
+        assertThat(restored.get(userRef).displayName()).isEqualTo("Original owner");
+        assertThat(restored.get(agentRef).displayName()).isEqualTo("Original agent");
+        assertThat(restored.get(userRef).withdrawn()).isFalse();
+    }
+
     private ActorIntegrationAdapter adapter() {
         return new ActorIntegrationAdapter(userRepository, agentRepository, sanctionService);
     }

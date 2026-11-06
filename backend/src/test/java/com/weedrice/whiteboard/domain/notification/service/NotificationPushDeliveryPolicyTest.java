@@ -30,10 +30,12 @@ class NotificationPushDeliveryPolicyTest {
     private final ContentAuthorVisibilityRepository authors = mock(ContentAuthorVisibilityRepository.class);
     private final UserBlockRepository blocks = mock(UserBlockRepository.class);
     private final NotificationRepository notifications = mock(NotificationRepository.class);
+    private final com.weedrice.whiteboard.domain.user.repository.UserRepository users =
+            mock(com.weedrice.whiteboard.domain.user.repository.UserRepository.class);
     private final PushPayloadFactory payloads = new PushPayloadFactory(new ObjectMapper());
     private final NotificationPushDeliveryPolicy policy = new NotificationPushDeliveryPolicy(payloads, notifications,
             new NotificationSourceDeliveryPolicy(new KeywordNotificationDeliveryPolicy(posts, authors, blocks),
-                    mock(MentionNotificationDeliveryPolicy.class)));
+                    mock(MentionNotificationDeliveryPolicy.class)), users);
     private final User author = user(1L);
     private final User receiver = user(2L);
 
@@ -124,6 +126,88 @@ class NotificationPushDeliveryPolicyTest {
     void unresolvableSnapshotsAreSkipped(String payload) {
         assertThat(policy.canDeliver(2L, payload)).isFalse();
         verifyNoInteractions(posts, notifications);
+    }
+
+    @Test
+    void withdrawalAfterEnqueueChangesOnlyPublicPayloadAndReregistrationRestoresPresentation() {
+        Notification notification = Notification.builder().user(receiver).actor(author)
+                .notificationType(NotificationType.COMMENT).sourceType("POST").sourceId(10L)
+                .content("User 1님이 댓글을 남겼습니다.").messageKey("notification.comment.created")
+                .messageParams("[\"User 1\"]").build();
+        ReflectionTestUtils.setField(notification, "notificationId", 7L);
+        String storedPayload = payloads.create(PushDispatchCommand.from(notification, "/board/free/post/10"));
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        when(notifications.findById(7L)).thenReturn(Optional.of(notification));
+        author.delete(java.time.LocalDateTime.now());
+
+        String delivered = policy.payloadForDelivery(2L, storedPayload);
+        assertThat(delivered).contains("탈퇴한 사용자님이 댓글을 남겼습니다.")
+                .contains("\"actorWithdrawn\":true").contains("/board/free/post/10").doesNotContain("User 1");
+        assertThat(notification.getContent()).isEqualTo("User 1님이 댓글을 남겼습니다.");
+        assertThat(notification.getMessageParams()).isEqualTo("[\"User 1\"]");
+        assertThat(author.getDisplayName()).isEqualTo("User 1");
+        assertThat(storedPayload).contains("User 1");
+
+        author.activate();
+        assertThat(policy.payloadForDelivery(2L, storedPayload)).isEqualTo(storedPayload);
+    }
+
+    @Test
+    void withdrawnActorWithArchivedNotificationUsesSafeFallbackWithoutLeakingSnapshotName() {
+        author.delete(java.time.LocalDateTime.now());
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        String stored = payloads.create(new PushDispatchCommand(2L, 1L, 7L, "Previous Name님이 댓글", "comment",
+                "/board/free/post/10", "POST", 10L));
+
+        assertThat(policy.payloadForDelivery(2L, stored))
+                .contains("탈퇴한 사용자의 알림입니다.").doesNotContain("Previous Name");
+    }
+
+    @Test
+    void legacyPushUsesCurrentNotificationActorWhenSnapshotHasNoActorMetadata() {
+        author.delete(java.time.LocalDateTime.now());
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        when(notifications.findById(7L)).thenReturn(Optional.of(notification(NotificationType.COMMENT)));
+        String stored = "{\"body\":\"User 1 historic\",\"tag\":\"notification-7\"}";
+
+        assertThat(policy.payloadForDelivery(2L, stored)).doesNotContain("User 1").contains("actorWithdrawn");
+    }
+
+    @Test
+    void legacyNotificationAfterNicknameChangeDoesNotExposeHistoricName() {
+        author.delete(java.time.LocalDateTime.now());
+        Notification legacy = Notification.builder().user(receiver).actor(author)
+                .notificationType(NotificationType.COMMENT).sourceType("POST").sourceId(10L)
+                .content("Historic Name님이 댓글을 남겼습니다.").build();
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        when(notifications.findById(7L)).thenReturn(Optional.of(legacy));
+        String stored = payloads.create(new PushDispatchCommand(2L, 1L, 7L, legacy.getContent(), "comment",
+                "/board/free/post/10", "POST", 10L));
+
+        assertThat(policy.payloadForDelivery(2L, stored))
+                .contains("탈퇴한 사용자의 알림입니다.").doesNotContain("Historic Name");
+        assertThat(legacy.getContent()).contains("Historic Name");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"User 1 Kim commented", "Historic Name replied on User 1's post"})
+    void legacyNameOverlapCannotLeakHistoricNameFragments(String content) {
+        author.delete(java.time.LocalDateTime.now());
+        Notification legacy = Notification.builder().user(receiver).actor(author)
+                .notificationType(NotificationType.COMMENT).sourceType("POST").sourceId(10L)
+                .content(content).build();
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        when(notifications.findById(7L)).thenReturn(Optional.of(legacy));
+        String stored = payloads.create(new PushDispatchCommand(2L, 1L, 7L, content, "comment",
+                "/board/free/post/10", "POST", 10L));
+
+        assertThat(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.NotificationSummary
+                .from(legacy).getMessage()).isEqualTo("탈퇴한 사용자의 알림입니다.");
+        assertThat(policy.payloadForDelivery(2L, stored)).contains("탈퇴한 사용자의 알림입니다.")
+                .doesNotContain("User 1", "Kim", "Historic Name");
+        assertThat(legacy.getContent()).isEqualTo(content);
+        author.activate();
+        assertThat(policy.payloadForDelivery(2L, stored)).isEqualTo(stored);
     }
 
     private String keywordPayload() {

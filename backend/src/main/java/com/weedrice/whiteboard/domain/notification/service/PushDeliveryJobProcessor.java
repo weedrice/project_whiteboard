@@ -102,7 +102,12 @@ public class PushDeliveryJobProcessor {
                         "Notification source is no longer visible");
                 return recordTerminalResult(jobId, result, "hidden_source", true);
             }
-            PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), lease.payload());
+            String publicPayload = sourceDeliveryPolicy.payloadForDelivery(lease.subscription().userId(), lease.payload());
+            if (publicPayload == null) {
+                DeliveryJobTransitionResult result = jobTransaction.expire(lease, "Notification presentation is unavailable");
+                return recordTerminalResult(jobId, result, "stale_presentation", true);
+            }
+            PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), publicPayload);
             switch (outcome) {
                 case SUCCESS -> {
                     DeliveryJobTransitionResult result = jobTransaction.complete(lease);

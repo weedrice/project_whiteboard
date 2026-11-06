@@ -13,6 +13,20 @@ import static org.mockito.Mockito.when;
 class SemanticSearchRowMapperTest {
 
     @Test
+    void withdrawnAuthorIsMaskedInSearchRowAndPublicResponse() throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getBoolean("author_withdrawn")).thenReturn(true);
+        when(resultSet.getLong("author_user_id")).thenReturn(7L);
+        when(resultSet.getString("author_display_name")).thenReturn("Original identity");
+        when(resultSet.getString("author_profile_image_url")).thenReturn("https://example.com/private-avatar.png");
+        SemanticSearchRow row = SemanticSearchRowMapper.INSTANCE.mapRow(resultSet, 0);
+        assertThat(row.authorDisplayName()).isEqualTo("탈퇴한 사용자");
+        assertThat(row.toResponse().getAuthor().isWithdrawn()).isTrue();
+        assertThat(row.toResponse().getAuthor().getUserId()).isEqualTo(7L);
+        assertThat(row.toResponse().getAuthor().getProfileImageUrl()).isNull();
+    }
+
+    @Test
     void mapsNullableColumnsAndTimestamp() throws Exception {
         ResultSet resultSet = mock(ResultSet.class);
         LocalDateTime createdAt = LocalDateTime.of(2026, 6, 6, 12, 30, 15);

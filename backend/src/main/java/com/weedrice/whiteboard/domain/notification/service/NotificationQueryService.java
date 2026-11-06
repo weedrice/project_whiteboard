@@ -10,6 +10,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import java.util.Objects;
+import java.util.Optional;
 
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +46,24 @@ class NotificationQueryService {
                 userId,
                 notificationPage.getContent());
         return NotificationResponse.from(notificationPage, targetUrls, hiddenActorUserIds);
+    }
+
+    /** The after-commit callback must not reuse the event transaction's cached actor. */
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public Optional<NotificationResponse.NotificationSummary> getNotificationForDelivery(
+            Long receiverUserId, Long notificationId) {
+        if (receiverUserId == null || notificationId == null) {
+            return Optional.empty();
+        }
+        return notificationRepository.findById(notificationId)
+                .filter(notification -> notification.getUser() != null
+                        && Objects.equals(receiverUserId, notification.getUser().getUserId())
+                        && User.STATUS_ACTIVE.equals(notification.getUser().getStatus())
+                        && notification.getUser().getDeletedAt() == null)
+                .map(notification -> NotificationResponse.NotificationSummary.from(
+                        notification,
+                        targetUrlResolver.resolve(notification),
+                        actorVisibilityService.shouldHideActor(receiverUserId, notification)));
     }
 
     public long getUnreadNotificationCount(Long userId) {

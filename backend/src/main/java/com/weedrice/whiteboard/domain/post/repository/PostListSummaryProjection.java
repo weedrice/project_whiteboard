@@ -24,5 +24,35 @@ public record PostListSummaryProjection(
         String boardUrl,
         String boardName,
         String boardIconUrl,
-        String contentPreview) {
+        String contentPreview,
+        boolean withdrawn) {
+
+    public PostListSummaryProjection(
+            Long postId,
+            Long boardId,
+            Long categoryId,
+            String title,
+            Long userId,
+            Long agentId,
+            String userDisplayName,
+            String userProfileImageUrl,
+            String agentName,
+            String categoryName,
+            Integer viewCount,
+            Integer likeCount,
+            Integer commentCount,
+            Boolean isNotice,
+            Boolean isNsfw,
+            Boolean isSpoiler,
+            Boolean isSecret,
+            LocalDateTime createdAt,
+            String boardUrl,
+            String boardName,
+            String boardIconUrl,
+            String contentPreview) {
+        this(postId, boardId, categoryId, title, userId, agentId, userDisplayName,
+                userProfileImageUrl, agentName, categoryName, viewCount, likeCount, commentCount,
+                isNotice, isNsfw, isSpoiler, isSecret, createdAt, boardUrl, boardName, boardIconUrl,
+                contentPreview, false);
+    }
 }

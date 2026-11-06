@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
 import com.weedrice.whiteboard.domain.actor.ActorReadPort;
 import com.weedrice.whiteboard.domain.actor.ActorWritePort;
 import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
@@ -71,11 +72,13 @@ public class ActorIntegrationAdapter implements ActorReadPort, ActorBatchReadPor
             if (agent != null && Objects.equals(agent.getUserId(), ref.ownerUserId())) {
                 result.put(ref, new AuthorSnapshot(
                         owner.getUserId(), agent.getAgentId(), "AGENT", agent.getName(),
-                        owner.getProfileImageUrl(), owner.getRepresentativeBadgeCode()));
+                        owner.getProfileImageUrl(), owner.getRepresentativeBadgeCode(),
+                        AuthorPresentation.isWithdrawn(owner.getStatus(), owner.getDeletedAt())));
             } else if (ref.agentId() == null) {
                 result.put(ref, new AuthorSnapshot(
                         owner.getUserId(), null, "USER", owner.getDisplayName(),
-                        owner.getProfileImageUrl(), owner.getRepresentativeBadgeCode()));
+                        owner.getProfileImageUrl(), owner.getRepresentativeBadgeCode(),
+                        AuthorPresentation.isWithdrawn(owner.getStatus(), owner.getDeletedAt())));
             }
         }
         return Map.copyOf(result);

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.inquiry.integration;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.inquiry.port.InquiryUserPort;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -34,10 +35,23 @@ class InquiryUserAdapter implements InquiryUserPort {
 
     @Override
     public Map<Long, String> findDisplayNames(Collection<Long> userIds) {
+        return findDisplayNames(userIds, false);
+    }
+
+    @Override
+    public Map<Long, String> findPublicDisplayNames(Collection<Long> userIds) {
+        return findDisplayNames(userIds, true);
+    }
+
+    private Map<Long, String> findDisplayNames(Collection<Long> userIds, boolean publicView) {
         Map<Long, String> names = new HashMap<>();
         if (userIds == null || userIds.isEmpty()) return names;
         userRepository.findAllById(userIds.stream().filter(Objects::nonNull).distinct().toList())
-                .forEach(user -> names.put(user.getUserId(), user.getDisplayName()));
+                .forEach(user -> names.put(user.getUserId(), publicView
+                        ? AuthorPresentation.displayName(
+                                AuthorPresentation.isWithdrawn(user.getStatus(), user.getDeletedAt()),
+                                user.getDisplayName())
+                        : user.getDisplayName()));
         return names;
     }
 

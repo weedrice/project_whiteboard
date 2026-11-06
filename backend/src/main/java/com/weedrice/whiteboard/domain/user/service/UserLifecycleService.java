@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
 import com.weedrice.whiteboard.domain.user.port.UserContentReindexPort;
+import com.weedrice.whiteboard.domain.user.port.UserScheduledPostLifecyclePort;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -30,6 +31,7 @@ public class UserLifecycleService {
     private final AccountCredentialInvalidationService accountCredentialInvalidationService;
     private final UserAgentLifecyclePort userAgentLifecyclePort;
     private final UserContentReindexPort userContentReindexPort;
+    private final UserScheduledPostLifecyclePort userScheduledPostLifecyclePort;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
@@ -92,6 +94,7 @@ public class UserLifecycleService {
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, null);
         accountCredentialInvalidationService.invalidateForLockedUser(user);
+        userScheduledPostLifecyclePort.cancelUnpublishedForLockedUser(user.getUserId());
         user.delete(LocalDateTime.now(clock));
         user.advanceSecurityVersion();
         anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();

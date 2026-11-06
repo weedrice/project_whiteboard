@@ -255,6 +255,7 @@ onBeforeUnmount(() => {
             class="nv-post-author-menu"
             :user-id="item.author.userId"
             :display-name="item.author.displayName"
+            :withdrawn="item.author.withdrawn"
             :max-label-length="maxAuthorNameLength"
             size="inherit"
           />

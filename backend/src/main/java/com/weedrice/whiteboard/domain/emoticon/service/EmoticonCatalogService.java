@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.service;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
@@ -213,7 +214,12 @@ class EmoticonCatalogService {
         }
 
         return userRepository.findAllById(creatorIds).stream()
-                .collect(Collectors.toMap(User::getUserId, User::getDisplayName, (left, right) -> left));
+                .collect(Collectors.toMap(User::getUserId, this::publicCreatorName, (left, right) -> left));
+    }
+
+    private String publicCreatorName(User creator) {
+        return AuthorPresentation.displayName(
+                AuthorPresentation.isWithdrawn(creator.getStatus(), creator.getDeletedAt()), creator.getDisplayName());
     }
 
     private Long extractCreatorId(EmoticonMaster master) {
@@ -238,6 +244,6 @@ class EmoticonCatalogService {
         if (creator instanceof HibernateProxy proxy && proxy.getHibernateLazyInitializer().isUninitialized()) {
             return null;
         }
-        return creator.getDisplayName();
+        return publicCreatorName(creator);
     }
 }

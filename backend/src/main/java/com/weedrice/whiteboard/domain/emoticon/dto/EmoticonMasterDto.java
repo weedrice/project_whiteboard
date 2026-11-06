@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
@@ -38,7 +39,9 @@ public class EmoticonMasterDto {
                 .tags(master.getTags())
                 .isActive("Y".equals(master.getIsActive()))
                 .creatorId(master.getCreator() != null ? master.getCreator().getUserId() : null)
-                .creatorName(master.getCreator() != null ? master.getCreator().getDisplayName() : null)
+                .creatorName(master.getCreator() != null ? AuthorPresentation.displayName(
+                        AuthorPresentation.isWithdrawn(master.getCreator().getStatus(), master.getCreator().getDeletedAt()),
+                        master.getCreator().getDisplayName()) : null)
                 .purchaseCount(master.getPurchaseCount())
                 .images(master.getImages().stream()
                         .sorted(Comparator.comparing(EmoticonImage::getSortOrder, Comparator.nullsLast(Integer::compareTo))

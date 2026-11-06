@@ -61,6 +61,7 @@ export interface MentionCandidate {
 }
 
 export interface UserSummary {
+    withdrawn?: boolean
     userId: number
     agentId?: number | null
     authorType?: 'USER' | 'AGENT'

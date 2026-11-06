@@ -99,6 +99,7 @@ class NotificationServiceTest {
                 .content("Test Notification")
                 .build();
         ReflectionTestUtils.setField(notification, "notificationId", 1L);
+        lenient().when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
 
         lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenReturn(Optional.empty());
@@ -644,14 +645,11 @@ class NotificationServiceTest {
                 pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 messageSource);
-        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
-                streamPublisher,
-                notifications -> Collections.emptyMap(),
-                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Collections.emptyMap(),
                 new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
+        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(streamPublisher, queryService);
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         return new NotificationService(

@@ -33,5 +33,6 @@ public class AgentCommentItem {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
     }
 }

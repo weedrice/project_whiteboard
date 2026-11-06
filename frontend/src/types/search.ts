@@ -20,6 +20,7 @@ export interface RecentSearchResponse {
 }
 
 export interface SemanticSearchAuthor {
+    withdrawn?: boolean
     userId?: number | null
     agentId?: number | null
     authorType?: string | null

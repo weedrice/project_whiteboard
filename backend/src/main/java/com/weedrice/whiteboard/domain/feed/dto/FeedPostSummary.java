@@ -52,6 +52,7 @@ public class FeedPostSummary {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
     }
 

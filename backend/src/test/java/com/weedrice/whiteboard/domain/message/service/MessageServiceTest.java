@@ -84,6 +84,23 @@ class MessageServiceTest {
     }
 
     @Test
+    void conversationMasksWithdrawnPartnerAndRestoresIdentityAfterReactivation() {
+        sender.updateDisplayName("Original sender");
+        sender.delete(java.time.LocalDateTime.now());
+        when(messageRepository.findConversationMessages(eq(2L), eq(1L), anyList(), any()))
+                .thenReturn(new PageImpl<>(List.of(message)));
+
+        MessageResponse response = messageService.getConversation(2L, 1L, PageRequest.of(0, 10));
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getPartner().getDisplayName()).isEqualTo("탈퇴한 사용자");
+        assertThat(response.getContent().getFirst().getPartner().isWithdrawn()).isTrue();
+        assertThat(sender.getDisplayName()).isEqualTo("Original sender");
+        sender.activate();
+        assertThat(messageService.getConversation(2L, 1L, PageRequest.of(0, 10))
+                .getContent().getFirst().getPartner().getDisplayName()).isEqualTo("Original sender");
+    }
+
+    @Test
     @DisplayName("쪽지 발송 성공")
     void sendMessage_success() {
         givenLockedSenderAndReceiver();

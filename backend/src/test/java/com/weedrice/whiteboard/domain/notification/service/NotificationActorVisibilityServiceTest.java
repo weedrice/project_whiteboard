@@ -97,6 +97,20 @@ class NotificationActorVisibilityServiceTest {
         verifyNoInteractions(userBlockRepository, authorVisibilityRepository);
     }
 
+    @Test
+    void withdrawnActorsUseContentVisibilityAndStillRespectBlocksAndBans() {
+        User withdrawn = actor(2L);
+        withdrawn.delete(LocalDateTime.now());
+        var service = new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository);
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(2L))).thenReturn(Set.of(2L));
+
+        assertThat(service.shouldHideActor(1L, notification(withdrawn))).isFalse();
+        when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(true);
+        assertThat(service.shouldHideActor(1L, notification(withdrawn))).isTrue();
+        when(authorVisibilityRepository.findVisibleUserIds(List.of(2L))).thenReturn(Set.of());
+        assertThat(service.shouldHideActor(1L, notification(withdrawn))).isTrue();
+    }
+
     private User actor(Long userId) {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", userId);

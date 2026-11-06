@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.repository;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -57,17 +58,21 @@ public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchR
 
         String keywordClause = switch (condition.searchType()) {
             case NAME -> "LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'";
-            case CREATOR -> "LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'";
+            case CREATOR -> "LOWER(CASE WHEN u.status = 'DELETED' OR u.deleted_at IS NOT NULL THEN :withdrawnName ELSE u.display_name END) LIKE LOWER(:keywordPattern) ESCAPE '!'";
             case TAG -> ":keyword = ANY(em.tags)";
             case ALL -> """
                     (
                         LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'
-                        OR LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'
+                        OR LOWER(CASE WHEN u.status = 'DELETED' OR u.deleted_at IS NOT NULL THEN :withdrawnName ELSE u.display_name END) LIKE LOWER(:keywordPattern) ESCAPE '!'
                         OR :keyword = ANY(em.tags)
                     )
                     """;
         };
         applyKeywordParams(params, condition);
+        if (condition.searchType() == EmoticonSearchCondition.SearchType.CREATOR
+                || condition.searchType() == EmoticonSearchCondition.SearchType.ALL) {
+            params.put("withdrawnName", AuthorPresentation.WITHDRAWN_DISPLAY_NAME);
+        }
 
         String projection = condition.searchType() == EmoticonSearchCondition.SearchType.ALL
                 ? "SELECT DISTINCT em.*"

@@ -93,6 +93,10 @@ class EmoticonCatalogServiceTest {
 
         assertThat(result.getCreatorId()).isEqualTo(1L);
         assertThat(result.getCreatorName()).isEqualTo("작성자");
+        creator.delete(LocalDateTime.now());
+        assertThat(catalogService.getActiveEmoticons(PageRequest.of(0, 20), "latest")
+                .getContent().getFirst().getCreatorName()).isEqualTo("탈퇴한 사용자");
+        assertThat(creator.getDisplayName()).isEqualTo("작성자");
         verify(userRepository, never()).findAllById(any());
     }
 
@@ -132,7 +136,10 @@ class EmoticonCatalogServiceTest {
 
         assertThat(result.getCreatorId()).isEqualTo(2L);
         assertThat(result.getCreatorName()).isEqualTo("작성자2");
-        verify(userRepository).findAllById(any());
+        loadedCreator.delete(LocalDateTime.now());
+        assertThat(catalogService.getActiveEmoticons(PageRequest.of(0, 20), "latest")
+                .getContent().getFirst().getCreatorName()).isEqualTo("탈퇴한 사용자");
+        verify(userRepository, org.mockito.Mockito.times(2)).findAllById(any());
     }
 
     @Test

@@ -57,6 +57,7 @@ public class CommentResponse {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
         private BadgeCompactResponse representativeBadge;
     }
@@ -66,6 +67,7 @@ public class CommentResponse {
     public static class MentionInfo {
         private Long userId;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
     }
 
@@ -78,6 +80,7 @@ public class CommentResponse {
                     .agentId(author.agentId())
                     .authorType(author.authorType())
                     .displayName(author.displayName())
+                        .withdrawn(author.withdrawn())
                     .profileImageUrl(author.agentId() != null ? null : author.profileImageUrl())
                     .representativeBadge(author.agentId() != null ? null : representativeBadge(author.representativeBadgeCode()))
                     .build();

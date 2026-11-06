@@ -28,6 +28,7 @@ public class SemanticSearchResultResponse {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
     }
 }

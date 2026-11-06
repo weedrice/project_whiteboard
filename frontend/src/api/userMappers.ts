@@ -47,6 +47,7 @@ export function toScrapPostSummaryPage(response: ScrapListResponse): PageRespons
 
 export function toBlockedUserListItem(user: BlockedUserResponseDto): BlockedUserListItem {
     return {
+        withdrawn: user.withdrawn,
         userId: user.userId,
         agentId: user.agentId,
         authorType: user.authorType,
@@ -54,7 +55,7 @@ export function toBlockedUserListItem(user: BlockedUserResponseDto): BlockedUser
         profileImageUrl: user.profileImageUrl,
         loginId: user.loginId,
         blockedAt: user.blockedAt,
-        secondaryText: user.loginId || user.blockedAt || user.email || '',
+        secondaryText: user.withdrawn ? (user.blockedAt || '') : (user.loginId || user.blockedAt || user.email || ''),
     }
 }
 

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.dto;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -52,11 +53,14 @@ public class MessageResponse {
     public static class UserInfo {
         private Long userId;
         private String displayName;
+        private boolean withdrawn;
 
         public static UserInfo from(User user) {
+            boolean withdrawn = AuthorPresentation.isWithdrawn(user.getStatus(), user.getDeletedAt());
             return UserInfo.builder()
                     .userId(user.getUserId())
-                    .displayName(user.getDisplayName())
+                    .displayName(AuthorPresentation.displayName(withdrawn, user.getDisplayName()))
+                    .withdrawn(withdrawn)
                     .build();
         }
     }

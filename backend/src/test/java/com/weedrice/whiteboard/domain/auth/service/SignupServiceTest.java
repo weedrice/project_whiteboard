@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -58,6 +59,7 @@ class SignupServiceTest {
     @Mock private PasswordHistoryPolicy passwordHistoryPolicy;
     @Mock private AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
     @Mock private OAuthSignupTicketService oAuthSignupTicketService;
+    @Mock private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @InjectMocks
     private SignupService signupService;
@@ -102,6 +104,7 @@ class SignupServiceTest {
         SignupResponse response = signupService.signup(request);
 
         assertThat(response.getUserId()).isEqualTo(1L);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
         assertThat(deletedUser.getStatus()).isEqualTo("ACTIVE");
         assertThat(deletedUser.getDeletedAt()).isNull();
         assertThat(deletedUser.getDisplayName()).isEqualTo("Rejoined User");

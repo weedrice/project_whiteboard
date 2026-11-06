@@ -43,7 +43,7 @@ public class InquiryReadService {
                 (root, query, cb) -> cb.equal(root.get("authorUserId"), userId);
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         if (category != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category));
-        return mapSummaryPage(inquiryRepository.findAll(spec, safe));
+        return mapSummaryPage(inquiryRepository.findAll(spec, safe), false);
     }
 
     public InquiryDetailResponse getMineDetail(Long userId, Long inquiryId) {
@@ -61,7 +61,7 @@ public class InquiryReadService {
         return mapSummaryPage(inquiryRepository.findAll(InquirySpecifications.adminFilters(
                 status, category, priority, keyword, from, to,
                 now.minusHours(thresholds.highHours()), now.minusHours(thresholds.urgentHours()),
-                now.minusHours(thresholds.highCategoryUrgentHours())), safe));
+                now.minusHours(thresholds.highCategoryUrgentHours())), safe), true);
     }
 
     public InquiryDetailResponse getAdminDetail(Long inquiryId) {
@@ -89,9 +89,9 @@ public class InquiryReadService {
         return inquiry;
     }
 
-    private Page<InquirySummaryResponse> mapSummaryPage(Page<Inquiry> page) {
+    private Page<InquirySummaryResponse> mapSummaryPage(Page<Inquiry> page, boolean admin) {
         List<Inquiry> inquiries = page.getContent();
-        Map<Long, String> userNames = loadUserNames(inquiries.stream().map(Inquiry::getAuthorUserId).toList());
+        Map<Long, String> userNames = loadUserNames(inquiries.stream().map(Inquiry::getAuthorUserId).toList(), admin);
         Map<Long, String> publicSummaries = loadLastPublicSummaries(
                 inquiries.stream().map(Inquiry::getInquiryId).toList());
         return page.map(inquiry -> new InquirySummaryResponse(
@@ -107,8 +107,8 @@ public class InquiryReadService {
                 : List.of(InquiryMessageType.USER_MESSAGE, InquiryMessageType.STAFF_REPLY);
         List<InquiryMessage> messages = messageRepository
                 .findByInquiryIdAndMessageTypeInOrderByCreatedAtAscMessageIdAsc(inquiry.getInquiryId(), visibleTypes);
-        Map<Long, String> names = loadUserNames(messages.stream().map(InquiryMessage::getAuthorUserId).toList());
-        names.putAll(loadUserNames(List.of(inquiry.getAuthorUserId())));
+        Map<Long, String> names = loadUserNames(messages.stream().map(InquiryMessage::getAuthorUserId).toList(), admin);
+        names.putAll(loadUserNames(List.of(inquiry.getAuthorUserId()), admin));
         Map<Long, List<InquiryAttachmentResponse>> attachmentsByMessageId = loadAttachments(messages);
         List<InquiryMessageResponse> messageResponses = messages.stream()
                 .map(message -> toMessage(
@@ -165,10 +165,12 @@ public class InquiryReadService {
                 file.mimeType(), file.url());
     }
 
-    private Map<Long, String> loadUserNames(Collection<Long> ids) {
+    private Map<Long, String> loadUserNames(Collection<Long> ids, boolean admin) {
         Map<Long, String> names = new HashMap<>();
         if (ids == null || ids.isEmpty()) return names;
-        Map<Long, String> resolved = userPort.findDisplayNames(ids);
+        Map<Long, String> resolved = admin
+                ? userPort.findDisplayNames(ids)
+                : userPort.findPublicDisplayNames(ids);
         if (resolved != null) names.putAll(resolved);
         return names;
     }

@@ -73,6 +73,7 @@ class NotificationActorVisibilityService {
     }
 
     private boolean isInactive(User actor) {
-        return !User.STATUS_ACTIVE.equals(actor.getStatus()) || actor.getDeletedAt() != null;
+        return !com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility
+                .retainsContent(actor.getStatus(), actor.getDeletedAt());
     }
 }

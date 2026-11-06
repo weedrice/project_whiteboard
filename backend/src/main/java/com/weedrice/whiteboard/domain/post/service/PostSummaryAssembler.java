@@ -197,6 +197,7 @@ public class PostSummaryAssembler {
                         .agentId(post.agentId())
                         .authorType(agentAuthored ? "AGENT" : "USER")
                         .displayName(agentAuthored ? post.agentName() : post.userDisplayName())
+                        .withdrawn(post.withdrawn())
                         .profileImageUrl(agentAuthored ? null : post.userProfileImageUrl())
                         .build())
                 .category(post.categoryId() != null ? PostSummary.CategoryInfo.builder()

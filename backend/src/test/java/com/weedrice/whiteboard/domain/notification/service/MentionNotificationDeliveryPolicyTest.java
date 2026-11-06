@@ -52,7 +52,8 @@ class MentionNotificationDeliveryPolicyTest {
     private final NotificationSourceDeliveryPolicy delivery = new NotificationSourceDeliveryPolicy(
             mock(KeywordNotificationDeliveryPolicy.class), new MentionNotificationDeliveryPolicy(reads, users));
     private final PushPayloadFactory payloads = new PushPayloadFactory(new ObjectMapper());
-    private final NotificationPushDeliveryPolicy pushes = new NotificationPushDeliveryPolicy(payloads, notifications, delivery);
+    private final NotificationPushDeliveryPolicy pushes = new NotificationPushDeliveryPolicy(payloads, notifications, delivery,
+            mock(com.weedrice.whiteboard.domain.user.repository.UserRepository.class));
     private final User actor = user(1L);
     private final User receiver = user(2L);
     private final User parentAuthor = user(3L);

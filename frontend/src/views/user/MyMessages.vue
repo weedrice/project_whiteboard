@@ -40,19 +40,19 @@
                         :id="`message-${msg.id}-select`"
                         :value="msg.id"
                         v-model="selectedMessages"
-                        :label="$t('user.message.selectMessage', { name: msg.partnerName })"
+                        :label="$t('user.message.selectMessage', { name: partnerDisplayName(msg) })"
                         label-class="sr-only"
                     />
                 </div>
                 <button
                     type="button"
                     class="flex-1 min-w-0 text-left cursor-pointer nv-focus-ring rounded-md"
-                    :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
+                    :aria-label="$t('user.message.openMessage', { name: partnerDisplayName(msg) })"
                     @click="openMessageWithDraftGuard(msg)"
                 >
                     <div class="flex justify-between items-baseline gap-2">
                         <div class="text-sm font-medium nv-accent-text truncate">
-                            {{ msg.partnerName }}
+                            {{ partnerDisplayName(msg) }}
                         </div>
                         <div class="text-xs nv-text-subtle flex-shrink-0">
                             {{ formatDate(msg.createdAt) }}
@@ -93,7 +93,7 @@
                     <div class="min-w-0">
                         <span class="block text-xs nv-text-subtle">{{ selectedPartnerLabel }}</span>
                         <span class="block truncate text-sm font-semibold nv-title">
-                            {{ selectedMessage.partnerName }}
+                            {{ partnerDisplayName(selectedMessage) }}
                         </span>
                     </div>
                 </header>
@@ -167,7 +167,7 @@
                             >
                                 <div class="flex items-center justify-between gap-2" :class="message.sentByMe ? 'flex-row-reverse' : ''">
                                     <span class="truncate text-xs font-medium nv-title">
-                                        {{ message.sentByMe ? $t('user.message.me') : message.partnerName }}
+                                        {{ message.sentByMe ? $t('user.message.me') : partnerDisplayName(message) }}
                                     </span>
                                     <span class="shrink-0 text-xs nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
                                 </div>
@@ -179,7 +179,7 @@
                         </p>
                     </div>
                     <form
-                        v-if="viewType !== 'sent'"
+                        v-if="viewType !== 'sent' && !selectedMessage.partnerWithdrawn"
                         class="mt-4 shrink-0 border-t nv-border pt-4"
                         @submit.prevent="sendReply"
                     >
@@ -234,6 +234,9 @@ import { useMailboxDraftGuard } from '@/features/user/messages/useMailboxDraftGu
 import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const { t } = useI18n()
+const partnerDisplayName = (message: MailboxMessageViewModel) => (
+    message.partnerWithdrawn ? t('user.deletedUser') : message.partnerName
+)
 const route = useRoute()
 const router = useRouter()
 const conversationTimelineRef = ref<HTMLElement | null>(null)
@@ -336,7 +339,7 @@ const replyContentError = computed(() => isMessageContentTooLong(replyContent.va
     : '')
 
 const conversationTitle = computed(() => selectedMessage.value
-    ? t('user.message.conversationTitle', { name: selectedMessage.value.partnerName })
+    ? t('user.message.conversationTitle', { name: partnerDisplayName(selectedMessage.value) })
     : t('user.message.conversationContext'))
 
 const selectedPartnerLabel = computed(() => {

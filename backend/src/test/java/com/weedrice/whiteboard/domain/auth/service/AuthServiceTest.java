@@ -159,7 +159,8 @@ class AuthServiceTest {
                         mock(OAuthSignupTicketRepository.class),
                         tokenHashService,
                         FIXED_CLOCK,
-                        new OAuthSignupTicketProperties()));
+                        new OAuthSignupTicketProperties()),
+                mock(com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator.class));
         RateLimitProperties rateLimitProperties = new RateLimitProperties();
         rateLimitProperties.setAuthAccountLimit(1_000);
         LoginAccountRateLimiter loginAccountRateLimiter = new LoginAccountRateLimiter(

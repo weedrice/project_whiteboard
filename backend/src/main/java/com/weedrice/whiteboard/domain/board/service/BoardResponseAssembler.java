@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
@@ -32,14 +33,15 @@ class BoardResponseAssembler {
                 board,
                 listReadContext.subscriberCounts().getOrDefault(boardId, 0L),
                 listReadContext.postCounts().getOrDefault(boardId, 0L),
-                adminUser.getDisplayName(),
+                publicDisplayName(adminUser),
                 adminUser.getUserId(),
                 isAdmin,
                 isSubscribed,
                 readContext.categories(),
                 readContext.latestPosts(),
                 board.isAgentEnabled(),
-                isAdmin ? resolveGuidePrompt(board, readContext.guidePrompt()) : null);
+                isAdmin ? resolveGuidePrompt(board, readContext.guidePrompt()) : null,
+                AuthorPresentation.isWithdrawn(adminUser.getStatus(), adminUser.getDeletedAt()));
     }
 
     List<BoardListResponse> assembleListAll(List<Board> boards, User currentUser) {
@@ -125,7 +127,7 @@ class BoardResponseAssembler {
                 board,
                 subscriberCounts.getOrDefault(boardId, 0L),
                 postCounts.getOrDefault(boardId, 0L),
-                adminUser.getDisplayName(),
+                publicDisplayName(adminUser),
                 isSubscribed);
     }
 
@@ -136,6 +138,11 @@ class BoardResponseAssembler {
                 adminUser.getDisplayName(),
                 adminUser.getUserId(),
                 resolveGuidePrompt(board, readContext.guidePromptsByBoardId().get(board.getBoardId())));
+    }
+
+    private String publicDisplayName(User user) {
+        return AuthorPresentation.displayName(
+                AuthorPresentation.isWithdrawn(user.getStatus(), user.getDeletedAt()), user.getDisplayName());
     }
 
     private User resolveAdminUser(Board board, Admin boardAdmin) {

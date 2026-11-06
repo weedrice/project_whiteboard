@@ -124,7 +124,7 @@ const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(
   t('comment.emoticonAlt')
 ))
 const childReplyTargetName = computed(() => (
-  props.comment.author?.displayName?.trim() || t('user.deletedUser')
+  props.comment.author?.withdrawn ? t('user.deletedUser') : (props.comment.author?.displayName?.trim() || t('user.deletedUser'))
 ))
 const shouldShowReplyTarget = computed(() => props.depth >= 3 && props.replyTargetName.trim().length > 0)
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
@@ -243,7 +243,7 @@ function navigateToMention(target: EventTarget | null): boolean {
   if (!(mention instanceof HTMLElement)) return false
 
   const userId = mention.dataset.mentionUserId
-  if (!userId) return false
+  if (!userId || props.comment.mentions?.some(item => String(item.userId) === userId && item.withdrawn)) return false
 
   void router.push(`/user/${encodeURIComponent(userId)}`)
   return true
@@ -330,6 +330,7 @@ onUnmounted(cancelPendingCommentReport)
               v-if="canUseCommentActions && comment.author"
               :user-id="comment.author.userId"
               :display-name="comment.author.displayName"
+              :withdrawn="comment.author.withdrawn"
               size="inherit"
             />
             <BaseBadge

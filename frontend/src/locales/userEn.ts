@@ -394,8 +394,8 @@ export const userEn: UserMessages = {
     dangerZone: 'Danger zone',
     deleteAccount: 'Delete account',
     deleteAccountDesc: 'Deleting your account permanently removes all data and cannot be undone.',
-    deleteAccountConfirmation: 'Are you sure you want to delete your account? This cannot be undone.',
-    deleteAccountWarning: 'Deleting your account removes all activity, including your posts and comments.',
+    deleteAccountConfirmation: 'Are you sure you want to withdraw? You will be signed out. Cancelled scheduled posts will not resume automatically if you re-register.',
+    deleteAccountWarning: 'Published posts and comments remain, with the author shown as “Withdrawn user”. Scheduled publication is cancelled, and drafts follow the existing retention period. Re-registering restores access to edit and delete your posts and comments.',
   },
   menu: {
     actions: 'Actions',

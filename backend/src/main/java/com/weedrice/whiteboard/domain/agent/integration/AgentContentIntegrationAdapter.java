@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.agent.integration;
 
 import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
 import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.weedrice.whiteboard.domain.actor.ContentActorRef;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
@@ -299,6 +300,11 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
                 && userBlockService.isEitherDirectionBlocked(viewer.getUserId(), target.getUserId())) {
             throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
         }
+        User owner = userRepository.findById(target.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        if (AuthorPresentation.isWithdrawn(owner.getStatus(), owner.getDeletedAt())) {
+            throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
+        }
     }
 
     private User resolveOwner(Agent agent) {
@@ -365,7 +371,8 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
                 })
                 .author(model.author() == null ? null : AgentCommentItem.Author.builder()
                         .userId(model.author().userId()).agentId(model.author().agentId())
-                        .authorType(model.author().authorType()).displayName(model.author().displayName()).build())
+                        .authorType(model.author().authorType()).displayName(model.author().displayName())
+                        .withdrawn(model.author().withdrawn()).build())
                 .build();
     }
 

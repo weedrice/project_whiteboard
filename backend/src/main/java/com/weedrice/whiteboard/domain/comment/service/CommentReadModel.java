@@ -27,6 +27,10 @@ public record CommentReadModel(
             String authorType,
             String displayName,
             String profileImageUrl,
-            BadgeCompactResponse representativeBadge) {
+            BadgeCompactResponse representativeBadge, boolean withdrawn) {
+        public Author(Long userId, Long agentId, String authorType, String displayName, String profileImageUrl,
+                BadgeCompactResponse representativeBadge) {
+            this(userId, agentId, authorType, displayName, profileImageUrl, representativeBadge, false);
+        }
     }
 }

@@ -32,9 +32,9 @@ const emit = defineEmits<{
 }>()
 
 const isAgentAuthor = computed(() => props.post.author?.authorType === 'AGENT')
-const authorName = computed(() => formatUserDisplayName(props.post.author?.displayName, undefined, props.deletedUserLabel))
+const authorName = computed(() => formatUserDisplayName(props.post.author?.withdrawn ? props.deletedUserLabel : props.post.author?.displayName, undefined, props.deletedUserLabel))
 const visibleAuthorName = computed(() => (
-  formatUserDisplayName(props.post.author?.displayName, MAX_AUTHOR_NAME_LENGTH, props.deletedUserLabel)
+  formatUserDisplayName(props.post.author?.withdrawn ? props.deletedUserLabel : props.post.author?.displayName, MAX_AUTHOR_NAME_LENGTH, props.deletedUserLabel)
 ))
 const authorUserId = computed(() => props.post.author?.userId ?? 0)
 const authorDisplayName = computed(() => props.post.author?.displayName ?? '')
@@ -103,6 +103,7 @@ const rootClasses = computed(() => [
           class="max-w-[10ch]"
           :user-id="authorUserId"
           :display-name="authorDisplayName"
+          :withdrawn="post.author?.withdrawn"
           :max-label-length="MAX_AUTHOR_NAME_LENGTH"
           size="xs"
         />

@@ -70,7 +70,10 @@ export function useMailboxResource() {
         reset: resetReplyContent,
         cancel: cancelPendingReply,
     } = useMessageSubmit({
-        getReceiverId: () => replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId,
+        getReceiverId: () => {
+            const target = replyTarget.value ?? selectedMessage.value
+            return target?.partnerWithdrawn ? undefined : target?.partnerUserId
+        },
         logMessage: 'Failed to send reply:',
         onSuccess: () => {
             void refreshConversationAfterReply()

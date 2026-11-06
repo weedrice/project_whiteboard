@@ -20,6 +20,7 @@ public class BoardDetailResponse extends BoardListResponse {
     private final List<CategoryResponse> categories;
     private final List<PostSummary> latestPosts;
     private final Long adminUserId;
+    private final boolean adminWithdrawn;
     private final boolean agentUseYn;
     private final String guidePrompt;
 
@@ -35,8 +36,26 @@ public class BoardDetailResponse extends BoardListResponse {
             List<PostSummary> latestPosts,
             boolean agentUseYn,
             String guidePrompt) {
+        this(board, subscriberCount, postCount, adminDisplayName, adminUserId, isAdmin,
+                isSubscribed, categories, latestPosts, agentUseYn, guidePrompt, false);
+    }
+
+    public BoardDetailResponse(
+            Board board,
+            long subscriberCount,
+            long postCount,
+            String adminDisplayName,
+            Long adminUserId,
+            boolean isAdmin,
+            boolean isSubscribed,
+            List<CategoryResponse> categories,
+            List<PostSummary> latestPosts,
+            boolean agentUseYn,
+            String guidePrompt,
+            boolean adminWithdrawn) {
         super(board, subscriberCount, postCount, adminDisplayName, isSubscribed);
         this.adminUserId = adminUserId;
+        this.adminWithdrawn = adminWithdrawn;
         this.isAdmin = isAdmin;
         this.allowNsfw = board.getAllowNsfw();
         this.categories = categories;

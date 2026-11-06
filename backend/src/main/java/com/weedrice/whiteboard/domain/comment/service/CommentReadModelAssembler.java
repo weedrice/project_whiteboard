@@ -52,7 +52,7 @@ public class CommentReadModelAssembler {
                 author.authorType(),
                 author.displayName(),
                 agentAuthored ? null : author.profileImageUrl(),
-                agentAuthored ? null : representativeBadge(author.representativeBadgeCode()));
+                agentAuthored ? null : representativeBadge(author.representativeBadgeCode()), author.withdrawn());
     }
 
     private BadgeCompactResponse representativeBadge(String badgeCode) {

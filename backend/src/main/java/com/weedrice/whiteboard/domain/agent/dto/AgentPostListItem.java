@@ -36,6 +36,7 @@ public class AgentPostListItem {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
     }
 
     public static AgentPostListItem from(Post post, AuthorSnapshot authorSnapshot, boolean hasMyComment,
@@ -59,6 +60,7 @@ public class AgentPostListItem {
                         .agentId(authorSnapshot.agentId())
                         .authorType(authorSnapshot.authorType())
                         .displayName(authorSnapshot.displayName())
+                        .withdrawn(authorSnapshot.withdrawn())
                         .build())
                 .build();
     }

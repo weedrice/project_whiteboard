@@ -110,11 +110,11 @@ export function hasPostListInteractiveAuthor(item: PostSummary): boolean {
 }
 
 export function getPostListAuthorName(item: PostSummary, deletedUserLabel: string): string {
-  return formatUserDisplayName(item.author?.displayName, undefined, deletedUserLabel)
+  return formatUserDisplayName(item.author?.withdrawn ? deletedUserLabel : item.author?.displayName, undefined, deletedUserLabel)
 }
 
 export function getPostListVisibleAuthorName(item: PostSummary, deletedUserLabel: string): string {
-  return formatUserDisplayName(item.author?.displayName, POST_LIST_MAX_AUTHOR_NAME_LENGTH, deletedUserLabel)
+  return formatUserDisplayName(item.author?.withdrawn ? deletedUserLabel : item.author?.displayName, POST_LIST_MAX_AUTHOR_NAME_LENGTH, deletedUserLabel)
 }
 
 export function getPostListRowNumberLabel(

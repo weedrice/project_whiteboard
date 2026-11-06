@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
-import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,34 +13,30 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class NotificationDeliveryPublisher {
 
     private final NotificationStreamPublisher streamPublisher;
-    private final NotificationTargetUrlResolver targetUrlResolver;
-    private final NotificationActorVisibilityService actorVisibilityService;
+    private final NotificationQueryService queryService;
 
     void publishAfterCommit(Long userId, Notification notification) {
+        Long notificationId = notification.getNotificationId();
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            publishBestEffort(userId, notification);
+            publishBestEffort(userId, notificationId);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                publishBestEffort(userId, notification);
+                publishBestEffort(userId, notificationId);
             }
         });
     }
 
-    private void publishBestEffort(Long userId, Notification notification) {
+    private void publishBestEffort(Long userId, Long notificationId) {
         try {
-            streamPublisher.publish(
-                    userId,
-                    NotificationResponse.NotificationSummary.from(
-                            notification,
-                            targetUrlResolver.resolve(notification),
-                            actorVisibilityService.shouldHideActor(userId, notification)));
+            queryService.getNotificationForDelivery(userId, notificationId)
+                    .ifPresent(summary -> streamPublisher.publish(userId, summary));
         } catch (RuntimeException exception) {
             log.warn("Failed to deliver notification SSE. userId={}, notificationId={}, exceptionType={}",
                     userId,
-                    notification.getNotificationId(),
+                    notificationId,
                     exception.getClass().getSimpleName());
         }
     }

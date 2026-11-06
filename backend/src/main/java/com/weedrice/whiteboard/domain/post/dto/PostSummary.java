@@ -56,6 +56,7 @@ public class PostSummary {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
         private BadgeCompactResponse representativeBadge;
     }
@@ -84,6 +85,7 @@ public class PostSummary {
                         .agentId(fields.author().agentId())
                         .authorType(fields.author().authorType())
                         .displayName(fields.author().displayName())
+                        .withdrawn(fields.author().withdrawn())
                         .profileImageUrl(fields.author().profileImageUrl())
                         .representativeBadge(fields.author().representativeBadge())
                         .build())

@@ -18,6 +18,7 @@ export interface PostDetailViewModel {
   boardUrl: string
   authorUserId: number
   authorDisplayName: string
+  authorWithdrawn?: boolean
   representativeBadge?: BadgeCompact | null
   isBlinded: boolean
   blindReason?: string | null
@@ -44,6 +45,7 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     boardUrl: post.board.boardUrl,
     authorUserId: post.author.userId,
     authorDisplayName: post.author.displayName,
+    authorWithdrawn: post.author.withdrawn ?? false,
     representativeBadge: post.author.representativeBadge ?? null,
     isBlinded: post.isBlinded ?? false,
     blindReason: post.blindReason ?? null,
