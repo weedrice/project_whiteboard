@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -128,12 +129,14 @@ class SemanticSearchSqlBuilderTest {
         for (SemanticSearchContentType contentType : SemanticSearchContentType.values()) {
             SemanticSearchQuery vector = vectorQuery(contentType, null, List.of());
             SemanticSearchKeywordQuery keyword = keywordQuery(contentType, null, List.of());
-            for (String sql : List.of(vectorRepository.searchSql(vector), vectorRepository.countSql(vector),
-                    keywordRepository.searchSql(keyword), keywordRepository.countSql(keyword))) {
-                String normalized = sql.replaceAll("\\s+", " ");
+            for (var queryPath : List.of(Map.entry(vectorRepository.searchSql(vector), 2),
+                    Map.entry(vectorRepository.countSql(vector), 2), Map.entry(keywordRepository.searchSql(keyword), 1),
+                    Map.entry(keywordRepository.countSql(keyword), 1))) {
+                String normalized = queryPath.getKey().replaceAll("\\s+", " ");
+                int scansPerType = queryPath.getValue();
                 int contentAuthors = (contentType.includesPosts() ? 1 : 0) + (contentType.includesComments() ? 1 : 0);
-                assertAuthorVisibility(normalized, "u", contentAuthors);
-                assertAuthorVisibility(normalized, "post_author", contentType.includesComments() ? 1 : 0);
+                assertAuthorVisibility(normalized, "u", contentAuthors * scansPerType);
+                assertAuthorVisibility(normalized, "post_author", contentType.includesComments() ? scansPerType : 0);
             }
         }
     }
@@ -160,11 +163,6 @@ class SemanticSearchSqlBuilderTest {
             assertThat(sql).contains("'COMMENT' AS content_type");
         } else {
             assertThat(sql).doesNotContain("'COMMENT' AS content_type");
-        }
-        if (contentType == SemanticSearchContentType.ALL) {
-            assertThat(sql).contains("UNION ALL");
-        } else {
-            assertThat(sql).doesNotContain("UNION ALL");
         }
     }
 
@@ -198,11 +196,6 @@ class SemanticSearchSqlBuilderTest {
             assertThat(sql).contains(commentMarker);
         } else {
             assertThat(sql).doesNotContain(commentMarker);
-        }
-        if (contentType == SemanticSearchContentType.ALL) {
-            assertThat(sql).contains("UNION ALL");
-        } else {
-            assertThat(sql).doesNotContain("UNION ALL");
         }
     }
 

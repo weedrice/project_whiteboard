@@ -127,13 +127,26 @@ class SemanticSearchVectorRepository {
     }
 
     private String nearestBranch(SemanticSearchQuery query, String select) {
-        // Preserve distance-only ordering for HNSW. Expand boundary ties before the outer
-        // stable sort/cap; exact scans can return more than candidateLimit intermediate rows.
-        // ANN still considers only its explored candidates, not every globally tied vector.
-        return "(" + select.formatted(SemanticSearchSqlFragments.boardPredicate(query),
-                SemanticSearchSqlFragments.postPrivacyPredicate(query)) + """
+        String eligibleSelect = select.formatted(SemanticSearchSqlFragments.boardPredicate(query),
+                SemanticSearchSqlFragments.postPrivacyPredicate(query));
+        // HNSW applies eligibility filters after exploring neighbors. Reuse a full ANN pool,
+        // but replace an underfilled pool with an exact scan using the identical predicates.
+        // The scalar CTE count is a one-time guard: a full pool never executes the exact scan.
+        // Adding zero to distance prevents the fallback from selecting HNSW again, including
+        // on pgvector versions without iterative scans. Preserve boundary ties in both paths.
+        return "(WITH ann_candidates AS MATERIALIZED (" + eligibleSelect + """
                 ORDER BY e.embedding <=> CAST(:queryEmbedding AS vector) ASC
                 FETCH FIRST :candidateLimit ROWS WITH TIES
+                )
+                SELECT * FROM ann_candidates
+                WHERE (SELECT COUNT(*) FROM ann_candidates) >= :candidateLimit
+                UNION ALL
+                SELECT * FROM (
+                """ + eligibleSelect + """
+                AND (SELECT COUNT(*) FROM ann_candidates) < :candidateLimit
+                ORDER BY (e.embedding <=> CAST(:queryEmbedding AS vector)) + 0 ASC
+                FETCH FIRST :candidateLimit ROWS WITH TIES
+                ) exact_candidates
                 )
                 """;
     }
