@@ -1597,7 +1597,7 @@ class PostRepositoryTest {
         persistRelatedPost("Temporary ban", temporaryBanned, 100);
         persistRelatedPost("Permanent ban", permanentlyBanned, 99);
         persistRelatedPost("Suspended", suspended, 98);
-        persistRelatedPost("Deleted", deleted, 97);
+        Post withdrawnPost = persistRelatedPost("Deleted", deleted, 97);
         Post expiredPost = persistRelatedPost("Expired ban", expiredBan, 30);
         Post futurePost = persistRelatedPost("Future ban", futureBan, 20);
         Post mutedPost = persistRelatedPost("Muted author", muted, 10);
@@ -1609,7 +1609,8 @@ class PostRepositoryTest {
                 board.getBoardId(), post.getPostId(), List.of(-1L), PageRequest.of(0, 10));
 
         assertThat(result).containsExactly(
-                expiredPost.getPostId(), futurePost.getPostId(), mutedPost.getPostId(), activePost.getPostId());
+                withdrawnPost.getPostId(), expiredPost.getPostId(), futurePost.getPostId(),
+                mutedPost.getPostId(), activePost.getPostId());
     }
 
     @Test
@@ -1673,18 +1674,18 @@ class PostRepositoryTest {
                 postRepository.findAgentFeedByBoardIds(List.of(board.getBoardId()), blocked, List.of(), null, firstPage))) {
             assertThat(page.getContent()).extracting(Post::getPostId)
                     .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
-            assertThat(page.getTotalElements()).isEqualTo(3);
+            assertThat(page.getTotalElements()).isEqualTo(4);
             assertThat(page.getTotalPages()).isEqualTo(2);
         }
         Page<PostListSummaryProjection> projection = postRepository.findPostListSummariesByBoardIdAndCategoryId(
                 board.getBoardId(), null, null, null, blocked, false, null, firstPage);
         assertThat(projection.getContent()).extracting(PostListSummaryProjection::postId)
                 .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
-        assertThat(projection.getTotalElements()).isEqualTo(3);
+        assertThat(projection.getTotalElements()).isEqualTo(4);
         Page<Post> secondPage = postRepository.searchPostsByKeyword("visibility", blocked, null, PageRequest.of(1, 2));
         assertThat(secondPage.getContent()).extracting(Post::getPostId)
-                .containsExactly(fixture.visibleIds().get(2));
-        assertThat(secondPage.getTotalElements()).isEqualTo(3);
+                .containsExactlyElementsOf(fixture.visibleIds().subList(2, 4));
+        assertThat(secondPage.getTotalElements()).isEqualTo(4);
 
         assertThat(postRepository.findLatestPostIdsByBoardIds(List.of(board.getBoardId()), 2, blocked, List.of(), null))
                 .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
@@ -1698,10 +1699,10 @@ class PostRepositoryTest {
         DiscoveryFixture fixture = persistDiscoveryFixture();
         // Personal blocking is viewer-specific, so aggregate public counts include that otherwise eligible author.
         assertThat(postRepository.countPublicVisiblePostsByBoardIds(List.of(board.getBoardId())))
-                .extracting(PostRepository.BoardPostCountProjection::getPostCount).containsExactly(4L);
+                .extracting(PostRepository.BoardPostCountProjection::getPostCount).containsExactly(5L);
         LocalDateTime today = LocalDateTime.now().toLocalDate().atStartOfDay();
         assertThat(postRepository.countPublicLandingPostStats(today, today.plusDays(1), today.minusDays(1),
-                BoardPolicyConstants.INQUIRY_BOARD_URL).getTotalPosts()).isEqualTo(4);
+                BoardPolicyConstants.INQUIRY_BOARD_URL).getTotalPosts()).isEqualTo(5);
         assertThat(postRepository.findByUserIdAndIsDeleted(fixture.bannedUserId(), false, PageRequest.of(0, 10))
                 .getTotalElements()).isEqualTo(1);
     }
@@ -1758,7 +1759,8 @@ class PostRepositoryTest {
         entityManager.flush();
         entityManager.clear();
         return new DiscoveryFixture(tag.getTagId(), blocked.getUserId(), banned.getUserId(),
-                List.of(added.get(2).getPostId(), added.get(1).getPostId(), added.get(0).getPostId()));
+                List.of(added.get(5).getPostId(), added.get(2).getPostId(),
+                        added.get(1).getPostId(), added.get(0).getPostId()));
     }
 
     private record DiscoveryFixture(Long tagId, Long blockedUserId, Long bannedUserId, List<Long> visibleIds) {

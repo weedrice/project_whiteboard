@@ -81,7 +81,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     @Query("""
             SELECT u
             FROM User u
-            WHERE u.userId IN (
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND u.userId IN (
             """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
               )
               AND LOWER(u.displayName) LIKE LOWER(CONCAT(

@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -257,9 +258,9 @@ class SemanticSearchIndexTransactionServiceTest {
     }
 
     @Test
-    void loadPostIndexPayloadSkipsInactiveAuthorBeforeEmbedding() {
+    void loadPostIndexPayloadSkipsMissingAuthorBeforeEmbedding() {
         Post post = post("title", "inactive author body");
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+        when(userRepository.findById(100L))
                 .thenReturn(Optional.empty());
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
@@ -303,10 +304,10 @@ class SemanticSearchIndexTransactionServiceTest {
     }
 
     @Test
-    void loadCommentIndexPayloadSkipsInactiveCommentAuthorBeforeEmbedding() {
+    void loadCommentIndexPayloadSkipsMissingCommentAuthorBeforeEmbedding() {
         Post post = post("title", "body");
         Comment comment = comment(post, "hidden comment");
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+        when(userRepository.findById(100L))
                 .thenReturn(Optional.empty());
         when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
 
@@ -398,6 +399,52 @@ class SemanticSearchIndexTransactionServiceTest {
         verifyNoInteractions(embeddingRepository);
     }
 
+    @Test
+    void withdrawalAfterPayloadLoadPreservesPostAndCommentEmbeddings() {
+        Post post = post("retained", "body");
+        Comment comment = comment(post, "retained reply");
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(comment));
+        var postPayload = transactionService.loadPostIndexPayload(1L);
+        var commentPayload = transactionService.loadCommentIndexPayload(2L);
+
+        userRepository.findById(100L).orElseThrow().delete(LocalDateTime.now());
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isEqualTo(postPayload);
+        assertThat(transactionService.loadCommentIndexPayload(2L)).isEqualTo(commentPayload);
+        float[] vector = { 1.0F };
+        transactionService.upsertPost(postPayload, "model", vector);
+        transactionService.upsertComment(commentPayload, "model", vector);
+        transactionService.delete("POST", 1L);
+        transactionService.delete("COMMENT", 2L);
+
+        verify(embeddingRepository).upsertPost(1L, 10L, 100L, null,
+                postPayload.embeddingText(), postPayload.embeddingHash(), "model", vector);
+        verify(embeddingRepository).upsertComment(2L, 1L, 10L, 100L, null,
+                commentPayload.embeddingText(), commentPayload.embeddingHash(), "model", vector);
+        verify(embeddingRepository, never()).tombstone(anyString(), anyLong());
+        verify(embeddingRepository, never()).tombstoneCommentsByPostId(anyLong());
+    }
+
+    @Test
+    void suspendedAuthorStillPreventsIndexingAndRemovesExistingVectors() {
+        Post post = post("suspended", "body");
+        Comment comment = comment(post, "reply");
+        userRepository.findById(100L).orElseThrow().suspend();
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
+        assertThat(transactionService.loadCommentIndexPayload(2L)).isNull();
+        transactionService.delete("POST", 1L);
+
+        verify(embeddingRepository).tombstone("POST", 1L);
+        verify(embeddingRepository).tombstoneCommentsByPostId(1L);
+    }
+
     private Transactional transactionalAnnotation(String methodName, Class<?>... parameterTypes)
             throws NoSuchMethodException {
         Method method = SemanticSearchIndexTransactionService.class.getMethod(methodName, parameterTypes);
@@ -407,7 +454,7 @@ class SemanticSearchIndexTransactionServiceTest {
     private Post post(String title, String contents) {
         User user = User.builder().displayName("writer").build();
         ReflectionTestUtils.setField(user, "userId", 100L);
-        lenient().when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+        lenient().when(userRepository.findById(100L))
                 .thenReturn(Optional.of(user));
         Board board = Board.builder().boardName("board").boardUrl("board").creator(user).build();
         ReflectionTestUtils.setField(board, "boardId", 10L);

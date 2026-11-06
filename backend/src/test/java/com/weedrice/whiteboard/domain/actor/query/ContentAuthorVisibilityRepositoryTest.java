@@ -112,8 +112,17 @@ class ContentAuthorVisibilityRepositoryTest {
                 deleted.getUserId(), -1L, null);
 
         assertThat(repository.findVisibleUserIds(candidates)).containsExactlyInAnyOrder(
-                active.getUserId(), muted.getUserId(), future.getUserId(), expired.getUserId());
+                active.getUserId(), muted.getUserId(), future.getUserId(), expired.getUserId(), deleted.getUserId());
         assertThat(repository.findVisibleUserIds(List.of(muted.getUserId()))).containsExactly(muted.getUserId());
+
+        // Withdrawal does not override an effective BAN.
+        sanction(entityManager.find(User.class, active.getUserId()),
+                entityManager.find(User.class, deleted.getUserId()), "BAN", now.minusDays(1), null);
+        entityManager.flush();
+        assertThat(repository.findVisibleUserIds(List.of(deleted.getUserId()))).isEmpty();
+        entityManager.getEntityManager().createQuery("DELETE FROM Sanction s WHERE s.targetUser.userId = :id")
+                .setParameter("id", deleted.getUserId()).executeUpdate();
+        entityManager.clear();
 
         entityManager.getEntityManager().createQuery(
                         "UPDATE Sanction s SET s.endDate = :end WHERE s.targetUser.userId = :userId")
@@ -123,7 +132,7 @@ class ContentAuthorVisibilityRepositoryTest {
         entityManager.clear();
 
         assertThat(repository.findVisibleUserIds(candidates)).containsExactlyInAnyOrder(
-                active.getUserId(), banned.getUserId(), muted.getUserId(), future.getUserId(), expired.getUserId());
+                active.getUserId(), banned.getUserId(), muted.getUserId(), future.getUserId(), expired.getUserId(), deleted.getUserId());
     }
 
     @Test

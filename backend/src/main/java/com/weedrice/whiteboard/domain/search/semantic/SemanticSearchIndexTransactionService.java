@@ -1,11 +1,11 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -201,8 +201,9 @@ class SemanticSearchIndexTransactionService {
     }
 
     private boolean isIndexableUser(Long userId) {
-        return userId != null && userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
-                .isPresent();
+        return userId != null && userRepository.findById(userId)
+                .map(user -> ContentAuthorVisibility.retainsContent(user.getStatus(), user.getDeletedAt()))
+                .orElse(false);
     }
 
     private void validateCurrentPostPayload(SemanticSearchPostIndexPayload payload, Post post) {

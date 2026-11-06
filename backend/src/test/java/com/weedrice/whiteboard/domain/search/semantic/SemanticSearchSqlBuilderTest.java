@@ -145,8 +145,9 @@ class SemanticSearchSqlBuilderTest {
         String banExclusion = "AND NOT EXISTS ( SELECT 1 FROM sanctions s WHERE s.target_user_id = "
                 + alias + ".user_id AND UPPER(s.type) = 'BAN' AND s.start_date <= CURRENT_TIMESTAMP "
                 + "AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP) )";
-        for (String condition : List.of("AND " + alias + ".status = 'ACTIVE'",
-                "AND " + alias + ".deleted_at IS NULL", banExclusion)) {
+        String retainedAccount = "AND (" + alias + ".status = 'DELETED' OR (" + alias
+                + ".status = 'ACTIVE' AND " + alias + ".deleted_at IS NULL))";
+        for (String condition : List.of(retainedAccount, banExclusion)) {
             assertThat(Pattern.compile(Pattern.quote(condition)).matcher(sql).results().count())
                     .as("%s occurs in each applicable content branch", condition)
                     .isEqualTo(expectedOccurrences);

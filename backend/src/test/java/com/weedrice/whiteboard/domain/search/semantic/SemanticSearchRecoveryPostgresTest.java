@@ -167,6 +167,52 @@ class SemanticSearchRecoveryPostgresTest {
         assertThat(isLive("POST", post.getPostId())).isTrue();
     }
 
+    @Test
+    void withdrawnAuthorContentRemainsIndexedAndBackfillRepairsPreviousTombstones() {
+        jdbc.update("UPDATE users SET status = 'DELETED', deleted_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+                post.getUserId());
+
+        indexing.delete("POST", post.getPostId());
+        indexing.delete("COMMENT", comment.getCommentId());
+        assertThat(isLive("POST", post.getPostId())).isTrue();
+        assertThat(isLive("COMMENT", comment.getCommentId())).isTrue();
+
+        // Repair vectors tombstoned by the former account-active-only policy.
+        embeddings.tombstone("POST", post.getPostId());
+        embeddings.tombstone("COMMENT", comment.getCommentId());
+        backfill.enqueueBackfill("ALL", 1000);
+        assertThat(status("POST", post.getPostId())).isEqualTo("PENDING");
+        assertThat(status("COMMENT", comment.getCommentId())).isEqualTo("PENDING");
+
+        var postPayload = indexing.loadPostIndexPayload(post.getPostId());
+        var commentPayload = indexing.loadCommentIndexPayload(comment.getCommentId());
+        assertThat(postPayload).isNotNull();
+        assertThat(commentPayload).isNotNull();
+        float[] vector = new float[1536];
+        vector[0] = 1;
+        indexing.upsertPost(postPayload, "text-embedding-3-small", vector);
+        indexing.upsertComment(commentPayload, "text-embedding-3-small", vector);
+        assertThat(isLive("POST", post.getPostId())).isTrue();
+        assertThat(isLive("COMMENT", comment.getCommentId())).isTrue();
+    }
+
+    @Test
+    void suspendedAuthorRemainsExcludedFromIndexingAndBackfill() {
+        jdbc.update("UPDATE users SET status = 'SUSPENDED' WHERE user_id = ?", post.getUserId());
+        indexing.delete("POST", post.getPostId());
+
+        assertThat(indexing.loadPostIndexPayload(post.getPostId())).isNull();
+        assertThat(indexing.loadCommentIndexPayload(comment.getCommentId())).isNull();
+        assertThat(isLive("POST", post.getPostId())).isFalse();
+        assertThat(isLive("COMMENT", comment.getCommentId())).isFalse();
+        backfill.enqueueBackfill("ALL", 1000);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM semantic_search_jobs
+                WHERE (content_type = 'POST' AND content_id = ?)
+                   OR (content_type = 'COMMENT' AND content_id = ?)
+                """, Long.class, post.getPostId(), comment.getCommentId())).isZero();
+    }
+
     private String status(String type, Long id) {
         return jdbc.queryForObject("SELECT status FROM semantic_search_jobs WHERE content_type = ? AND content_id = ?",
                 String.class, type, id);

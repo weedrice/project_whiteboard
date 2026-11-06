@@ -54,6 +54,7 @@ class SemanticSearchBackfillServiceTest {
                         .contains("b.is_active = 'Y'")
                         .contains("b.is_public = 'Y'")
                         .contains("status = 'ACTIVE'")
+                        .contains("status = 'DELETED'")
                         .contains("deleted_at IS NULL"));
         assertThat(sqlCaptor.getAllValues().get(0)).contains("p.is_secret = 'N'");
         assertThat(sqlCaptor.getAllValues().get(1)).contains("p.is_secret = 'N'");

@@ -430,13 +430,17 @@ class ScrapRepositoryTest {
                 Long requestedFolder = filterFolder ? folder.getFolderId() : null;
                 Page<Scrap> first = visibleScrapPage(search, requestedFolder, superAdmin, blocked.getUserId(), 0);
                 Page<Scrap> second = visibleScrapPage(search, requestedFolder, superAdmin, blocked.getUserId(), 1);
+                Page<Scrap> third = visibleScrapPage(search, requestedFolder, superAdmin, blocked.getUserId(), 2);
                 assertThat(first.getContent()).extracting(saved -> saved.getPost().getPostId())
-                        .containsExactly(addedPosts.get(2).getPostId(), addedPosts.get(1).getPostId());
+                        .containsExactly(addedPosts.get(6).getPostId(), addedPosts.get(2).getPostId());
                 assertThat(second.getContent()).extracting(saved -> saved.getPost().getPostId())
-                        .containsExactly(addedPosts.get(0).getPostId(), scrappedPost.getPostId());
-                assertThat(first.getTotalElements()).isEqualTo(4);
-                assertThat(second.getTotalElements()).isEqualTo(4);
-                assertThat(first.getTotalPages()).isEqualTo(2);
+                        .containsExactly(addedPosts.get(1).getPostId(), addedPosts.get(0).getPostId());
+                assertThat(third.getContent()).extracting(saved -> saved.getPost().getPostId())
+                        .containsExactly(scrappedPost.getPostId());
+                assertThat(first.getTotalElements()).isEqualTo(5);
+                assertThat(second.getTotalElements()).isEqualTo(5);
+                assertThat(first.getTotalPages()).isEqualTo(3);
+                assertThat(third.getTotalElements()).isEqualTo(5);
             }
         }
         // Visibility filtering does not delete the user's saved records or change owned write lookups.

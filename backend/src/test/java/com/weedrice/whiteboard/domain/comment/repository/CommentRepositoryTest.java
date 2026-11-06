@@ -1019,16 +1019,20 @@ class CommentRepositoryTest {
                 "eligibility", null, null, PageRequest.of(0, 2));
         Page<Comment> secondPage = commentRepository.searchCommentsByKeyword(
                 "eligibility", null, null, PageRequest.of(1, 2));
-        assertThat(firstPage.getTotalElements()).isEqualTo(4);
-        assertThat(secondPage.getTotalElements()).isEqualTo(4);
-        assertThat(java.util.stream.Stream.concat(firstPage.stream(), secondPage.stream())
+        Page<Comment> thirdPage = commentRepository.searchCommentsByKeyword(
+                "eligibility", null, null, PageRequest.of(2, 2));
+        assertThat(firstPage.getTotalElements()).isEqualTo(5);
+        assertThat(secondPage.getTotalElements()).isEqualTo(5);
+        assertThat(thirdPage.getTotalElements()).isEqualTo(5);
+        assertThat(thirdPage.getContent()).hasSize(1);
+        assertThat(java.util.stream.Stream.of(firstPage, secondPage, thirdPage).flatMap(Page::stream)
                 .map(Comment::getUserId).toList())
-                .containsExactlyInAnyOrder(user.getUserId(), muted.getUserId(), expired.getUserId(), future.getUserId());
+                .containsExactlyInAnyOrder(user.getUserId(), muted.getUserId(), expired.getUserId(), future.getUserId(), deleted.getUserId());
         assertThat(commentRepository.countPublicProfileCommentsByUser(user.getUserId(), true, NO_BLOCKED_USER_IDS)).isEqualTo(2);
         assertThat(commentRepository.findPublicProfileCommentsByUser(user, PageRequest.of(0, 1))
                 .getTotalElements()).isEqualTo(2);
         assertThat(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                now.minusDays(1), now.plusDays(1), BoardPolicyConstants.INQUIRY_BOARD_URL)).isEqualTo(5);
+                now.minusDays(1), now.plusDays(1), BoardPolicyConstants.INQUIRY_BOARD_URL)).isEqualTo(6);
     }
 
     @Test

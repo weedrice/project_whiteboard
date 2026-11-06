@@ -56,7 +56,8 @@ class BoardVisitRepositoryTest {
         for (User author : List.of(active, muted, future)) {
             setCreatedAt(persistPost(board, author, "visible"), now.minusDays(1));
         }
-        for (User author : List.of(banned, inactive, deleted, blocked, blocker)) {
+        setCreatedAt(persistPost(board, deleted, "retained after withdrawal"), now.minusHours(1));
+        for (User author : List.of(banned, inactive, blocked, blocker)) {
             setCreatedAt(persistPost(board, author, "hidden"), now.minusHours(1));
         }
         setCreatedAt(persistPost(hiddenOnlyBoard, banned, "only hidden"), now.minusHours(1));
@@ -67,12 +68,12 @@ class BoardVisitRepositoryTest {
                 List.of(board.getBoardId(), hiddenOnlyBoard.getBoardId()), reader.getUserId(), false,
                 now.minusDays(30));
         assertThat(result).hasSize(1);
-        assertThat(result.getFirst().getNewPostCount()).isEqualTo(3);
-        assertThat(result.getFirst().getLatestPostAt()).isEqualTo(now.minusDays(1));
+        assertThat(result.getFirst().getNewPostCount()).isEqualTo(4);
+        assertThat(result.getFirst().getLatestPostAt()).isEqualTo(now.minusHours(1));
         // Anonymous visitors have no personal block relationship, but still obey the shared policy.
         var anonymous = boardVisitRepository.findActivityByBoardIds(
                 List.of(board.getBoardId()), null, false, now.minusDays(30));
-        assertThat(anonymous.getFirst().getNewPostCount()).isEqualTo(5);
+        assertThat(anonymous.getFirst().getNewPostCount()).isEqualTo(6);
 
         entityManager.getEntityManager().createQuery(
                         "UPDATE Sanction s SET s.endDate = :end WHERE s.targetUser.userId = :id")

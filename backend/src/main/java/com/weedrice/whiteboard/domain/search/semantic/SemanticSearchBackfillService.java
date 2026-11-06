@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -48,8 +49,7 @@ public class SemanticSearchBackfillService {
                   AND p.is_secret = 'N'
                   AND b.is_active = 'Y'
                   AND b.is_public = 'Y'
-                  AND u.status = 'ACTIVE'
-                  AND u.deleted_at IS NULL
+                """ + ContentAuthorVisibility.retainedAccountSql("u") + """
                   AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL
                        OR EXISTS (
                             SELECT 1 FROM semantic_search_jobs repair_job
@@ -98,10 +98,7 @@ public class SemanticSearchBackfillService {
                   AND p.is_secret = 'N'
                   AND b.is_active = 'Y'
                   AND b.is_public = 'Y'
-                  AND cu.status = 'ACTIVE'
-                  AND cu.deleted_at IS NULL
-                  AND pu.status = 'ACTIVE'
-                  AND pu.deleted_at IS NULL
+                """ + ContentAuthorVisibility.retainedAccountSql("cu", "pu") + """
                   AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL
                        OR EXISTS (
                             SELECT 1 FROM semantic_search_jobs repair_job

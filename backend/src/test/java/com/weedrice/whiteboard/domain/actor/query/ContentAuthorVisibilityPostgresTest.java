@@ -39,6 +39,7 @@ class ContentAuthorVisibilityPostgresTest {
     @Autowired private BoardVisitRepository boardActivity;
     @Autowired private CommentVisibleCountReader commentCounts;
     @Autowired private ViewHistoryRepository history;
+    @Autowired private com.weedrice.whiteboard.domain.user.repository.UserRepository users;
 
     @Test
     void activityAndVisibleCommentCountFollowCurrentBanWithoutMutatingStoredCount() {
@@ -174,6 +175,35 @@ class ContentAuthorVisibilityPostgresTest {
         assertThat(entityManager.getEntityManager().createQuery(
                 "SELECT COUNT(vh) FROM ViewHistory vh WHERE vh.userId = :id", Long.class)
                 .setParameter("id", viewer.getUserId()).getSingleResult()).isEqualTo(5L);
+    }
+
+    @Test
+    void withdrawalRetainsContentListsCountsAndHistoryButNotAccountDiscovery() {
+        User viewer = persistUser("withdrawal-viewer");
+        User author = persistUser("withdrawal-author");
+        Board board = entityManager.persist(Board.builder().creator(viewer)
+                .boardName("Withdrawal PG").boardUrl("withdrawal-pg").build());
+        Post post = entityManager.persist(Post.builder().board(board).user(author)
+                .title("withdrawal needle").contents("retained body").build());
+        entityManager.persist(Comment.builder().post(post).user(author).depth(0).content("retained reply").build());
+        entityManager.persist(ViewHistory.builder().user(viewer).post(post).build());
+        author.delete(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        var search = posts.searchPostsByKeyword("withdrawal needle", null, null, PageRequest.of(0, 1));
+        assertThat(search.getContent()).extracting(Post::getPostId).containsExactly(post.getPostId());
+        assertThat(search.getTotalElements()).isEqualTo(1);
+        assertThat(authors.findVisibleUserIds(List.of(author.getUserId()))).containsExactly(author.getUserId());
+        assertThat(posts.findLatestPostIdsByBoardIds(List.of(board.getBoardId()), 1, List.of(), List.of(), null))
+                .containsExactly(post.getPostId());
+        assertThat(commentCounts.countByPostIds(List.of(post.getPostId()), List.of())).containsEntry(post.getPostId(), 1);
+        var viewed = history.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                viewer.getUserId(), false, true, List.of(-1L), "inquiry", false, PageRequest.of(0, 1));
+        assertThat(viewed.getContent()).containsExactly(post.getPostId());
+        assertThat(viewed.getTotalElements()).isEqualTo(1);
+        assertThat(users.searchUsersVisibleTo("withdrawal-author", List.of(), PageRequest.of(0, 10)).getTotalElements()).isZero();
+        assertThat(users.findMentionCandidates("withdrawal-author", true, List.of(-1L), PageRequest.of(0, 10))).isEmpty();
     }
 
     private User persistUser(String loginId) {
