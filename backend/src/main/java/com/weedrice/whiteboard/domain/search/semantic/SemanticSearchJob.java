@@ -7,5 +7,10 @@ record SemanticSearchJob(
         String contentType,
         Long contentId,
         String action,
-        LocalDateTime processingStartedAt) {
+        LocalDateTime processingStartedAt,
+        int retryCount) {
+    SemanticSearchJob(Long jobId, String contentType, Long contentId, String action,
+                      LocalDateTime processingStartedAt) {
+        this(jobId, contentType, contentId, action, processingStartedAt, 0);
+    }
 }

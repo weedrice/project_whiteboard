@@ -13,7 +13,6 @@ import java.util.Objects;
 
 @Component
 class SemanticSearchTextBuilder {
-    private static final int MAX_EMBEDDING_TEXT_LENGTH = 8_000;
     private static final int MAX_EXCERPT_LENGTH = 240;
 
     String buildPostText(Post post) {
@@ -22,7 +21,7 @@ class SemanticSearchTextBuilder {
                 post.getBoard() != null ? post.getBoard().getBoardName() : null,
                 post.getTitle(),
                 toPlainText(post.getContents()));
-        return truncate(text, MAX_EMBEDDING_TEXT_LENGTH);
+        return SemanticSearchEmbeddingInput.limit(text);
     }
 
     String buildCommentText(Comment comment, Post post) {
@@ -31,7 +30,7 @@ class SemanticSearchTextBuilder {
                 post != null && post.getBoard() != null ? post.getBoard().getBoardName() : null,
                 post != null ? post.getTitle() : null,
                 toPlainText(comment.getContent()));
-        return truncate(text, MAX_EMBEDDING_TEXT_LENGTH);
+        return SemanticSearchEmbeddingInput.limit(text);
     }
 
     String excerpt(String source) {

@@ -33,6 +33,17 @@ public class SemanticSearchReindexService {
     void enqueuePostComments(Long postId) { reindexRepository.enqueue("POST_COMMENTS", postId); }
     void enqueueBoard(Long boardId) { reindexRepository.enqueue("BOARD", boardId); }
 
+    @Transactional
+    public void enqueueAuthorContent(Long userId) {
+        if (userId == null || userId <= 0) {
+            return;
+        }
+        // A restored post author also restores other authors' comments underneath that post.
+        for (Long boardId : reindexRepository.findBoardIdsForAuthorContent(userId)) {
+            enqueueBoard(boardId);
+        }
+    }
+
     int processPages() {
         LocalDateTime current = now();
         int recovered = reindexRepository.recoverStale(

@@ -91,6 +91,10 @@ Durable notification delivery exposes pending and dead-letter gauges, oldest-due
 
 Feed generation exposes pending, processing, failed, and oldest-pending gauges plus a result-labelled processed counter. Pending work above 100 or an oldest pending job above five minutes is a warning. A persisted `FAILED` row or a new `dead_letter` result is critical; `redrive` is an operator action and is shown on the dashboard for correlation rather than alerted by itself. First inspect the failed row and its last error, correct the underlying cause, and then use the SUPER_ADMIN redrive endpoint once; repeated redrives without progress require incident escalation.
 
+Semantic pending age is measured from the current request `queued_at`, retained across retries and reset on re-enqueue/redrive; legacy rows fall back to `updated_at`/`created_at`. Pending counts include jobs waiting for their persisted `next_attempt_at`, so provider cooldown can contribute to backlog age.
+
+Individual semantic indexing jobs expose `noviis_semantic_jobs_failed`, including permanent provider/input failures and retry-exhausted `FAILED` rows that no longer contribute to the pending backlog. Any failed row persisting for two minutes raises the critical `NoviIsSemanticIndexingFailed` alert; a healthy zero gauge remains required even when semantic indexing is disabled. Inspect the failed job and its last error, correct the provider/configuration or content problem, then enqueue the affected content again through the supported backfill/reindex flow. Confirm the failed gauge clears and the embedding is refreshed; an empty pending queue alone does not prove indexing succeeded.
+
 Semantic reindexing exposes failed jobs and result-labelled processed outcomes in addition to its active cursor gauges. A persisted failed job or a new dead-letter result is critical. Redrive outcomes remain visible on the dashboard so an operator can confirm that manual recovery is making progress.
 
 Async executor metrics expose active workers, queue depth, remaining queue capacity, and rejection outcomes. Durable rejection is critical because durable work was not accepted. Notification rejection is a warning: durable notification jobs remain available to the scheduler, while best-effort push dispatch may be skipped without moving external I/O onto the caller thread. Observability drops are warning-level data loss. Sustained zero remaining capacity while work is active raises a separate saturation alert. `required-backend-metrics.txt` is the canonical startup metric contract and `verify-required-backend-metrics.py` prevents its `absent()` checks from drifting.
@@ -130,6 +134,7 @@ noviis_semantic_reindex_jobs_failed
 noviis_semantic_reindex_jobs_pending
 noviis_semantic_reindex_jobs_processed_total
 noviis_semantic_reindex_jobs_processing
+noviis_semantic_jobs_failed
 noviis_semantic_jobs_oldest_age_seconds
 noviis_semantic_jobs_pending
 noviis_sse_heartbeat_gap_seconds

@@ -214,7 +214,8 @@ public class PostCommandService {
 
         postVersionRecorder.record(post, modifier, "MODIFY", originalTitle, originalContents);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
-        if (!Objects.equals(originalTitle, post.getTitle())) {
+        if (!Objects.equals(originalTitle, post.getTitle())
+                || (originalSecret && !Boolean.TRUE.equals(post.getIsSecret()))) {
             semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
         }
         if (!originalSecret && Boolean.TRUE.equals(post.getIsSecret())) {

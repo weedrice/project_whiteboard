@@ -12,6 +12,8 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 class SemanticSearchEmbeddingRepositoryTest {
 
@@ -23,6 +25,20 @@ class SemanticSearchEmbeddingRepositoryTest {
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final SemanticSearchEmbeddingRepository repository =
             new SemanticSearchEmbeddingRepository(jdbcTemplate, FIXED_CLOCK);
+
+    @Test
+    void reuseMatchesContentHashAndModelWhileRestoringCurrentMetadata() {
+        when(jdbcTemplate.update(contains("UPDATE semantic_search_embeddings"), any(Object[].class))).thenReturn(1);
+
+        assertThat(repository.reuse("COMMENT", 2L, 1L, 30L, 4L, 5L, "current", "hash", "model")).isTrue();
+
+        org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.ArgumentCaptor<Object[]> args = org.mockito.ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).update(sql.capture(), args.capture());
+        assertThat(sql.getValue()).contains("embedding_hash = ? AND embedding_model = ?", "deleted_at = NULL")
+                .doesNotContain("embedding =", "deleted_at IS NULL");
+        assertThat(args.getValue()).containsExactly(1L, 30L, 4L, 5L, "current", FIXED_NOW, "COMMENT", 2L, "hash", "model");
+    }
 
     @Test
     void tombstone_usesFixedClockForDeletedAndUpdatedAt() {
