@@ -144,6 +144,37 @@ class NotificationQueryServiceTest {
         verifyNoInteractions(userBlockRepository);
     }
 
+    @Test
+    void getNotifications_withdrawnActorKeepsNotificationWithPublicLabelAndStableId() {
+        User receiver = User.builder().build();
+        ReflectionTestUtils.setField(receiver, "userId", 1L);
+        User withdrawn = User.builder().displayName("Retained Name").build();
+        ReflectionTestUtils.setField(withdrawn, "profileImageUrl", "private-avatar");
+        ReflectionTestUtils.setField(withdrawn, "userId", 2L);
+        withdrawn.delete(LocalDateTime.now());
+        Notification event = Notification.builder().user(receiver).actor(withdrawn)
+                .notificationType(NotificationType.COMMENT).sourceType("POST").sourceId(10L)
+                .content("Retained Name님이 댓글을 남겼습니다.")
+                .messageKey("notification.comment.created").messageParams("[\"Retained Name\"]").build();
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(event)));
+        when(authorVisibilityRepository.findVisibleUserIds(Set.of(2L))).thenReturn(Set.of(2L));
+
+        var response = queryService.getNotifications(1L, PageRequest.of(0, 10));
+
+        assertThat(response.getTotalElements()).isEqualTo(1);
+        assertThat(response.getContent()).singleElement().satisfies(summary -> {
+            assertThat(summary.getActor().getUserId()).isEqualTo(2L);
+            assertThat(summary.getActor().getDisplayName()).isEqualTo("탈퇴한 사용자");
+            assertThat(summary.getActor().isWithdrawn()).isTrue();
+            assertThat(summary.getActor().getProfileImageUrl()).isNull();
+            assertThat(summary.getMessage()).isEqualTo("탈퇴한 사용자님이 댓글을 남겼습니다.");
+            assertThat(summary.getMessageParams()).containsExactly("탈퇴한 사용자");
+        });
+        assertThat(event.getContent()).contains("Retained Name");
+        assertThat(withdrawn.getDisplayName()).isEqualTo("Retained Name");
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void getNotifications_agentActor_checksOwnerAndPreservesMessageFields(boolean blocked) {

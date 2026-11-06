@@ -112,7 +112,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         Expressions.stringTemplate(
                                 "substring({0}, 1, {1})",
                                 post.contents,
-                                POST_LIST_CONTENT_PREVIEW_LENGTH)))
+                                POST_LIST_CONTENT_PREVIEW_LENGTH),
+                        PostAuthorQueryIntegration.withdrawn()))
                 .from(post);
         PostAuthorQueryIntegration.joinAuthors(contentQuery, post.userId, post.agentId);
         List<PostListSummaryProjection> content = contentQuery

@@ -107,14 +107,11 @@ class NotificationSettingsFlowTest {
                 pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 new StaticMessageSource());
-        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
-                streamPublisher,
-                notifications -> Map.of(),
-                new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Map.of(),
                 new NotificationActorVisibilityService(userBlockRepository, authorVisibilityRepository));
+        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(streamPublisher, queryService);
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         notificationService = new NotificationService(

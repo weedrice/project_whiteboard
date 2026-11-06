@@ -275,8 +275,23 @@ class UserBlockServiceTest {
     }
 
     @Test
-    @DisplayName("new block resolves only active target user")
-    void blockUser_resolvesOnlyActiveTarget() {
+    void blockUser_allowsWithdrawnAuthorWithoutChangingIdentity() {
+        User blocker = User.builder().build();
+        User withdrawn = User.builder().loginId("original-login").displayName("Original name").build();
+        withdrawn.delete(java.time.LocalDateTime.now());
+        givenLockedPair(blocker, withdrawn);
+        when(userWritableResolver.validateWritable(blocker)).thenReturn(blocker);
+
+        userBlockService.blockUser(1L, 2L);
+
+        verify(userBlockRepository).saveAndFlush(any(UserBlock.class));
+        assertThat(withdrawn.getDisplayName()).isEqualTo("Original name");
+        assertThat(withdrawn.getStatus()).isEqualTo("DELETED");
+    }
+
+    @Test
+    @DisplayName("new block rejects suspended target user")
+    void blockUser_rejectsSuspendedTarget() {
         User blocker = User.builder().build();
         User blocked = User.builder().build();
         blocked.suspend();
@@ -348,6 +363,25 @@ class UserBlockServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void getBlockedUsers_masksWithdrawnIdentityWithoutChangingStoredData() {
+        User blocker = User.builder().build();
+        User withdrawn = User.builder().loginId("original-login").displayName("Original name").build();
+        withdrawn.delete(java.time.LocalDateTime.now());
+        UserBlock block = UserBlock.builder().user(blocker).target(withdrawn).build();
+        when(userReadableResolver.resolve(1L)).thenReturn(blocker);
+        when(userBlockRepository.findPageByUserWithTarget(blocker, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(block)));
+
+        BlockedUserResponse response = userBlockService.getBlockedUsers(1L, PageRequest.of(0, 10)).getContent().getFirst();
+
+        assertThat(response.getDisplayName()).isEqualTo("탈퇴한 사용자");
+        assertThat(response.getLoginId()).isNull();
+        assertThat(response.isWithdrawn()).isTrue();
+        assertThat(withdrawn.getDisplayName()).isEqualTo("Original name");
+        assertThat(withdrawn.getLoginId()).isEqualTo("original-login");
     }
 
     private void givenLockedPair(User blocker, User blocked) {

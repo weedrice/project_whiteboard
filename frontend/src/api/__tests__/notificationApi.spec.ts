@@ -19,6 +19,13 @@ vi.mock('@/utils/constants', () => ({
 import { getNotificationStreamUrl, normalizeNotification, notificationApi } from '../notification'
 
 describe('notificationApi', () => {
+    it('uses the withdrawn actor label while keeping the stable actor ID', () => {
+        const notification = normalizeNotification({ actor: { userId: 7, displayName: '탈퇴한 사용자', withdrawn: true } })
+        expect(notification.actorLabelKey).toBe('user.deletedUser')
+        expect(notification.actorDisplayName).toBe('')
+        expect(notification.actor).toMatchObject({ userId: 7, withdrawn: true })
+    })
+
     beforeEach(() => {
         vi.clearAllMocks()
     })

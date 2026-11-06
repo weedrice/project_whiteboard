@@ -51,7 +51,7 @@ export function usePostDetailSeo({
       dateModified: post.value?.modifiedAt || viewModel.createdAt,
       author: {
         '@type': 'Person',
-        name: viewModel.authorDisplayName
+        name: viewModel.authorWithdrawn ? t('user.deletedUser') : viewModel.authorDisplayName
       },
       mainEntityOfPage: canonicalUrl.value,
       url: canonicalUrl.value

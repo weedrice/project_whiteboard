@@ -10,6 +10,8 @@ public interface InquiryUserPort {
 
     Map<Long, String> findDisplayNames(Collection<Long> userIds);
 
+    Map<Long, String> findPublicDisplayNames(Collection<Long> userIds);
+
     boolean isUsableSuperAdmin(Long userId);
 
 }

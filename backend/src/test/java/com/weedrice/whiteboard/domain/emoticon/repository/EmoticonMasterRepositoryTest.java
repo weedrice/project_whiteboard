@@ -171,7 +171,7 @@ class EmoticonMasterRepositoryTest {
                 .contains("COUNT(DISTINCT em.emoticon_id)")
                 .contains("LEFT JOIN users u ON em.creator_id = u.user_id")
                 .contains("LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'")
-                .contains("LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'")
+                .contains("LOWER(CASE WHEN u.status = 'DELETED' OR u.deleted_at IS NOT NULL THEN :withdrawnName ELSE u.display_name END) LIKE LOWER(:keywordPattern) ESCAPE '!'")
                 .contains(":keyword = ANY(em.tags)");
     }
 

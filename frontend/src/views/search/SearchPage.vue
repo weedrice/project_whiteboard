@@ -213,7 +213,7 @@
             >
               <p class="line-clamp-2 text-sm nv-text">{{ comment.content || comment.postTitle }}</p>
               <p class="mt-2 truncate text-xs nv-text-subtle">
-                {{ comment.author?.displayName || '-' }} · {{ comment.postTitle }}
+                {{ comment.author?.withdrawn ? $t('user.deletedUser') : (comment.author?.displayName || '-') }} · {{ comment.postTitle }}
               </p>
             </RouterLink>
           </section>

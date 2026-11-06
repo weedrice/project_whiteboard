@@ -59,6 +59,7 @@ class PushDeliveryJobProcessorTest {
                 payloadFactory, userBlockRepository, authorVisibilityRepository, metrics, new PushDeliveryJobProperties(), clock, sourceDeliveryPolicy);
         when(jobTransaction.claim(JOB_ID, now)).thenReturn(lease);
         org.mockito.Mockito.lenient().when(sourceDeliveryPolicy.canDeliver(2L, "payload")).thenReturn(true);
+        org.mockito.Mockito.lenient().when(sourceDeliveryPolicy.payloadForDelivery(2L, "payload")).thenReturn("payload");
         org.mockito.Mockito.lenient().when(payloadFactory.readActorUserId("payload")).thenReturn(null);
     }
 
@@ -72,6 +73,32 @@ class PushDeliveryJobProcessorTest {
 
         verify(jobTransaction).complete(lease);
         verify(metrics).recordOutcome("success");
+    }
+
+    @Test
+    void sendsCurrentPublicPresentationInsteadOfStoredPayload() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(sourceDeliveryPolicy.payloadForDelivery(2L, "payload")).thenReturn("withdrawn presentation");
+        when(dispatcher.send(subscription, "withdrawn presentation")).thenReturn(PushDeliveryOutcome.SUCCESS);
+        when(jobTransaction.complete(lease)).thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
+
+        assertThat(processor.processJob(JOB_ID)).isTrue();
+
+        verify(dispatcher).send(subscription, "withdrawn presentation");
+        verify(dispatcher, never()).send(subscription, "payload");
+        assertThat(lease.payload()).isEqualTo("payload");
+    }
+
+    @Test
+    void missingPublicPresentationExpiresWithoutSendingOriginal() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(sourceDeliveryPolicy.payloadForDelivery(2L, "payload")).thenReturn(null);
+        when(jobTransaction.expire(lease, "Notification presentation is unavailable"))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
+
+        assertThat(processor.processJob(JOB_ID)).isTrue();
+
+        org.mockito.Mockito.verifyNoInteractions(dispatcher);
     }
 
     @Test

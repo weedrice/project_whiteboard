@@ -394,8 +394,8 @@ export const user: UserMessages = {
     dangerZone: '위험 구역',
     deleteAccount: '회원 탈퇴',
     deleteAccountDesc: '계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.',
-    deleteAccountConfirmation: '정말 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
-    deleteAccountWarning: '계정 삭제 시 작성한 게시글, 댓글 등 모든 활동 내역이 삭제됩니다.',
+    deleteAccountConfirmation: '정말 탈퇴하시겠습니까? 로그인이 종료되며 취소된 예약 발행은 재가입해도 자동으로 재개되지 않습니다.',
+    deleteAccountWarning: '탈퇴해도 공개된 게시글과 댓글은 남으며 작성자는 “탈퇴한 사용자”로 표시됩니다. 예약 발행은 취소되고 초안은 기존 보관 기간 후 정리됩니다. 재가입하면 기존 글과 댓글의 수정·삭제 권한이 복원됩니다.',
   },
   menu: {
     actions: '작업',

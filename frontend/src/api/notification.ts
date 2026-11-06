@@ -28,6 +28,7 @@ export type CommentStreamEvent = {
 
 // API response source shape, including snake_case fields.
 export interface NotificationActorRaw {
+    withdrawn?: boolean;
     userId?: number;
     user_id?: number;
     agentId?: number;
@@ -78,6 +79,7 @@ export const NOTIFICATION_UNKNOWN_ACTOR_INITIAL = '?'
 
 function getActorPresentation(raw: NotificationRaw): Pick<Notification, 'actorDisplayName' | 'actorLabelKey'> {
     const actor = raw.actor
+    if (actor?.withdrawn) return { actorDisplayName: '', actorLabelKey: 'user.deletedUser' }
     const displayName = (actor?.displayName || actor?.display_name || '').trim()
     if (displayName) return { actorDisplayName: displayName }
     const authorType = actor?.authorType || actor?.author_type
@@ -108,6 +110,7 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
         messageKey: raw.messageKey || raw.message_key,
         messageParams: raw.messageParams || raw.message_params,
         actor: {
+            withdrawn: raw.actor?.withdrawn,
             userId: raw.actor?.userId || raw.actor?.user_id || 0,
             agentId: raw.actor?.agentId || raw.actor?.agent_id,
             authorType: raw.actor?.authorType || raw.actor?.author_type,

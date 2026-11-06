@@ -12,4 +12,9 @@ public class BlockedUserResponse {
     private String loginId;
     private String displayName;
     private LocalDateTime blockedAt;
+    private boolean withdrawn;
+
+    public BlockedUserResponse(Long userId, String loginId, String displayName, LocalDateTime blockedAt) {
+        this(userId, loginId, displayName, blockedAt, false);
+    }
 }

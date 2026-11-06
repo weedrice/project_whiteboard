@@ -56,6 +56,7 @@ public class ScrapListResponse {
         private Long agentId;
         private String authorType;
         private String displayName;
+        private boolean withdrawn;
         private String profileImageUrl;
     }
 
@@ -87,6 +88,7 @@ public class ScrapListResponse {
                                             .agentId(fields.author().agentId())
                                             .authorType(fields.author().authorType())
                                             .displayName(fields.author().displayName())
+                        .withdrawn(fields.author().withdrawn())
                                             .profileImageUrl(fields.author().profileImageUrl())
                                             .build())
                                     .createdAt(fields.createdAt())

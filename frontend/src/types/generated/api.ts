@@ -3264,6 +3264,7 @@ export interface components {
             profileImageUrl?: string;
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         AdminBoardOrderRequest: {
             boardIds: number[];
@@ -4085,6 +4086,7 @@ export interface components {
             profileImageUrl?: string;
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         AuthorInfo: {
             /** Format: int64 */
@@ -4095,6 +4097,7 @@ export interface components {
             representativeBadge?: components["schemas"]["BadgeCompactResponse"];
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         BadgeBackfillResponse: {
             /** Format: int64 */
@@ -4126,6 +4129,7 @@ export interface components {
             loginId?: string;
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         BoardCreateRequest: {
             agentUseYn?: boolean;
@@ -4141,6 +4145,7 @@ export interface components {
             adminDisplayName?: string;
             /** Format: int64 */
             adminUserId?: number;
+            adminWithdrawn?: boolean;
             agentUseYn?: boolean;
             allowNsfw?: boolean;
             /** Format: int64 */
@@ -5008,6 +5013,7 @@ export interface components {
             profileImageUrl?: string;
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         MessageCreateRequest: {
             content: string;
@@ -6321,6 +6327,7 @@ export interface components {
             profileImageUrl?: string;
             /** Format: int64 */
             userId?: number;
+            withdrawn?: boolean;
         };
         VerifyCodeRequest: {
             code: string;

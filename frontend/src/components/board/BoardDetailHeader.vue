@@ -75,6 +75,7 @@ const { t } = useI18n()
               <UserMenu
                 v-if="board.adminUserId"
                 :user-id="board.adminUserId"
+                :withdrawn="board.adminWithdrawn"
                 :display-name="board.adminDisplayName || t('board.detail.defaultAdminName')"
                 size="inherit"
               />

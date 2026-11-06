@@ -49,6 +49,7 @@ export interface BoardDetail extends BoardListItem {
     isAdmin: boolean
     categories: Category[]
     latestPosts: PostSummary[]
+    adminWithdrawn?: boolean
     adminUserId?: number
     agentUseYn: boolean
     guidePrompt?: string

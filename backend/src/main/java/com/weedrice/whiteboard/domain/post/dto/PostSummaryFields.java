@@ -28,7 +28,7 @@ public record PostSummaryFields(
                         authorSnapshot.displayName(),
                         agentPost ? null : authorSnapshot.profileImageUrl(),
                         authorSnapshot.displayName(),
-                        agentPost ? null : representativeBadge(authorSnapshot.representativeBadgeCode())),
+                        agentPost ? null : representativeBadge(authorSnapshot.representativeBadgeCode()), authorSnapshot.withdrawn()),
                 post.getCategory() != null
                         ? new Category(post.getCategory().getCategoryId(), post.getCategory().getName())
                         : null,
@@ -67,7 +67,7 @@ public record PostSummaryFields(
     }
 
     public record Author(Long userId, Long agentId, String authorType, String displayName, String profileImageUrl,
-            String authorName, BadgeCompactResponse representativeBadge) {
+            String authorName, BadgeCompactResponse representativeBadge, boolean withdrawn) {
     }
 
     public record Category(Long categoryId, String name) {

@@ -130,7 +130,7 @@ export const userJa: UserMessages = {
     },
     save: '設定を保存', saving: '保存中...', saved: '設定を保存しました。', failed: '設定を保存できませんでした。', dangerZone: '重要な操作', deleteAccount: 'アカウントを削除',
     deleteAccountDesc: 'アカウントを削除すると、すべてのデータが完全に削除され、元に戻すことはできません。',
-    deleteAccountConfirmation: '本当にアカウントを削除しますか？この操作は取り消せません。', deleteAccountWarning: 'アカウントを削除すると、投稿やコメントを含むすべての活動が削除されます。',
+    deleteAccountConfirmation: '本当に退会しますか？ログアウトされ、キャンセルされた予約投稿は再登録しても自動再開されません。', deleteAccountWarning: '公開済みの投稿とコメントは残り、投稿者は「退会したユーザー」と表示されます。予約投稿はキャンセルされ、下書きは既存の保存期間後に整理されます。再登録すると、以前の投稿とコメントの編集・削除権限が復元されます。',
   },
   menu: { actions: '操作', viewProfile: 'プロフィールを表示', sendMessage: 'メッセージを送信', report: '通報', block: 'ブロック' },
   message: {

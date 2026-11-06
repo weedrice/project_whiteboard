@@ -81,6 +81,19 @@ describe('UserMenu', () => {
     authState.sessionGeneration = 0
   })
 
+  it('masks withdrawn names and removes unavailable profile, message and report actions', async () => {
+    const wrapper = mount(UserMenu, {
+      props: { userId: 2, displayName: 'Internal original name', buttonLabel: 'Original alias', withdrawn: true },
+      global: { stubs: { MessageModal: true, ReportModal: true, Teleport: true } },
+    })
+    expect(wrapper.get('button').text()).toBe('탈퇴한 사용자')
+    expect(wrapper.get('button').attributes('title')).toBe('탈퇴한 사용자')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.findAll('[role="menuitem"]').map(item => item.text())).toEqual(['user.menu.block'])
+    expect(wrapper.html()).not.toContain('Internal original name')
+    wrapper.unmount()
+  })
+
   it('truncates the visible label using maxLabelLength', () => {
     const wrapper = mount(UserMenu, {
       props: {

@@ -297,6 +297,7 @@ public class CommentQueryService {
                 .agentId(author.agentId())
                 .authorType(author.authorType())
                 .displayName(author.displayName())
+                .withdrawn(author.withdrawn())
                 .profileImageUrl(author.profileImageUrl())
                 .representativeBadge(author.representativeBadge())
                 .build();
@@ -347,6 +348,7 @@ public class CommentQueryService {
         return CommentResponse.MentionInfo.builder()
                 .userId(user.ownerUserId())
                 .displayName(user.displayName())
+                .withdrawn(user.withdrawn())
                 .profileImageUrl(user.profileImageUrl())
                 .build();
     }

@@ -26,6 +26,20 @@ class PushPayloadFactory {
         }
     }
 
+    String withWithdrawnPresentation(String payload, String body) {
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            if (!(root instanceof tools.jackson.databind.node.ObjectNode object)) {
+                return null;
+            }
+            object.put("body", body);
+            object.put("actorWithdrawn", true);
+            return objectMapper.writeValueAsString(object);
+        } catch (JacksonException exception) {
+            return null;
+        }
+    }
+
     Long readActorUserId(String payload) {
         if (payload == null || payload.isBlank()) {
             return null;

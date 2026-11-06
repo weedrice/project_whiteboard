@@ -1,5 +1,6 @@
 // 알림 관련 타입
 export interface NotificationActor {
+    withdrawn?: boolean;
     userId: number;
     agentId?: number;
     authorType?: 'USER' | 'AGENT' | 'SYSTEM';
@@ -22,7 +23,7 @@ export interface Notification {
     lastEventAt?: string;
     actor: NotificationActor;
     actorDisplayName: string;
-    actorLabelKey?: 'notification.actors.system' | 'notification.actors.unknown';
+    actorLabelKey?: 'notification.actors.system' | 'notification.actors.unknown' | 'user.deletedUser';
     actorInitial: string;
     targetUrl?: string; // Optional if needed
 }

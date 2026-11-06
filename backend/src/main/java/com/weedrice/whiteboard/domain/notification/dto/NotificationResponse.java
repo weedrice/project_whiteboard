@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.dto;
 
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
@@ -59,16 +60,32 @@ public class NotificationResponse {
         public static NotificationSummary from(Notification notification, String targetUrl, boolean hideActor) {
             List<String> messageParams = NotificationMessageParamsCodec.decode(notification.getMessageParams());
             String message = notification.getContent();
-            if (hideActor) {
+            boolean withdrawn = !hideActor && notification.getActor() != null
+                    && AuthorPresentation.isWithdrawn(notification.getActor().getStatus(), notification.getActor().getDeletedAt());
+            if (hideActor || withdrawn) {
+                String replacement = withdrawn ? AuthorPresentation.WITHDRAWN_DISPLAY_NAME : "";
                 String currentActorName = resolveActorName(notification);
                 String storedActorName = resolveStoredActorName(notification, messageParams, currentActorName);
-                message = maskActorName(message, currentActorName);
-                message = maskActorName(message, storedActorName);
+                // Replace both names in one pass: one may be a substring of the other.
+                boolean actorMessage = notification.getMessageKey() == null
+                        || ACTOR_NAME_MESSAGE_KEYS.contains(notification.getMessageKey());
+                if (hideActor || actorMessage) {
+                    boolean hasStoredActorName = notification.getMessageKey() != null
+                            && ACTOR_NAME_MESSAGE_KEYS.contains(notification.getMessageKey())
+                            && !messageParams.isEmpty() && !messageParams.getFirst().isBlank();
+                    if (withdrawn && (!hasStoredActorName
+                            || !containsActorName(message, currentActorName, storedActorName))) {
+                        // Without a structured historic name, substring replacement can expose part of an old name.
+                        message = AuthorPresentation.WITHDRAWN_DISPLAY_NAME + "의 알림입니다.";
+                    } else {
+                        message = replaceActorNames(message, currentActorName, storedActorName, replacement);
+                    }
+                }
                 if (notification.getMessageKey() != null
                         && ACTOR_NAME_MESSAGE_KEYS.contains(notification.getMessageKey())
                         && !messageParams.isEmpty()) {
                     java.util.ArrayList<String> maskedParams = new java.util.ArrayList<>(messageParams);
-                    maskedParams.set(0, "");
+                    maskedParams.set(0, replacement);
                     messageParams = List.copyOf(maskedParams);
                 }
             }
@@ -109,12 +126,24 @@ public class NotificationResponse {
             return fallback;
         }
 
-        private static String maskActorName(String message, String actorName) {
-            if (message == null || actorName == null || actorName.isBlank()) {
-                return message;
-            }
-            return message.replace(actorName, "");
+        private static boolean containsActorName(String message, String... names) {
+            return message != null && java.util.Arrays.stream(names)
+                    .anyMatch(name -> name != null && !name.isBlank() && message.contains(name));
         }
+
+        private static String replaceActorNames(String message, String currentName, String storedName, String replacement) {
+            if (message == null) {
+                return null;
+            }
+            String pattern = java.util.stream.Stream.of(currentName, storedName)
+                    .filter(name -> name != null && !name.isBlank())
+                    .distinct()
+                    .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+                    .map(java.util.regex.Pattern::quote)
+                    .collect(Collectors.joining("|"));
+            return pattern.isEmpty() ? message : message.replaceAll(pattern, java.util.regex.Matcher.quoteReplacement(replacement));
+        }
+
     }
 
     @Getter
@@ -125,8 +154,19 @@ public class NotificationResponse {
         private String authorType;
         private String displayName;
         private String profileImageUrl;
+        private boolean withdrawn;
 
         public static ActorInfo from(Notification notification) {
+            if (notification.getActor() != null
+                    && AuthorPresentation.isWithdrawn(notification.getActor().getStatus(), notification.getActor().getDeletedAt())) {
+                return ActorInfo.builder()
+                        .userId(notification.getActor().getUserId())
+                        .agentId(notification.getActorAgent() == null ? null : notification.getActorAgent().getAgentId())
+                        .authorType(notification.getActorAgent() == null ? "USER" : "AGENT")
+                        .displayName(AuthorPresentation.WITHDRAWN_DISPLAY_NAME)
+                        .withdrawn(true)
+                        .build();
+            }
             if (notification.getActorAgent() != null) {
                 return ActorInfo.builder()
                         .userId(notification.getActor() != null ? notification.getActor().getUserId() : null)

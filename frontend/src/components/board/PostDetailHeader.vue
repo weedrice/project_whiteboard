@@ -125,7 +125,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
             <span class="inline-flex items-center gap-1.5">
               <User class="h-4 w-4" />
-              <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
+              <UserMenu :withdrawn="postView.authorWithdrawn" :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
               <BaseBadge
                 v-if="postView.representativeBadge"
                 variant="outline"

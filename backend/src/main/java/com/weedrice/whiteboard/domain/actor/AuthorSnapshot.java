@@ -9,5 +9,17 @@ public record AuthorSnapshot(
         String authorType,
         String displayName,
         String profileImageUrl,
-        String representativeBadgeCode) {
+        String representativeBadgeCode,
+        boolean withdrawn) {
+
+    public AuthorSnapshot {
+        displayName = AuthorPresentation.displayName(withdrawn, displayName);
+        profileImageUrl = AuthorPresentation.profileImageUrl(withdrawn, profileImageUrl);
+        representativeBadgeCode = withdrawn ? null : representativeBadgeCode;
+    }
+
+    public AuthorSnapshot(Long ownerUserId, Long agentId, String authorType, String displayName,
+            String profileImageUrl, String representativeBadgeCode) {
+        this(ownerUserId, agentId, authorType, displayName, profileImageUrl, representativeBadgeCode, false);
+    }
 }

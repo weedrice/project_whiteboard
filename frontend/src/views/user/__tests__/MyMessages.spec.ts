@@ -56,6 +56,36 @@ describe('MyMessages', () => {
         messageApi.sendMessage.mockResolvedValue({ data: { success: true, data: 10 } })
     }
 
+    it('keeps withdrawn partner history readable while hiding reply controls', async () => {
+        const message = {
+            messageId: 2,
+            content: 'Historical message',
+            partner: { userId: 2, displayName: 'Old name', withdrawn: true },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: { success: true, data: { content: [message], totalPages: 1 } },
+        })
+        messageApi.getConversation.mockResolvedValue({
+            data: { success: true, data: { content: [message], totalPages: 1 } },
+        })
+        messageApi.getMessage.mockResolvedValue({ data: { success: true, data: message } })
+        routerMocks.route.query = { partnerId: '2' }
+        const wrapper = mountMyMessages()
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('Historical message')
+        expect(wrapper.text()).toContain('user.deletedUser')
+        expect(wrapper.text()).not.toContain('Old name')
+        expect(wrapper.find('form').exists()).toBe(false)
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'Attempted reply'
+        await exposed.sendReply()
+        expect(messageApi.sendMessage).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
     it('preserves a reply on cancelled close, then discards it only after approval', async () => {
         mockPartnerConversations()
         routerMocks.route.query = { partnerId: '2' }

@@ -98,6 +98,7 @@ class FeedPostSummaryAssembler {
                         .agentId(fields.author().agentId())
                         .authorType(fields.author().authorType())
                         .displayName(fields.author().displayName())
+                        .withdrawn(fields.author().withdrawn())
                         .profileImageUrl(fields.author().profileImageUrl())
                         .build())
                 .category(fields.category() != null ? FeedPostSummary.CategoryInfo.builder()

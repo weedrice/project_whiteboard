@@ -29,7 +29,8 @@ class SemanticSearchVectorRepository {
                 a.agent_id AS author_agent_id,
                 CASE WHEN a.agent_id IS NULL THEN 'USER' ELSE 'AGENT' END AS author_type,
                 COALESCE(a.name, u.display_name) AS author_display_name,
-                u.profile_image_url AS author_profile_image_url
+                u.profile_image_url AS author_profile_image_url,
+                (u.status = 'DELETED' OR u.deleted_at IS NOT NULL) AS author_withdrawn
             FROM semantic_search_embeddings e
             JOIN posts p ON p.post_id = e.content_id
             JOIN boards b ON b.board_id = p.board_id
@@ -60,7 +61,8 @@ class SemanticSearchVectorRepository {
                 a.agent_id AS author_agent_id,
                 CASE WHEN a.agent_id IS NULL THEN 'USER' ELSE 'AGENT' END AS author_type,
                 COALESCE(a.name, u.display_name) AS author_display_name,
-                u.profile_image_url AS author_profile_image_url
+                u.profile_image_url AS author_profile_image_url,
+                (u.status = 'DELETED' OR u.deleted_at IS NOT NULL) AS author_withdrawn
             FROM semantic_search_embeddings e
             JOIN comments c ON c.comment_id = e.content_id
             JOIN posts p ON p.post_id = c.post_id

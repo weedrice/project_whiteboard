@@ -9,6 +9,7 @@ import { isSessionGenerationCurrent } from '@/queryAuthScope'
 interface UseUserMenuActionsOptions {
     userId: Ref<number>
     displayName: Ref<string>
+    withdrawn?: Ref<boolean>
     closeDropdown: () => void
     openProfile?: () => void
     t: (key: string, named?: Record<string, unknown>) => string
@@ -17,6 +18,7 @@ interface UseUserMenuActionsOptions {
 export function useUserMenuActions({
     userId,
     displayName,
+    withdrawn = ref(false),
     closeDropdown,
     openProfile,
     t,
@@ -27,16 +29,16 @@ export function useUserMenuActions({
     const isMessageModalOpen = ref(false)
     const isReportModalOpen = ref(false)
     const isSelf = computed(() => !!(authStore.user && authStore.user.userId === userId.value))
-    const isMenuDisabled = computed(() => !userId.value)
+    const isMenuDisabled = computed(() => !userId.value || (withdrawn.value && (!authStore.user || isSelf.value)))
 
     const handleOpenProfile = () => {
         closeDropdown()
-        openProfile?.()
+        if (!withdrawn.value) openProfile?.()
     }
 
     const openMessageModal = () => {
         closeDropdown()
-        if (isSelf.value) return
+        if (isSelf.value || withdrawn.value) return
         isMessageModalOpen.value = true
     }
 
@@ -46,7 +48,7 @@ export function useUserMenuActions({
 
     const openReportModal = () => {
         closeDropdown()
-        if (isSelf.value) return
+        if (isSelf.value || withdrawn.value) return
         isReportModalOpen.value = true
     }
 
@@ -54,7 +56,7 @@ export function useUserMenuActions({
         isReportModalOpen.value = false
     }
 
-    watch([userId, displayName], () => {
+    watch([userId, displayName, withdrawn], () => {
         closeMessageModal()
         closeReportModal()
     }, { flush: 'sync' })
@@ -87,6 +89,11 @@ export function useUserMenuActions({
     }
 
     const menuItems = computed(() => {
+        if (withdrawn.value) {
+            return authStore.user && !isSelf.value
+                ? [{ action: handleBlockUser, label: t('user.menu.block') }]
+                : []
+        }
         const profileItem = { action: handleOpenProfile, label: t('user.menu.viewProfile') }
 
         if (!authStore.user || isSelf.value) return [profileItem]

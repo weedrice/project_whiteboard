@@ -19,6 +19,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -2315,6 +2318,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -2340,6 +2346,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -2419,6 +2428,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -2472,6 +2484,9 @@
           "adminUserId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "adminWithdrawn" : {
+            "type" : "boolean"
           },
           "agentUseYn" : {
             "type" : "boolean"
@@ -4880,6 +4895,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -8373,6 +8391,9 @@
           "userId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "withdrawn" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"

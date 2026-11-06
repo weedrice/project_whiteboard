@@ -147,6 +147,8 @@ describe('extracted board components', () => {
     await subscribeButton.trigger('click')
 
     expect(wrapper.emitted('subscribe')).toBeUndefined()
+    await wrapper.setProps({ board: boardDetail({ adminUserId: 9, adminWithdrawn: true }) })
+    expect(wrapper.findComponent({ name: 'UserMenu' }).props('withdrawn')).toBe(true)
   })
 
   it('connects board notice expand control with the notice list', async () => {

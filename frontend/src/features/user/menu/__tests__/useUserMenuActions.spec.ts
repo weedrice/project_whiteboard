@@ -54,6 +54,24 @@ describe('useUserMenuActions', () => {
         confirm.mockResolvedValue(true)
     })
 
+    it('offers only content blocking for withdrawn authors and no actions to guests', async () => {
+        vi.mocked(userApi.blockUser).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.blockUser>())
+        const actions = useUserMenuActions({
+            userId: ref(2), displayName: ref('탈퇴한 사용자'), withdrawn: ref(true),
+            closeDropdown: vi.fn(), openProfile: vi.fn(), t,
+        })
+        expect(actions.menuItems.value.map(item => item.label)).toEqual(['user.menu.block'])
+        await actions.menuItems.value[0].action()
+        expect(userApi.blockUser).toHaveBeenCalledWith(2)
+        expect(actions.isMessageModalOpen.value).toBe(false)
+        expect(actions.isReportModalOpen.value).toBe(false)
+        authState.user = null
+        const guest = useUserMenuActions({ userId: ref(2), displayName: ref('탈퇴한 사용자'),
+            withdrawn: ref(true), closeDropdown: vi.fn(), t })
+        expect(guest.menuItems.value).toEqual([])
+        expect(guest.isMenuDisabled.value).toBe(true)
+    })
+
     it('keeps profile access for the current user without private actions', () => {
         const closeDropdown = vi.fn()
         const openProfile = vi.fn()

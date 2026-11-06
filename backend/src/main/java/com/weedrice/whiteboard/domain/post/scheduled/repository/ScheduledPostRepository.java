@@ -148,6 +148,33 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             + "WHERE s.seriesId = :seriesId AND s.status IN ('SCHEDULED', 'FAILED', 'PUBLISHING')")
     int clearSeriesReference(@Param("seriesId") Long seriesId);
 
+    @Query("""
+            SELECT s.scheduledPostId
+            FROM ScheduledPost s
+            WHERE s.userId = :userId
+              AND s.status IN ('SCHEDULED', 'FAILED', 'PUBLISHING')
+            ORDER BY s.scheduledPostId ASC
+            """)
+    List<Long> findUnpublishedIdsByUserId(@Param("userId") Long userId);
+
+    /** Called only while withdrawal holds the owner's user lock. Invalidates any outstanding lease. */
+    @Modifying
+    @Query("""
+            UPDATE ScheduledPost s
+            SET s.status = 'CANCELED',
+                s.canceledAt = :canceledAt,
+                s.processingStartedAt = null,
+                s.failureReason = null,
+                s.draftId = null
+            WHERE s.scheduledPostId = :scheduledPostId
+              AND s.userId = :userId
+              AND s.status IN ('SCHEDULED', 'FAILED', 'PUBLISHING')
+            """)
+    int cancelForWithdrawal(
+            @Param("scheduledPostId") Long scheduledPostId,
+            @Param("userId") Long userId,
+            @Param("canceledAt") LocalDateTime canceledAt);
+
     @Modifying
     @Transactional
     @Query("""

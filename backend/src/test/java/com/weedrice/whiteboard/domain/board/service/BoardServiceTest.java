@@ -1910,6 +1910,23 @@ class BoardServiceTest {
     }
 
     @Test
+    void publicBoardResponsesMaskWithdrawnCreatorWhileAdminResponseKeepsIdentity() {
+        user.delete(java.time.LocalDateTime.now());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                null, false, BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(List.of(board));
+
+        BoardDetailResponse detail = boardService.getBoardDetails("test-board", null);
+        assertThat(detail.getAdminDisplayName()).isEqualTo("탈퇴한 사용자");
+        assertThat(detail.isAdminWithdrawn()).isTrue();
+        assertThat(boardService.getActiveBoards(null).getFirst().getAdminDisplayName())
+                .isEqualTo("탈퇴한 사용자");
+        assertThat(boardResponseAssembler.assembleAdminAll(List.of(board)).getFirst().getAdminDisplayName())
+                .isEqualTo("Test User");
+        assertThat(user.getDisplayName()).isEqualTo("Test User");
+    }
+
+    @Test
     @DisplayName("노드 상세 조회 성공")
     void getBoardDetails_success() {
         // given

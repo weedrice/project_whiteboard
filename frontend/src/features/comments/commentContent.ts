@@ -25,6 +25,7 @@ function sanitizeCommentText(value: string): string {
 }
 
 function renderMentionHtml(mention: CommentMention): string {
+    if (mention.withdrawn) return `<span class="comment-mention">@${escapeHtmlText(mention.displayName)}</span>`
     return `<span class="comment-mention" role="link" tabindex="0" data-mention-user-id="${escapeHtmlAttribute(String(mention.userId))}">@${escapeHtmlText(mention.displayName)}</span>`
 }
 

@@ -1,6 +1,7 @@
 import type { UserSummary } from './user'
 
 export interface CommentMention {
+    withdrawn?: boolean
     userId: number
     displayName: string
     profileImageUrl?: string | null

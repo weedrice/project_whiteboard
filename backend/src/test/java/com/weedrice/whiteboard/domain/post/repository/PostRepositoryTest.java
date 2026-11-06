@@ -89,6 +89,37 @@ class PostRepositoryTest {
     }
 
     @Test
+    void withdrawnAuthorProjectionMasksIdentityAndRestoresWithoutChangingStoredAccount() {
+        user.updateProfileImage("https://example.com/retained.png");
+        user.delete(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        var summaries = postRepository.findPostListSummariesByBoardIdAndCategoryId(
+                board.getBoardId(), null, null, null, List.of(), false, null, PageRequest.of(0, 10));
+        assertThat(summaries.getTotalElements()).isEqualTo(1);
+        var summary = summaries.getContent().getFirst();
+        assertThat(summary.userDisplayName()).isEqualTo("탈퇴한 사용자");
+        assertThat(summary.userProfileImageUrl()).isNull();
+        assertThat(summary.withdrawn()).isTrue();
+        assertThat(postRepository.searchPosts("Test User", "AUTHOR", "test-board", null,
+                false, null, PageRequest.of(0, 10)).getTotalElements()).isZero();
+        assertThat(postRepository.searchPosts("탈퇴한 사용자", "AUTHOR", "test-board", null,
+                false, null, PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
+        User retained = entityManager.find(User.class, user.getUserId());
+        assertThat(retained.getDisplayName()).isEqualTo("Test User");
+        assertThat(retained.getProfileImageUrl()).isEqualTo("https://example.com/retained.png");
+        retained.activate();
+        entityManager.flush();
+        entityManager.clear();
+        var restored = postRepository.findPostListSummariesByBoardIdAndCategoryId(
+                board.getBoardId(), null, null, null, List.of(), false, null, PageRequest.of(0, 10))
+                .getContent().getFirst();
+        assertThat(restored.withdrawn()).isFalse();
+        assertThat(restored.userDisplayName()).isEqualTo("Test User");
+    }
+
+    @Test
     @DisplayName("게시글 ID로 조회 성공")
     void findById_success() {
         // when

@@ -117,6 +117,25 @@ class UserBlockRepositoryTest {
     }
 
     @Test
+    void withdrawnTargetsRemainManageableAndTheirBlocksRemainEffective() {
+        User withdrawn = entityManager.find(User.class, user3.getUserId());
+        withdrawn.delete(LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserBlock> first = userBlockRepository.findPageByUserWithTarget(user1, PageRequest.of(0, 1));
+        Page<UserBlock> second = userBlockRepository.findPageByUserWithTarget(user1, PageRequest.of(1, 1));
+        assertThat(first.getTotalElements()).isEqualTo(2);
+        assertThat(second.getTotalElements()).isEqualTo(2);
+        assertThat(java.util.stream.Stream.concat(first.stream(), second.stream())
+                .map(block -> block.getTarget().getUserId()).toList())
+                .containsExactlyInAnyOrder(user2.getUserId(), user3.getUserId());
+        assertThat(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(user1.getUserId()))
+                .contains(user3.getUserId());
+        assertThat(userBlockRepository.findByUserAndTarget(user1, withdrawn)).isPresent();
+    }
+
+    @Test
     @DisplayName("block list page excludes inactive targets")
     void findPageByUserWithTarget_excludesInactiveTargets() {
         User inactiveTarget = entityManager.find(User.class, user3.getUserId());

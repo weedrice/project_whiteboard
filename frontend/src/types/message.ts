@@ -1,6 +1,7 @@
 export interface MessagePartnerDto {
     userId: number
     displayName: string
+    withdrawn?: boolean
 }
 
 export interface MessageSummaryDto {
@@ -26,6 +27,7 @@ export interface MailboxMessageViewModel {
     id: number
     partnerUserId: number
     partnerName: string
+    partnerWithdrawn?: boolean
     body: string
     isUnread: boolean
     sentByMe: boolean

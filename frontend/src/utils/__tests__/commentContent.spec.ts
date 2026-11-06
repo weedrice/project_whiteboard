@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/features/comments/commentContent'
 
 describe('commentContent', () => {
+    it('keeps withdrawn mentions non-interactive and preserves original free text', () => {
+        const mentions = [{ userId: 7, displayName: '탈퇴한 사용자', withdrawn: true }]
+        const html = renderCommentContentHtml('@탈퇴한 사용자 hello', 'comment-emoticon', mentions)
+        expect(html).toContain('@탈퇴한 사용자')
+        expect(html).not.toContain('data-user-id')
+        expect(html).not.toContain('role=')
+        expect(renderCommentContentHtml('@Original hello', 'comment-emoticon', mentions)).toBe('@Original hello')
+    })
+
     it('returns empty output for undefined or empty input', () => {
         expect(renderCommentContentHtml(undefined)).toBe('')
         expect(renderCommentContentHtml('')).toBe('')

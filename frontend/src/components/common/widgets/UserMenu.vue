@@ -10,7 +10,7 @@
           { 'cursor-default': isMenuDisabled },
           size === 'xs' ? 'text-xs' : size === 'inherit' ? 'text-inherit' : 'text-sm'
         ]"
-        :title="displayName"
+        :title="publicDisplayName"
         :aria-haspopup="!isMenuDisabled"
         :aria-expanded="isDropdownOpen"
         :aria-controls="isDropdownOpen ? menuDropdownId : undefined"
@@ -56,11 +56,11 @@
       </div>
     </Teleport>
 
-    <MessageModal :isOpen="isMessageModalOpen" :userId="userId" :displayName="displayName" @close="closeMessageModal" />
+    <MessageModal :isOpen="isMessageModalOpen" :userId="userId" :displayName="publicDisplayName" @close="closeMessageModal" />
     <ReportModal
       :isOpen="isReportModalOpen"
       :targetIdentity="`user:${userId}`"
-      :targetText="displayName"
+      :targetText="publicDisplayName"
       :submit="submitUserReport"
       @close="closeReportModal"
     />
@@ -93,10 +93,12 @@ const router = useRouter()
 const props = withDefaults(defineProps<{
   userId: number
   displayName: string
+  withdrawn?: boolean
   buttonLabel?: string
   maxLabelLength?: number
   size?: 'default' | 'xs' | 'inherit'
 }>(), {
+  withdrawn: false,
   buttonLabel: undefined,
   maxLabelLength: undefined,
   size: 'default'
@@ -107,7 +109,10 @@ const menuInstanceId = `user-menu-${getCurrentInstance()?.uid ?? props.userId}`
 const menuButtonId = `${menuInstanceId}-button`
 const menuDropdownId = `${menuInstanceId}-dropdown`
 
+const publicDisplayName = computed(() => props.withdrawn ? t('user.deletedUser') : props.displayName)
+
 const buttonLabel = computed(() => (
+  props.withdrawn ? t('user.deletedUser') :
   props.buttonLabel
     ? props.buttonLabel
     : formatUserDisplayName(props.displayName, props.maxLabelLength, t('user.deletedUser'))
@@ -127,7 +132,8 @@ const {
   closeReportModal
 } = useUserMenuActions({
   userId: toRef(props, 'userId'),
-  displayName: toRef(props, 'displayName'),
+  displayName: publicDisplayName,
+  withdrawn: toRef(props, 'withdrawn'),
   closeDropdown,
   openProfile: () => router.push(`/user/${props.userId}`),
   t

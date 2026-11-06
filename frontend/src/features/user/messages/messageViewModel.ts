@@ -5,6 +5,7 @@ export function toMailboxMessageViewModel(message: MessageSummaryDto): MailboxMe
         id: message.messageId,
         partnerUserId: message.partner.userId,
         partnerName: message.partner.displayName,
+        partnerWithdrawn: message.partner.withdrawn ?? false,
         body: message.content,
         isUnread: !message.isRead,
         sentByMe: Boolean(message.sentByMe),

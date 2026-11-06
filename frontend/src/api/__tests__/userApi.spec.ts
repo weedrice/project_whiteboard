@@ -354,6 +354,11 @@ describe('userApi', () => {
         })
     })
 
+    it('keeps withdrawn block targets manageable without exposing their login ID in secondary text', () => {
+        const result = toBlockedUserPage([{ userId: 10, displayName: '탈퇴한 사용자', withdrawn: true, loginId: 'internal-id', blockedAt: '2026-11-06' }])
+        expect(result.content[0]).toMatchObject({ userId: 10, withdrawn: true, secondaryText: '2026-11-06' })
+    })
+
     it('normalizes legacy block list arrays at the api boundary', () => {
         const result = toBlockedUserPage([
             {

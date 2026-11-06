@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +38,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,6 +132,42 @@ class InquiryReadServiceTest {
         assertThat(visibleTypes.getValue())
                 .containsExactly(InquiryMessageType.USER_MESSAGE, InquiryMessageType.STAFF_REPLY)
                 .doesNotContain(InquiryMessageType.INTERNAL_NOTE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void detailMasksWithdrawnStaffNameOnlyForTheRequester(boolean admin) {
+        LocalDateTime now = LocalDateTime.of(2026, 8, 25, 9, 0);
+        Inquiry inquiry = inquiry(1L, 10L, "Private", now);
+        InquiryMessage reply = new InquiryMessage(
+                1L, 99L, InquiryMessageType.STAFF_REPLY, "Staff response", now);
+        ReflectionTestUtils.setField(reply, "messageId", 101L);
+        when(inquiryRepository.findById(1L)).thenReturn(Optional.of(inquiry));
+        when(messageRepository.findByInquiryIdAndMessageTypeInOrderByCreatedAtAscMessageIdAsc(any(), any()))
+                .thenReturn(List.of(reply));
+        String expectedName = admin ? "Original staff name" : "탈퇴한 사용자";
+        Map<Long, String> names = Map.of(10L, "Requester", 99L, expectedName);
+        if (admin) {
+            when(userPort.findDisplayNames(any())).thenReturn(names);
+        } else {
+            when(userPort.findPublicDisplayNames(any())).thenReturn(names);
+        }
+
+        InquiryDetailResponse result = admin
+                ? readService.getAdminDetail(1L)
+                : readService.getMineDetail(10L, 1L);
+
+        assertThat(result.authorName()).isEqualTo("Requester");
+        assertThat(result.messages()).singleElement().satisfies(message -> {
+            assertThat(message.authorUserId()).isEqualTo(99L);
+            assertThat(message.authorName()).isEqualTo(expectedName);
+            assertThat(message.content()).isEqualTo("Staff response");
+        });
+        if (admin) {
+            verify(userPort, never()).findPublicDisplayNames(any());
+        } else {
+            verify(userPort, never()).findDisplayNames(any());
+        }
     }
 
     @Test

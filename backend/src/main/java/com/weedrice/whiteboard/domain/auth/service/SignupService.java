@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -48,6 +49,7 @@ public class SignupService {
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
     private final AccountUniquenessPolicy accountUniquenessPolicy;
     private final OAuthSignupTicketService oAuthSignupTicketService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -149,6 +151,7 @@ public class SignupService {
         passwordHistoryPolicy.record(existingUser, passwordHash);
 
         saveSocialAccountIfPresent(existingUser, oauthTicket);
+        anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
 
         return SignupResponse.builder()
                 .userId(existingUser.getUserId())

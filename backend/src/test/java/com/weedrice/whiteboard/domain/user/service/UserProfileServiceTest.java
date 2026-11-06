@@ -430,8 +430,8 @@ class UserProfileServiceTest {
 
         verify(userRepository).findByIdForUpdate(1L);
         verify(userRepository, never()).findById(1L);
-        assertThat(user.getProfileImageUrl()).isNull();
-        verify(fileService).deleteFileWithStorageIfAssociated(
+        assertThat(user.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        verify(fileService, never()).deleteFileWithStorageIfAssociated(
                 100L, 1L, FileService.RELATED_TYPE_USER_PROFILE);
         verify(userLifecycleService).deletePrelockedAccount(user);
     }

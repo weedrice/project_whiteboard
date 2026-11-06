@@ -66,6 +66,11 @@ class EmoticonMasterDtoTest {
 
             assertThat(dto.getCreatorId()).isEqualTo(10L);
             assertThat(dto.getCreatorName()).isEqualTo("writer");
+            user.delete(LocalDateTime.now());
+            assertThat(EmoticonMasterDto.from(master).getCreatorName()).isEqualTo("탈퇴한 사용자");
+            assertThat(user.getDisplayName()).isEqualTo("writer");
+            user.activate();
+            assertThat(EmoticonMasterDto.from(master).getCreatorName()).isEqualTo("writer");
         }
 
         @Test

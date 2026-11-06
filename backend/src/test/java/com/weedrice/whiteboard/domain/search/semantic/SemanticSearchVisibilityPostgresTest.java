@@ -333,6 +333,15 @@ class SemanticSearchVisibilityPostgresTest {
 
         jdbc.update("UPDATE users SET status = 'DELETED', deleted_at = CURRENT_TIMESTAMP WHERE user_id = 10");
 
+        vectors.search(vectorQuery).stream().filter(row -> row.authorUserId().equals(10L)).forEach(row -> {
+            assertThat(row.authorDisplayName()).isEqualTo("탈퇴한 사용자");
+            assertThat(row.toResponse().getAuthor().isWithdrawn()).isTrue();
+            assertThat(row.authorProfileImageUrl()).isNull();
+        });
+        keywords.search(keywordQuery).stream().filter(row -> row.authorUserId().equals(10L)).forEach(row -> {
+            assertThat(row.authorDisplayName()).isEqualTo("탈퇴한 사용자");
+            assertThat(row.toResponse().getAuthor().isWithdrawn()).isTrue();
+        });
         assertThat(keys(vectors.search(vectorQuery))).containsExactlyElementsOf(expectedVectors);
         assertThat(keys(keywords.search(keywordQuery))).containsExactlyElementsOf(expectedKeywords);
         assertThat(vectors.count(vectorQuery)).isEqualTo(expectedVectors.size());

@@ -24,7 +24,8 @@ final class SemanticSearchRowMapper {
             getNullableLong(rs, "author_agent_id"),
             rs.getString("author_type"),
             rs.getString("author_display_name"),
-            rs.getString("author_profile_image_url"));
+            rs.getString("author_profile_image_url"),
+            rs.getBoolean("author_withdrawn"));
 
     private SemanticSearchRowMapper() {
     }

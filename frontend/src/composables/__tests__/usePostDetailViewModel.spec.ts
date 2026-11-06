@@ -52,6 +52,7 @@ describe('toPostDetailViewModel', () => {
       boardUrl: 'free',
       authorUserId: 7,
       authorDisplayName: 'Author',
+      authorWithdrawn: false,
       representativeBadge: null,
       isBlinded: false,
       blindReason: null,
