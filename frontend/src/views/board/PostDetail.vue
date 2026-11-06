@@ -60,13 +60,15 @@ const targetCommentId = computed(() => {
   return Number.isSafeInteger(value) && value > 0 ? value : null
 })
 const {
-  data: post,
+  data: cachedPost,
   isLoading,
   error: postError
 } = usePostDetail(postId, {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+// A failed background refetch retains Query data; never keep restricted content in UI helpers or metadata.
+const post = computed(() => isRestrictedResourceError(postError.value) ? undefined : cachedPost.value)
 const postView = usePostDetailViewModel(post)
 
 usePostDetailSeo({
@@ -251,6 +253,11 @@ const {
 const { assignContentRef } = usePostContentViewRef(contentRef)
 const canViewHistory = computed(() => isAuthor.value || canManage.value)
 const isVersionHistoryOpen = ref(false)
+watch(post, (accessiblePost) => {
+  if (accessiblePost) return
+  closeReportModal()
+  isVersionHistoryOpen.value = false
+}, { flush: 'sync' })
 const versionQueryEnabled = computed(() => isVersionHistoryOpen.value && canViewHistory.value)
 const {
   data: postVersions,

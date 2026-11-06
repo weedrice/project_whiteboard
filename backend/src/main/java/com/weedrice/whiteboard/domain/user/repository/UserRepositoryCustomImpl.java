@@ -6,6 +6,7 @@ import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.admin.entity.QAdmin;
 import com.weedrice.whiteboard.domain.admin.entity.AdminRoles;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
@@ -50,8 +51,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         QUser user = QUser.user;
         BooleanBuilder predicate = new BooleanBuilder();
 
-        predicate.and(user.status.eq("ACTIVE"));
-        predicate.and(user.deletedAt.isNull());
+        predicate.and(ContentAuthorVisibility.querydsl(user.userId));
 
         if (StringUtils.hasText(keyword)) {
             predicate.and(user.displayName.containsIgnoreCase(keyword));

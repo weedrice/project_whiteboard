@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,7 +43,7 @@ class CommentAgentProfileRepositoryTest {
 
     @ParameterizedTest(name = "exclude {0}")
     @ValueSource(strings = { "blindedComment", "blindedPost", "deletedComment", "deletedPost", "secretPost",
-            "privateBoard", "inactiveBoard", "unlistedBoard", "agentDisabledBoard", "otherAgent" })
+            "privateBoard", "inactiveBoard", "unlistedBoard", "agentDisabledBoard", "otherAgent", "blockedParentAuthor" })
     void profileComments_filterBeforePaginationAndUseSameVisibilityForCountAndLikes(String restriction) {
         Post visiblePost = persistPost(publicBoard, false);
         Comment first = persistComment(visiblePost, agent, 2);
@@ -58,7 +59,19 @@ class CommentAgentProfileRepositoryTest {
             }
             default -> publicBoard;
         };
-        Post hiddenPost = persistPost(hiddenBoard, "secretPost".equals(restriction));
+        List<Long> blockedIds = List.of(-1L);
+        boolean blockedEmpty = true;
+        Post hiddenPost;
+        if ("blockedParentAuthor".equals(restriction)) {
+            User blockedAuthor = entityManager.persist(User.builder().loginId("blocked-parent")
+                    .email("blocked-parent@test.com").password("password").displayName("Blocked Parent").build());
+            hiddenPost = entityManager.persist(Post.builder().board(publicBoard).user(blockedAuthor)
+                    .title("Blocked parent post").contents("Hidden from viewer").build());
+            blockedIds = List.of(blockedAuthor.getUserId());
+            blockedEmpty = false;
+        } else {
+            hiddenPost = persistPost(hiddenBoard, "secretPost".equals(restriction));
+        }
         if ("blindedPost".equals(restriction)) hiddenPost.blind("test", LocalDateTime.now());
         if ("deletedPost".equals(restriction)) hiddenPost.deletePost();
         Comment hiddenComment = persistComment(hiddenPost,
@@ -72,15 +85,25 @@ class CommentAgentProfileRepositoryTest {
         entityManager.clear();
 
         Page<Comment> firstPage = commentRepository.findPublicProfileCommentsByAgentId(
-                agent.getAgentId(), PageRequest.of(0, 1));
+                agent.getAgentId(), blockedEmpty, blockedIds, PageRequest.of(0, 1));
         Page<Comment> secondPage = commentRepository.findPublicProfileCommentsByAgentId(
-                agent.getAgentId(), PageRequest.of(1, 1));
+                agent.getAgentId(), blockedEmpty, blockedIds, PageRequest.of(1, 1));
         assertThat(firstPage.getContent()).extracting(Comment::getCommentId).containsExactly(second.getCommentId());
         assertThat(secondPage.getContent()).extracting(Comment::getCommentId).containsExactly(first.getCommentId());
         assertThat(firstPage.getTotalElements()).isEqualTo(2);
         assertThat(firstPage.getTotalPages()).isEqualTo(2);
-        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId())).isEqualTo(2);
-        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId())).isEqualTo(5);
+        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId(), blockedEmpty, blockedIds)).isEqualTo(2);
+        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId(), blockedEmpty, blockedIds)).isEqualTo(5);
+        if (!blockedEmpty) {
+            assertThat(commentRepository.findPublicProfileCommentsByAgentId(
+                    agent.getAgentId(), true, List.of(-1L), PageRequest.of(0, 1)).getContent())
+                    .extracting(Comment::getCommentId).containsExactly(hiddenComment.getCommentId());
+            assertThat(commentRepository.countPublicProfileCommentsByAgentId(
+                    agent.getAgentId(), true, List.of(-1L))).isEqualTo(3);
+            assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(
+                    agent.getAgentId(), true, List.of(-1L))).isEqualTo(25);
+            assertThat(entityManager.find(Comment.class, hiddenComment.getCommentId()).getLikeCount()).isEqualTo(20);
+        }
     }
 
     @ParameterizedTest(name = "blind parent post: {0}")
@@ -94,19 +117,19 @@ class CommentAgentProfileRepositoryTest {
         else comment.blind("test", LocalDateTime.now());
         entityManager.flush();
         entityManager.clear();
-        assertThat(commentRepository.findPublicProfileCommentsByAgentId(agent.getAgentId(), PageRequest.of(0, 5)))
+        assertThat(commentRepository.findPublicProfileCommentsByAgentId(agent.getAgentId(), true, List.of(-1L), PageRequest.of(0, 5)))
                 .isEmpty();
-        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId())).isZero();
-        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId())).isZero();
+        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId(), true, List.of(-1L))).isZero();
+        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId(), true, List.of(-1L))).isZero();
 
         if (blindPost) entityManager.find(Post.class, postId).unblind();
         else entityManager.find(Comment.class, commentId).unblind();
         entityManager.flush();
         entityManager.clear();
-        assertThat(commentRepository.findPublicProfileCommentsByAgentId(agent.getAgentId(), PageRequest.of(0, 5)))
+        assertThat(commentRepository.findPublicProfileCommentsByAgentId(agent.getAgentId(), true, List.of(-1L), PageRequest.of(0, 5)))
                 .extracting(Comment::getCommentId).containsExactly(commentId);
-        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId())).isEqualTo(1);
-        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId())).isEqualTo(4);
+        assertThat(commentRepository.countPublicProfileCommentsByAgentId(agent.getAgentId(), true, List.of(-1L))).isEqualTo(1);
+        assertThat(commentRepository.sumPublicProfileCommentLikesByAgentId(agent.getAgentId(), true, List.of(-1L))).isEqualTo(4);
     }
 
     private Agent persistAgent(String name) {

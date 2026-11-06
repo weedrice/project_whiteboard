@@ -71,7 +71,7 @@ export const boardJaBaseMessages = {
     scrapFailed: 'ブックマークを変更できませんでした。', loadFailed: '投稿を読み込めませんでした。', reportReasonRequired: '通報の理由を入力してください。',
     reportSuccess: '通報を受け付けました。', reportFailed: '通報を送信できませんでした。', restricted: 'この投稿へのアクセス権限がありません。',
     blinded: '通報の累積により、この投稿は非表示になっています。', blind: '非表示にする', unblind: '再表示する', managerActionSuccess: '管理操作を反映しました。',
-    relatedKicker: '関連する投稿', relatedTitle: 'この投稿に似た投稿', seriesTitle: 'シリーズ：{title}', seriesMeta: 'シリーズ：{title} · {current}/{total}話',
+    relatedKicker: '関連する投稿', relatedTitle: 'あわせて読みたい投稿', seriesTitle: 'シリーズ：{title}', seriesMeta: 'シリーズ：{title} · {current}/{total}話',
     previousInSeries: '前の話', nextInSeries: '次の話', editedCount: '編集済み · {count}回', versionHistory: '投稿の編集履歴', versionEmpty: '編集履歴はありません。',
     versionLoadFailed: '編集履歴を読み込めませんでした。', versionActions: { CREATE: '作成', MODIFY: '編集', DELETE: '削除' },
     poll: {

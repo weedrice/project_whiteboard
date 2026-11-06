@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.actor.UserIdRef;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -27,7 +28,9 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
               AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + " AND p.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
             ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
             SELECT COUNT(s)
@@ -38,7 +41,9 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
               AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + " AND p.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
             """)
     Page<Scrap> findPageByUserWithPostDetails(
             @Param("userId") Long userId,
@@ -69,7 +74,9 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
                    OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
               AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + " AND p.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
             ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
             SELECT COUNT(s)
@@ -82,7 +89,9 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
                    OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
               AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + " AND p.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
             """)
     Page<Scrap> findPageByUserWithPostDetailsByKeyword(
             @Param("userId") Long userId,

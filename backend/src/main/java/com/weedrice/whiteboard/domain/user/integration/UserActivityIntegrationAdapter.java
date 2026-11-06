@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
 import com.weedrice.whiteboard.domain.user.port.UserActivityPort;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -29,12 +31,17 @@ public class UserActivityIntegrationAdapter implements UserActivityPort {
     private final CommentRepository commentRepository;
     private final ActorBatchReadPort actorBatchReadPort;
     private final CommentPostPort commentPostPort;
+    private final UserBlockService userBlockService;
 
     @Override
-    public PublicActivityCounts getPublicActivityCounts(Long userId) {
+    public PublicActivityCounts getPublicActivityCounts(Long userId, Long viewerUserId) {
+        List<Long> blockedIds = viewerUserId == null ? List.of()
+                : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(viewerUserId);
+        boolean blockedEmpty = blockedIds.isEmpty();
         return new PublicActivityCounts(
                 postRepository.countPublicProfilePostsByUserId(userId),
-                commentRepository.countPublicProfileCommentsByUser(userId));
+                commentRepository.countPublicProfileCommentsByUser(
+                        userId, blockedEmpty, blockedEmpty ? List.of(-1L) : blockedIds));
     }
 
     @Override

@@ -59,6 +59,33 @@ class SemanticSearchIndexTransactionService {
     }
 
     @Transactional
+    public boolean reusePostEmbedding(SemanticSearchPostIndexPayload payload, String model) {
+        boardRepository.findByIdForUpdate(payload.boardId());
+        Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
+        if (!isIndexablePost(post)) {
+            tombstonePost(payload.postId());
+            return true;
+        }
+        validateCurrentPostPayload(payload, post);
+        return embeddingRepository.reuse("POST", payload.postId(), payload.postId(), payload.boardId(),
+                payload.authorUserId(), payload.authorAgentId(), payload.embeddingText(), payload.embeddingHash(), model);
+    }
+
+    @Transactional
+    public boolean reuseCommentEmbedding(SemanticSearchCommentIndexPayload payload, String model) {
+        boardRepository.findByIdForUpdate(payload.boardId());
+        Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
+        Comment comment = commentRepository.findByIdWithRelationsForUpdate(payload.commentId()).orElse(null);
+        if (!isIndexableComment(comment, post)) {
+            tombstoneComment(payload.commentId());
+            return true;
+        }
+        validateCurrentCommentPayload(payload, comment, post);
+        return embeddingRepository.reuse("COMMENT", payload.commentId(), payload.postId(), payload.boardId(),
+                payload.authorUserId(), payload.authorAgentId(), payload.embeddingText(), payload.embeddingHash(), model);
+    }
+
+    @Transactional
     public void upsertPost(SemanticSearchPostIndexPayload payload, String embeddingModel, float[] embedding) {
         boardRepository.findByIdForUpdate(payload.boardId());
         Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
@@ -106,21 +133,48 @@ class SemanticSearchIndexTransactionService {
 
     @Transactional
     public void tombstonePost(Long postId) {
-        embeddingRepository.tombstone("POST", postId);
-        embeddingRepository.tombstoneCommentsByPostId(postId);
+        Post current = lockPostForCleanup(postId);
+        if (!isIndexablePost(current)) {
+            embeddingRepository.tombstone("POST", postId);
+            embeddingRepository.tombstoneCommentsByPostId(postId);
+        }
     }
 
     @Transactional
     public void tombstoneComment(Long commentId) {
-        embeddingRepository.tombstone("COMMENT", commentId);
+        Long postId = commentRepository.findPostIdByCommentId(commentId).orElse(null);
+        Post currentPost = postId == null ? null : lockPostForCleanup(postId);
+        Comment current = commentRepository.findByIdWithRelationsForUpdate(commentId).orElse(null);
+        if (current != null && !Objects.equals(postId, current.getPostId())) {
+            throw new IllegalStateException("Semantic search comment relationship changed before cleanup");
+        }
+        if (!isIndexableComment(current, currentPost)) {
+            embeddingRepository.tombstone("COMMENT", commentId);
+        }
     }
 
     @Transactional
     public void delete(String contentType, Long contentId) {
-        embeddingRepository.tombstone(contentType, contentId);
         if ("POST".equals(contentType)) {
-            embeddingRepository.tombstoneCommentsByPostId(contentId);
+            tombstonePost(contentId);
+        } else if ("COMMENT".equals(contentType)) {
+            tombstoneComment(contentId);
+        } else {
+            throw new IllegalArgumentException("Unsupported semantic search content type");
         }
+    }
+
+    private Post lockPostForCleanup(Long postId) {
+        // Scalar reads avoid caching an unlocked entity before the locking read.
+        Long boardId = postRepository.findBoardIdByPostId(postId).orElse(null);
+        if (boardId != null) {
+            boardRepository.findByIdForUpdate(boardId);
+        }
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId).orElse(null);
+        if (post != null && !Objects.equals(boardId, post.getBoard().getBoardId())) {
+            throw new IllegalStateException("Semantic search post board changed before cleanup");
+        }
+        return post;
     }
 
     private boolean isIndexableComment(Comment comment, Post post) {

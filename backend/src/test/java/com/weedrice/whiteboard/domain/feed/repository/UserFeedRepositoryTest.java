@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
@@ -295,6 +296,96 @@ class UserFeedRepositoryTest {
                 .containsExactlyInAnyOrder(
                         org.assertj.core.groups.Tuple.tuple("POST", activePost.getPostId()),
                         org.assertj.core.groups.Tuple.tuple("NOTICE", 999_999L));
+    }
+
+    @Test
+    void visibleFeeds_filterAuthorEligibilityBeforePagingAndKeepSystemFeeds() {
+        LocalDateTime now = LocalDateTime.now();
+        User expired = persistUser("feed-expired");
+        User future = persistUser("feed-future");
+        User muted = persistUser("feed-muted");
+        User banned = persistUser("feed-banned");
+        User permanent = persistUser("feed-permanent");
+        User inactive = persistUser("feed-inactive");
+        User deleted = persistUser("feed-deleted");
+        User blocked = persistUser("feed-blocked");
+        inactive.suspend();
+        deleted.delete(now.minusDays(1));
+        persistBanOrMute(expired, "BAN", now.minusDays(2), now.minusDays(1));
+        persistBanOrMute(future, "BAN", now.plusDays(1), null);
+        persistBanOrMute(muted, "MUTE", now.minusDays(1), null);
+        persistBanOrMute(banned, "BAN", now.minusDays(1), now.plusDays(1));
+        persistBanOrMute(banned, "ban", now.minusDays(2), now.plusDays(2));
+        persistBanOrMute(permanent, "BAN", now.minusDays(1), null);
+        Post activePost = persistPost(publicBoard, author, false);
+        Post expiredPost = persistPost(publicBoard, expired, false);
+        Post futurePost = persistPost(publicBoard, future, false);
+        Post mutedPost = persistPost(publicBoard, muted, false);
+        for (Post post : List.of(activePost, expiredPost, futurePost, mutedPost)) {
+            persistFeed(viewer, "POST", post.getPostId());
+        }
+        UserFeed systemFeed = persistFeed(viewer, "NOTICE", 987L);
+        // Hidden feeds are newer than every visible feed and must not consume the first page.
+        for (User hidden : List.of(banned, permanent, inactive, deleted, blocked)) {
+            Post hiddenPost = persistPost(publicBoard, hidden, false);
+            persistFeed(viewer, "POST", hiddenPost.getPostId());
+        }
+        entityManager.flush();
+        for (UserFeed feed : userFeedRepository.findAll()) {
+            updateCreatedAt(feed, now);
+        }
+        entityManager.clear();
+        UserFeedVisibilityCondition condition = vf(viewer, List.of(blocked.getUserId()), List.of());
+
+        Page<UserFeed> first = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                condition, PageRequest.of(0, 2));
+        Page<UserFeed> second = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                condition, PageRequest.of(1, 2));
+        Page<UserFeed> third = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                condition, PageRequest.of(2, 2));
+
+        assertThat(first.getTotalElements()).isEqualTo(5);
+        assertThat(first.getTotalPages()).isEqualTo(3);
+        assertThat(first.getContent()).extracting(UserFeed::getFeedId).startsWith(systemFeed.getFeedId());
+        assertThat(first.getContent()).extracting(UserFeed::getContentId)
+                .containsExactly(987L, mutedPost.getPostId());
+        assertThat(second.getContent()).extracting(UserFeed::getContentId)
+                .containsExactly(futurePost.getPostId(), expiredPost.getPostId());
+        assertThat(third.getContent()).extracting(UserFeed::getContentId)
+                .containsExactly(activePost.getPostId());
+        assertThat(second.getTotalElements()).isEqualTo(5);
+        assertThat(third.getTotalElements()).isEqualTo(5);
+    }
+
+    @Test
+    void visibleFeeds_reappearAfterBanExpiresWithoutRegeneratingFeedRows() {
+        Post target = persistPost(publicBoard, author, false);
+        persistFeed(viewer, "POST", target.getPostId());
+        persistBanOrMute(author, "BAN", LocalDateTime.now().minusDays(1), null);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(viewer), PageRequest.of(0, 10))
+                .getTotalElements()).isZero();
+        assertThat(userFeedRepository.count()).isEqualTo(1);
+
+        entityManager.getEntityManager().createQuery(
+                        "UPDATE Sanction s SET s.endDate = :endedAt WHERE s.targetUser.userId = :authorId")
+                .setParameter("endedAt", LocalDateTime.now().minusMinutes(1))
+                .setParameter("authorId", author.getUserId())
+                .executeUpdate();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer), PageRequest.of(0, 10));
+        assertThat(result.getContent()).extracting(UserFeed::getContentId).containsExactly(target.getPostId());
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(userFeedRepository.count()).isEqualTo(1);
+    }
+
+    private void persistBanOrMute(User target, String type, LocalDateTime start, LocalDateTime end) {
+        entityManager.persist(Sanction.builder().targetUser(target).processorUser(viewer)
+                .type(type).startDate(start).endDate(end).build());
     }
 
     private String extractSubscriptionPostFeedTargetSelectQuery() throws NoSuchMethodException {

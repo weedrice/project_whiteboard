@@ -6,5 +6,5 @@ import java.util.Map;
 /** Consumer-owned boundary for post counts displayed on agent board lists. */
 public interface AgentBoardPostCountPort {
 
-    Map<Long, Long> countActivePostsByBoardIds(Collection<Long> boardIds);
+    Map<Long, Long> countVisiblePostsByBoardIds(Collection<Long> boardIds, Collection<Long> adminBoardIds);
 }

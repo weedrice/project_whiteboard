@@ -1,12 +1,14 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
+import com.weedrice.whiteboard.domain.user.port.UserContentReindexPort;
 import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,9 +50,11 @@ class UserLifecycleServiceTest {
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
     @Mock private UserAgentLifecyclePort agentLifecycleService;
+    @Mock private UserContentReindexPort userContentReindexPort;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
     @Mock private Clock clock;
+    @Mock private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @BeforeEach
     void setUp() {
@@ -72,6 +76,7 @@ class UserLifecycleServiceTest {
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
         verify(agentLifecycleService).suspendAllForUser(user.getUserId());
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -87,6 +92,7 @@ class UserLifecycleServiceTest {
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
         verify(agentLifecycleService).suspendAllForUser(user.getUserId());
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -105,6 +111,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -122,6 +129,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -140,6 +148,7 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 
     @Test
@@ -162,6 +171,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user.getUserId());
         inOrder.verify(accountCredentialInvalidationService).invalidateForLockedUser(user);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -177,6 +187,7 @@ class UserLifecycleServiceTest {
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(accountCredentialInvalidationService).invalidateForLockedUser(user);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test
@@ -196,6 +207,7 @@ class UserLifecycleServiceTest {
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
         verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(user);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 
     @Test
@@ -212,8 +224,21 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(userRepository).findByIdForUpdate(1L);
         verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
+        verify(userContentReindexPort).reindexRestoredAuthor(1L);
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user.getUserId());
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
+    }
+
+    @Test
+    void repeatedActiveStatusDoesNotEnqueueAnotherAuthorRestore() {
+        User user = User.builder().build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE");
+
+        assertThat(user.getStatus()).isEqualTo("ACTIVE");
+        verifyNoInteractions(userContentReindexPort);
     }
 
     @Test
@@ -230,6 +255,7 @@ class UserLifecycleServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 
     @Test
@@ -243,6 +269,7 @@ class UserLifecycleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 
     @Test
@@ -256,6 +283,7 @@ class UserLifecycleServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 
     @Test
@@ -270,5 +298,6 @@ class UserLifecycleServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(sanctionRepository, never()).existsActiveBan(eq(user), any(LocalDateTime.class));
+        verifyNoInteractions(anonymousReadCacheInvalidator, userContentReindexPort);
     }
 }

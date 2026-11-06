@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -1571,6 +1572,232 @@ class PostRepositoryTest {
 
         assertThat(lock).isNotNull();
         assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    @DisplayName("관련 글 대체 추천은 활성 BAN만 제외하고 만료·예약 BAN과 MUTE는 허용한다")
+    void findPublicRelatedFallbackPostIds_appliesCurrentAuthorEligibility() {
+        LocalDateTime now = LocalDateTime.now();
+        User temporaryBanned = persistRelatedAuthor("temporary-ban");
+        User permanentlyBanned = persistRelatedAuthor("permanent-ban");
+        User expiredBan = persistRelatedAuthor("expired-ban");
+        User futureBan = persistRelatedAuthor("future-ban");
+        User muted = persistRelatedAuthor("muted");
+        User suspended = persistRelatedAuthor("suspended");
+        User deleted = persistRelatedAuthor("deleted");
+        suspended.suspend();
+        deleted.delete(now.minusDays(1));
+        persistRelatedSanction(temporaryBanned, "ban", now.minusDays(1), now.plusDays(1));
+        persistRelatedSanction(temporaryBanned, "BAN", now.minusDays(2), now.plusDays(2));
+        persistRelatedSanction(permanentlyBanned, "BAN", now.minusDays(1), null);
+        persistRelatedSanction(expiredBan, "BAN", now.minusDays(2), now.minusDays(1));
+        persistRelatedSanction(expiredBan, "BAN", now.minusDays(3), now.minusDays(2));
+        persistRelatedSanction(futureBan, "BAN", now.plusDays(1), null);
+        persistRelatedSanction(muted, "MUTE", now.minusDays(1), null);
+        persistRelatedPost("Temporary ban", temporaryBanned, 100);
+        persistRelatedPost("Permanent ban", permanentlyBanned, 99);
+        persistRelatedPost("Suspended", suspended, 98);
+        persistRelatedPost("Deleted", deleted, 97);
+        Post expiredPost = persistRelatedPost("Expired ban", expiredBan, 30);
+        Post futurePost = persistRelatedPost("Future ban", futureBan, 20);
+        Post mutedPost = persistRelatedPost("Muted author", muted, 10);
+        Post activePost = persistRelatedPost("Active author", user, 5);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> result = postRepository.findPublicRelatedFallbackPostIds(
+                board.getBoardId(), post.getPostId(), List.of(-1L), PageRequest.of(0, 10));
+
+        assertThat(result).containsExactly(
+                expiredPost.getPostId(), futurePost.getPostId(), mutedPost.getPostId(), activePost.getPostId());
+    }
+
+    @Test
+    @DisplayName("관련 글 대체 추천은 제재·차단 작성자를 제외한 뒤 상위 세 건을 선택한다")
+    void findPublicRelatedFallbackPostIds_filtersHiddenAuthorsBeforeLimit() {
+        User blocked = persistRelatedAuthor("blocked");
+        User banned = persistRelatedAuthor("banned");
+        LocalDateTime now = LocalDateTime.now();
+        persistRelatedSanction(banned, "BAN", now.minusDays(1), now.plusDays(1));
+        persistRelatedPost("Blocked first", blocked, 100);
+        persistRelatedPost("Banned second", banned, 99);
+        persistRelatedPost("Blocked third", blocked, 98);
+        Post firstEligible = persistRelatedPost("Eligible first", user, 30);
+        Post secondEligible = persistRelatedPost("Eligible second", user, 20);
+        Post thirdEligible = persistRelatedPost("Eligible third", user, 10);
+        persistRelatedPost("Eligible fourth", user, 5);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> result = postRepository.findPublicRelatedFallbackPostIds(
+                board.getBoardId(), post.getPostId(), List.of(blocked.getUserId()), PageRequest.of(0, 3));
+
+        assertThat(result).containsExactly(
+                firstEligible.getPostId(), secondEligible.getPostId(), thirdEligible.getPostId());
+    }
+
+    @Test
+    @DisplayName("관련 글 대체 추천은 ACTIVE 상태라도 삭제 시각이 있으면 제외한다")
+    void findPublicRelatedFallbackPostIds_excludesDeletedTimestampRegardlessOfStatus() {
+        User deleted = persistRelatedAuthor("deleted-timestamp");
+        persistRelatedPost("Deleted timestamp", deleted, 100);
+        Post visible = persistRelatedPost("Visible author", user, 10);
+        entityManager.flush();
+        entityManager.getEntityManager()
+                .createQuery("UPDATE User u SET u.deletedAt = :deletedAt WHERE u.userId = :userId")
+                .setParameter("deletedAt", LocalDateTime.now().minusDays(1))
+                .setParameter("userId", deleted.getUserId())
+                .executeUpdate();
+        entityManager.clear();
+
+        List<Long> result = postRepository.findPublicRelatedFallbackPostIds(
+                board.getBoardId(), post.getPostId(), List.of(-1L), PageRequest.of(0, 3));
+
+        assertThat(result).containsExactly(visible.getPostId());
+    }
+
+    @Test
+    void discoveryQueries_shareAuthorEligibilityBeforePagingAndCount() {
+        DiscoveryFixture fixture = persistDiscoveryFixture();
+        PageRequest firstPage = PageRequest.of(0, 2);
+        List<Long> blocked = List.of(fixture.blockedUserId());
+        for (Page<Post> page : List.of(
+                postRepository.searchPostsByKeyword("visibility", blocked, null, firstPage),
+                postRepository.searchPosts("visibility", "TITLE", null, null, null, null,
+                        blocked, false, null, firstPage),
+                postRepository.searchPosts("visibility", "TITLE", board.getBoardUrl(), null, null, null,
+                        blocked, false, null, firstPage),
+                postRepository.findByBoardIdAndCategoryId(board.getBoardId(), null, null, null,
+                        blocked, false, null, firstPage),
+                postRepository.findByTagId(fixture.tagId(), blocked, firstPage),
+                postRepository.findAgentFeedByBoardIds(List.of(board.getBoardId()), blocked, List.of(), null, firstPage))) {
+            assertThat(page.getContent()).extracting(Post::getPostId)
+                    .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
+            assertThat(page.getTotalElements()).isEqualTo(3);
+            assertThat(page.getTotalPages()).isEqualTo(2);
+        }
+        Page<PostListSummaryProjection> projection = postRepository.findPostListSummariesByBoardIdAndCategoryId(
+                board.getBoardId(), null, null, null, blocked, false, null, firstPage);
+        assertThat(projection.getContent()).extracting(PostListSummaryProjection::postId)
+                .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
+        assertThat(projection.getTotalElements()).isEqualTo(3);
+        Page<Post> secondPage = postRepository.searchPostsByKeyword("visibility", blocked, null, PageRequest.of(1, 2));
+        assertThat(secondPage.getContent()).extracting(Post::getPostId)
+                .containsExactly(fixture.visibleIds().get(2));
+        assertThat(secondPage.getTotalElements()).isEqualTo(3);
+
+        assertThat(postRepository.findLatestPostIdsByBoardIds(List.of(board.getBoardId()), 2, blocked, List.of(), null))
+                .containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
+        assertThat(postRepository.findPublicLandingLatestPosts(
+                BoardPolicyConstants.INQUIRY_BOARD_URL, blocked, firstPage))
+                .extracting(Post::getPostId).containsExactlyElementsOf(fixture.visibleIds().subList(0, 2));
+    }
+
+    @Test
+    void publicCounters_excludeHiddenAuthorsButOwnedHistoryStillExists() {
+        DiscoveryFixture fixture = persistDiscoveryFixture();
+        // Personal blocking is viewer-specific, so aggregate public counts include that otherwise eligible author.
+        assertThat(postRepository.countPublicVisiblePostsByBoardIds(List.of(board.getBoardId())))
+                .extracting(PostRepository.BoardPostCountProjection::getPostCount).containsExactly(4L);
+        LocalDateTime today = LocalDateTime.now().toLocalDate().atStartOfDay();
+        assertThat(postRepository.countPublicLandingPostStats(today, today.plusDays(1), today.minusDays(1),
+                BoardPolicyConstants.INQUIRY_BOARD_URL).getTotalPosts()).isEqualTo(4);
+        assertThat(postRepository.findByUserIdAndIsDeleted(fixture.bannedUserId(), false, PageRequest.of(0, 10))
+                .getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void nativePerBoardLimit_filtersEachPartitionBeforeRanking() {
+        DiscoveryFixture fixture = persistDiscoveryFixture();
+        Board secondBoard = persistBoard("Second", "visibility-second", true);
+        User banned = entityManager.find(User.class, fixture.bannedUserId());
+        Post visible = entityManager.persist(Post.builder().board(secondBoard).user(user)
+                .title("visible").contents("body").build());
+        Post hidden = entityManager.persist(Post.builder().board(secondBoard).user(banned)
+                .title("newest banned").contents("body").build());
+        entityManager.flush();
+        LocalDateTime now = LocalDateTime.now();
+        updateCreatedAt(visible, now.minusMinutes(1));
+        updateCreatedAt(hidden, now);
+        entityManager.clear();
+
+        assertThat(postRepository.findLatestPostIdsByBoardIds(
+                List.of(board.getBoardId(), secondBoard.getBoardId()), 1,
+                List.of(fixture.blockedUserId()), List.of(), null))
+                .containsExactly(fixture.visibleIds().getFirst(), visible.getPostId());
+    }
+
+    private DiscoveryFixture persistDiscoveryFixture() {
+        post.deletePost();
+        LocalDateTime now = LocalDateTime.now();
+        User expired = persistRelatedAuthor("discovery-expired");
+        User future = persistRelatedAuthor("discovery-future");
+        User muted = persistRelatedAuthor("discovery-muted");
+        User banned = persistRelatedAuthor("discovery-banned");
+        User inactive = persistRelatedAuthor("discovery-inactive");
+        User deleted = persistRelatedAuthor("discovery-deleted");
+        User blocked = persistRelatedAuthor("discovery-blocked");
+        inactive.suspend();
+        deleted.delete(now.minusDays(1));
+        persistRelatedSanction(expired, "BAN", now.minusDays(2), now.minusDays(1));
+        persistRelatedSanction(future, "BAN", now.plusDays(1), null);
+        persistRelatedSanction(muted, "MUTE", now.minusDays(1), null);
+        persistRelatedSanction(banned, "BAN", now.minusDays(1), null);
+        persistRelatedSanction(banned, "ban", now.minusDays(1), now.plusDays(1));
+        Tag tag = entityManager.persist(Tag.builder().tagName("visibility").build());
+        List<Post> added = new java.util.ArrayList<>();
+        for (User target : List.of(expired, future, muted, banned, inactive, deleted, blocked)) {
+            Post candidate = persistRelatedPost("visibility " + target.getLoginId(), target, added.size() + 1);
+            entityManager.persist(PostTag.builder().post(candidate).tag(tag).build());
+            added.add(candidate);
+        }
+        entityManager.flush();
+        for (int index = 0; index < added.size(); index++) {
+            updateCreatedAt(added.get(index), now.minusMinutes(10).plusSeconds(index));
+        }
+        entityManager.flush();
+        entityManager.clear();
+        return new DiscoveryFixture(tag.getTagId(), blocked.getUserId(), banned.getUserId(),
+                List.of(added.get(2).getPostId(), added.get(1).getPostId(), added.get(0).getPostId()));
+    }
+
+    private record DiscoveryFixture(Long tagId, Long blockedUserId, Long bannedUserId, List<Long> visibleIds) {
+    }
+
+    private User persistRelatedAuthor(String loginId) {
+        User author = User.builder()
+                .loginId(loginId)
+                .email(loginId + "@related.test")
+                .password("password")
+                .displayName(loginId)
+                .build();
+        entityManager.persist(author);
+        return author;
+    }
+
+    private Post persistRelatedPost(String title, User author, int likes) {
+        Post relatedPost = Post.builder()
+                .title(title)
+                .contents("Related contents")
+                .user(author)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(relatedPost);
+        entityManager.flush();
+        updatePopularityScore(relatedPost, 0, likes, 0);
+        return relatedPost;
+    }
+
+    private void persistRelatedSanction(User author, String type, LocalDateTime startsAt, LocalDateTime endsAt) {
+        entityManager.persist(Sanction.builder()
+                .targetUser(author)
+                .processorUser(user)
+                .type(type)
+                .remark("Related recommendation visibility")
+                .startDate(startsAt)
+                .endDate(endsAt)
+                .build());
     }
 
     private void updateCreatedAt(Post targetPost, LocalDateTime createdAt) {

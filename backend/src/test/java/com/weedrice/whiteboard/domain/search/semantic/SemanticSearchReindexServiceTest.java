@@ -53,6 +53,50 @@ class SemanticSearchReindexServiceTest {
     }
 
     @Test
+    void restoredAuthorUsesAllAffectedBoardsAndDoesNotDirectlyEnqueueContent() {
+        when(reindexRepository.findBoardIdsForAuthorContent(7L)).thenReturn(List.of(10L, 20L));
+
+        service.enqueueAuthorContent(7L);
+
+        verify(reindexRepository).enqueue("BOARD", 10L);
+        verify(reindexRepository).enqueue("BOARD", 20L);
+        verifyNoInteractions(jobRepository);
+    }
+
+    @Test
+    void authorWithoutContentDoesNotCreateAnEmptyScope() {
+        service.enqueueAuthorContent(7L);
+        service.enqueueAuthorContent(null);
+        service.enqueueAuthorContent(0L);
+
+        verify(reindexRepository).findBoardIdsForAuthorContent(7L);
+        verify(reindexRepository, never()).enqueue(anyString(), anyLong());
+        verifyNoInteractions(jobRepository);
+    }
+
+    @Test
+    void restoredBoardAdvancesFromPostsToAllComments() {
+        when(reindexRepository.findRunnableIds(NOW, 20)).thenReturn(List.of(1L));
+        when(reindexRepository.claim(eq(1L), any(UUID.class), eq(NOW))).thenReturn(1);
+        when(reindexRepository.findClaimed(eq(1L), any(UUID.class))).thenAnswer(invocation ->
+                new SemanticSearchReindexRepository.ReindexCursor(1L, "BOARD", 10L, "POST", 0L, 0, invocation.getArgument(1)));
+        when(jobRepository.findActivePostIdsByBoardIdAfter(10L, 0L, 500)).thenReturn(List.of(11L));
+        when(reindexRepository.advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(0L), eq(false), eq(NOW))).thenReturn(1);
+
+        assertThat(service.processPages()).isEqualTo(1);
+        verify(jobRepository).enqueueAll("POST", List.of(11L), SemanticSearchIndexAction.UPSERT);
+        verify(reindexRepository).advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(0L), eq(false), eq(NOW));
+
+        when(reindexRepository.findClaimed(eq(1L), any(UUID.class))).thenAnswer(invocation ->
+                new SemanticSearchReindexRepository.ReindexCursor(1L, "BOARD", 10L, "COMMENT", 0L, 0, invocation.getArgument(1)));
+        when(jobRepository.findActiveCommentIdsByBoardIdAfter(10L, 0L, 500)).thenReturn(List.of(21L, 22L));
+        when(reindexRepository.advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(22L), eq(true), eq(NOW))).thenReturn(1);
+
+        assertThat(service.processPages()).isEqualTo(1);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(21L, 22L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
     void poisonJobIsBackedOffWithoutStarvingLaterJob() {
         when(reindexRepository.findRunnableIds(NOW, 20)).thenReturn(List.of(1L, 2L));
         when(reindexRepository.claim(eq(1L), any(UUID.class), eq(NOW))).thenReturn(1);

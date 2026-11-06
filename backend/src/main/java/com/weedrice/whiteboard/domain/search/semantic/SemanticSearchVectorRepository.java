@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -40,7 +42,7 @@ class SemanticSearchVectorRepository {
               AND p.is_blinded = 'N'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_SELECT = """
             SELECT
@@ -75,7 +77,7 @@ class SemanticSearchVectorRepository {
               AND p.is_blinded = 'N'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private static final String POST_COUNT_SELECT = """
             SELECT e.content_id
@@ -89,7 +91,7 @@ class SemanticSearchVectorRepository {
               AND p.is_blinded = 'N'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_COUNT_SELECT = """
             SELECT e.content_id
@@ -107,7 +109,7 @@ class SemanticSearchVectorRepository {
               AND p.is_blinded = 'N'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -202,8 +204,7 @@ class SemanticSearchVectorRepository {
                       AND p.is_secret = 'N'
                       AND b.is_active = 'Y'
                       AND b.is_public = 'Y'
-                      AND u.status = 'ACTIVE'
-                      AND u.deleted_at IS NULL
+                      %s
                       AND 1 - (e.embedding <=> source.embedding) >= :minSimilarity
                       %s
                       %s
@@ -218,7 +219,7 @@ class SemanticSearchVectorRepository {
                 ORDER BY candidates.similarity DESC NULLS LAST,
                          candidates.created_at DESC NULLS LAST,
                          candidates.post_id DESC NULLS LAST
-                """.formatted(boardPredicate, boardPredicate, blockedPredicate);
+                """.formatted(boardPredicate, ContentAuthorVisibility.sql("u"), boardPredicate, blockedPredicate);
     }
 
     private MapSqlParameterSource relatedPostParams(

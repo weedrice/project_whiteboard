@@ -206,7 +206,7 @@ export const boardEnBaseMessages = {
     unblind: 'Unblind',
     managerActionSuccess: 'Manager action applied.',
     relatedKicker: 'Related posts',
-    relatedTitle: 'Posts like this',
+    relatedTitle: 'More posts to explore',
     seriesTitle: 'Series: {title}',
     seriesMeta: 'Series: {title} · {current}/{total}',
     previousInSeries: 'Previous',

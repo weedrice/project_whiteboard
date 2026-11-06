@@ -36,34 +36,38 @@ public class PostSummaryAssembler {
     private final PostInteractionContextResolver interactionContextResolver;
     private final PostContentSummaryExtractor contentSummaryExtractor;
     private final ActorBatchReadPort actorBatchReadPort;
+    private final PostVisibleCommentCountService visibleCommentCountService;
 
     public PostSummaryAssembler(FileService fileService,
                                 PostCommentStatusPort postCommentStatusPort,
                                 BoardAccessPolicy boardAccessPolicy,
                                 PostInteractionContextResolver interactionContextResolver,
                                 PostContentSummaryExtractor contentSummaryExtractor,
-                                ActorBatchReadPort actorBatchReadPort) {
+                                ActorBatchReadPort actorBatchReadPort,
+                                PostVisibleCommentCountService visibleCommentCountService) {
         this.fileService = fileService;
         this.postCommentStatusPort = postCommentStatusPort;
         this.boardAccessPolicy = boardAccessPolicy;
         this.interactionContextResolver = interactionContextResolver;
         this.contentSummaryExtractor = contentSummaryExtractor;
         this.actorBatchReadPort = actorBatchReadPort;
+        this.visibleCommentCountService = visibleCommentCountService;
     }
 
     Page<PostSummary> assembleBoardPage(Page<Post> posts, Pageable pageable, boolean includeImages,
-                                        boolean includeInquiryAnswered) {
-        return assemblePage(posts, pageable, includeImages, includeInquiryAnswered);
+                                        boolean includeInquiryAnswered, Long currentUserId) {
+        return assemblePage(posts, pageable, includeImages, includeInquiryAnswered, currentUserId);
     }
 
-    public Page<PostSummary> assembleSearchPage(Page<Post> posts) {
-        return assemblePage(posts, posts.getPageable(), true, false);
+    public Page<PostSummary> assembleSearchPage(Page<Post> posts, Long currentUserId) {
+        return assemblePage(posts, posts.getPageable(), true, false, currentUserId);
     }
 
-    Page<PostSummary> assembleTagPage(Page<Post> posts) {
+    Page<PostSummary> assembleTagPage(Page<Post> posts, Long currentUserId) {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = new HashSet<>(thumbnailFileIdsByPostId.keySet());
         Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(posts.getContent());
@@ -74,6 +78,7 @@ public class PostSummaryAssembler {
                     postIdsWithImages,
                     thumbnailFileIdsByPostId);
             PostSummary summary = PostSummary.from(post, authorOf(post, authors), contentSummaryExtractor.extractSummary(post));
+            summary.setCommentCount(visibleCommentCounts.getOrDefault(post.getPostId(), 0));
             summary.setHasImage(thumbnailInfo.hasImage());
             summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             return summary;
@@ -81,10 +86,11 @@ public class PostSummaryAssembler {
     }
 
     private Page<PostSummary> assemblePage(Page<Post> posts, Pageable pageable, boolean includeImages,
-                                           boolean includeInquiryAnswered) {
+                                           boolean includeInquiryAnswered, Long currentUserId) {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = includeImages
                 ? getThumbnailFileIdsByPostId(postIds)
                 : Collections.emptyMap();
@@ -105,6 +111,7 @@ public class PostSummaryAssembler {
         for (int i = 0; i < posts.getContent().size(); i++) {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post, authorOf(post, authors), contentSummaryExtractor.extractSummary(post));
+            summary.setCommentCount(visibleCommentCounts.getOrDefault(post.getPostId(), 0));
             if (includeImages) {
                 PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
                         post,
@@ -129,10 +136,11 @@ public class PostSummaryAssembler {
     }
 
     Page<PostSummary> assembleBoardListProjectionPage(Page<PostListSummaryProjection> posts, Pageable pageable,
-            boolean includeImages, boolean includeInquiryAnswered) {
+            boolean includeImages, boolean includeInquiryAnswered, Long currentUserId) {
         List<Long> postIds = posts.getContent().stream()
                 .map(PostListSummaryProjection::postId)
                 .collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = includeImages
                 ? getThumbnailFileIdsByPostId(postIds)
                 : Collections.emptyMap();
@@ -152,6 +160,7 @@ public class PostSummaryAssembler {
         for (int i = 0; i < posts.getContent().size(); i++) {
             PostListSummaryProjection post = posts.getContent().get(i);
             PostSummary summary = buildListSummary(post);
+            summary.setCommentCount(visibleCommentCounts.getOrDefault(post.postId(), 0));
             if (includeImages) {
                 PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
                         post.postId(),
@@ -221,10 +230,11 @@ public class PostSummaryAssembler {
         return false;
     }
 
-    Page<PostSummary> assembleHistoryPage(Page<ViewHistory> historyPage) {
+    Page<PostSummary> assembleHistoryPage(Page<ViewHistory> historyPage, Long currentUserId) {
         List<Long> postIds = historyPage.getContent().stream()
                 .map(history -> history.getPost().getPostId())
                 .collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = new HashSet<>(thumbnailFileIdsByPostId.keySet());
         Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(
@@ -239,6 +249,7 @@ public class PostSummaryAssembler {
                     viewHistory.getPost(),
                     authorOf(viewHistory.getPost(), authors),
                     contentSummaryExtractor.extractSummary(viewHistory.getPost()));
+            summary.setCommentCount(visibleCommentCounts.getOrDefault(viewHistory.getPost().getPostId(), 0));
             summary.setHasImage(thumbnailInfo.hasImage());
             summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             return summary;
@@ -271,6 +282,7 @@ public class PostSummaryAssembler {
         }
 
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
@@ -278,7 +290,8 @@ public class PostSummaryAssembler {
 
         return posts.stream()
                 .map(post -> buildInteractionSummary(post, postIdsWithImages, thumbnailFileIdsByPostId,
-                        interactionContext, authorOf(post, authors)))
+                        interactionContext, authorOf(post, authors),
+                        visibleCommentCounts.getOrDefault(post.getPostId(), 0)))
                 .collect(Collectors.toList());
     }
 
@@ -296,6 +309,7 @@ public class PostSummaryAssembler {
         }
 
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+        Map<Long, Integer> visibleCommentCounts = visibleCommentCountService.countByPostIds(postIds, currentUserId);
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         PostUserInteractionContext interactionContext = existingUser
@@ -305,21 +319,22 @@ public class PostSummaryAssembler {
 
         return posts.stream()
                 .map(post -> buildInteractionSummary(post, postIdsWithImages, thumbnailFileIdsByPostId,
-                        interactionContext, authorOf(post, authors)))
+                        interactionContext, authorOf(post, authors),
+                        visibleCommentCounts.getOrDefault(post.getPostId(), 0)))
                 .collect(Collectors.toList());
     }
 
     private PostSummary buildInteractionSummary(Post post, Set<Long> postIdsWithImages,
                                                 Map<Long, Long> thumbnailFileIdsByPostId,
                                                 PostUserInteractionContext interactionContext,
-                                                AuthorSnapshot author) {
+                                                AuthorSnapshot author, int visibleCommentCount) {
         String summaryText = contentSummaryExtractor.extractSummary(post);
         PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
                 post,
                 postIdsWithImages,
                 thumbnailFileIdsByPostId);
 
-        return PostSummary.from(
+        PostSummary summary = PostSummary.from(
                 post,
                 author,
                 thumbnailInfo.thumbnailUrl(),
@@ -329,6 +344,8 @@ public class PostSummaryAssembler {
                 interactionContext.subscribedBoardUrls().contains(post.getBoard().getBoardUrl()),
                 thumbnailInfo.hasImage(),
                 summaryText);
+        summary.setCommentCount(visibleCommentCount);
+        return summary;
     }
 
     private Map<ContentActorRef, AuthorSnapshot> resolveAuthors(List<Post> posts) {

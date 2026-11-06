@@ -34,6 +34,7 @@ public class PostDetailReadService {
     private final PollService pollService;
     private final PostSeriesService postSeriesService;
     private final ActorReadPort actorReadPort;
+    private final PostVisibleCommentCountService visibleCommentCountService;
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
         return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
@@ -70,11 +71,14 @@ public class PostDetailReadService {
         boolean isAdmin = isBoardAdmin(context);
         int boardListPage = resolveDefaultBoardListPage(context, normalizedBoardListPageSize);
 
-        return PostResponse.from(
+        PostResponse response = PostResponse.from(
                 post, actorReadPort.resolveAuthor(new ContentActorRef(post.getUserId(), post.getAgentId())),
                 tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
                 viewCountOverride, pollService.getPollResponse(post.getPostId(), context.readContext().viewerUserId()),
                 postSeriesService.getNavigation(post, context.readContext()), resolveEditCount(post.getPostId()));
+        response.setCommentCount(visibleCommentCountService.countByPostIds(
+                List.of(post.getPostId()), context.readContext().viewerUserId()).getOrDefault(post.getPostId(), 0));
+        return response;
     }
 
     private int resolveEditCount(Long postId) {

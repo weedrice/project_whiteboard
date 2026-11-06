@@ -19,6 +19,7 @@ import static org.mockito.Mockito.verify;
 class SemanticSearchEventListenerTest {
 
     @Mock SemanticSearchJobService jobService;
+    @Mock SemanticSearchReindexService reindexService;
     @InjectMocks SemanticSearchEventListener listener;
 
     @Test
@@ -47,6 +48,17 @@ class SemanticSearchEventListenerTest {
         verify(jobService).enqueueBoardContent(3L);
         assertBeforeCommit("enqueuePostComments", SemanticSearchPostCommentsReindexEvent.class);
         assertBeforeCommit("enqueueBoardContent", SemanticSearchBoardContentReindexEvent.class);
+    }
+
+    @Test
+    void authorRestoreRegistersScopesBeforeCommitAndPropagatesFailure() throws Exception {
+        var event = new SemanticSearchAuthorRestoredEvent(7L);
+        listener.enqueueRestoredAuthor(event);
+        verify(reindexService).enqueueAuthorContent(7L);
+        assertBeforeCommit("enqueueRestoredAuthor", SemanticSearchAuthorRestoredEvent.class);
+        doThrow(new IllegalStateException("scope enqueue failed")).when(reindexService).enqueueAuthorContent(7L);
+        assertThatThrownBy(() -> listener.enqueueRestoredAuthor(event))
+                .isInstanceOf(IllegalStateException.class).hasMessage("scope enqueue failed");
     }
 
     private void assertBeforeCommit(String methodName, Class<?> eventType) throws Exception {

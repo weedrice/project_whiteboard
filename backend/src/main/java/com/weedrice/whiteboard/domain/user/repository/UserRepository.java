@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -80,8 +81,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     @Query("""
             SELECT u
             FROM User u
-            WHERE u.status = 'ACTIVE'
-              AND u.deletedAt IS NULL
+            WHERE u.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
               AND LOWER(u.displayName) LIKE LOWER(CONCAT(
                     REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'),
                     '%')) ESCAPE '!'

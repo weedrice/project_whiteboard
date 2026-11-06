@@ -156,6 +156,12 @@ tests:
               summary: "Required backend metric jvm_memory_used_bytes is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_semantic_jobs_failed
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_semantic_jobs_failed is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
               missing_metric: noviis_semantic_jobs_oldest_age_seconds
               severity: warning
             exp_annotations:
@@ -859,4 +865,25 @@ tests:
     alert_rule_test:
       - eval_time: 5m
         alertname: NoviIsProcessRestarted
+        exp_alerts: []
+
+  - name: semantic indexing failure alerts after two minutes and clears after recovery
+    interval: 1m
+    input_series:
+      - series: 'noviis_semantic_jobs_failed'
+        values: '0 1 1 1 0'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: NoviIsSemanticIndexingFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: NoviIsSemanticIndexingFailed
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: NoviIsSemanticIndexingFailed
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "A semantic indexing job reached a terminal failure" }
+      - eval_time: 4m
+        alertname: NoviIsSemanticIndexingFailed
         exp_alerts: []

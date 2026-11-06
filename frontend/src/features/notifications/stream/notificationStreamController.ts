@@ -129,11 +129,9 @@ export function createNotificationStreamController(
         if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_INVALIDATED
             || eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_ACCESS_REVOKED) {
             if (resolveAuthStore().sessionGeneration === sessionGeneration) {
-                if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_ACCESS_REVOKED) {
-                    void queryClient.invalidateQueries({
-                        queryKey: ['session', sessionGeneration],
-                    })
-                }
+                void queryClient.invalidateQueries({
+                    queryKey: ['session', sessionGeneration],
+                })
                 recycleNotificationStreamConnection()
             }
             return
@@ -214,9 +212,14 @@ export function createNotificationStreamController(
         try {
             const event = JSON.parse(payload) as Partial<CommentStreamEvent>
             if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
-            if (typeof event.postId !== 'number' || typeof event.commentId !== 'number') return
+            if (typeof event.postId !== 'number' || typeof event.occurredAt !== 'string') return
+            if (event.action === 'INVALIDATED') {
+                emitCommentStreamEvent({ action: 'INVALIDATED', postId: event.postId,
+                    occurredAt: event.occurredAt, sessionGeneration })
+                return
+            }
             if (event.action !== 'CREATED' && event.action !== 'UPDATED' && event.action !== 'DELETED') return
-            if (typeof event.actorUserId !== 'number' || typeof event.occurredAt !== 'string') return
+            if (typeof event.commentId !== 'number' || typeof event.actorUserId !== 'number') return
             emitCommentStreamEvent({
                 ...event,
                 sessionGeneration,

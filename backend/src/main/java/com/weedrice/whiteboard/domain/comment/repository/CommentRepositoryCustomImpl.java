@@ -87,6 +87,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                   AND p.isDeleted = false
                   AND p.isBlinded = false
                 """);
+        query.append(CommentVisibilityJpql.VISIBLE_AUTHORS);
         Map<String, Object> parameters = new LinkedHashMap<>();
         if (StringUtils.hasText(keyword)) {
             query.append(" AND LOWER(c.content) LIKE :keyword ESCAPE '!' ");

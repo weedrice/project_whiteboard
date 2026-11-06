@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.actor.UserIdRef;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import jakarta.persistence.LockModeType;
@@ -67,6 +68,8 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
             WHERE vh.user_id = :userId
               AND p.is_deleted = 'N'
               AND p.is_blinded = 'N'
+            """ + " AND p.user_id IN (" + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_SQL + """
+              )
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
                     LOWER(b.board_url) <> :inquiryBoardUrl
@@ -118,6 +121,8 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
             WHERE vh.user_id = :userId
               AND p.is_deleted = 'N'
               AND p.is_blinded = 'N'
+            """ + " AND p.user_id IN (" + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_SQL + """
+              )
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
                     LOWER(b.board_url) <> :inquiryBoardUrl

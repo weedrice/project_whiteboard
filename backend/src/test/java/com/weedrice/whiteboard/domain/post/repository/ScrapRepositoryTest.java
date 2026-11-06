@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ScrapFolder;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
@@ -385,6 +386,75 @@ class ScrapRepositoryTest {
                 assertThat(result.getTotalPages()).isEqualTo(2);
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void scrapPages_filterAuthorEligibilityBeforeLimitForListFolderAndSearch(boolean superAdmin) {
+        LocalDateTime now = LocalDateTime.now();
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        ScrapFolder folder = entityManager.persist(ScrapFolder.builder().user(managedScrapper).name("eligibility").build());
+        entityManager.find(Scrap.class, new ScrapId(scrapper.getUserId(), scrappedPost.getPostId())).moveToFolder(folder);
+        User expired = persistUser("scrap-expired", "expired@scrap.test", "expired");
+        User future = persistUser("scrap-future", "future@scrap.test", "future");
+        User muted = persistUser("scrap-muted", "muted@scrap.test", "muted");
+        User banned = persistUser("scrap-banned", "banned@scrap.test", "banned");
+        User permanent = persistUser("scrap-permanent", "permanent@scrap.test", "permanent");
+        User inactive = persistUser("scrap-inactive", "inactive@scrap.test", "inactive");
+        User deleted = persistUser("scrap-deleted", "deleted@scrap.test", "deleted");
+        User blocked = persistUser("scrap-blocked", "blocked@scrap.test", "blocked");
+        inactive.suspend();
+        deleted.delete(now.minusDays(1));
+        persistScrapSanction(managedScrapper, expired, "BAN", now.minusDays(2), now.minusDays(1));
+        persistScrapSanction(managedScrapper, future, "BAN", now.plusDays(1), null);
+        persistScrapSanction(managedScrapper, muted, "MUTE", now.minusDays(1), null);
+        persistScrapSanction(managedScrapper, banned, "BAN", now.minusDays(1), now.plusDays(1));
+        persistScrapSanction(managedScrapper, banned, "ban", now.minusDays(2), null);
+        persistScrapSanction(managedScrapper, permanent, "BAN", now.minusDays(1), null);
+        List<Post> addedPosts = new java.util.ArrayList<>();
+        for (User target : List.of(expired, future, muted, banned, permanent, inactive, deleted, blocked)) {
+            Post post = persistPost(managedBoard, target, "remark", false);
+            addedPosts.add(post);
+            entityManager.persist(Scrap.builder().user(managedScrapper).post(post).remark("remark").folder(folder).build());
+        }
+        entityManager.flush();
+        updateScrapCreatedAt(scrapper.getUserId(), scrappedPost.getPostId(), now);
+        for (Post post : addedPosts) {
+            updateScrapCreatedAt(scrapper.getUserId(), post.getPostId(), now);
+        }
+        entityManager.clear();
+
+        for (boolean filterFolder : List.of(false, true)) {
+            for (boolean search : List.of(false, true)) {
+                Long requestedFolder = filterFolder ? folder.getFolderId() : null;
+                Page<Scrap> first = visibleScrapPage(search, requestedFolder, superAdmin, blocked.getUserId(), 0);
+                Page<Scrap> second = visibleScrapPage(search, requestedFolder, superAdmin, blocked.getUserId(), 1);
+                assertThat(first.getContent()).extracting(saved -> saved.getPost().getPostId())
+                        .containsExactly(addedPosts.get(2).getPostId(), addedPosts.get(1).getPostId());
+                assertThat(second.getContent()).extracting(saved -> saved.getPost().getPostId())
+                        .containsExactly(addedPosts.get(0).getPostId(), scrappedPost.getPostId());
+                assertThat(first.getTotalElements()).isEqualTo(4);
+                assertThat(second.getTotalElements()).isEqualTo(4);
+                assertThat(first.getTotalPages()).isEqualTo(2);
+            }
+        }
+        // Visibility filtering does not delete the user's saved records or change owned write lookups.
+        assertThat(scrapRepository.findOwnedByPostIdForUpdate(scrapper.getUserId(), addedPosts.get(3).getPostId()))
+                .isPresent();
+    }
+
+    private Page<Scrap> visibleScrapPage(boolean search, Long folderId, boolean superAdmin, Long blockedId, int page) {
+        return search
+                ? scrapRepository.findPageByUserWithPostDetailsByKeyword(scrapper, folderId, "%remark%", superAdmin,
+                        false, List.of(blockedId), BoardPolicyConstants.INQUIRY_BOARD_URL, true, PageRequest.of(page, 2))
+                : scrapRepository.findPageByUserWithPostDetails(scrapper, folderId, superAdmin, false,
+                        List.of(blockedId), BoardPolicyConstants.INQUIRY_BOARD_URL, true, PageRequest.of(page, 2));
+    }
+
+    private void persistScrapSanction(User processor, User target, String type, LocalDateTime start, LocalDateTime end) {
+        entityManager.persist(Sanction.builder().targetUser(target).processorUser(processor)
+                .type(type).startDate(start).endDate(end).build());
     }
 
     private User persistUser(String loginId, String email, String displayName) {

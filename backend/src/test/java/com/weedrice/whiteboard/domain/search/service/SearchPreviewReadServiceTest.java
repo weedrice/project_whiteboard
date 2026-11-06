@@ -100,7 +100,7 @@ class SearchPreviewReadServiceTest {
                         scrapRepository,
                         boardSubscriptionRepository),
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class));
         searchPreviewReadService = new SearchPreviewReadService(
                 userRepository,
                 postRepository,

@@ -12,6 +12,13 @@ import org.springframework.transaction.event.TransactionalEventListener;
 class SemanticSearchEventListener {
 
     private final SemanticSearchJobService jobService;
+    private final SemanticSearchReindexService reindexService;
+
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void enqueueRestoredAuthor(SemanticSearchAuthorRestoredEvent event) {
+        reindexService.enqueueAuthorContent(event.userId());
+    }
 
     @Order(Ordered.LOWEST_PRECEDENCE)
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)

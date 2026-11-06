@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.config.PushDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
@@ -34,9 +35,11 @@ public class PushDeliveryJobProcessor {
     private final PushSubscriptionCleanupService subscriptionCleanupService;
     private final PushPayloadFactory payloadFactory;
     private final UserBlockRepository userBlockRepository;
+    private final ContentAuthorVisibilityRepository authorVisibilityRepository;
     private final PushDeliveryJobMetrics metrics;
     private final PushDeliveryJobProperties properties;
     private final Clock clock;
+    private final NotificationPushDeliveryPolicy sourceDeliveryPolicy;
     private final AtomicLong lastCleanupEpochHour = new AtomicLong(Long.MIN_VALUE);
 
     public int processDueJobs() {
@@ -85,6 +88,19 @@ public class PushDeliveryJobProcessor {
                         lease,
                         "Notification actor is blocked");
                 return recordTerminalResult(jobId, result, "blocked_actor", true);
+            }
+            if (actorUserId != null
+                    && !authorVisibilityRepository.findVisibleUserIds(List.of(actorUserId)).contains(actorUserId)) {
+                DeliveryJobTransitionResult result = jobTransaction.expire(
+                        lease,
+                        "Notification actor is not visible");
+                return recordTerminalResult(jobId, result, "hidden_actor", true);
+            }
+            if (!sourceDeliveryPolicy.canDeliver(lease.subscription().userId(), lease.payload())) {
+                DeliveryJobTransitionResult result = jobTransaction.expire(
+                        lease,
+                        "Notification source is no longer visible");
+                return recordTerminalResult(jobId, result, "hidden_source", true);
             }
             PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), lease.payload());
             switch (outcome) {

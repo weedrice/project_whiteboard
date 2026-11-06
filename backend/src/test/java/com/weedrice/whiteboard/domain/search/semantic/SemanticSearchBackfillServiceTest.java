@@ -30,7 +30,7 @@ class SemanticSearchBackfillServiceTest {
     }
 
     @Test
-    void enqueueBackfill_selectsOnlyMissingOrTombstonedEmbeddings() {
+    void enqueueBackfill_selectsMissingTombstonedOrFailedUpdateEmbeddings() {
         when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(10)))
                 .thenReturn(List.of(1L, 2L))
                 .thenReturn(List.of(11L));
@@ -47,6 +47,8 @@ class SemanticSearchBackfillServiceTest {
                 .allSatisfy(sql -> assertThat(sql)
                         .contains("LEFT JOIN semantic_search_embeddings")
                         .contains("e.embedding_id IS NULL OR e.deleted_at IS NOT NULL")
+                        .contains("repair_job.status = 'FAILED'")
+                        .contains("repair_job.action = 'UPSERT'")
                         .contains("semantic_search_jobs j")
                         .contains("j.status IN ('PENDING', 'PROCESSING')")
                         .contains("b.is_active = 'Y'")
@@ -107,6 +109,14 @@ class SemanticSearchBackfillServiceTest {
         });
         verify(jobRepository).enqueueAll("POST", List.of(301L), SemanticSearchIndexAction.UPSERT);
         verify(jobRepository).enqueueAll("COMMENT", List.of(401L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void enqueueBackfillPrioritizesFailedDeletesWithinTheRequestedLimit() {
+        when(jobRepository.redriveFailedDeletes("POST", 2)).thenReturn(2);
+        assertThat(backfillService.enqueueBackfill("POST", 2)).isEqualTo(2);
+        verifyNoInteractions(jdbcTemplate);
+        verify(jobRepository, never()).enqueueAll(anyString(), anyList(), any());
     }
 
     @Test

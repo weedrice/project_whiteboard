@@ -118,7 +118,7 @@ tasks.named('test') {
 
 tasks.register('postgresSmokeTest', Test) {
 	group = 'verification'
-	description = 'Runs the opt-in PostgreSQL/Flyway application context smoke test.'
+	description = 'Runs opt-in PostgreSQL/Flyway, author visibility and semantic recovery integration tests.'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	maxHeapSize = '1g'
@@ -127,6 +127,12 @@ tasks.register('postgresSmokeTest', Test) {
 	environment 'POSTGRES_SMOKE_TEST', 'true'
 	filter {
 		includeTestsMatching 'com.weedrice.whiteboard.PostgresApplicationContextSmokeTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchVisibilityPostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityPostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchRecoveryPostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchAuthorRestorePostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEmbeddingReusePostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchJobTimingPostgresTest'
 	}
 }
 

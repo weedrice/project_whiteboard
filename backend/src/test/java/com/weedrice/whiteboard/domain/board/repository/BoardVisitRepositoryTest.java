@@ -3,7 +3,9 @@ package com.weedrice.whiteboard.domain.board.repository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardVisit;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,62 @@ class BoardVisitRepositoryTest {
 
     @Autowired
     private BoardVisitRepository boardVisitRepository;
+
+    @Test
+    void activityExcludesHiddenAndBlockedAuthorsAndReturnsAfterBanExpiry() {
+        User reader = persistUser("visibility-reader");
+        User active = persistUser("visibility-active");
+        User banned = persistUser("visibility-banned");
+        User muted = persistUser("visibility-muted");
+        User future = persistUser("visibility-future");
+        User inactive = persistUser("visibility-inactive");
+        User deleted = persistUser("visibility-deleted");
+        User blocked = persistUser("visibility-blocked");
+        User blocker = persistUser("visibility-blocker");
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        inactive.suspend();
+        deleted.delete(now.minusDays(1));
+        entityManager.persist(Sanction.builder().targetUser(banned).processorUser(reader).type("BAN")
+                .startDate(now.minusDays(1)).endDate(now.plusDays(1)).build());
+        entityManager.persist(Sanction.builder().targetUser(muted).processorUser(reader).type("MUTE")
+                .startDate(now.minusDays(1)).build());
+        entityManager.persist(Sanction.builder().targetUser(future).processorUser(reader).type("BAN")
+                .startDate(now.plusDays(1)).build());
+        entityManager.persist(UserBlock.builder().user(reader).target(blocked).build());
+        entityManager.persist(UserBlock.builder().user(blocker).target(reader).build());
+        Board board = persistBoard("visibility-activity", active);
+        Board hiddenOnlyBoard = persistBoard("hidden-activity", active);
+        entityManager.persist(new BoardVisit(reader, board, now.minusDays(2)));
+        for (User author : List.of(active, muted, future)) {
+            setCreatedAt(persistPost(board, author, "visible"), now.minusDays(1));
+        }
+        for (User author : List.of(banned, inactive, deleted, blocked, blocker)) {
+            setCreatedAt(persistPost(board, author, "hidden"), now.minusHours(1));
+        }
+        setCreatedAt(persistPost(hiddenOnlyBoard, banned, "only hidden"), now.minusHours(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = boardVisitRepository.findActivityByBoardIds(
+                List.of(board.getBoardId(), hiddenOnlyBoard.getBoardId()), reader.getUserId(), false,
+                now.minusDays(30));
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getNewPostCount()).isEqualTo(3);
+        assertThat(result.getFirst().getLatestPostAt()).isEqualTo(now.minusDays(1));
+        // Anonymous visitors have no personal block relationship, but still obey the shared policy.
+        var anonymous = boardVisitRepository.findActivityByBoardIds(
+                List.of(board.getBoardId()), null, false, now.minusDays(30));
+        assertThat(anonymous.getFirst().getNewPostCount()).isEqualTo(5);
+
+        entityManager.getEntityManager().createQuery(
+                        "UPDATE Sanction s SET s.endDate = :end WHERE s.targetUser.userId = :id")
+                .setParameter("end", now.minusMinutes(1)).setParameter("id", banned.getUserId()).executeUpdate();
+        entityManager.clear();
+        var reopened = boardVisitRepository.findActivityByBoardIds(
+                List.of(hiddenOnlyBoard.getBoardId()), reader.getUserId(), false, now.minusDays(30));
+        assertThat(reopened.getFirst().getNewPostCount()).isEqualTo(1);
+        assertThat(reopened.getFirst().getLatestPostAt()).isEqualTo(now.minusHours(1));
+    }
 
     @Test
     void findActivityByBoardIds_countsOnlyPostsAfterRecentCutoff() {

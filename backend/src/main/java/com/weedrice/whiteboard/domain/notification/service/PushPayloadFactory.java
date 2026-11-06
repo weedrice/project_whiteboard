@@ -38,7 +38,51 @@ class PushPayloadFactory {
         }
     }
 
-    private record PushPayload(String title, String body, String url, String tag, Long actorUserId) {
+    SourceSnapshot readSource(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            if (root == null || !root.isObject()) {
+                return null;
+            }
+            JsonNode type = root.get("notificationType");
+            JsonNode sourceType = root.get("sourceType");
+            JsonNode tag = root.get("tag");
+            return new SourceSnapshot(
+                    type != null && type.isString() ? type.asString() : null,
+                    sourceType != null && sourceType.isString() ? sourceType.asString() : null,
+                    positiveLong(root.get("sourceId")),
+                    positiveLong(root.get("actorUserId")),
+                    notificationId(tag));
+        } catch (JacksonException exception) {
+            return null;
+        }
+    }
+
+    private Long positiveLong(JsonNode value) {
+        return value != null && value.isIntegralNumber() && value.canConvertToLong() && value.longValue() > 0
+                ? value.longValue() : null;
+    }
+
+    private Long notificationId(JsonNode tag) {
+        if (tag == null || !tag.isString() || !tag.asString().matches("notification-[1-9][0-9]*")) {
+            return null;
+        }
+        try {
+            return Long.valueOf(tag.asString().substring("notification-".length()));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    record SourceSnapshot(String notificationType, String sourceType, Long sourceId, Long actorUserId,
+                          Long notificationId) {
+    }
+
+    private record PushPayload(String title, String body, String url, String tag, Long actorUserId,
+                               String notificationType, String sourceType, Long sourceId) {
         private static PushPayload from(PushDispatchCommand command) {
             String tag = command.notificationId() == null
                     ? command.notificationType()
@@ -48,7 +92,10 @@ class PushPayloadFactory {
                     command.content(),
                     safeTargetUrl(command.targetUrl()),
                     tag,
-                    command.actorUserId());
+                    command.actorUserId(),
+                    command.notificationType(),
+                    command.sourceType(),
+                    command.sourceId());
         }
 
         private static String safeTargetUrl(String targetUrl) {
