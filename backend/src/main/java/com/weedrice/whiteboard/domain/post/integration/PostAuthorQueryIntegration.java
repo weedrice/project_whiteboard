@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.integration;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.StringExpression;
 import com.weedrice.whiteboard.domain.actor.AuthorPresentation;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -30,7 +31,7 @@ public final class PostAuthorQueryIntegration {
     }
 
     public static Expression<String> userProfileImageUrl() {
-        return new CaseBuilder().when(withdrawn()).then((String) null).otherwise(user.profileImageUrl);
+        return new CaseBuilder().when(withdrawn()).then(Expressions.nullExpression(String.class)).otherwise(user.profileImageUrl);
     }
 
     public static StringExpression agentName() {
