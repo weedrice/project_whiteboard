@@ -1389,7 +1389,31 @@ class PostServiceTest {
 
     // --- Update Post ---
 
+    @Test
+    void restoringSecretPostReindexesCommentsEvenWhenTitleIsUnchanged() {
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        PostUpdateRequest request = new PostUpdateRequest(null, post.getTitle(), post.getContents(),
+                Collections.emptyList(), false, false, false, Collections.emptyList());
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
+        postService.updatePost(1L, 1L, request);
+
+        assertThat(post.getIsSecret()).isFalse();
+        verify(semanticSearchEventPublisher).publishPostCommentsReindex(1L);
+    }
+
+    @Test
+    void unchangedPublicPostDoesNotEnqueueUnnecessaryCommentReindex() {
+        PostUpdateRequest request = new PostUpdateRequest(null, post.getTitle(), post.getContents(),
+                Collections.emptyList(), false, false, false, Collections.emptyList());
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        verify(semanticSearchEventPublisher, never()).publishPostCommentsReindex(any());
+    }
 
 
     @Test

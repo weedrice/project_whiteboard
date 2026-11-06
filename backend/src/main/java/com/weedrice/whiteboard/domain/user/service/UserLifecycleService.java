@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.port.UserAgentLifecyclePort;
+import com.weedrice.whiteboard.domain.user.port.UserContentReindexPort;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -28,6 +29,7 @@ public class UserLifecycleService {
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final AccountCredentialInvalidationService accountCredentialInvalidationService;
     private final UserAgentLifecyclePort userAgentLifecyclePort;
+    private final UserContentReindexPort userContentReindexPort;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
@@ -54,7 +56,11 @@ public class UserLifecycleService {
             if (sanctionRepository.existsActiveBan(user, LocalDateTime.now(clock))) {
                 throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
             }
+            boolean restored = "SUSPENDED".equals(user.getStatus());
             user.activate();
+            if (restored) {
+                userContentReindexPort.reindexRestoredAuthor(userId);
+            }
             anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
             return;
         }

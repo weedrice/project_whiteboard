@@ -117,6 +117,7 @@ groups:
         expr: >-
           (
             label_replace(absent(noviis_sse_heartbeat_gap_seconds), "missing_metric", "noviis_sse_heartbeat_gap_seconds", "", "")
+            or label_replace(absent(noviis_semantic_jobs_failed), "missing_metric", "noviis_semantic_jobs_failed", "", "")
             or label_replace(absent(noviis_semantic_jobs_pending), "missing_metric", "noviis_semantic_jobs_pending", "", "")
             or label_replace(absent(noviis_semantic_jobs_oldest_age_seconds), "missing_metric", "noviis_semantic_jobs_oldest_age_seconds", "", "")
             or label_replace(absent(jvm_memory_used_bytes{job="noviis-backend",area="heap"}), "missing_metric", "jvm_memory_used_bytes", "", "")
@@ -198,6 +199,11 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "The oldest semantic search job has waited over 5 minutes" }
+      - alert: NoviIsSemanticIndexingFailed
+        expr: noviis_semantic_jobs_failed > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A semantic indexing job reached a terminal failure" }
       - alert: NoviIsJvmHeapHigh
         expr: sum(jvm_memory_used_bytes{job="noviis-backend",area="heap"}) / sum(jvm_memory_max_bytes{job="noviis-backend",area="heap"}) > 0.85
         for: 10m

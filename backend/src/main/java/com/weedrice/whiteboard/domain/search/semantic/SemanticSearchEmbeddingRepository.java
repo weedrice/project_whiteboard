@@ -14,6 +14,19 @@ class SemanticSearchEmbeddingRepository {
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
 
+    boolean reuse(String contentType, Long contentId, Long postId, Long boardId, Long authorUserId,
+            Long authorAgentId, String embeddingText, String embeddingHash, String embeddingModel) {
+        // Reuse also restores a tombstoned vector, after the caller locks and revalidates the source.
+        return jdbcTemplate.update("""
+                UPDATE semantic_search_embeddings
+                SET post_id = ?, board_id = ?, author_user_id = ?, author_agent_id = ?,
+                    embedding_text = ?, updated_at = ?, deleted_at = NULL
+                WHERE content_type = ? AND content_id = ?
+                  AND embedding_hash = ? AND embedding_model = ?
+                """, postId, boardId, authorUserId, authorAgentId, embeddingText, now(),
+                contentType, contentId, embeddingHash, embeddingModel) == 1;
+    }
+
     void upsertPost(Long postId, Long boardId, Long authorUserId, Long authorAgentId,
             String embeddingText, String embeddingHash, String embeddingModel, float[] embedding) {
         upsert("POST", postId, postId, boardId, authorUserId, authorAgentId,

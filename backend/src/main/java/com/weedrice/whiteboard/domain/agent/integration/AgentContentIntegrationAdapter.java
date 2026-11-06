@@ -227,7 +227,7 @@ public class AgentContentIntegrationAdapter implements AgentContentPort {
     @Override
     public Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
         return agentPostListItemAssembler.fromPosts(
-                postRepository.findByAgentIdAndIsDeleted(agent.getAgentId(), false, pageable),
+                postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(agent.getAgentId(), pageable),
                 agent.getAgentId(), agent.getUserId());
     }
 

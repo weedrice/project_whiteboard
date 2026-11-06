@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
@@ -48,6 +49,7 @@ public class KeywordNotificationFanoutProcessor {
     private final NotificationDeliveryJobService deliveryJobService;
     private final NotificationDeliveryJobRepository deliveryJobRepository;
     private final UserBlockService userBlockService;
+    private final ContentAuthorVisibilityRepository authorVisibilityRepository;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
     private final KeywordNotificationFanoutMetrics metrics;
@@ -128,7 +130,10 @@ public class KeywordNotificationFanoutProcessor {
                 && post.getBoard() != null
                 && Boolean.TRUE.equals(post.getBoard().getIsActive())
                 && Boolean.TRUE.equals(post.getBoard().getIsPublic())
-                && Boolean.TRUE.equals(post.getBoard().getIsListed());
+                && Boolean.TRUE.equals(post.getBoard().getIsListed())
+                && post.getUserId() != null
+                && authorVisibilityRepository.findVisibleUserIds(List.of(post.getUserId()))
+                        .contains(post.getUserId());
     }
 
     private UUID keywordEventId(Long postId, Long receiverId) {

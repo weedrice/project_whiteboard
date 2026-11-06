@@ -21,10 +21,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AgentNoteRepositoryTest {
 
     @Autowired
-    private AgentNoteRepository agentNoteRepository;
+    protected AgentNoteRepository agentNoteRepository;
 
     @Autowired
-    private TestEntityManager entityManager;
+    private AgentNoteThreadRepository agentNoteThreadRepository;
+
+    @Autowired
+    protected TestEntityManager entityManager;
 
     @Test
     void findLatestVisibleInThreads_returnsLatestVisibleNotePerThread() {
@@ -93,7 +96,74 @@ class AgentNoteRepositoryTest {
                         org.assertj.core.groups.Tuple.tuple(secondThread.getNoteThreadId(), 2L));
     }
 
-    private Agent persistAgent(String name) {
+    @Test
+    void observedReadLeavesNextPageAndNewArrivalUnreadAndRetryIsIdempotent() {
+        Agent owner = persistAgent("observed-owner");
+        Agent sender = persistAgent("observed-sender");
+        AgentNoteThread thread = persistThread(owner, sender);
+        for (int i = 0; i < 51; i++) {
+            persistNote(thread, sender, owner, "note " + i);
+        }
+        entityManager.flush();
+        var page = agentNoteRepository.findVisibleThreadNotes(thread.getNoteThreadId(), owner.getAgentId(),
+                org.springframework.data.domain.PageRequest.of(0, 50));
+        assertThat(page.getTotalElements()).isEqualTo(51);
+        var observed = new java.util.ArrayList<>(page.getContent().stream().map(AgentNote::getNoteId).toList());
+        observed.add(observed.getFirst());
+        AgentNote arrival = persistNote(thread, sender, owner, "arrived after page read");
+        entityManager.flush();
+        entityManager.clear();
+        var service = noteService(owner);
+        var result = service.markObservedRead(owner.getAgentId(), thread.getNoteThreadId(), observed, null);
+        assertThat(result.isObservedBoundaryApplied()).isTrue();
+        assertThat(result.getRemainingUnreadCount()).isEqualTo(2);
+        assertThat(service.markObservedRead(owner.getAgentId(), thread.getNoteThreadId(), observed, null)
+                .getRemainingUnreadCount()).isEqualTo(2);
+        entityManager.clear();
+        assertThat(agentNoteRepository.findById(arrival.getNoteId()).orElseThrow().getIsRead()).isFalse();
+        assertThat(agentNoteRepository.findById(observed.getFirst()).orElseThrow().getIsRead()).isTrue();
+    }
+
+    @Test
+    void observedReadRejectsEveryInvalidScopeBeforeMarkingAnyNote() {
+        Agent owner = persistAgent("scope-owner");
+        Agent sender = persistAgent("scope-sender");
+        Agent other = persistAgent("scope-other");
+        AgentNoteThread thread = persistThread(owner, sender);
+        AgentNoteThread otherThread = persistThread(owner, other);
+        AgentNote valid = persistNote(thread, sender, owner, "valid");
+        AgentNote sent = persistNote(thread, owner, sender, "outgoing");
+        AgentNote hidden = persistNote(thread, sender, owner, "hidden");
+        AgentNote foreign = persistNote(otherThread, other, owner, "different thread");
+        entityManager.flush();
+        hideByReceiver(hidden);
+        entityManager.clear();
+        var service = noteService(owner);
+        for (Long invalid : List.of(sent.getNoteId(), hidden.getNoteId(), foreign.getNoteId(), Long.MAX_VALUE)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.markObservedRead(
+                    owner.getAgentId(), thread.getNoteThreadId(), List.of(valid.getNoteId(), invalid), null))
+                    .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+            entityManager.clear();
+            assertThat(agentNoteRepository.findById(valid.getNoteId()).orElseThrow().getIsRead()).isFalse();
+        }
+        // The UPDATE itself repeats the receiver/thread/visibility predicates, independent of the precheck.
+        assertThat(agentNoteRepository.markObservedReceivedNotesRead(thread.getNoteThreadId(), owner.getAgentId(),
+                List.of(sent.getNoteId(), hidden.getNoteId(), foreign.getNoteId()))).isZero();
+    }
+
+    protected com.weedrice.whiteboard.domain.agent.service.AgentNoteService noteService(Agent owner) {
+        var ownership = org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService.class);
+        org.mockito.Mockito.when(ownership.resolveActiveAgent(owner.getAgentId())).thenReturn(owner);
+        return new com.weedrice.whiteboard.domain.agent.service.AgentNoteService(
+                org.mockito.Mockito.mock(AgentRepository.class), agentNoteThreadRepository, agentNoteRepository, ownership,
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.class),
+                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.agent.service.AgentAuditService.class),
+                null,
+                null,
+                null, null, java.time.Clock.systemUTC());
+    }
+
+    protected Agent persistAgent(String name) {
         User user = User.builder()
                 .loginId(name + "-user")
                 .password("password")
@@ -112,13 +182,13 @@ class AgentNoteRepositoryTest {
         return agent;
     }
 
-    private AgentNoteThread persistThread(Agent firstAgent, Agent secondAgent) {
+    protected AgentNoteThread persistThread(Agent firstAgent, Agent secondAgent) {
         AgentNoteThread thread = new AgentNoteThread(firstAgent, secondAgent);
         entityManager.persist(thread);
         return thread;
     }
 
-    private AgentNote persistNote(AgentNoteThread thread, Agent sender, Agent receiver, String content) {
+    protected AgentNote persistNote(AgentNoteThread thread, Agent sender, Agent receiver, String content) {
         AgentNote note = new AgentNote(thread, sender, receiver, content);
         entityManager.persist(note);
         return note;

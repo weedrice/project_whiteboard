@@ -47,6 +47,8 @@ class AgentNoteServiceTest {
             Clock.fixed(Instant.parse("2026-05-21T03:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     @Mock private AgentRepository agentRepository;
+    @Mock private com.weedrice.whiteboard.domain.agent.port.AgentOwnerPort agentOwnerPort;
+    @Mock private jakarta.persistence.EntityManager entityManager;
     @Mock private AgentNoteThreadRepository agentNoteThreadRepository;
     @Mock private AgentNoteRepository agentNoteRepository;
     @Mock private AgentOwnershipService agentOwnershipService;
@@ -83,12 +85,14 @@ class AgentNoteServiceTest {
                 agentAuditService,
                 agentNoteSendPolicy,
                 agentNoteSendCommandService,
-                FIXED_CLOCK);
+                agentOwnerPort, entityManager, FIXED_CLOCK);
 
         senderUser = user(1L, "sender");
         receiverUser = user(2L, "receiver");
         sender = agent(7L, senderUser, "sender-agent");
         receiver = agent(8L, receiverUser, "receiver-agent");
+        org.mockito.Mockito.lenient().when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(sender));
+        org.mockito.Mockito.lenient().when(agentRepository.findByAgentIdForUpdate(8L)).thenReturn(Optional.of(receiver));
     }
 
     @Test
@@ -99,7 +103,7 @@ class AgentNoteServiceTest {
         ReflectionTestUtils.setField(thread, "noteThreadId", 99L);
         LocalDateTime sentAt = LocalDateTime.now();
 
-        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
         when(agentPolicyService.resolve(sender)).thenReturn(policy);
         when(agentRepository.findByNameAndIsDeletedFalse("receiver-agent")).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
@@ -147,7 +151,7 @@ class AgentNoteServiceTest {
         ReflectionTestUtils.setField(thread, "noteThreadId", 99L);
         LocalDateTime sentAt = LocalDateTime.now();
 
-        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
         when(agentPolicyService.resolve(sender)).thenReturn(policy);
         when(agentRepository.findByNameAndIsDeletedFalse("receiver-agent")).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
@@ -166,9 +170,75 @@ class AgentNoteServiceTest {
     }
 
     @Test
+    void sendNote_threadOnlyUsesFixedCounterpartAndLocksUsersBeforeAgents() {
+        var request = noteRequest(null, "reply to existing conversation");
+        ReflectionTestUtils.setField(request, "noteThreadId", 99L);
+        var thread = thread(99L, sender, receiver);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(policy(20));
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread));
+        when(agentNoteThreadRepository.findByAgentPairForUpdate(7L, 8L)).thenReturn(Optional.of(thread));
+        when(agentNoteRepository.save(any(AgentNote.class))).thenAnswer(invocation -> {
+            AgentNote note = invocation.getArgument(0);
+            ReflectionTestUtils.setField(note, "noteId", 100L);
+            return note;
+        });
+        assertThat(agentNoteService.sendNote(7L, request, null).getNoteThreadId()).isEqualTo(99L);
+        verify(agentRepository, never()).findByNameAndIsDeletedFalse(any());
+        var order = inOrder(agentOwnerPort, agentRepository, entityManager, userBlockService, agentQuotaService);
+        order.verify(agentOwnerPort).lockActiveOwnersForUpdate(1L, 2L);
+        order.verify(agentRepository).findByAgentIdForUpdate(7L);
+        order.verify(entityManager).refresh(sender, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        order.verify(agentRepository).findByAgentIdForUpdate(8L);
+        order.verify(entityManager).refresh(receiver, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        order.verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
+        order.verify(agentQuotaService).reserveNoteSend(sender);
+    }
+
+    @Test
+    void sendNote_deletedThreadCounterpartNeverFallsBackToReusedName() {
+        receiver.softDelete();
+        var request = noteRequest("receiver-agent", "private reply");
+        ReflectionTestUtils.setField(request, "noteThreadId", 99L);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(policy(20));
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread(99L, sender, receiver)));
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, request, null))
+                .isInstanceOf(AgentWriteException.class).hasFieldOrPropertyWithValue("code", "note_send_forbidden");
+        verify(agentRepository, never()).findByNameAndIsDeletedFalse(any());
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+    }
+
+    @Test
+    void sendNote_mismatchingThreadNameIsRejected() {
+        var request = noteRequest("another-agent", "reply");
+        ReflectionTestUtils.setField(request, "noteThreadId", 99L);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(policy(20));
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread(99L, sender, receiver)));
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, request, null))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+        verify(agentOwnerPort, never()).lockActiveOwnersForUpdate(any(), any());
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+    }
+
+    @Test
+    void sendNote_revalidatesRecipientAfterLockRefresh() {
+        var request = noteRequest("receiver-agent", "reply");
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(policy(20));
+        when(agentRepository.findByNameAndIsDeletedFalse("receiver-agent")).thenReturn(Optional.of(receiver));
+        org.mockito.Mockito.doAnswer(invocation -> { if (invocation.getArgument(0) == receiver) receiver.suspend(); return null; })
+                .when(entityManager).refresh(any(), org.mockito.ArgumentMatchers.eq(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE));
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, request, null))
+                .isInstanceOf(AgentWriteException.class).hasFieldOrPropertyWithValue("code", "note_send_forbidden");
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+    }
+
+    @Test
     void sendNote_rejectsSelfRecipient() {
         AgentNoteSendRequest request = noteRequest("sender-agent", "hello");
-        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
         when(agentPolicyService.resolve(sender)).thenReturn(policy(20));
         when(agentRepository.findByNameAndIsDeletedFalse("sender-agent")).thenReturn(Optional.of(sender));
 
@@ -192,6 +262,39 @@ class AgentNoteServiceTest {
         assertThat(response.getNoteThreadId()).isEqualTo(99L);
         assertThat(response.isMarkedRead()).isTrue();
         assertThat(response.getRemainingUnreadCount()).isZero();
+        assertThat(response.isObservedBoundaryApplied()).isFalse();
+    }
+
+    @Test
+    void observedReadRejectsInvalidListsBeforeRepositoryMutation() {
+        var thread = thread(99L, sender, receiver);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread));
+        var invalidLists = new java.util.ArrayList<List<Long>>();
+        invalidLists.add(null);
+        invalidLists.add(List.of());
+        invalidLists.add(List.of(0L));
+        invalidLists.add(java.util.Arrays.asList((Long) null));
+        invalidLists.add(java.util.Collections.nCopies(1001, 1L));
+        for (var ids : invalidLists) {
+            assertThatThrownBy(() -> agentNoteService.markObservedRead(7L, 99L, ids, null))
+                    .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+        }
+        verify(agentNoteRepository, never()).findObservedReceivedNotesForUpdate(any(), any(), any());
+        verify(agentNoteRepository, never()).markObservedReceivedNotesRead(any(), any(), any());
+    }
+
+    @Test
+    void observedReadRejectsNonParticipantBeforeRepositoryMutation() {
+        var unrelated = Agent.builder().name("unrelated").status(Agent.STATUS_ACTIVE).build();
+        ReflectionTestUtils.setField(unrelated, "agentId", 100L);
+        var thread = thread(99L, receiver, unrelated);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findByIdWithParticipants(99L)).thenReturn(Optional.of(thread));
+        assertThatThrownBy(() -> agentNoteService.markObservedRead(7L, 99L, List.of(1L), null))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class);
+        verify(agentNoteRepository, never()).findObservedReceivedNotesForUpdate(any(), any(), any());
+        verify(agentNoteRepository, never()).markObservedReceivedNotesRead(any(), any(), any());
     }
 
     @Test
@@ -261,6 +364,52 @@ class AgentNoteServiceTest {
         assertThat(response.getTotalElements()).isZero();
         verify(agentNoteRepository, never()).findLatestVisibleInThreads(any(), any());
         verify(agentNoteRepository, never()).countUnreadNotesByThreadIds(any(), any());
+    }
+
+    @Test
+    void sendNote_reportsExhaustedQuotaWithResetTimeInsteadOfPermissionError() {
+        var snapshot = policy(0);
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(snapshot);
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, noteRequest("receiver-agent", "hello"), null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "note_daily_limit_exceeded")
+                .hasFieldOrPropertyWithValue("resetAt", snapshot.dailyStatus().resetAt());
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+        verify(agentNoteRepository, never()).save(any());
+    }
+
+    @Test
+    void sendNote_muteTakesPrecedenceOverExhaustedQuota() {
+        var base = policy(0);
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), base.restrictions(), true);
+        assertRejectedPolicy(snapshot, "note_send_forbidden");
+    }
+
+    @Test
+    void sendNote_suspensionTakesPrecedenceOverExhaustedQuota() {
+        var base = policy(0);
+        var restrictions = AgentRestrictions.builder().suspended(true).canSendNote(false).build();
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), restrictions, false);
+        assertRejectedPolicy(snapshot, "agent_suspended");
+    }
+
+    @Test
+    void sendNote_preservesIndependentPermissionRejectionWithQuotaAvailable() {
+        var base = policy(20);
+        var restrictions = AgentRestrictions.builder().canSendNote(false).build();
+        var snapshot = new AgentPolicyService.AgentPolicySnapshot(base.dailyStatus(), base.limits(), restrictions, false);
+        assertRejectedPolicy(snapshot, "note_send_forbidden");
+    }
+
+    private void assertRejectedPolicy(AgentPolicyService.AgentPolicySnapshot snapshot, String code) {
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(snapshot);
+        assertThatThrownBy(() -> agentNoteService.sendNote(7L, noteRequest("receiver-agent", "hello"), null))
+                .isInstanceOf(AgentWriteException.class).hasFieldOrPropertyWithValue("code", code)
+                .hasFieldOrPropertyWithValue("resetAt", null);
+        verify(agentQuotaService, never()).reserveNoteSend(any());
+        verify(agentNoteRepository, never()).save(any());
     }
 
     private AgentPolicyService.AgentPolicySnapshot policy(long notesRemaining) {

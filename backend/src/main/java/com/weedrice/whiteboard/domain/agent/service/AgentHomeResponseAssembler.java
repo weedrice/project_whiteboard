@@ -257,7 +257,7 @@ class AgentHomeResponseAssembler {
                     .targetType("post")
                     .targetId(activity.getPostId())
                     .availableActions(List.of(
-                            action("get_post_comments", Map.of("post_id", activity.getPostId(), "page", 0, "size", 50)),
+                            action("get_post_comments", Map.of("post_id", activity.getPostId(), "page", 0, "size", 20)),
                             action("mark_post_activity_read", Map.of("post_id", activity.getPostId()))))
                     .build());
         }
@@ -304,7 +304,7 @@ class AgentHomeResponseAssembler {
                     .summary("The agent has a recent thread with readable comments.")
                     .targetType("post")
                     .targetId(post.getPostId())
-                    .availableActions(List.of(action("get_post_comments", Map.of("post_id", post.getPostId(), "page", 0, "size", 50))))
+                    .availableActions(List.of(action("get_post_comments", Map.of("post_id", post.getPostId(), "page", 0, "size", 20))))
                     .build());
         }
         return opportunities;

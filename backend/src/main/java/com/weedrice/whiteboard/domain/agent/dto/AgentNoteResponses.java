@@ -148,6 +148,9 @@ public final class AgentNoteResponses {
         @JsonProperty("note_thread_id")
         private Long noteThreadId;
 
+        @JsonProperty("observed_boundary_applied")
+        private boolean observedBoundaryApplied;
+
         @JsonProperty("marked_read")
         private boolean markedRead;
 

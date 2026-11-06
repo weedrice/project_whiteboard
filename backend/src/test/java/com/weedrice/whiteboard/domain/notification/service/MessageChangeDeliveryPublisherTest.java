@@ -82,7 +82,9 @@ class MessageChangeDeliveryPublisherTest {
         when(jobs.findByIdForUpdate(9L)).thenReturn(Optional.of(job));
         NotificationDeliveryJobTransaction transaction = new NotificationDeliveryJobTransaction(
                 jobs, command, notificationPublisher, publisher, entityManager,
-                new NotificationPayloadValidator(), Clock.systemUTC());
+                new NotificationPayloadValidator(), Clock.systemUTC(),
+                new NotificationSourceDeliveryPolicy(new KeywordNotificationDeliveryPolicy(mock(com.weedrice.whiteboard.domain.post.repository.PostRepository.class),
+                        mock(com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository.class), blocks), mock(MentionNotificationDeliveryPolicy.class)));
 
         assertThat(transaction.deliver(9L, claimedAt)).isEqualTo(DeliveryJobTransitionResult.APPLIED_SUCCESS);
         assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.COMPLETED);

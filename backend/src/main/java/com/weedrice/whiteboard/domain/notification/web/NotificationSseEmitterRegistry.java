@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.notification.dto.MessageChangedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProperties;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamVisibilityService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamControl;
 import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
@@ -42,6 +43,7 @@ public class NotificationSseEmitterRegistry
     private final AtomicLong lastHeartbeatMillis = new AtomicLong();
     private final NotificationStreamProperties properties;
     private final CommentTopicSubscriptionRegistry commentTopics;
+    private final CommentStreamVisibilityService commentVisibility;
     private final Counter heartbeatFailures;
     private final Counter shopSaleStatusDeliveryFailures;
 
@@ -49,9 +51,11 @@ public class NotificationSseEmitterRegistry
     public NotificationSseEmitterRegistry(
             NotificationStreamProperties properties,
             MeterRegistry meterRegistry,
-            CommentTopicSubscriptionRegistry commentTopics) {
+            CommentTopicSubscriptionRegistry commentTopics,
+            CommentStreamVisibilityService commentVisibility) {
         this.properties = properties;
         this.commentTopics = commentTopics;
+        this.commentVisibility = commentVisibility;
         this.heartbeatFailures = meterRegistry.counter("noviis.sse.heartbeat.failures");
         this.shopSaleStatusDeliveryFailures = meterRegistry.counter(
                 "noviis.shop.stream.sse.delivery.failures");
@@ -64,8 +68,9 @@ public class NotificationSseEmitterRegistry
 
     NotificationSseEmitterRegistry(
             NotificationStreamProperties properties,
-            MeterRegistry meterRegistry) {
-        this(properties, meterRegistry, new CommentTopicSubscriptionRegistry(meterRegistry));
+            MeterRegistry meterRegistry,
+            CommentStreamVisibilityService commentVisibility) {
+        this(properties, meterRegistry, new CommentTopicSubscriptionRegistry(meterRegistry), commentVisibility);
     }
 
     public SseEmitter subscribe(Long userId, UUID sessionFamilyId) {
@@ -227,8 +232,23 @@ public class NotificationSseEmitterRegistry
             return;
         }
 
-        postSubscribers.forEach((userId, connectionIds) ->
-                publishCommentEventToUser(userId, connectionIds, event));
+        java.util.Set<Long> visibleRecipients;
+        try {
+            visibleRecipients = commentVisibility.visibleRecipients(event, postSubscribers.keySet());
+        } catch (RuntimeException exception) {
+            // Do not expose identifiers when visibility cannot be established. Edits still invalidate cached rows.
+            log.warn("Failed to resolve comment stream visibility. exceptionType={}", exception.getClass().getSimpleName());
+            visibleRecipients = java.util.Set.of();
+        }
+        for (Map.Entry<Long, java.util.Set<String>> subscription : postSubscribers.entrySet()) {
+            if (visibleRecipients.contains(subscription.getKey())) {
+                publishCommentEventToUser(subscription.getKey(), subscription.getValue(), event);
+            } else if ("UPDATED".equals(event.getAction()) || "DELETED".equals(event.getAction())) {
+                publishCommentEventToUser(subscription.getKey(), subscription.getValue(),
+                        CommentStreamEvent.builder().action("INVALIDATED").postId(event.getPostId())
+                                .occurredAt(event.getOccurredAt()).build());
+            }
+        }
     }
 
     SseEmitter createEmitter() {

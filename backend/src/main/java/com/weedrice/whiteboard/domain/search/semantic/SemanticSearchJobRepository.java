@@ -20,7 +20,8 @@ class SemanticSearchJobRepository {
             rs.getString("content_type"),
             rs.getLong("content_id"),
             rs.getString("action"),
-            toLocalDateTime(rs.getTimestamp("processing_started_at")));
+            toLocalDateTime(rs.getTimestamp("processing_started_at")),
+            rs.getInt("retry_count"));
 
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
@@ -29,9 +30,9 @@ class SemanticSearchJobRepository {
         LocalDateTime now = now();
         jdbcTemplate.update("""
                 INSERT INTO semantic_search_jobs (
-                    content_type, content_id, action, status, retry_count, created_at, updated_at
+                    content_type, content_id, action, status, retry_count, created_at, updated_at, queued_at, next_attempt_at
                 )
-                VALUES (?, ?, ?, 'PENDING', 0, ?, ?)
+                VALUES (?, ?, ?, 'PENDING', 0, ?, ?, ?, ?)
                 ON CONFLICT (content_type, content_id)
                 DO UPDATE SET
                     action = EXCLUDED.action,
@@ -40,8 +41,10 @@ class SemanticSearchJobRepository {
                     processing_started_at = NULL,
                     completed_at = NULL,
                     last_error_message = NULL,
-                    updated_at = EXCLUDED.updated_at
-                """, contentType, contentId, action.name(), now, now);
+                    updated_at = EXCLUDED.updated_at,
+                    queued_at = EXCLUDED.queued_at,
+                    next_attempt_at = EXCLUDED.next_attempt_at
+                """, contentType, contentId, action.name(), now, now, now, now);
     }
 
     void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
@@ -51,9 +54,9 @@ class SemanticSearchJobRepository {
         LocalDateTime now = now();
         jdbcTemplate.batchUpdate("""
                 INSERT INTO semantic_search_jobs (
-                    content_type, content_id, action, status, retry_count, created_at, updated_at
+                    content_type, content_id, action, status, retry_count, created_at, updated_at, queued_at, next_attempt_at
                 )
-                VALUES (?, ?, ?, 'PENDING', 0, ?, ?)
+                VALUES (?, ?, ?, 'PENDING', 0, ?, ?, ?, ?)
                 ON CONFLICT (content_type, content_id)
                 DO UPDATE SET
                     action = EXCLUDED.action,
@@ -62,9 +65,11 @@ class SemanticSearchJobRepository {
                     processing_started_at = NULL,
                     completed_at = NULL,
                     last_error_message = NULL,
-                    updated_at = EXCLUDED.updated_at
+                    updated_at = EXCLUDED.updated_at,
+                    queued_at = EXCLUDED.queued_at,
+                    next_attempt_at = EXCLUDED.next_attempt_at
                 """, contentIds.stream()
-                .map(contentId -> new Object[]{contentType, contentId, action.name(), now, now})
+                .map(contentId -> new Object[]{contentType, contentId, action.name(), now, now, now, now})
                 .toList());
     }
 
@@ -112,6 +117,8 @@ class SemanticSearchJobRepository {
         return jdbcTemplate.update("""
                 UPDATE semantic_search_jobs
                 SET retry_count = retry_count + 1,
+                    queued_at = COALESCE(queued_at, processing_started_at, updated_at, created_at),
+                    next_attempt_at = ?,
                     status = CASE WHEN retry_count + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END,
                     processing_started_at = NULL,
                     last_error_message = ?,
@@ -119,35 +126,49 @@ class SemanticSearchJobRepository {
                 WHERE status = 'PROCESSING'
                   AND retry_count < ?
                   AND (processing_started_at IS NULL OR processing_started_at < ?)
-                """, maxRetryCount, lastErrorMessage, now(), maxRetryCount, staleBefore);
+                """, now().plusMinutes(1), maxRetryCount, lastErrorMessage, now(), maxRetryCount, staleBefore);
     }
 
     List<SemanticSearchJob> findPendingJobs(int maxRetryCount, int batchSize) {
         return jdbcTemplate.query("""
-                SELECT job_id, content_type, content_id, action, processing_started_at
+                SELECT job_id, content_type, content_id, action, processing_started_at, retry_count
                 FROM semantic_search_jobs
                 WHERE status = 'PENDING'
                   AND retry_count < ?
-                ORDER BY created_at ASC, job_id ASC
+                  AND (retry_count = 0 OR next_attempt_at IS NULL OR next_attempt_at <= ?)
+                ORDER BY CASE WHEN retry_count = 0 THEN updated_at ELSE COALESCE(queued_at, updated_at, created_at) END ASC, job_id ASC
                 LIMIT ?
-                """, JOB_ROW_MAPPER, maxRetryCount, batchSize);
+                """, JOB_ROW_MAPPER, maxRetryCount, now(), batchSize);
+    }
+
+    List<SemanticSearchJob> findPendingDeletionJobs(int maxRetryCount, int batchSize) {
+        return jdbcTemplate.query("""
+                SELECT job_id, content_type, content_id, action, processing_started_at, retry_count
+                FROM semantic_search_jobs
+                WHERE status = 'PENDING' AND action = 'DELETE' AND retry_count < ?
+                  AND (retry_count = 0 OR next_attempt_at IS NULL OR next_attempt_at <= ?)
+                ORDER BY CASE WHEN retry_count = 0 THEN updated_at ELSE COALESCE(queued_at, updated_at, created_at) END ASC, job_id ASC
+                LIMIT ?
+                """, JOB_ROW_MAPPER, maxRetryCount, now(), batchSize);
     }
 
     int claimForProcessing(Long jobId, int maxRetryCount, LocalDateTime claimedAt) {
         return jdbcTemplate.update("""
                 UPDATE semantic_search_jobs
                 SET status = 'PROCESSING',
+                    queued_at = CASE WHEN retry_count = 0 THEN updated_at ELSE COALESCE(queued_at, updated_at, created_at) END,
                     processing_started_at = ?,
                     updated_at = ?
                 WHERE job_id = ?
                   AND status = 'PENDING'
                   AND retry_count < ?
-                """, claimedAt, now(), jobId, maxRetryCount);
+                    AND (retry_count = 0 OR next_attempt_at IS NULL OR next_attempt_at <= ?)
+                """, claimedAt, now(), jobId, maxRetryCount, claimedAt);
     }
 
     Optional<SemanticSearchJob> findClaimed(Long jobId, LocalDateTime claimedAt) {
         List<SemanticSearchJob> jobs = jdbcTemplate.query("""
-                SELECT job_id, content_type, content_id, action, processing_started_at
+                SELECT job_id, content_type, content_id, action, processing_started_at, retry_count
                 FROM semantic_search_jobs
                 WHERE job_id = ?
                   AND status = 'PROCESSING'
@@ -156,12 +177,21 @@ class SemanticSearchJobRepository {
         return jobs.stream().findFirst();
     }
 
+    int releaseClaim(Long jobId, LocalDateTime claimedAt) {
+        return jdbcTemplate.update("""
+                UPDATE semantic_search_jobs
+                SET status = 'PENDING', processing_started_at = NULL, updated_at = ?
+                WHERE job_id = ? AND status = 'PROCESSING' AND processing_started_at = ?
+                """, now(), jobId, claimedAt);
+    }
+
     int markCompleted(Long jobId, LocalDateTime expectedProcessingStartedAt, LocalDateTime completedAt) {
         return jdbcTemplate.update("""
                 UPDATE semantic_search_jobs
                 SET status = 'COMPLETED',
                     processing_started_at = NULL,
                     completed_at = ?,
+                    next_attempt_at = NULL,
                     last_error_message = NULL,
                     updated_at = ?
                 WHERE job_id = ?
@@ -171,18 +201,21 @@ class SemanticSearchJobRepository {
     }
 
     int markFailedIfCurrent(Long jobId, LocalDateTime expectedProcessingStartedAt, int maxRetryCount,
-            String lastErrorMessage) {
+            String lastErrorMessage, boolean retryable, LocalDateTime nextAttemptAt) {
         return jdbcTemplate.update("""
                 UPDATE semantic_search_jobs
-                SET retry_count = retry_count + 1,
-                    status = CASE WHEN retry_count + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END,
+                SET retry_count = LEAST(retry_count + 1, ?),
+                    status = CASE WHEN NOT ? OR retry_count + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END,
                     processing_started_at = NULL,
                     last_error_message = ?,
+                    queued_at = COALESCE(queued_at, processing_started_at, updated_at, created_at),
+                    next_attempt_at = CASE WHEN NOT ? OR retry_count + 1 >= ? THEN NULL ELSE ? END,
                     updated_at = ?
                 WHERE job_id = ?
                   AND status = 'PROCESSING'
                   AND processing_started_at = ?
-                """, maxRetryCount, lastErrorMessage, now(), jobId, expectedProcessingStartedAt);
+                """, maxRetryCount, retryable, maxRetryCount, lastErrorMessage,
+                retryable, maxRetryCount, nextAttemptAt, now(), jobId, expectedProcessingStartedAt);
     }
 
     long countPendingJobs() {
@@ -192,9 +225,31 @@ class SemanticSearchJobRepository {
         return count == null ? 0L : count;
     }
 
+    int redriveFailedDeletes(String contentType, int limit) {
+        return jdbcTemplate.update("""
+                WITH selected AS (
+                    SELECT job_id FROM semantic_search_jobs
+                    WHERE content_type = ? AND action = 'DELETE' AND status = 'FAILED'
+                    ORDER BY updated_at ASC, job_id ASC
+                    LIMIT ? FOR UPDATE SKIP LOCKED
+                )
+                UPDATE semantic_search_jobs j
+                SET status = 'PENDING', retry_count = 0, processing_started_at = NULL,
+                    completed_at = NULL, last_error_message = NULL, queued_at = ?, next_attempt_at = ?, updated_at = ?
+                FROM selected WHERE j.job_id = selected.job_id
+                  AND j.status = 'FAILED' AND j.action = 'DELETE'
+                """, contentType, limit, now(), now(), now());
+    }
+
+    long countFailedJobs() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM semantic_search_jobs WHERE status = 'FAILED'", Long.class);
+        return count == null ? 0L : count;
+    }
+
     Optional<LocalDateTime> findOldestPendingCreatedAt() {
         List<LocalDateTime> results = jdbcTemplate.query(
-                "SELECT MIN(created_at) AS oldest_created_at FROM semantic_search_jobs WHERE status = 'PENDING'",
+                "SELECT MIN(CASE WHEN retry_count = 0 THEN updated_at ELSE COALESCE(queued_at, updated_at, created_at) END) AS oldest_created_at FROM semantic_search_jobs WHERE status = 'PENDING'",
                 (rs, rowNum) -> toLocalDateTime(rs.getTimestamp("oldest_created_at")));
         return results.stream().filter(java.util.Objects::nonNull).findFirst();
     }
