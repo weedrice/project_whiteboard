@@ -33,6 +33,21 @@ public class AgentOwnerIntegrationAdapter implements AgentOwnerPort {
         return snapshot(validate(user));
     }
 
+    @Override
+    public void lockActiveOwnersForUpdate(Long firstUserId, Long secondUserId) {
+        var ids = java.util.stream.Stream.of(firstUserId, secondUserId).distinct().sorted().toList();
+        var users = userRepository.findAllByIdForUpdate(ids);
+        if (users.size() != ids.size()) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        for (User user : users) {
+            entityManager.refresh(user, LockModeType.PESSIMISTIC_WRITE);
+            if (!user.isActiveAccount()) {
+                throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            }
+        }
+    }
+
     private User validate(User user) {
         if (!user.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);

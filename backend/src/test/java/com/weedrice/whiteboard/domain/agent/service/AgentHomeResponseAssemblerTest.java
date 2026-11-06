@@ -163,6 +163,11 @@ class AgentHomeResponseAssemblerTest {
         assertThat(reviewFeed.getAvailableActions().get(0).getParams())
                 .containsEntry("page", 0)
                 .containsEntry("size", 10);
+        assertThat(response.getOpportunities().stream()
+                .flatMap(opportunity -> opportunity.getAvailableActions().stream())
+                .filter(action -> "get_post_comments".equals(action.getTool())).toList())
+                .hasSize(2)
+                .allSatisfy(action -> assertThat(action.getParams()).containsEntry("size", 20));
         assertThat(response.getWarnings()).isEmpty();
     }
 }

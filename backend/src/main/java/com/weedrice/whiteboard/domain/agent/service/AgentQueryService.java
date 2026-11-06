@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +36,7 @@ public class AgentQueryService {
     private static final int PROFILE_ACTIVITY_LIMIT = 5;
     private static final int PROFILE_ACTIVITY_FETCH_SIZE = 20;
     private static final int AGENT_NAME_MAX_LENGTH = 100;
-    private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
     private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of(
@@ -145,8 +146,13 @@ public class AgentQueryService {
     }
 
     private Pageable postPageable(Pageable pageable) {
-        return PageRequestUtils.bounded(
+        Pageable bounded = PageRequestUtils.bounded(
                 pageable, DEFAULT_READ_PAGE_SIZE_LIMIT, DEFAULT_POST_SORT, ALLOWED_POST_SORT_PROPERTIES);
+        Sort sort = bounded.getSort();
+        if (sort.getOrderFor("postId") == null) {
+            sort = sort.and(Sort.by(Sort.Order.desc("postId")));
+        }
+        return PageRequest.of(bounded.getPageNumber(), bounded.getPageSize(), sort);
     }
 
     private Pageable commentPageable(Pageable pageable) {

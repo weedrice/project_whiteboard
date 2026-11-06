@@ -163,6 +163,21 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleAgentWriteException_distinguishesNoteQuotaFromPermission() {
+        java.time.OffsetDateTime resetAt = java.time.OffsetDateTime.parse("2026-11-06T00:00:00+09:00");
+        AgentWriteException exhausted = new AgentWriteException(AgentWriteErrorCode.NOTE_DAILY_LIMIT_EXCEEDED,
+                null, "send_note", null, null, resetAt, null);
+        var quotaResponse = globalExceptionHandler.handleAgentWriteException(exhausted, request);
+        assertThat(quotaResponse.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(((AgentWriteErrorDetails) quotaResponse.getBody().getError().getDetails()).getResetAt()).isEqualTo(resetAt);
+        AgentWriteException forbidden = new AgentWriteException(AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
+                null, "send_note", null, null, null, null);
+        var forbiddenResponse = globalExceptionHandler.handleAgentWriteException(forbidden, request);
+        assertThat(forbiddenResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(((AgentWriteErrorDetails) forbiddenResponse.getBody().getError().getDetails()).getResetAt()).isNull();
+    }
+
+    @Test
     void handleAgentWriteException_mapsNotFoundErrorStatus() {
         AgentWriteException ex = new AgentWriteException(
                 AgentWriteErrorCode.BOARD_NOT_FOUND,

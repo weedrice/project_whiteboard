@@ -142,7 +142,7 @@ class AgentQueryServicePageableTest {
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(1);
         assertThat(pageable.getPageSize()).isEqualTo(20);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "createdAt"));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId")));
     }
 
     @Test
@@ -159,7 +159,19 @@ class AgentQueryServicePageableTest {
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(20);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("likeCount")));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("likeCount"), Sort.Order.desc("postId")));
+    }
+
+    @Test
+    void getBoardPosts_preservesExplicitPostIdOrderWithoutDuplicatingTieBreaker() {
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
+        when(agentContentPort.getBoardPosts(eq(agent), eq(10L), eq(9L), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(3)));
+        Sort requested = Sort.by(Sort.Order.desc("viewCount"), Sort.Order.asc("postId"));
+        agentQueryService.getBoardPosts(7L, 10L, 9L, PageRequest.of(0, 20, requested));
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(agentContentPort).getBoardPosts(eq(agent), eq(10L), eq(9L), captor.capture());
+        assertThat(captor.getValue().getSort()).isEqualTo(requested);
     }
 
     @Test

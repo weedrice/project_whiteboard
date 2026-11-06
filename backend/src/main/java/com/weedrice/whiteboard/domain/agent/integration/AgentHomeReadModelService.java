@@ -35,7 +35,7 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     private static final int HOME_RECENT_POST_LIMIT = 5;
     private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
     private static final int HOME_RECENT_FEED_LIMIT = 10;
-    private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
 
     private final PostRepository postRepository;
@@ -83,9 +83,8 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     }
 
     private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Agent agent) {
-        Page<Post> posts = postRepository.findByAgentIdAndIsDeleted(
+        Page<Post> posts = postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(
                 agent.getAgentId(),
-                false,
                 PageRequest.of(0, HOME_RECENT_POST_LIMIT, DEFAULT_POST_SORT));
         return posts.getContent().stream()
                 .map(post -> AgentHomeResponse.MyRecentPost.builder()
