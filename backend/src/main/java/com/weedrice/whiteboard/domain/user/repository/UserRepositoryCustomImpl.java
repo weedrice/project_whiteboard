@@ -51,6 +51,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         QUser user = QUser.user;
         BooleanBuilder predicate = new BooleanBuilder();
 
+        predicate.and(user.status.eq(User.STATUS_ACTIVE).and(user.deletedAt.isNull()));
         predicate.and(ContentAuthorVisibility.querydsl(user.userId));
 
         if (StringUtils.hasText(keyword)) {

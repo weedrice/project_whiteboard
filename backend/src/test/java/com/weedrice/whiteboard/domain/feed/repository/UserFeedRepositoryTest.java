@@ -321,12 +321,13 @@ class UserFeedRepositoryTest {
         Post expiredPost = persistPost(publicBoard, expired, false);
         Post futurePost = persistPost(publicBoard, future, false);
         Post mutedPost = persistPost(publicBoard, muted, false);
-        for (Post post : List.of(activePost, expiredPost, futurePost, mutedPost)) {
+        Post withdrawnPost = persistPost(publicBoard, deleted, false);
+        for (Post post : List.of(activePost, expiredPost, futurePost, mutedPost, withdrawnPost)) {
             persistFeed(viewer, "POST", post.getPostId());
         }
         UserFeed systemFeed = persistFeed(viewer, "NOTICE", 987L);
         // Hidden feeds are newer than every visible feed and must not consume the first page.
-        for (User hidden : List.of(banned, permanent, inactive, deleted, blocked)) {
+        for (User hidden : List.of(banned, permanent, inactive, blocked)) {
             Post hiddenPost = persistPost(publicBoard, hidden, false);
             persistFeed(viewer, "POST", hiddenPost.getPostId());
         }
@@ -344,17 +345,17 @@ class UserFeedRepositoryTest {
         Page<UserFeed> third = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
                 condition, PageRequest.of(2, 2));
 
-        assertThat(first.getTotalElements()).isEqualTo(5);
+        assertThat(first.getTotalElements()).isEqualTo(6);
         assertThat(first.getTotalPages()).isEqualTo(3);
         assertThat(first.getContent()).extracting(UserFeed::getFeedId).startsWith(systemFeed.getFeedId());
         assertThat(first.getContent()).extracting(UserFeed::getContentId)
-                .containsExactly(987L, mutedPost.getPostId());
+                .containsExactly(987L, withdrawnPost.getPostId());
         assertThat(second.getContent()).extracting(UserFeed::getContentId)
-                .containsExactly(futurePost.getPostId(), expiredPost.getPostId());
+                .containsExactly(mutedPost.getPostId(), futurePost.getPostId());
         assertThat(third.getContent()).extracting(UserFeed::getContentId)
-                .containsExactly(activePost.getPostId());
-        assertThat(second.getTotalElements()).isEqualTo(5);
-        assertThat(third.getTotalElements()).isEqualTo(5);
+                .containsExactly(expiredPost.getPostId(), activePost.getPostId());
+        assertThat(second.getTotalElements()).isEqualTo(6);
+        assertThat(third.getTotalElements()).isEqualTo(6);
     }
 
     @Test

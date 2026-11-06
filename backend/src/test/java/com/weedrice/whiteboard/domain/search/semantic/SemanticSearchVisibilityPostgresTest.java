@@ -321,6 +321,31 @@ class SemanticSearchVisibilityPostgresTest {
         return nodes;
     }
 
+    @ParameterizedTest
+    @EnumSource(SemanticSearchContentType.class)
+    void withdrawalPreservesSearchAndRelatedContentButDoesNotOverrideBan(SemanticSearchContentType type) {
+        var vectorQuery = vectorQuery(type, 100, 0);
+        var keywordQuery = keywordQuery(type, 100, 0);
+        var expectedVectors = keys(vectors.search(vectorQuery));
+        var expectedKeywords = keys(keywords.search(keywordQuery));
+        var context = new SemanticSearchQueryContext("free", BLOCKED_USERS);
+        var expectedRelated = vectors.findRelatedPostIds(1L, context, 20, 0.55).postIds();
+
+        jdbc.update("UPDATE users SET status = 'DELETED', deleted_at = CURRENT_TIMESTAMP WHERE user_id = 10");
+
+        assertThat(keys(vectors.search(vectorQuery))).containsExactlyElementsOf(expectedVectors);
+        assertThat(keys(keywords.search(keywordQuery))).containsExactlyElementsOf(expectedKeywords);
+        assertThat(vectors.count(vectorQuery)).isEqualTo(expectedVectors.size());
+        assertThat(keywords.count(keywordQuery)).isEqualTo(expectedKeywords.size());
+        assertThat(vectors.findRelatedPostIds(1L, context, 20, 0.55).postIds()).containsExactlyElementsOf(expectedRelated);
+        assertThat(vectors.findRelatedPostIds(10L, context, 20, 0.55).sourceEmbeddingAvailable()).isTrue();
+
+        jdbc.update("INSERT INTO sanctions (target_user_id, type, start_date) VALUES (10, 'BAN', CURRENT_TIMESTAMP)");
+        assertThat(keys(vectors.search(vectorQuery))).doesNotContain("POST:10", "COMMENT:110", "COMMENT:203");
+        assertThat(keys(keywords.search(keywordQuery))).doesNotContain("POST:10", "COMMENT:110", "COMMENT:203");
+        assertThat(vectors.findRelatedPostIds(1L, context, 20, 0.55).postIds()).doesNotContain(10L);
+    }
+
     private void createTables() {
         jdbc.execute("""
                 CREATE TABLE users (
