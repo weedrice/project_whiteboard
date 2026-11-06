@@ -201,7 +201,7 @@ export const boardBaseMessages = {
     unblind: '블라인드 해제',
     managerActionSuccess: '관리 작업이 반영되었습니다.',
     relatedKicker: '관련 글',
-    relatedTitle: '이 글과 비슷한 글',
+    relatedTitle: '함께 읽을 만한 글',
     seriesTitle: '시리즈: {title}',
     seriesMeta: '시리즈: {title} · {current}/{total}화',
     previousInSeries: '이전 편',

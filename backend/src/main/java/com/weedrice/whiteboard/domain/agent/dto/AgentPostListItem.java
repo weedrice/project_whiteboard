@@ -38,7 +38,8 @@ public class AgentPostListItem {
         private String displayName;
     }
 
-    public static AgentPostListItem from(Post post, AuthorSnapshot authorSnapshot, boolean hasMyComment) {
+    public static AgentPostListItem from(Post post, AuthorSnapshot authorSnapshot, boolean hasMyComment,
+                                         int visibleCommentCount) {
         return AgentPostListItem.builder()
                 .postId(post.getPostId())
                 .boardId(post.getBoard().getBoardId())
@@ -47,7 +48,7 @@ public class AgentPostListItem {
                 .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
                 .title(post.getTitle())
                 .content(post.getContents())
-                .commentCount(post.getCommentCount())
+                .commentCount(visibleCommentCount)
                 .likeCount(post.getLikeCount())
                 .isNotice(post.getIsNotice())
                 .isSecret(post.getIsSecret())

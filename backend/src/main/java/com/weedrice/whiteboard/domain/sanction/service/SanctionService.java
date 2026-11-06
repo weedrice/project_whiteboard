@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +38,7 @@ public class SanctionService {
     private final SanctionEffectApplier sanctionEffectApplier;
     private final UserReadableResolver userReadableResolver;
     private final Clock clock;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate,
@@ -62,7 +64,11 @@ public class SanctionService {
                 .contentId(command.contentId())
                 .contentType(command.contentType())
                 .build();
-        return sanctionRepository.save(sanction).getSanctionId();
+        Long sanctionId = sanctionRepository.save(sanction).getSanctionId();
+        if ("BAN".equals(command.type())) {
+            anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
+        }
+        return sanctionId;
     }
 
     public Page<SanctionResponse> getSanctions(Long targetUserId, Pageable pageable) {

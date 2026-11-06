@@ -65,7 +65,7 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .contains("LOWER(noviis_expand_preserved_post_html(COALESCE(p.contents, ''))) LIKE")
                 .contains("p.user_id NOT IN (:blockedUserIds)")
                 .contains("u.user_id NOT IN (:blockedUserIds)")
-                .contains("ORDER BY created_at DESC, content_type ASC, content_id DESC");
+                .contains("ORDER BY keyword_rank ASC, created_at DESC, content_type ASC, content_id DESC");
         assertThat(paramsCaptor.getValue().getValue("keywordPattern")).isEqualTo("%100!%!_match!!%");
     }
 

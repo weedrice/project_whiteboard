@@ -98,7 +98,7 @@ public class UserProfileService {
 
         ProfilePrivacyPolicy.Visibility visibility = profilePrivacyPolicy.resolve(user.getUserId(), viewerUserId);
         UserActivityPort.PublicActivityCounts activity = visibility.canViewPosts() || visibility.canViewComments()
-                ? userActivityPort.getPublicActivityCounts(user.getUserId())
+                ? userActivityPort.getPublicActivityCounts(user.getUserId(), viewerUserId)
                 : new UserActivityPort.PublicActivityCounts(0L, 0L);
 
         return UserProfileResponse.builder()

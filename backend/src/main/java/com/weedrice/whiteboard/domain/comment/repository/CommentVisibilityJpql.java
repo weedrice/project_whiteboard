@@ -1,9 +1,16 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
+
 final class CommentVisibilityJpql {
 
     private CommentVisibilityJpql() {
     }
+
+    static final String VISIBLE_COMMENT_AUTHOR = " AND c.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + ") ";
+    static final String VISIBLE_AUTHORS = VISIBLE_COMMENT_AUTHOR + " AND p.userId IN ("
+            + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + ") ";
 
     static final String VIEWER_READABLE_POST = """
               AND (

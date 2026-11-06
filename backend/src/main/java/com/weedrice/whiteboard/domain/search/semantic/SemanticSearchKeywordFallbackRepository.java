@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -16,6 +17,9 @@ class SemanticSearchKeywordFallbackRepository {
 
     private static final String POST_SELECT = """
             SELECT
+                CASE WHEN LOWER(COALESCE(p.title, '')) = :normalizedKeyword THEN 0
+                     WHEN LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!' THEN 1
+                     ELSE 2 END AS keyword_rank,
                 'POST' AS content_type,
                 p.post_id AS content_id,
                 p.post_id AS post_id,
@@ -44,10 +48,11 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_SELECT = """
             SELECT
+                2 AS keyword_rank,
                 'COMMENT' AS content_type,
                 c.comment_id AS content_id,
                 p.post_id AS post_id,
@@ -77,7 +82,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private static final String POST_COUNT_SELECT = """
             SELECT p.post_id AS content_id
@@ -92,7 +97,7 @@ class SemanticSearchKeywordFallbackRepository {
               )
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(false);
+            """ + ContentAuthorVisibility.sql("u");
 
     private static final String COMMENT_COUNT_SELECT = """
             SELECT c.comment_id AS content_id
@@ -108,7 +113,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
-            """ + SemanticSearchSqlFragments.authorVisibilityPredicate(true);
+            """ + ContentAuthorVisibility.sql("u", "post_author");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -122,8 +127,11 @@ class SemanticSearchKeywordFallbackRepository {
     }
 
     String searchSql(SemanticSearchKeywordQuery query) {
-        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT) + """
-                ORDER BY created_at DESC, content_type ASC, content_id DESC
+        return "SELECT * FROM (" + SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT) + """
+                ORDER BY keyword_rank ASC, created_at DESC, content_type ASC, content_id DESC
+                LIMIT :candidateLimit
+                ) keyword_candidates
+                ORDER BY keyword_rank ASC, created_at DESC, content_type ASC, content_id DESC
                 LIMIT :limit OFFSET :offset
                 """;
     }
@@ -131,12 +139,14 @@ class SemanticSearchKeywordFallbackRepository {
     String countSql(SemanticSearchKeywordQuery query) {
         return "SELECT COUNT(*) FROM ("
                 + SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT)
-                + ") semantic_keyword_count";
+                + " LIMIT :candidateLimit) semantic_keyword_count";
     }
 
     MapSqlParameterSource params(SemanticSearchKeywordQuery query) {
         return SemanticSearchSqlFragments.commonParams(query)
-                .addValue("keywordPattern", keywordPattern(query.keyword()));
+                .addValue("keywordPattern", keywordPattern(query.keyword()))
+                .addValue("normalizedKeyword", query.keyword() == null ? "" : query.keyword().toLowerCase(Locale.ROOT))
+                .addValue("candidateLimit", query.candidateLimit());
     }
 
     private String keywordPattern(String keyword) {

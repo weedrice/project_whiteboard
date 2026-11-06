@@ -18,6 +18,10 @@ public class SemanticSearchEventPublisher {
         eventPublisher.publishEvent(new SemanticSearchPostCommentsReindexEvent(postId));
     }
 
+    public void publishAuthorRestored(Long userId) {
+        eventPublisher.publishEvent(new SemanticSearchAuthorRestoredEvent(userId));
+    }
+
     public void publishBoardContentReindex(Long boardId) {
         eventPublisher.publishEvent(new SemanticSearchBoardContentReindexEvent(boardId));
     }

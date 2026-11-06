@@ -162,7 +162,7 @@ class SemanticSearchJobServiceTest {
 
         assertThat(processed).isEqualTo(1);
         verify(jobCommandService).markFailedIfCurrent(eq(2L), any(LocalDateTime.class), eq(3),
-                contains("provider down"));
+                contains("provider down"), eq(true), any(LocalDateTime.class));
     }
 
     @Test
@@ -181,7 +181,7 @@ class SemanticSearchJobServiceTest {
         assertThat(processed).isEqualTo(1);
         verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(jobCommandService).markFailedIfCurrent(eq(3L), any(LocalDateTime.class), eq(3),
-                contains("payload changed"));
+                contains("payload changed"), eq(true), any(LocalDateTime.class));
     }
 
     @Test
@@ -194,7 +194,7 @@ class SemanticSearchJobServiceTest {
         verifyNoInteractions(indexService);
         verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(jobCommandService).markFailedIfCurrent(eq(4L), any(LocalDateTime.class), eq(3),
-                contains("Unsupported semantic search job content type"));
+                contains("Unsupported semantic search job content type"), eq(true), any(LocalDateTime.class));
     }
 
     @Test
@@ -207,7 +207,91 @@ class SemanticSearchJobServiceTest {
         verifyNoInteractions(indexService);
         verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(jobCommandService).markFailedIfCurrent(eq(5L), any(LocalDateTime.class), eq(3),
-                contains("Unsupported semantic search job action"));
+                contains("Unsupported semantic search job action"), eq(true), any(LocalDateTime.class));
+    }
+
+    @Test
+    void processPendingJobs_deletesWithoutCallingUnavailableProvider() {
+        when(embeddingClient.isAvailable()).thenReturn(false);
+        stubOfflineClaimedJob("DELETE");
+
+        assertThat(jobService.processPendingJobs()).isEqualTo(1);
+
+        verify(indexService).delete("POST", 10L);
+        verify(jobCommandService).markCompleted(eq(1L), any(), any());
+        verifyNoInteractions(reindexService);
+        verify(embeddingClient, never()).embed(anyString());
+    }
+
+    @Test
+    void processPendingJobs_deletesEvenWhenFeatureDisabled() {
+        properties.setEnabled(false);
+        stubOfflineClaimedJob("DELETE");
+
+        assertThat(jobService.processPendingJobs()).isEqualTo(1);
+
+        verify(indexService).delete("POST", 10L);
+        verify(jobCommandService).markCompleted(eq(1L), any(), any());
+    }
+
+    @Test
+    void processPendingJobs_preservesUpsertThatReplacesSelectedDeleteWhileOffline() {
+        when(embeddingClient.isAvailable()).thenReturn(false);
+        stubOfflineClaimedJob("UPSERT");
+
+        jobService.processPendingJobs();
+
+        verify(jobCommandService).releaseClaim(eq(1L), any());
+        verifyNoInteractions(indexService);
+        verify(jobCommandService, never()).markCompleted(any(), any(), any());
+        verify(jobCommandService, never()).markFailedIfCurrent(any(), any(), anyInt(), anyString(), anyBoolean(), any());
+    }
+
+    @Test
+    void rateLimitHonorsProviderRetryAfterAndRetainsSafeFailureCode() {
+        stubClaimedJob(new SemanticSearchJob(8L, "POST", 80L, "UPSERT", null, 1));
+        doThrow(new EmbeddingFailureException("RATE_LIMITED", true, java.time.Duration.ofMinutes(7)))
+                .when(indexService).upsertPost(80L);
+        jobService.processPendingJobs();
+        verify(jobCommandService).markFailedIfCurrent(eq(8L), any(), eq(3), contains("RATE_LIMITED"),
+                eq(true), eq(LocalDateTime.of(2026, 5, 19, 15, 7)));
+    }
+
+    @Test
+    void transientErrorsUseExponentialRetryDelay() {
+        stubClaimedJob(new SemanticSearchJob(8L, "POST", 80L, "UPSERT", null, 2));
+        doThrow(new EmbeddingFailureException("HTTP_503", true, null)).when(indexService).upsertPost(80L);
+        jobService.processPendingJobs();
+        verify(jobCommandService).markFailedIfCurrent(eq(8L), any(), eq(3), contains("HTTP_503"),
+                eq(true), eq(LocalDateTime.of(2026, 5, 19, 15, 4)));
+    }
+
+    @Test
+    void authenticationFailureIsTerminalWithoutConsumingAllRetries() {
+        stubClaimedJob(new SemanticSearchJob(8L, "POST", 80L, "UPSERT", null));
+        doThrow(new EmbeddingFailureException("HTTP_401", false, null)).when(indexService).upsertPost(80L);
+        jobService.processPendingJobs();
+        verify(jobCommandService).markFailedIfCurrent(eq(8L), any(), eq(3), contains("HTTP_401"), eq(false), any());
+        verify(jobCommandService, never()).markCompleted(any(), any(), any());
+    }
+
+    @Test
+    void unreasonableRetryAfterCannotBreakFailurePersistence() {
+        stubClaimedJob(new SemanticSearchJob(8L, "POST", 80L, "UPSERT", null));
+        doThrow(new EmbeddingFailureException("RATE_LIMITED", true, java.time.Duration.ofSeconds(Long.MAX_VALUE)))
+                .when(indexService).upsertPost(80L);
+        jobService.processPendingJobs();
+        verify(jobCommandService).markFailedIfCurrent(eq(8L), any(), eq(3), contains("RATE_LIMITED"),
+                eq(true), eq(LocalDateTime.of(2026, 5, 20, 15, 0)));
+    }
+
+    private void stubOfflineClaimedJob(String claimedAction) {
+        when(jobRepository.findPendingDeletionJobs(3, 10))
+                .thenReturn(List.of(new SemanticSearchJob(1L, "POST", 10L, "DELETE", null)));
+        when(jobCommandService.claimForProcessing(eq(1L), eq(3), any())).thenReturn(1);
+        when(jobCommandService.findClaimed(eq(1L), any()))
+                .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
+                        1L, "POST", 10L, claimedAction, invocation.getArgument(1))));
     }
 
     private void stubClaimedJob(SemanticSearchJob job) {
@@ -215,7 +299,7 @@ class SemanticSearchJobServiceTest {
         when(jobCommandService.claimForProcessing(eq(job.jobId()), eq(3), any(LocalDateTime.class))).thenReturn(1);
         when(jobCommandService.findClaimed(eq(job.jobId()), any(LocalDateTime.class)))
                 .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
-                        job.jobId(), job.contentType(), job.contentId(), job.action(), invocation.getArgument(1))));
+                        job.jobId(), job.contentType(), job.contentId(), job.action(), invocation.getArgument(1), job.retryCount())));
     }
 
     private void assertRequired(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {

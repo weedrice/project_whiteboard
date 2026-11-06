@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.actor.ActorBatchReadPort;
 import com.weedrice.whiteboard.domain.actor.AuthorSnapshot;
 import com.weedrice.whiteboard.domain.actor.ContentActorRef;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -56,6 +57,7 @@ public class CommentQueryService {
     private final CommentMentionRepository commentMentionRepository;
     private final MessageSource messageSource;
     private final ActorBatchReadPort actorBatchReadPort;
+    private final ContentAuthorVisibilityRepository authorVisibilityRepository;
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -78,12 +80,13 @@ public class CommentQueryService {
                 parentComments.getContent(),
                 context.blockedUserIds());
         Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(parentComments.getContent());
+        Set<Long> visibleAuthors = visibleAuthors(parentComments.getContent());
         List<CommentResponse> responseContent = parentComments.getContent().stream()
-                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                .map(comment -> toCommentResponse(listReadModel(
                         comment,
                         authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts), post))
+                        replyCounts, visibleAuthors), post))
                 .toList();
         attachMentions(responseContent, context.blockedUserIds());
 
@@ -106,12 +109,13 @@ public class CommentQueryService {
                 comments,
                 context.blockedUserIds());
         Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(comments);
+        Set<Long> visibleAuthors = visibleAuthors(comments);
         List<CommentResponse> responseContent = comments.stream()
-                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                .map(comment -> toCommentResponse(listReadModel(
                         comment,
                         authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts), post))
+                        replyCounts, visibleAuthors), post))
                 .toList();
         attachMentions(responseContent, context.blockedUserIds());
         return responseContent;
@@ -164,12 +168,13 @@ public class CommentQueryService {
                 replies.getContent(),
                 context.blockedUserIds());
         Map<ContentActorRef, AuthorSnapshot> authors = resolveAuthors(replies.getContent());
+        Set<Long> visibleAuthors = visibleAuthors(replies.getContent());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
-                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                .map(comment -> toCommentResponse(listReadModel(
                         comment,
                         authorOf(comment, authors),
                         context.blockedUserIds(),
-                        replyCounts), post))
+                        replyCounts, visibleAuthors), post))
                 .toList();
         attachMentions(maskedReplies, context.blockedUserIds());
 
@@ -317,11 +322,16 @@ public class CommentQueryService {
                 .filter(Objects::nonNull)
                 .map(ContentActorRef::user)
                 .collect(java.util.stream.Collectors.toSet()));
+        Set<Long> visibleMentionedUsers = authorVisibilityRepository.findVisibleUserIds(mentionRows.stream()
+                .map(CommentMention::getUserId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet()));
         Map<Long, List<CommentResponse.MentionInfo>> mentionsByCommentId = mentionRows.stream()
                 .filter(mention -> mention.getComment() != null && mention.getComment().getCommentId() != null)
                 .filter(mention -> mention.getUserId() != null)
                 .filter(mention -> mentionedUsers.containsKey(ContentActorRef.user(mention.getUserId())))
                 .filter(mention -> !blockedUserIds.contains(mention.getUserId()))
+                .filter(mention -> visibleMentionedUsers.contains(mention.getUserId()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         mention -> mention.getComment().getCommentId(),
                         java.util.stream.Collectors.mapping(
@@ -339,6 +349,22 @@ public class CommentQueryService {
                 .displayName(user.displayName())
                 .profileImageUrl(user.profileImageUrl())
                 .build();
+    }
+
+    private Set<Long> visibleAuthors(List<Comment> comments) {
+        return authorVisibilityRepository.findVisibleUserIds(comments.stream()
+                .map(Comment::getUserId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    private CommentReadModel listReadModel(Comment comment, AuthorSnapshot author, Set<Long> blockedUserIds,
+            Map<Long, Long> replyCounts, Set<Long> visibleAuthors) {
+        if (!commentReadSupport.isDeleted(comment) && !visibleAuthors.contains(comment.getUserId())) {
+            return new CommentReadModel(comment, CommentReadModel.Status.BLINDED, null, null,
+                    replyCounts.getOrDefault(comment.getCommentId(), 0L));
+        }
+        return commentReadModelAssembler.from(comment, author, blockedUserIds, replyCounts);
     }
 
     private Map<ContentActorRef, AuthorSnapshot> resolveAuthors(List<Comment> comments) {

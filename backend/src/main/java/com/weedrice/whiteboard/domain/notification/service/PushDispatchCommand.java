@@ -8,7 +8,9 @@ record PushDispatchCommand(
         Long notificationId,
         String content,
         String notificationType,
-        String targetUrl) {
+        String targetUrl,
+        String sourceType,
+        Long sourceId) {
 
     static PushDispatchCommand from(Notification notification, String targetUrl) {
         if (notification == null || notification.getUser() == null) {
@@ -23,6 +25,8 @@ record PushDispatchCommand(
                 notification.getNotificationId(),
                 notification.getContent(),
                 type,
-                targetUrl);
+                targetUrl,
+                notification.getSourceType(),
+                notification.getSourceId());
     }
 }

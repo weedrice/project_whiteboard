@@ -162,6 +162,106 @@ class UserRepositoryTest {
                 .containsExactly(user3.getDisplayName());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"ACTIVE_BAN", "PERMANENT_BAN", "EXPIRED_BAN", "FUTURE_BAN", "MUTE", "SUSPENDED", "DELETED"})
+    void publicDiscoveryAndMentionCandidates_shareAuthorEligibility(String state) {
+        User candidate = persistDiscoveryUser("visibility-user", "Visibility Candidate");
+        LocalDateTime now = LocalDateTime.now();
+        boolean eligible = switch (state) {
+            case "ACTIVE_BAN" -> {
+                persistDiscoverySanction(candidate, "ban", now.minusDays(1), now.plusDays(1));
+                yield false;
+            }
+            case "PERMANENT_BAN" -> {
+                persistDiscoverySanction(candidate, "BAN", now.minusDays(1), null);
+                yield false;
+            }
+            case "EXPIRED_BAN" -> {
+                persistDiscoverySanction(candidate, "BAN", now.minusDays(2), now.minusDays(1));
+                yield true;
+            }
+            case "FUTURE_BAN" -> {
+                persistDiscoverySanction(candidate, "BAN", now.plusDays(1), now.plusDays(2));
+                yield true;
+            }
+            case "MUTE" -> {
+                persistDiscoverySanction(candidate, "MUTE", now.minusDays(1), null);
+                yield true;
+            }
+            case "SUSPENDED" -> {
+                candidate.suspend();
+                yield false;
+            }
+            case "DELETED" -> {
+                // The timestamp alone must hide the account even if status is still ACTIVE.
+                ReflectionTestUtils.setField(candidate, "deletedAt", now.minusDays(1));
+                yield false;
+            }
+            default -> throw new IllegalArgumentException(state);
+        };
+        entityManager.flush();
+
+        Page<User> search = userRepository.searchUsersVisibleTo("Visibility", null, PageRequest.of(0, 10));
+        List<User> mentions = userRepository.findMentionCandidates(
+                "Visibility", true, List.of(-1L), PageRequest.of(0, 10));
+
+        assertThat(search.getTotalElements()).isEqualTo(eligible ? 1 : 0);
+        assertThat(search.getContent()).hasSize(eligible ? 1 : 0);
+        assertThat(mentions).hasSize(eligible ? 1 : 0);
+        if (eligible) {
+            assertThat(search.getContent()).extracting(User::getUserId).containsExactly(candidate.getUserId());
+            assertThat(mentions).extracting(User::getUserId).containsExactly(candidate.getUserId());
+        }
+    }
+
+    @Test
+    void publicDiscoveryAndMentions_filterBeforePaginationAndKeepAdminSearch() {
+        User banned = persistDiscoveryUser("discovery-banned", "Discovery A banned");
+        User blocked = persistDiscoveryUser("discovery-blocked", "Discovery B blocked");
+        User first = persistDiscoveryUser("discovery-first", "Discovery C visible");
+        User second = persistDiscoveryUser("discovery-second", "Discovery D visible");
+        User third = persistDiscoveryUser("discovery-third", "Discovery E visible");
+        LocalDateTime now = LocalDateTime.now();
+        persistDiscoverySanction(banned, "BAN", now.minusDays(1), now.plusDays(1));
+        persistDiscoverySanction(banned, "BAN", now.minusDays(2), null);
+        entityManager.flush();
+        List<Long> blockedIds = List.of(blocked.getUserId());
+        PageRequest page = PageRequest.of(0, 2, Sort.by("displayName"));
+
+        Page<User> search = userRepository.searchUsersVisibleTo("Discovery", blockedIds, page);
+        Page<User> next = userRepository.searchUsersVisibleTo("Discovery", blockedIds, page.next());
+        List<User> mentions = userRepository.findMentionCandidates("Discovery", false, blockedIds, page);
+
+        assertThat(search.getContent()).extracting(User::getUserId)
+                .containsExactly(first.getUserId(), second.getUserId());
+        assertThat(search.getTotalElements()).isEqualTo(3);
+        assertThat(search.getTotalPages()).isEqualTo(2);
+        assertThat(next.getContent()).extracting(User::getUserId).containsExactly(third.getUserId());
+        assertThat(next.getTotalElements()).isEqualTo(3);
+        assertThat(mentions).extracting(User::getUserId)
+                .containsExactly(first.getUserId(), second.getUserId());
+        assertThat(userRepository.searchUsers("discovery-banned", PageRequest.of(0, 10)).getContent())
+                .extracting(User::getUserId).containsExactly(banned.getUserId());
+    }
+
+    @Test
+    void publicDiscoveryAndMentions_keepEligibleViewerAsCandidate() {
+        assertThat(userRepository.searchUsersVisibleTo("Apple User", List.of(), PageRequest.of(0, 10))
+                .getContent()).extracting(User::getUserId).containsExactly(user1.getUserId());
+        assertThat(userRepository.findMentionCandidates("Apple User", true, List.of(-1L), PageRequest.of(0, 10)))
+                .extracting(User::getUserId).containsExactly(user1.getUserId());
+    }
+
+    private User persistDiscoveryUser(String loginId, String displayName) {
+        return entityManager.persist(User.builder()
+                .loginId(loginId).displayName(displayName).email(loginId + "@test.com").password("pass").build());
+    }
+
+    private void persistDiscoverySanction(User target, String type, LocalDateTime start, LocalDateTime end) {
+        entityManager.persist(Sanction.builder().targetUser(target).processorUser(user1)
+                .type(type).startDate(start).endDate(end).build());
+    }
+
     @Test
     @DisplayName("멘션 후보 prefix 검색은 LIKE 특수문자를 리터럴로 처리한다")
     void findMentionCandidates_treatsLikeMetacharactersAsLiterals() {

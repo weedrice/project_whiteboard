@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import jakarta.persistence.TypedQuery;
 
@@ -23,6 +24,7 @@ final class UserFeedVisibilityQuerySpec {
                               AND p.isDeleted = false
                               AND p.isBlinded = false
                 """);
+        query.append(" AND p.userId IN (").append(ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL).append(")\n");
         appendBlockedAuthorCondition(query, visibilityCondition);
         appendReadablePostCondition(query, visibilityCondition);
         appendLegacyInquiryCondition(query);

@@ -30,13 +30,19 @@ class SemanticSearchJobCommandService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int releaseClaim(Long jobId, LocalDateTime claimedAt) {
+        return jobRepository.releaseClaim(jobId, claimedAt);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int markCompleted(Long jobId, LocalDateTime expectedProcessingStartedAt, LocalDateTime completedAt) {
         return jobRepository.markCompleted(jobId, expectedProcessingStartedAt, completedAt);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int markFailedIfCurrent(Long jobId, LocalDateTime expectedProcessingStartedAt, int maxRetryCount,
-            String lastErrorMessage) {
-        return jobRepository.markFailedIfCurrent(jobId, expectedProcessingStartedAt, maxRetryCount, lastErrorMessage);
+            String lastErrorMessage, boolean retryable, LocalDateTime nextAttemptAt) {
+        return jobRepository.markFailedIfCurrent(jobId, expectedProcessingStartedAt, maxRetryCount,
+                lastErrorMessage, retryable, nextAttemptAt);
     }
 }

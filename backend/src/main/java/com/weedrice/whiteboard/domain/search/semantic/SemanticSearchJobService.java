@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
@@ -49,10 +50,10 @@ public class SemanticSearchJobService {
     }
 
     public int processPendingJobs() {
-        if (!properties.isEnabled() || !embeddingClient.isAvailable()) {
-            return 0;
+        boolean canEmbed = properties.isEnabled() && embeddingClient.isAvailable();
+        if (canEmbed) {
+            reindexService.processPages();
         }
-        reindexService.processPages();
 
         LocalDateTime current = now();
         int recovered = jobCommandService.recoverStaleProcessingJobs(
@@ -63,9 +64,9 @@ public class SemanticSearchJobService {
             log.warn("Recovered {} stale semantic search job(s)", recovered);
         }
 
-        List<SemanticSearchJob> jobs = jobRepository.findPendingJobs(
-                properties.getJob().getMaxRetryCount(),
-                properties.getJob().getBatchSize());
+        List<SemanticSearchJob> jobs = canEmbed
+                ? jobRepository.findPendingJobs(properties.getJob().getMaxRetryCount(), properties.getJob().getBatchSize())
+                : jobRepository.findPendingDeletionJobs(properties.getJob().getMaxRetryCount(), properties.getJob().getBatchSize());
 
         int processedCount = 0;
         for (SemanticSearchJob job : jobs) {
@@ -76,15 +77,21 @@ public class SemanticSearchJobService {
                     claimedAt);
             if (claimed == 1) {
                 processedCount++;
-                processClaimedJob(job.jobId(), claimedAt);
+                processClaimedJob(job.jobId(), claimedAt, canEmbed);
             }
         }
         return processedCount;
     }
 
-    private void processClaimedJob(Long jobId, LocalDateTime claimedAt) {
+    private void processClaimedJob(Long jobId, LocalDateTime claimedAt, boolean canEmbed) {
         jobCommandService.findClaimed(jobId, claimedAt)
-                .ifPresent(job -> processClaimedJob(job, claimedAt));
+                .ifPresent(job -> {
+                    if (!canEmbed && !SemanticSearchIndexAction.DELETE.name().equals(job.action())) {
+                        jobCommandService.releaseClaim(jobId, claimedAt);
+                        return;
+                    }
+                    processClaimedJob(job, claimedAt);
+                });
     }
 
     private void processClaimedJob(SemanticSearchJob job, LocalDateTime claimedAt) {
@@ -92,11 +99,21 @@ public class SemanticSearchJobService {
             processIndexOperation(job);
             jobCommandService.markCompleted(job.jobId(), claimedAt, now());
         } catch (Exception ex) {
+            boolean retryable = !(ex instanceof EmbeddingFailureException failure) || failure.retryable();
+            Duration delay = Duration.ofMinutes(Math.min(60L, 1L << Math.min(job.retryCount(), 6)));
+            if (ex instanceof EmbeddingFailureException failure
+                    && failure.retryAfter() != null && failure.retryAfter().compareTo(delay) > 0) {
+                delay = failure.retryAfter();
+            }
+            // Bound untrusted Retry-After values so failure handling cannot itself overflow.
+            if (delay.compareTo(Duration.ofHours(24)) > 0) {
+                delay = Duration.ofHours(24);
+            }
             jobCommandService.markFailedIfCurrent(
                     job.jobId(),
                     claimedAt,
                     properties.getJob().getMaxRetryCount(),
-                    summarizeError(ex));
+                    summarizeError(ex), retryable, retryable ? now().plus(delay) : null);
             log.error("Semantic search job failed: jobId={}, contentType={}, contentId={}",
                     job.jobId(), job.contentType(), job.contentId(), ex);
         }

@@ -34,7 +34,7 @@ class SemanticSearchJobCommandServiceTest {
         assertRequiresNew("markCompleted",
                 Long.class, LocalDateTime.class, LocalDateTime.class);
         assertRequiresNew("markFailedIfCurrent",
-                Long.class, LocalDateTime.class, int.class, String.class);
+                Long.class, LocalDateTime.class, int.class, String.class, boolean.class, LocalDateTime.class);
     }
 
     @Test
@@ -96,12 +96,12 @@ class SemanticSearchJobCommandServiceTest {
     @Test
     void markFailedIfCurrent_delegatesToRepository() {
         LocalDateTime claimedAt = LocalDateTime.of(2026, 5, 19, 15, 0);
-        when(jobRepository.markFailedIfCurrent(1L, claimedAt, 3, "provider down")).thenReturn(1);
+        when(jobRepository.markFailedIfCurrent(1L, claimedAt, 3, "provider down", true, claimedAt.plusMinutes(1))).thenReturn(1);
 
-        int failed = commandService.markFailedIfCurrent(1L, claimedAt, 3, "provider down");
+        int failed = commandService.markFailedIfCurrent(1L, claimedAt, 3, "provider down", true, claimedAt.plusMinutes(1));
 
         assertThat(failed).isEqualTo(1);
-        verify(jobRepository).markFailedIfCurrent(1L, claimedAt, 3, "provider down");
+        verify(jobRepository).markFailedIfCurrent(1L, claimedAt, 3, "provider down", true, claimedAt.plusMinutes(1));
     }
 
     private void assertRequiresNew(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {

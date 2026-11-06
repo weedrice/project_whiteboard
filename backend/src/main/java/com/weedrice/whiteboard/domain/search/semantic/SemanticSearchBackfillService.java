@@ -24,10 +24,12 @@ public class SemanticSearchBackfillService {
         }
         int count = 0;
         if (normalizedContentType.includesPosts()) {
-            count += enqueuePosts(limit);
+            int deletes = jobRepository.redriveFailedDeletes("POST", limit);
+            count += deletes + (deletes < limit ? enqueuePosts(limit - deletes) : 0);
         }
         if (normalizedContentType.includesComments()) {
-            count += enqueueComments(limit);
+            int deletes = jobRepository.redriveFailedDeletes("COMMENT", limit);
+            count += deletes + (deletes < limit ? enqueueComments(limit - deletes) : 0);
         }
         return count;
     }
@@ -48,7 +50,14 @@ public class SemanticSearchBackfillService {
                   AND b.is_public = 'Y'
                   AND u.status = 'ACTIVE'
                   AND u.deleted_at IS NULL
-                  AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL)
+                  AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL
+                       OR EXISTS (
+                            SELECT 1 FROM semantic_search_jobs repair_job
+                            WHERE repair_job.content_type = 'POST'
+                              AND repair_job.content_id = p.post_id
+                              AND repair_job.status = 'FAILED'
+                              AND repair_job.action = 'UPSERT'
+                       ))
                   AND NOT EXISTS (
                         SELECT 1
                         FROM semantic_search_jobs j
@@ -93,7 +102,14 @@ public class SemanticSearchBackfillService {
                   AND cu.deleted_at IS NULL
                   AND pu.status = 'ACTIVE'
                   AND pu.deleted_at IS NULL
-                  AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL)
+                  AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL
+                       OR EXISTS (
+                            SELECT 1 FROM semantic_search_jobs repair_job
+                            WHERE repair_job.content_type = 'COMMENT'
+                              AND repair_job.content_id = c.comment_id
+                              AND repair_job.status = 'FAILED'
+                              AND repair_job.action = 'UPSERT'
+                       ))
                   AND NOT EXISTS (
                         SELECT 1
                         FROM semantic_search_jobs j

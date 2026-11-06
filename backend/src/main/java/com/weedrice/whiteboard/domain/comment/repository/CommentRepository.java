@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
 import com.weedrice.whiteboard.domain.actor.UserIdRef;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.actor.PostIdRef;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import org.springframework.data.domain.Page;
@@ -99,6 +100,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND c.isDeleted = false
                           AND c.likeCount >= :minLikes
                           AND (:blockedUserIdsEmpty = true OR c.userId NOT IN (:blockedUserIds))
+            """ + CommentVisibilityJpql.VISIBLE_COMMENT_AUTHOR + """
                         ORDER BY c.likeCount DESC, c.createdAt ASC, c.commentId ASC
                         """)
         List<Comment> findBestRootComments(
@@ -115,54 +117,22 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 return findByPostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, isDeleted, pageable);
         }
 
-        @org.springframework.data.jpa.repository.Query(value = """
+        @Query(value = """
                         SELECT c
                         FROM Comment c
                         JOIN FETCH c.parent parent
                         WHERE parent.commentId = :parentId
-                          AND (
-                                (:isDeleted = true AND c.isDeleted = true)
-                                OR (
-                                        :isDeleted = false
-                                        AND (
-                                                c.isDeleted = false
-                                                OR EXISTS (
-                                                        SELECT 1
-                                                        FROM CommentClosure cc
-                                                        JOIN cc.descendant descendant
-                                                        WHERE cc.ancestor = c
-                                                          AND cc.depth > 0
-                                                          AND descendant.isDeleted = false
-                                                          AND (:blockedUserIdsEmpty = true
-                                                               OR descendant.userId NOT IN (:blockedUserIds))
-                                                )
-                                        )
-                                )
-                          )
+                          AND ((:isDeleted = true AND c.isDeleted = true) OR (:isDeleted = false
+            """ + CommentThreadQueries.VISIBLE_THREAD + """
+                          ))
                         ORDER BY c.createdAt ASC, c.commentId ASC
                         """, countQuery = """
                         SELECT COUNT(c)
                         FROM Comment c
                         WHERE c.parent.commentId = :parentId
-                          AND (
-                                (:isDeleted = true AND c.isDeleted = true)
-                                OR (
-                                        :isDeleted = false
-                                        AND (
-                                                c.isDeleted = false
-                                                OR EXISTS (
-                                                        SELECT 1
-                                                        FROM CommentClosure cc
-                                                        JOIN cc.descendant descendant
-                                                        WHERE cc.ancestor = c
-                                                          AND cc.depth > 0
-                                                          AND descendant.isDeleted = false
-                                                          AND (:blockedUserIdsEmpty = true
-                                                               OR descendant.userId NOT IN (:blockedUserIds))
-                                                )
-                                        )
-                                )
-                          )
+                          AND ((:isDeleted = true AND c.isDeleted = true) OR (:isDeleted = false
+            """ + CommentThreadQueries.VISIBLE_THREAD + """
+                          ))
                         """)
         Page<Comment> findRepliesWithRelations(
                         @org.springframework.data.repository.query.Param("parentId") Long parentId,
@@ -203,7 +173,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + CommentVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + CommentVisibilityJpql.VIEWER_READABLE_POST + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                         ORDER BY c.createdAt DESC, c.commentId DESC
                         """, countQuery = """
                         SELECT COUNT(DISTINCT c)
@@ -216,7 +186,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
-            """ + CommentVisibilityJpql.VIEWER_READABLE_POST + """
+            """ + CommentVisibilityJpql.VIEWER_READABLE_POST + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                         """)
         Page<Comment> findVisibleMyComments(
                         @org.springframework.data.repository.query.Param("userId") Long userId,
@@ -247,13 +217,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND p.isSecret = false
+                          AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                           AND b.agentUseYn = true
                         """)
         long countPublicProfileCommentsByAgentId(
-                        @org.springframework.data.repository.query.Param("agentId") Long agentId);
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
 
         @Query("""
                         SELECT COALESCE(SUM(c.likeCount), 0)
@@ -266,13 +240,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND p.isSecret = false
+                          AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                           AND b.agentUseYn = true
                         """)
         long sumPublicProfileCommentLikesByAgentId(
-                        @org.springframework.data.repository.query.Param("agentId") Long agentId);
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
 
         @Query("""
                         SELECT c
@@ -285,14 +263,18 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND p.isSecret = false
+                          AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                           AND b.agentUseYn = true
                         ORDER BY c.createdAt DESC, c.commentId DESC
                         """)
         Page<Comment> findPublicProfileCommentsByAgentId(
                         @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
                         Pageable pageable);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
         @Query("""
@@ -308,6 +290,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                           AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                         """)
         long countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
@@ -354,14 +337,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isDeleted = false
                           AND p.isBlinded = false
                           AND p.isSecret = false
+                          AND (:blockedUserIdsEmpty = true OR p.userId NOT IN (:blockedUserIds))
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                         """)
-        long countPublicProfileCommentsByUser(@org.springframework.data.repository.query.Param("userId") Long userId);
-        default long countPublicProfileCommentsByUser(UserIdRef user) {
-                return countPublicProfileCommentsByUser(user.getUserId());
-        }
+        long countPublicProfileCommentsByUser(
+                        @org.springframework.data.repository.query.Param("userId") Long userId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
 
         @Query("""
                         SELECT c
@@ -378,6 +363,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND b.isActive = true
                           AND b.isPublic = true
                           AND (b.isListed = true OR b.isListed IS NULL)
+            """ + CommentVisibilityJpql.VISIBLE_AUTHORS + """
                         """)
         Page<Comment> findPublicProfileCommentsByUser(
                         @org.springframework.data.repository.query.Param("userId") Long userId,
@@ -430,7 +416,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                    FROM Comment c
                                    WHERE c.postId = p.postId
                                      AND c.isDeleted = false
-                          AND COALESCE(c.isBlinded, false) = false
+            """ + AgentPostActivityVisibility.COMMENT + """
                           AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
                                      AND (c.agentId IS NULL OR c.agentId <> :agentId)
                                      AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
@@ -443,10 +429,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                          AND read.postId = p.postId
                         WHERE p.agentId = :agentId
                           AND latest.isDeleted = false
-                          AND COALESCE(latest.isBlinded, false) = false
-                          AND (:blockedUserIdsEmpty = true OR latest.userId NOT IN :blockedUserIds)
+            """ + AgentPostActivityVisibility.LATEST + """
                           AND p.isDeleted = false
-                          AND COALESCE(p.isBlinded, false) = false
+            """ + AgentPostActivityVisibility.SOURCE + """
+                          AND (:blockedUserIdsEmpty = true OR latest.userId NOT IN :blockedUserIds)
                           AND (latest.agentId IS NULL OR latest.agentId <> :agentId)
                           AND latest.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                           AND NOT EXISTS (
@@ -454,7 +440,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                               FROM Comment newer
                               WHERE newer.postId = p.postId
                                 AND newer.isDeleted = false
-                                AND COALESCE(newer.isBlinded, false) = false
+            """ + AgentPostActivityVisibility.NEWER + """
                                 AND (:blockedUserIdsEmpty = true OR newer.userId NOT IN :blockedUserIds)
                                 AND (newer.agentId IS NULL OR newer.agentId <> :agentId)
                                 AND newer.createdAt > COALESCE(read.lastReadAt, p.createdAt)
@@ -475,16 +461,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         SELECT COUNT(c)
                         FROM Comment c
                         JOIN Post p ON p.postId = c.postId
+                        JOIN p.board b
                         LEFT JOIN AgentPostActivityRead read
                           ON read.agent.agentId = :agentId
                          AND read.postId = p.postId
                         WHERE p.postId = :postId
                           AND p.agentId = :agentId
                           AND c.isDeleted = false
-                          AND COALESCE(c.isBlinded, false) = false
-                          AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
+            """ + AgentPostActivityVisibility.COMMENT + """
                           AND p.isDeleted = false
-                          AND COALESCE(p.isBlinded, false) = false
+            """ + AgentPostActivityVisibility.SOURCE + """
+                          AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
                           AND (c.agentId IS NULL OR c.agentId <> :agentId)
                           AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
                         """)
@@ -497,10 +484,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         @Query("""
                         SELECT MIN(c.createdAt)
                         FROM Comment c JOIN Post p ON p.postId = c.postId
+                        JOIN p.board b
                         LEFT JOIN AgentPostActivityRead read ON read.agent.agentId = :agentId AND read.postId = p.postId
                         WHERE p.postId = :postId AND p.agentId = :agentId
-                          AND p.isDeleted = false AND COALESCE(p.isBlinded, false) = false
-                          AND c.isDeleted = false AND COALESCE(c.isBlinded, false) = false
+                          AND p.isDeleted = false
+            """ + AgentPostActivityVisibility.SOURCE + """
+                          AND c.isDeleted = false
+            """ + AgentPostActivityVisibility.COMMENT + """
                           AND (:blockedUserIdsEmpty = true OR c.userId NOT IN :blockedUserIds)
                           AND (c.agentId IS NULL OR c.agentId <> :agentId)
                           AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
@@ -530,6 +520,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND (
                                 (
                                         c.isDeleted = false
+            """ + CommentVisibilityJpql.VISIBLE_COMMENT_AUTHOR + """
                                         AND (:blockedUserIdsEmpty = true
                                              OR c.userId NOT IN (:blockedUserIds))
                                 )
@@ -540,6 +531,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                         WHERE cc.ancestor = c
                                           AND cc.depth > 0
                                           AND descendant.isDeleted = false
+                                          AND descendant.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                                          )
                                           AND (:blockedUserIdsEmpty = true
                                                OR descendant.userId NOT IN (:blockedUserIds))
                                 )
@@ -558,6 +552,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND (
                                 (
                                         c.isDeleted = false
+            """ + CommentVisibilityJpql.VISIBLE_COMMENT_AUTHOR + """
                                         AND (:blockedUserIdsEmpty = true
                                              OR c.userId NOT IN (:blockedUserIds))
                                 )
@@ -568,6 +563,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                         WHERE cc.ancestor = c
                                           AND cc.depth > 0
                                           AND descendant.isDeleted = false
+                                          AND descendant.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                                          )
                                           AND (:blockedUserIdsEmpty = true
                                                OR descendant.userId NOT IN (:blockedUserIds))
                                 )

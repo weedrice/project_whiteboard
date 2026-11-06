@@ -65,6 +65,31 @@ class SemanticSearchPropertiesTest {
                 .hasMessageContaining("semantic-search.embedding-dimension");
     }
 
+    @Test
+    void retrievalDefaultsAreIndependentFromRelatedPostThreshold() {
+        SemanticSearchProperties properties = new SemanticSearchProperties();
+        assertThat(properties.getRetrieval().getMinSimilarity()).isEqualTo(0.20);
+        assertThat(properties.getRetrieval().getCandidateLimit()).isEqualTo(200);
+        properties.getRetrieval().setMinSimilarity(0.3);
+        assertThat(properties.getRelatedPost().getMinSimilarity()).isEqualTo(0.55);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, -1.01, 1.01})
+    void retrievalRejectsInvalidSimilarityEvenWhenDisabled(double value) {
+        SemanticSearchProperties properties = new SemanticSearchProperties();
+        properties.getRetrieval().setMinSimilarity(value);
+        assertThatThrownBy(properties::validateContract).hasMessageContaining("retrieval.min-similarity");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {-1, 0, 19, 1001})
+    void retrievalRejectsUnboundedCandidatePools(int value) {
+        SemanticSearchProperties properties = new SemanticSearchProperties();
+        properties.getRetrieval().setCandidateLimit(value);
+        assertThatThrownBy(properties::validateContract).hasMessageContaining("retrieval.candidate-limit");
+    }
+
     private SemanticSearchProperties enabledProperties() {
         SemanticSearchProperties properties = new SemanticSearchProperties();
         properties.setEnabled(true);

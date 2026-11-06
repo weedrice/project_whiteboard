@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.tag.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -9,11 +10,14 @@ import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -290,6 +294,64 @@ class TagRepositoryTest {
         assertThat(tagRepository.findById(countedTag.getTagId())).isPresent();
         assertThat(tagRepository.findById(recentTag.getTagId())).isPresent();
         assertThat(tagRepository.findById(boundaryTag.getTagId())).isPresent();
+    }
+
+    @Test
+    void findPopularPublicTagCounts_excludesHiddenAuthorsBeforeRankingAndCounting() {
+        User visible = persistTagAuthor("visible-tag-author");
+        User banned = persistTagAuthor("banned-tag-author");
+        User suspended = persistTagAuthor("suspended-tag-author");
+        User deleted = persistTagAuthor("deleted-tag-author");
+        suspended.suspend();
+        ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now().minusDays(1));
+        Board board = entityManager.persist(createBoard("Visibility Tags", "visibility-tags", visible, true));
+        Tag hiddenOnly = entityManager.persist(new Tag("hidden-only"));
+        LocalDateTime now = LocalDateTime.now();
+        entityManager.persist(Sanction.builder().targetUser(banned).processorUser(visible).type("BAN")
+                .startDate(now.minusDays(1)).endDate(now.plusDays(1)).build());
+        entityManager.persist(Sanction.builder().targetUser(banned).processorUser(visible).type("BAN")
+                .startDate(now.minusDays(2)).endDate(null).build());
+        Post visiblePost = entityManager.persist(createPost("visible", board, visible, false));
+        entityManager.persist(PostTag.builder().post(visiblePost).tag(tag).build());
+        for (User author : List.of(banned, banned, banned, suspended, deleted)) {
+            Post post = entityManager.persist(createPost("hidden", board, author, false));
+            entityManager.persist(PostTag.builder().post(post).tag(tag).build());
+            entityManager.persist(PostTag.builder().post(post).tag(hiddenOnly).build());
+        }
+        entityManager.flush();
+
+        assertThat(tagRepository.findPopularPublicTagCounts(PageRequest.of(0, 1)))
+                .extracting(TagRepository.PublicTagCountProjection::getTagName,
+                        TagRepository.PublicTagCountProjection::getPostCount)
+                .containsExactly(tuple("test-tag", 1L));
+        assertThat(tagRepository.findPopularPublicTagCounts(PageRequest.of(0, 10)))
+                .extracting(TagRepository.PublicTagCountProjection::getTagName)
+                .containsExactly("test-tag");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EXPIRED_BAN", "FUTURE_BAN", "MUTE"})
+    void findPopularPublicTagCounts_keepsAuthorsWithoutCurrentBan(String state) {
+        User author = persistTagAuthor("eligible-tag-author");
+        Board board = entityManager.persist(createBoard("Eligible Tags", "eligible-tags", author, true));
+        Post post = entityManager.persist(createPost("eligible", board, author, false));
+        entityManager.persist(PostTag.builder().post(post).tag(tag).build());
+        LocalDateTime now = LocalDateTime.now();
+        entityManager.persist(Sanction.builder().targetUser(author).processorUser(author)
+                .type("MUTE".equals(state) ? "MUTE" : "BAN")
+                .startDate("FUTURE_BAN".equals(state) ? now.plusDays(1) : now.minusDays(2))
+                .endDate("EXPIRED_BAN".equals(state) ? now.minusDays(1) : now.plusDays(2)).build());
+        entityManager.flush();
+
+        assertThat(tagRepository.findPopularPublicTagCounts(PageRequest.of(0, 10)))
+                .extracting(TagRepository.PublicTagCountProjection::getTagName,
+                        TagRepository.PublicTagCountProjection::getPostCount)
+                .containsExactly(tuple("test-tag", 1L));
+    }
+
+    private User persistTagAuthor(String loginId) {
+        return entityManager.persist(User.builder().loginId(loginId).displayName(loginId)
+                .email(loginId + "@test.com").password("password").build());
     }
 
     private void setTagCreatedAt(Tag tag, LocalDateTime createdAt) {

@@ -117,7 +117,7 @@ class SearchServiceTest {
                         scrapRepository,
                         boardSubscriptionRepository),
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
-                actorBatchReadPort);
+                actorBatchReadPort, org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class));
         searchService = new SearchService(
                 searchStatisticRepository,
                 searchStatisticCommandService,

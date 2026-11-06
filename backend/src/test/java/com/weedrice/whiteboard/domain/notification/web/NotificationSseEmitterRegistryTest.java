@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamVisibilityService;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.dto.MessageChangedEvent;
@@ -24,6 +25,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 class NotificationSseEmitterRegistryTest {
 
@@ -281,6 +284,75 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @Test
+    void hiddenCreatedEventIsSuppressedWhileVisibleRecipientKeepsNormalPayload() {
+        CommentStreamVisibilityService visibility = mock(CommentStreamVisibilityService.class);
+        when(visibility.visibleRecipients(any(), anyCollection())).thenReturn(java.util.Set.of(2L));
+        CountingSseEmitter hidden = new CountingSseEmitter();
+        CountingSseEmitter visible = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(visibility, hidden, visible);
+        registry.subscribe(1L);
+        registry.subscribe(2L);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionIdForEmitter(registry, 1L, hidden));
+        registry.subscribeCommentTopic(2L, 100L, 10L, connectionIdForEmitter(registry, 2L, visible));
+        CommentStreamEvent created = CommentStreamEvent.builder()
+                .action("CREATED").postId(10L).commentId(20L).actorUserId(7L).build();
+
+        registry.publishCommentEvent(created);
+
+        assertThat(hidden.sendCount()).isEqualTo(1);
+        assertThat(visible.sendCount()).isEqualTo(2);
+        assertThat(visible.lastEventData()).contains(created);
+    }
+
+    @Test
+    void hiddenUpdatesAndDeletesSendAnonymousInvalidationWithoutRevokingTopic() throws Exception {
+        CommentStreamVisibilityService visibility = mock(CommentStreamVisibilityService.class);
+        when(visibility.visibleRecipients(any(), anyCollection())).thenReturn(java.util.Set.of());
+        CountingSseEmitter emitter = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(visibility, emitter);
+        registry.subscribe(1L);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionIdForEmitter(registry, 1L, emitter));
+        for (String action : java.util.List.of("UPDATED", "DELETED")) {
+            registry.publishCommentEvent(CommentStreamEvent.builder()
+                    .action(action).postId(10L).commentId(20L).actorUserId(7L).build());
+            CommentStreamEvent invalidation = emitter.lastEventData().stream()
+                    .filter(CommentStreamEvent.class::isInstance).map(CommentStreamEvent.class::cast)
+                    .findFirst().orElseThrow();
+            assertThat(invalidation.getAction()).isEqualTo("INVALIDATED");
+            assertThat(invalidation.getPostId()).isEqualTo(10L);
+            assertThat(invalidation.getCommentId()).isNull();
+            assertThat(invalidation.getActorUserId()).isNull();
+            assertThat(new tools.jackson.databind.ObjectMapper().writeValueAsString(invalidation))
+                    .doesNotContain("commentId", "actorUserId", "UPDATED", "DELETED");
+        }
+        assertThat(emitter.sendCount()).isEqualTo(3);
+        assertThat(registry.hasCommentTopic(10L)).isTrue();
+    }
+
+    @Test
+    void visibilityFailureSuppressesCreateAndAnonymizesUpdate() {
+        CommentStreamVisibilityService visibility = mock(CommentStreamVisibilityService.class);
+        when(visibility.visibleRecipients(any(), anyCollection())).thenThrow(new IllegalStateException("database unavailable"));
+        CountingSseEmitter emitter = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(visibility, emitter);
+        registry.subscribe(1L);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionIdForEmitter(registry, 1L, emitter));
+        registry.publishCommentEvent(CommentStreamEvent.builder()
+                .action("CREATED").postId(10L).commentId(20L).actorUserId(7L).build());
+        assertThat(emitter.sendCount()).isEqualTo(1);
+        registry.publishCommentEvent(CommentStreamEvent.builder()
+                .action("UPDATED").postId(10L).commentId(20L).actorUserId(7L).build());
+        assertThat(emitter.sendCount()).isEqualTo(2);
+        assertThat(emitter.lastEventData()).filteredOn(CommentStreamEvent.class::isInstance)
+                .allSatisfy(data -> {
+                    CommentStreamEvent invalidation = (CommentStreamEvent) data;
+                    assertThat(invalidation.getAction()).isEqualTo("INVALIDATED");
+                    assertThat(invalidation.getActorUserId()).isNull();
+                    assertThat(invalidation.getCommentId()).isNull();
+                });
+    }
+
+    @Test
     @DisplayName("subscribe uses configured timeout and stores connection")
     void subscribe_usesConfiguredTimeout() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
@@ -495,7 +567,14 @@ class NotificationSseEmitterRegistryTest {
     private NotificationSseEmitterRegistry registry(long timeoutMillis, int maxConnectionsPerUser) {
         return new NotificationSseEmitterRegistry(
                 properties(timeoutMillis, maxConnectionsPerUser),
-                new SimpleMeterRegistry());
+                new SimpleMeterRegistry(), visibleToAll());
+    }
+
+    private static CommentStreamVisibilityService visibleToAll() {
+        CommentStreamVisibilityService visibility = mock(CommentStreamVisibilityService.class);
+        when(visibility.visibleRecipients(any(), anyCollection()))
+                .thenAnswer(invocation -> java.util.Set.copyOf(invocation.<java.util.Collection<Long>>getArgument(1)));
+        return visibility;
     }
 
     private static NotificationStreamProperties properties(long timeoutMillis, int maxConnectionsPerUser) {
@@ -526,7 +605,7 @@ class NotificationSseEmitterRegistryTest {
         private FixedEmitterNotificationSseEmitterRegistry(
                 SseEmitter emitter,
                 SimpleMeterRegistry meterRegistry) {
-            super(properties(10_000L, 5), meterRegistry);
+            super(properties(10_000L, 5), meterRegistry, visibleToAll());
             this.emitter = emitter;
         }
 
@@ -541,7 +620,11 @@ class NotificationSseEmitterRegistryTest {
         private final ArrayDeque<SseEmitter> emitterQueue;
 
         private SequenceEmitterNotificationSseEmitterRegistry(SseEmitter... emitters) {
-            super(properties(10_000L, 5), new SimpleMeterRegistry());
+            this(visibleToAll(), emitters);
+        }
+
+        private SequenceEmitterNotificationSseEmitterRegistry(CommentStreamVisibilityService visibility, SseEmitter... emitters) {
+            super(properties(10_000L, 5), new SimpleMeterRegistry(), visibility);
             this.emitterQueue = new ArrayDeque<>(java.util.List.of(emitters));
         }
 

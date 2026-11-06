@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.post.entity.PostSeriesItem;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +20,15 @@ public interface PostSeriesItemRepository extends JpaRepository<PostSeriesItem, 
     }
 
     @EntityGraph(attributePaths = { "post", "post.board" })
-    List<PostSeriesItem> findBySeries_SeriesIdOrderBySortOrderAscItemIdAsc(Long seriesId);
+    @Query("""
+            SELECT i FROM PostSeriesItem i
+            WHERE i.series.seriesId = :seriesId
+              AND i.post.userId IN (
+            """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+              )
+            ORDER BY i.sortOrder ASC, i.itemId ASC
+            """)
+    List<PostSeriesItem> findBySeries_SeriesIdOrderBySortOrderAscItemIdAsc(@Param("seriesId") Long seriesId);
 
     @Query("SELECT COALESCE(MAX(i.sortOrder), -1) FROM PostSeriesItem i WHERE i.series.seriesId = :seriesId")
     int findMaxSortOrder(@Param("seriesId") Long seriesId);

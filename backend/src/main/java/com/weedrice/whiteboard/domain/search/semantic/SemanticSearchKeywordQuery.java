@@ -8,5 +8,15 @@ record SemanticSearchKeywordQuery(
         String boardUrl,
         List<Long> blockedUserIds,
         int limit,
-        long offset) implements SemanticSearchSqlCriteria {
+        long offset,
+        int candidateLimit) implements SemanticSearchSqlCriteria {
+    SemanticSearchKeywordQuery(SemanticSearchContentType contentType, String keyword, String boardUrl,
+                               List<Long> blockedUserIds, int limit, long offset) {
+        this(contentType, keyword, boardUrl, blockedUserIds, limit, offset, 200);
+    }
+
+    SemanticSearchKeywordQuery candidates() {
+        return new SemanticSearchKeywordQuery(contentType, keyword, boardUrl, blockedUserIds,
+                candidateLimit, 0, candidateLimit);
+    }
 }

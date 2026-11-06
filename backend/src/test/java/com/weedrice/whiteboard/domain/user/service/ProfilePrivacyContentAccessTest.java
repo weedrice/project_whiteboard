@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.badge.repository.BadgeRepository;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityRepository;
 import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.badge.service.BadgeService;
 import com.weedrice.whiteboard.domain.comment.integration.CommentUserIntegrationAdapter;
@@ -61,7 +62,7 @@ class ProfilePrivacyContentAccessTest {
                 null, null, null, null, null, null, null, null);
         commentService = new CommentQueryService(comments, null, null,
                 new CommentUserIntegrationAdapter(privacy, new UserReadableResolver(users), blockService, blocks),
-                null, null, null, null, null);
+                null, null, null, null, null, mock(ContentAuthorVisibilityRepository.class));
         badgeService = new BadgeService(privacy, blocks, badges, userBadges, users, null, null, null);
     }
 

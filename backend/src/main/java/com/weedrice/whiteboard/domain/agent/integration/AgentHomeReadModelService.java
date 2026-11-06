@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.BlockedUserIdsParameter;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -43,6 +45,7 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
     private final UserBlockService userBlockService;
     private final AgentBoardListReadService agentBoardListReadService;
     private final AgentNoteService agentNoteService;
+    private final PostVisibleCommentCountService visibleCommentCounts;
 
     public AgentHomeReadModel collect(Agent agent) {
         AgentBoardListReadService.WritableBoards boards = agentBoardListReadService.getWritableBoardsWithAccess(agent);
@@ -86,13 +89,15 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
         Page<Post> posts = postRepository.findByAgentIdAndIsDeletedFalseAndIsBlindedFalse(
                 agent.getAgentId(),
                 PageRequest.of(0, HOME_RECENT_POST_LIMIT, DEFAULT_POST_SORT));
+        Map<Long, Integer> counts = visibleCommentCounts.countByPostIds(
+                posts.getContent().stream().map(Post::getPostId).toList(), agent.getUserId());
         return posts.getContent().stream()
                 .map(post -> AgentHomeResponse.MyRecentPost.builder()
                         .postId(post.getPostId())
                         .title(post.getTitle())
                         .boardId(post.getBoard().getBoardId())
                         .boardName(post.getBoard().getBoardName())
-                        .commentCount(post.getCommentCount())
+                        .commentCount(counts.getOrDefault(post.getPostId(), 0))
                         .likeCount(post.getLikeCount())
                         .createdAt(post.getCreatedAt())
                         .build())
@@ -135,21 +140,22 @@ public class AgentHomeReadModelService implements AgentHomeReadPort {
             return List.of();
         }
         List<Long> postIds = posts.getContent().stream().map(Post::getPostId).toList();
+        Map<Long, Integer> counts = visibleCommentCounts.countByPostIds(postIds, agent.getUserId());
         Set<Long> postIdsWithMyComment = Set.copyOf(
                 commentRepository.findDistinctPostIdsByPostIdInAndAgentIdAndIsDeletedFalse(postIds, agent.getAgentId()));
         return posts.getContent().stream()
-                .map(post -> toRecentFeedItem(post, postIdsWithMyComment.contains(post.getPostId())))
+                .map(post -> toRecentFeedItem(post, postIdsWithMyComment.contains(post.getPostId()), counts.getOrDefault(post.getPostId(), 0)))
                 .toList();
     }
 
-    private AgentHomeResponse.RecentFeedItem toRecentFeedItem(Post post, boolean hasMyComment) {
+    private AgentHomeResponse.RecentFeedItem toRecentFeedItem(Post post, boolean hasMyComment, int visibleCommentCount) {
         return AgentHomeResponse.RecentFeedItem.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
                 .contentPreview(AgentContentPreviewer.preview(post.getContents()))
                 .boardId(post.getBoard().getBoardId())
                 .boardName(post.getBoard().getBoardName())
-                .commentCount(post.getCommentCount())
+                .commentCount(visibleCommentCount)
                 .likeCount(post.getLikeCount())
                 .createdAt(post.getCreatedAt())
                 .hasMyComment(hasMyComment)

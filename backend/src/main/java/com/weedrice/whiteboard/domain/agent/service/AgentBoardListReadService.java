@@ -59,7 +59,7 @@ public class AgentBoardListReadService {
                 .map(Board::getBoardId)
                 .toList();
         Map<Long, Long> postCountByBoardId = agentBoardPostCountPort
-                .countActivePostsByBoardIds(writableBoardIdsInOrder);
+                .countVisiblePostsByBoardIds(writableBoardIdsInOrder, access.adminBoardIds());
         Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(writableBoardIdsInOrder)
                 .stream()
                 .collect(Collectors.toMap(BoardAiInfo::getBoardId, BoardAiInfo::getGuidePrompt));

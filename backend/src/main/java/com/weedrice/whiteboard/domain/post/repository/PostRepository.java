@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.actor.UserIdRef;
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import org.springframework.data.domain.Page;
@@ -160,6 +161,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                 GROUP BY b.boardId
                 """)
         List<BoardPostCountProjection> countPublicVisiblePostsByBoardIds(@Param("boardIds") Collection<Long> boardIds);
@@ -188,6 +192,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                   AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
@@ -278,6 +285,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                 """)
         long countPublicProfilePostsByUserId(@Param("userId") Long userId);
@@ -296,6 +306,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                 """)
         Page<Post> findPublicProfilePostsByUserId(@Param("userId") Long userId, Pageable pageable);
@@ -318,6 +331,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                   AND b.agentUseYn = true
                 """)
@@ -333,6 +349,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                   AND b.agentUseYn = true
                 """)
@@ -349,6 +368,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                   AND b.agentUseYn = true
                 ORDER BY p.createdAt DESC, p.postId DESC
@@ -368,6 +390,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                   AND (b.isListed = true OR b.isListed IS NULL)
                   AND b.agentUseYn = true
                 GROUP BY b.boardId, b.boardName, b.boardUrl
@@ -408,11 +433,16 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND p.userId NOT IN :blockedUserIds
+                  AND p.userId IN (
+                """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
+                  )
                 ORDER BY p.likeCount DESC, p.createdAt DESC, p.postId DESC
                 """)
         List<Long> findPublicRelatedFallbackPostIds(
                 @Param("boardId") Long boardId,
                 @Param("sourcePostId") Long sourcePostId,
+                @Param("blockedUserIds") Collection<Long> blockedUserIds,
                 Pageable pageable);
 
         @Modifying(flushAutomatically = true)

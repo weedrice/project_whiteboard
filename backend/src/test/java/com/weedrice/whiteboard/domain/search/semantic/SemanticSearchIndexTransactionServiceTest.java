@@ -48,6 +48,74 @@ class SemanticSearchIndexTransactionServiceTest {
     }
 
     @Test
+    void reusePostLocksAndRevalidatesBeforeUpdatingVectorMetadata() {
+        Post current = post("title", "body");
+        String text = textBuilder.buildPostText(current);
+        var payload = new SemanticSearchPostIndexPayload(1L, 10L, 100L, null, text, textBuilder.hash(text));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(current));
+        when(embeddingRepository.reuse("POST", 1L, 1L, 10L, 100L, null, text, textBuilder.hash(text), "model"))
+                .thenReturn(true);
+
+        assertThat(transactionService.reusePostEmbedding(payload, "model")).isTrue();
+
+        var order = inOrder(boardRepository, postRepository, embeddingRepository);
+        order.verify(boardRepository).findByIdForUpdate(10L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(1L);
+        order.verify(embeddingRepository).reuse("POST", 1L, 1L, 10L, 100L, null, text, textBuilder.hash(text), "model");
+    }
+
+    @Test
+    void reuseCommentRejectsChangedParentTitle() {
+        Post current = post("changed title", "body");
+        Comment comment = comment(current, "comment");
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(current));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(comment));
+        var payload = new SemanticSearchCommentIndexPayload(2L, 1L, 10L, 100L, null, "old text", "old hash");
+
+        assertThatThrownBy(() -> transactionService.reuseCommentEmbedding(payload, "model"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("payload changed");
+        verifyNoInteractions(embeddingRepository);
+    }
+
+    @Test
+    void reusePostRejectsChangedContentBeforeReactivatingTombstone() {
+        Post changed = post("new title", "body");
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(changed));
+        var payload = new SemanticSearchPostIndexPayload(1L, 10L, 100L, null, "old text", "old hash");
+
+        assertThatThrownBy(() -> transactionService.reusePostEmbedding(payload, "model"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("payload changed");
+        verifyNoInteractions(embeddingRepository);
+    }
+
+    @Test
+    void reusePostTombstonesIfSourceBecameSecret() {
+        Post current = post("title", "body");
+        ReflectionTestUtils.setField(current, "isSecret", true);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(current));
+        var payload = new SemanticSearchPostIndexPayload(1L, 10L, 100L, null, "text", "hash");
+
+        assertThat(transactionService.reusePostEmbedding(payload, "model")).isTrue();
+
+        verify(embeddingRepository).tombstone("POST", 1L);
+        verify(embeddingRepository).tombstoneCommentsByPostId(1L);
+        verify(embeddingRepository, never()).reuse(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void reuseCommentPreservesMetadataAndReturnsMissForDifferentStoredModel() {
+        Post current = post("title", "body");
+        Comment comment = comment(current, "comment");
+        String text = textBuilder.buildCommentText(comment, current);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(current));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(comment));
+        var payload = new SemanticSearchCommentIndexPayload(2L, 1L, 10L, 100L, null, text, textBuilder.hash(text));
+
+        assertThat(transactionService.reuseCommentEmbedding(payload, "new-model")).isFalse();
+        verify(embeddingRepository).reuse("COMMENT", 2L, 1L, 10L, 100L, null, text, textBuilder.hash(text), "new-model");
+    }
+
+    @Test
     void transactionAnnotationsDeclareShortReadAndWriteBoundaries() throws NoSuchMethodException {
         assertThat(transactionalAnnotation("loadPostIndexPayload", Long.class).readOnly()).isTrue();
         assertThat(transactionalAnnotation("loadCommentIndexPayload", Long.class).readOnly()).isTrue();
@@ -262,6 +330,74 @@ class SemanticSearchIndexTransactionServiceTest {
         verify(embeddingRepository, never()).upsertComment(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
+    @Test
+    void lateDeletePreservesPostAndCommentVectorsAfterPostRestored() {
+        Post restored = post("restored", "body");
+        when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(10L));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(restored));
+
+        transactionService.delete("POST", 1L);
+
+        verifyNoInteractions(embeddingRepository);
+        var order = inOrder(boardRepository, postRepository);
+        order.verify(postRepository).findBoardIdByPostId(1L);
+        order.verify(boardRepository).findByIdForUpdate(10L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(1L);
+    }
+
+    @Test
+    void lateDeletePreservesCommentVectorAfterCommentRestored() {
+        Post post = post("title", "body");
+        Comment restored = comment(post, "restored");
+        when(commentRepository.findPostIdByCommentId(2L)).thenReturn(Optional.of(1L));
+        when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(10L));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(restored));
+
+        transactionService.delete("COMMENT", 2L);
+
+        verifyNoInteractions(embeddingRepository);
+    }
+
+    @Test
+    void deleteTombstonesPostAndChildrenWhenStillHidden() {
+        Post hidden = post("hidden", "body");
+        ReflectionTestUtils.setField(hidden, "isBlinded", true);
+        when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(10L));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(hidden));
+
+        transactionService.delete("POST", 1L);
+
+        verify(embeddingRepository).tombstone("POST", 1L);
+        verify(embeddingRepository).tombstoneCommentsByPostId(1L);
+    }
+
+    @Test
+    void cleanupRetriesIfPostMovedBetweenScalarLookupAndLock() {
+        Post moved = post("moved", "body");
+        ReflectionTestUtils.setField(moved.getBoard(), "boardId", 20L);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(moved));
+
+        assertThatThrownBy(() -> transactionService.delete("POST", 1L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("board changed");
+
+        verifyNoInteractions(embeddingRepository);
+    }
+
+    @Test
+    void cleanupRetriesIfCommentMovedBetweenScalarLookupAndLock() {
+        Post original = post("original", "body");
+        Comment moved = comment(original, "moved");
+        ReflectionTestUtils.setField(moved, "postId", 3L);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(original));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(moved));
+
+        assertThatThrownBy(() -> transactionService.delete("COMMENT", 2L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("relationship changed");
+
+        verifyNoInteractions(embeddingRepository);
+    }
+
     private Transactional transactionalAnnotation(String methodName, Class<?>... parameterTypes)
             throws NoSuchMethodException {
         Method method = SemanticSearchIndexTransactionService.class.getMethod(methodName, parameterTypes);
@@ -282,6 +418,7 @@ class SemanticSearchIndexTransactionServiceTest {
                 .contents(contents)
                 .build();
         ReflectionTestUtils.setField(post, "postId", 1L);
+        lenient().when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(10L));
         return post;
     }
 
@@ -292,6 +429,7 @@ class SemanticSearchIndexTransactionServiceTest {
                 .content(content)
                 .build();
         ReflectionTestUtils.setField(comment, "commentId", 2L);
+        lenient().when(commentRepository.findPostIdByCommentId(2L)).thenReturn(Optional.of(post.getPostId()));
         return comment;
     }
 }

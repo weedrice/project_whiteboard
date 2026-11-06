@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 /** Consumer-owned boundary for post/comment activity exposed by the user domain. */
 public interface UserActivityPort {
 
-    PublicActivityCounts getPublicActivityCounts(Long userId);
+    PublicActivityCounts getPublicActivityCounts(Long userId, Long viewerUserId);
 
     Page<AdminUserPostResponse> getPostsForAdmin(Long userId, Pageable pageable);
 

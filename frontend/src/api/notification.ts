@@ -12,14 +12,19 @@ export interface NotificationParams {
     size?: number;
 }
 
-export interface CommentStreamEvent {
-    action: 'CREATED' | 'UPDATED' | 'DELETED'
+export type CommentStreamEvent = {
     postId: number
-    commentId: number
-    actorUserId: number
     occurredAt: string
     sessionGeneration?: number
-}
+} & ({
+    action: 'CREATED' | 'UPDATED' | 'DELETED'
+    commentId: number
+    actorUserId: number
+} | {
+    action: 'INVALIDATED'
+    commentId?: null
+    actorUserId?: null
+})
 
 // API response source shape, including snake_case fields.
 export interface NotificationActorRaw {

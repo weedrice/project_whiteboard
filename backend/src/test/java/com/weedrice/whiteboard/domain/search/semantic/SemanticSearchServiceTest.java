@@ -61,14 +61,43 @@ class SemanticSearchServiceTest {
                         && query.offset() == 0));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void searchPassesConfiguredFixedPoolWithoutGrowingItForLaterPages(boolean enabled) {
+        properties.setEnabled(enabled);
+        properties.getRetrieval().setMinSimilarity(0.35);
+        properties.getRetrieval().setCandidateLimit(40);
+        when(transactionService.loadQueryContext("free", 7L))
+                .thenReturn(new SemanticSearchQueryContext("free", List.of(9L)));
+        if (enabled) {
+            when(embeddingClient.isAvailable()).thenReturn(true);
+            when(embeddingClient.embed("needle")).thenReturn(new float[1536]);
+            when(transactionService.searchHybrid(any(), any())).thenReturn(new SemanticSearchQueryRows(List.of(), 40));
+        } else {
+            when(transactionService.searchKeyword(any())).thenReturn(new SemanticSearchQueryRows(List.of(), 40));
+        }
+
+        var page = semanticSearchService.search("needle", "ALL", "free", 3, 20, 7L);
+
+        assertThat(page.getTotalElements()).isEqualTo(40);
+        assertThat(page.getContent()).isEmpty();
+        if (enabled) {
+            verify(transactionService).searchHybrid(argThat(query -> query.candidateLimit() == 40
+                            && query.minSimilarity() == 0.35 && query.offset() == 60 && query.blockedUserIds().equals(List.of(9L))),
+                    argThat(query -> query.candidateLimit() == 40 && query.offset() == 60 && query.keyword().equals("needle")));
+        } else {
+            verify(transactionService).searchKeyword(argThat(query -> query.candidateLimit() == 40 && query.offset() == 60));
+        }
+    }
+
     @Test
-    void search_usesVectorRepositoryWhenEnabled() {
+    void search_usesHybridRetrievalWhenEnabled() {
         properties.setEnabled(true);
         when(transactionService.loadQueryContext(null, null))
                 .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
-        when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
+        when(transactionService.searchHybrid(any(SemanticSearchQuery.class), any(SemanticSearchKeywordQuery.class))).thenReturn(
                 new SemanticSearchQueryRows(List.of(
                         new SemanticSearchRow("POST", 100L, 100L, 10L, "board", "Board", "hello", "excerpt",
                                 0.91, "VECTOR", null, 1L, null, "USER", "author", null)), 1L));
@@ -78,6 +107,9 @@ class SemanticSearchServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getRankSource()).isEqualTo("VECTOR");
+        verify(transactionService).searchHybrid(argThat(query -> query.minSimilarity() == 0.20
+                        && query.candidateLimit() == 200 && query.limit() == 20 && query.offset() == 0),
+                argThat(query -> query.keyword().equals("hello") && query.candidateLimit() == 200));
         verify(transactionService, never()).searchKeyword(any());
     }
 
@@ -91,7 +123,7 @@ class SemanticSearchServiceTest {
                 .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
-        when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
+        when(transactionService.searchHybrid(any(SemanticSearchQuery.class), any(SemanticSearchKeywordQuery.class))).thenReturn(
                 new SemanticSearchQueryRows(List.of(
                         new SemanticSearchRow(contentType, 100L, 100L, 10L, "board", "Board", "hello",
                                 currentHtml, 0.91, "VECTOR", null, 1L, null, "USER", "author", null)), 1L));
@@ -118,7 +150,7 @@ class SemanticSearchServiceTest {
                 .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
-        when(transactionService.searchVector(any(SemanticSearchQuery.class))).thenReturn(
+        when(transactionService.searchHybrid(any(SemanticSearchQuery.class), any(SemanticSearchKeywordQuery.class))).thenReturn(
                 new SemanticSearchQueryRows(List.of(
                         new SemanticSearchRow("POST", 100L, 100L, 10L, "board", "Board", "hello",
                                 "<p>앞 본문</p>" + marker + "<p>뒤 본문</p>",
@@ -149,7 +181,7 @@ class SemanticSearchServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getRankSource()).isEqualTo("KEYWORD_FALLBACK");
-        verify(transactionService, never()).searchVector(any());
+        verify(transactionService, never()).searchHybrid(any(), any());
         verify(transactionService).searchKeyword(any(SemanticSearchKeywordQuery.class));
     }
 
@@ -160,14 +192,14 @@ class SemanticSearchServiceTest {
                 .thenReturn(new SemanticSearchQueryContext(null, List.of()));
         when(embeddingClient.isAvailable()).thenReturn(true);
         when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
-        when(transactionService.searchVector(any(SemanticSearchQuery.class)))
+        when(transactionService.searchHybrid(any(SemanticSearchQuery.class), any(SemanticSearchKeywordQuery.class)))
                 .thenThrow(new IllegalStateException("vector store down"));
 
         assertThatThrownBy(() -> semanticSearchService.search("hello", "ALL", null, 0, 20, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("vector store down");
 
-        verify(transactionService).searchVector(any(SemanticSearchQuery.class));
+        verify(transactionService).searchHybrid(any(SemanticSearchQuery.class), any(SemanticSearchKeywordQuery.class));
         verify(transactionService, never()).searchKeyword(any());
     }
 

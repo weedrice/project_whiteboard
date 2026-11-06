@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-10-27 |
+| 기준일 | 2026-11-05 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V101__index_keyword_notification_delivery_lookup.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V102__semantic_search_job_timing.sql` |
 | 현재 테이블 수 | 88개 |
 | DB | PostgreSQL |
 
@@ -120,7 +120,7 @@
 | `search_statistics` | 날짜별 검색어 집계 |
 | `search_personalization` | 사용자별 최근 검색어 |
 | `semantic_search_embeddings` | post/comment embedding vector와 검색 메타 |
-| `semantic_search_jobs` | embedding upsert/delete 작업 큐 |
+| `semantic_search_jobs` | embedding upsert/delete 작업 큐. `queued_at`은 현재 요청의 대기 시작, `next_attempt_at`은 재시도 가능 시각이며 nullable로 이전 JAR 쓰기 호환 유지 |
 | `semantic_search_reindex_jobs` | 범위별 semantic 대량 재색인 cursor와 retry/lease 상태 |
 
 ### Agent
@@ -281,6 +281,7 @@
 | `V99` | 게시글·댓글 Agent 소유자 복합 FK 검증(expand) |
 | `V100` | 프로필 개요·작성 글·작성 댓글 공개 설정 3개 추가(expand, 기본값 Y) |
 | `V101` | 키워드 게시글 알림의 글·수신자별 중복 방지 조회용 부분 인덱스 온라인 추가(expand) |
+| `V102` | semantic 색인 작업 대기 시작·재시도 예약 시각 추가(expand), 기존 컬럼·데이터·인덱스 유지 |
 
 ## 프로필 공개 설정 (V100)
 
@@ -294,6 +295,7 @@
 - 큰 테이블의 trigram/vector 인덱스는 운영 반영 전에 staging에서 `EXPLAIN (ANALYZE, BUFFERS)`와 락 영향을 확인한다.
 - local/H2 테스트는 PostgreSQL extension, native SQL, index 동작을 증명하지 않는다.
 - V101은 기존 테이블에 부분 인덱스를 `CONCURRENTLY`로 생성하고 5초 `lock_timeout`을 적용한다. 신규 컬럼·테이블·데이터 변경은 없으며 이전 JAR와 호환된다. 큰 이력 테이블에서는 인덱스 생성 I/O·디스크 사용량·배포 시작 시간을 확인하고, 실패 시 [마이그레이션 정책](../docs/ops/database-migration-policy.md)의 invalid index 확인·복구 절차를 따른다.
+- V102 adds nullable `queued_at` and `next_attempt_at` without a data backfill. New enqueue requests reset both; retries retain queue age and honor the due time. Rows written by the previous JAR use existing timestamps as a fallback, and `retry_count = 0` denotes a fresh request even if a stale retry deadline remains after rollback. The 5-second lock timeout bounds waiting for the additive table change.
 - V97 적용 전 아래 사전 점검 결과가 모두 `0`인지 확인한다. 하나라도 존재하면 배포를 중단하고 자동 보정하지 않는다.
 
   ```sql

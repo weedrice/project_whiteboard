@@ -42,11 +42,13 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -96,7 +98,9 @@ class UserProfileServiceTest {
                         postRepository,
                         commentRepository,
                         org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.actor.ActorBatchReadPort.class),
-                        org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.comment.port.CommentPostPort.class)),
+                        org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.comment.port.CommentPostPort.class),
+                        new UserBlockService(userBlockRepository, userReadableResolver, userWritableResolver,
+                                org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class))),
                 userBlockRepository,
                 new ProfilePrivacyPolicy(userSettingsRepository),
                 fileService,
@@ -183,7 +187,7 @@ class UserProfileServiceTest {
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
         when(postRepository.countPublicProfilePostsByUserId(1L)).thenReturn(5L);
-        when(commentRepository.countPublicProfileCommentsByUser(1L)).thenReturn(7L);
+        when(commentRepository.countPublicProfileCommentsByUser(1L, true, List.of(-1L))).thenReturn(7L);
 
         UserProfileResponse response = userProfileService.getUserProfile(1L);
 
@@ -192,8 +196,9 @@ class UserProfileServiceTest {
         assertThat(response.getPostCount()).isEqualTo(5L);
         assertThat(response.getCommentCount()).isEqualTo(7L);
         verify(postRepository).countPublicProfilePostsByUserId(1L);
-        verify(commentRepository).countPublicProfileCommentsByUser(1L);
+        verify(commentRepository).countPublicProfileCommentsByUser(1L, true, List.of(-1L));
         verify(userBlockRepository, never()).existsEitherDirection(any(), any());
+        verify(userBlockRepository, never()).findBlockedUserIdsEitherDirectionByUserId(anyLong());
         verify(postRepository, never()).countByUserIdAndIsDeleted(1L, false);
         verify(commentRepository, never()).countByUserIdAndIsDeleted(1L, false);
     }
@@ -483,7 +488,7 @@ class UserProfileServiceTest {
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
         when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(false);
         when(postRepository.countPublicProfilePostsByUserId(2L)).thenReturn(3L);
-        when(commentRepository.countPublicProfileCommentsByUser(2L)).thenReturn(4L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L, true, List.of(-1L))).thenReturn(4L);
 
         UserProfileResponse response = userProfileService.getUserProfile(2L, 1L);
 
@@ -493,7 +498,32 @@ class UserProfileServiceTest {
         assertThat(response.getCommentCount()).isEqualTo(4L);
         verify(userBlockRepository).existsEitherDirection(1L, 2L);
         verify(postRepository).countPublicProfilePostsByUserId(2L);
-        verify(commentRepository).countPublicProfileCommentsByUser(2L);
+        verify(commentRepository).countPublicProfileCommentsByUser(2L, true, List.of(-1L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 2L})
+    void getUserProfile_commentCountUsesViewerBlocksAndRestoresAfterUnblock(Long viewerUserId) {
+        User target = User.builder().loginId("target").displayName("target").build();
+        ReflectionTestUtils.setField(target, "userId", 2L);
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(target));
+        // The shared query combines outgoing and incoming blocks, with duplicate IDs de-duplicated by the service.
+        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(viewerUserId))
+                .thenReturn(List.of(3L, 4L, 3L)).thenReturn(List.of());
+        when(postRepository.countPublicProfilePostsByUserId(2L)).thenReturn(5L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L, false, List.of(3L, 4L))).thenReturn(2L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L, true, List.of(-1L))).thenReturn(4L);
+
+        UserProfileResponse blocked = userProfileService.getUserProfile(2L, viewerUserId);
+        UserProfileResponse restored = userProfileService.getUserProfile(2L, viewerUserId);
+
+        assertThat(blocked.getCommentCount()).isEqualTo(2L);
+        assertThat(restored.getCommentCount()).isEqualTo(4L);
+        assertThat(blocked.getPostCount()).isEqualTo(5L);
+        assertThat(restored.getPostCount()).isEqualTo(5L);
+        verify(commentRepository).countPublicProfileCommentsByUser(2L, false, List.of(3L, 4L));
+        verify(commentRepository).countPublicProfileCommentsByUser(2L, true, List.of(-1L));
+        verify(commentRepository, never()).countByUserIdAndIsDeleted(anyLong(), anyBoolean());
     }
 
     @Test
@@ -515,18 +545,18 @@ class UserProfileServiceTest {
         assertThat(response.getCommentCount()).isZero();
         verify(userBlockRepository).existsEitherDirection(1L, 2L);
         verify(postRepository, never()).countPublicProfilePostsByUserId(any());
-        verify(commentRepository, never()).countPublicProfileCommentsByUser(anyLong());
+        verify(commentRepository, never()).countPublicProfileCommentsByUser(anyLong(), anyBoolean(), any());
     }
 
     @Test
-    @DisplayName("자기 프로필 조회는 차단 관계 조회 없이 공개 카운트를 반환한다")
-    void getUserProfile_selfViewer_skipsBlockLookup() {
+    @DisplayName("자기 프로필 조회는 대상과의 차단 관계 검사 없이 공개 카운트를 반환한다")
+    void getUserProfile_selfViewer_skipsTargetRelationshipCheck() {
         User user = User.builder().loginId("test").displayName("tester").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
         when(postRepository.countPublicProfilePostsByUserId(1L)).thenReturn(5L);
-        when(commentRepository.countPublicProfileCommentsByUser(1L)).thenReturn(7L);
+        when(commentRepository.countPublicProfileCommentsByUser(1L, true, List.of(-1L))).thenReturn(7L);
 
         UserProfileResponse response = userProfileService.getUserProfile(1L, 1L);
 
@@ -574,7 +604,7 @@ class UserProfileServiceTest {
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(2L)).thenReturn(Optional.of(settings));
         when(postRepository.countPublicProfilePostsByUserId(2L)).thenReturn(3L);
-        when(commentRepository.countPublicProfileCommentsByUser(2L)).thenReturn(4L);
+        when(commentRepository.countPublicProfileCommentsByUser(2L, true, List.of(-1L))).thenReturn(4L);
 
         for (Long viewer : new Long[]{null, 1L, 2L}) {
             boolean owner = Long.valueOf(2L).equals(viewer);

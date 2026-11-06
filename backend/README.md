@@ -133,6 +133,8 @@ Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을
 $env:POSTGRES_SMOKE_DATASOURCE_URL='jdbc:postgresql://<host>:<port>/<test_database>'
 $env:POSTGRES_SMOKE_DATASOURCE_USERNAME='<test_user>'
 $env:POSTGRES_SMOKE_DATASOURCE_PASSWORD='<test_password>'
+$env:FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK='false'
+$env:SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK='false'
 .\gradlew.bat postgresSmokeTest --rerun-tasks
 ```
 
@@ -140,6 +142,12 @@ Gradle 작업이 `POSTGRES_SMOKE_TEST=true`를 설정하여 opt-in 테스트를 
 `src/test/resources/application-postgres-smoke.yml`에 있으며, 환경 변수 목록은
 [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md#postgresql-smoke-test)를 참고합니다.
 이 작업은 일반 `test`와 별도이며 H2 테스트 통과를 PostgreSQL 검증으로 간주하지 않습니다.
+의미 검색·관련 글 추천의 작성자 노출 필터도 실제 pgvector 쿼리로 검증합니다. 이 검증은
+테스트별 독립 스키마를 트랜잭션 안에서 생성하고 전체 롤백하며, 외부 임베딩 API를 호출하지 않습니다.
+추가 JPA 통합 테스트는 마이그레이션된 스키마에서 일반 검색·작성자 일괄 조회·게시판별 최신 글에
+같은 필터가 적용되고 BAN 만료 후 다시 노출되는지 검증하며, 생성한 데이터는 롤백합니다. 색인 복구 테스트는 기존 벡터의 FAILED backfill, 삭제 작업 lease 변경, 복구된 게시글·댓글에 대한 늦은 삭제 방지도 실제 PostgreSQL에서 확인합니다.
+
+For online-index migrations, use the two Flyway lock settings above as CI does. To additionally verify HNSW index usability, set `$env:POSTGRES_VECTOR_EXPLAIN='true'` before running the task. That fixture forces an index-capable plan on small test data; it is not a production performance benchmark. Selective board/type/author fixtures always create an HNSW index and verify recovery when ANN neighbors fail eligibility filters. An underfilled per-type ANN pool is replaced by an exact scan with the same predicates in the same SQL statement; a full pool skips that scan. This does not require iterative-scan support. Selective or small result sets can therefore incur an exact scan; production latency still needs measurement.
 
 ### 배포 버전 확인
 

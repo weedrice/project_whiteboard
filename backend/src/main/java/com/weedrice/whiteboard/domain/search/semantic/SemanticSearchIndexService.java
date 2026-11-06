@@ -16,8 +16,10 @@ class SemanticSearchIndexService {
             transactionService.tombstonePost(postId);
             return;
         }
+        String model = embeddingClient.model();
+        if (transactionService.reusePostEmbedding(payload, model)) return;
         float[] embedding = embeddingClient.embed(payload.embeddingText());
-        transactionService.upsertPost(payload, embeddingClient.model(), embedding);
+        transactionService.upsertPost(payload, model, embedding);
     }
 
     public void upsertComment(Long commentId) {
@@ -26,8 +28,10 @@ class SemanticSearchIndexService {
             transactionService.tombstoneComment(commentId);
             return;
         }
+        String model = embeddingClient.model();
+        if (transactionService.reuseCommentEmbedding(payload, model)) return;
         float[] embedding = embeddingClient.embed(payload.embeddingText());
-        transactionService.upsertComment(payload, embeddingClient.model(), embedding);
+        transactionService.upsertComment(payload, model, embedding);
     }
 
     public void delete(String contentType, Long contentId) {

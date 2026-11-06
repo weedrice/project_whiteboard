@@ -21,9 +21,16 @@ public class SemanticSearchProperties {
     private OpenAi openai = new OpenAi();
     private Job job = new Job();
     private RelatedPost relatedPost = new RelatedPost();
+    private Retrieval retrieval = new Retrieval();
 
     @PostConstruct
     void validateContract() {
+        if (!Double.isFinite(retrieval.minSimilarity) || retrieval.minSimilarity < -1.0 || retrieval.minSimilarity > 1.0) {
+            throw new IllegalStateException("semantic-search.retrieval.min-similarity must be between -1.0 and 1.0");
+        }
+        if (retrieval.candidateLimit < 20 || retrieval.candidateLimit > 1000) {
+            throw new IllegalStateException("semantic-search.retrieval.candidate-limit must be between 20 and 1000");
+        }
         if (!Double.isFinite(relatedPost.minSimilarity)
                 || relatedPost.minSimilarity < -1.0
                 || relatedPost.minSimilarity > 1.0) {
@@ -67,6 +74,13 @@ public class SemanticSearchProperties {
         private int batchSize = 20;
         private int maxRetryCount = 5;
         private int processingLeaseMinutes = 10;
+    }
+
+    @Getter
+    @Setter
+    public static class Retrieval {
+        private double minSimilarity = 0.20;
+        private int candidateLimit = 200;
     }
 
     @Getter

@@ -93,14 +93,14 @@ public class PostListReadService {
                 posts,
                 posts.getPageable(),
                 true,
-                true);
+                true, currentUserId);
         publishSearchRecord(currentUserId, canonicalKeyword);
         return response;
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
         List<Post> notices = getNotices(boardUrl, currentUserId);
-        return toNoticeSummaries(notices);
+        return toNoticeSummaries(notices, currentUserId);
     }
 
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
@@ -155,7 +155,7 @@ public class PostListReadService {
 
     public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
         List<Post> notices = getNotices(boardId, currentUserId, includeSecret);
-        return toNoticeSummaries(notices);
+        return toNoticeSummaries(notices, currentUserId);
     }
 
     private List<Post> getNotices(Long boardId, PostReadContext context, Boolean includeSecret) {
@@ -168,15 +168,15 @@ public class PostListReadService {
                 context.viewerUserId());
     }
 
-    private List<PostSummary> toNoticeSummaries(List<Post> notices) {
-        return postSummaryAssembler.assembleLatestPosts(notices, null);
+    private List<PostSummary> toNoticeSummaries(List<Post> notices, Long currentUserId) {
+        return postSummaryAssembler.assembleLatestPosts(notices, currentUserId);
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
         Pageable safePageable = sanitizeTagPostPageable(pageable);
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
         Page<Post> postPage = postRepository.findByTagId(tagId, context.blockedUserIds(), safePageable);
-        return postSummaryAssembler.assembleTagPage(postPage);
+        return postSummaryAssembler.assembleTagPage(postPage, currentUserId);
     }
 
     public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {
@@ -190,7 +190,7 @@ public class PostListReadService {
                 ? postRepository.findByUserIdAndIsDeleted(ownerUserId, false, safePageable)
                 : postRepository.findByUserIdAndIsDeletedAndBoard_BoardUrlNotIgnoreCase(
                         ownerUserId, false, boardAccessPolicy.getInquiryBoardUrl(), safePageable);
-        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
+        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true, userId);
     }
 
     public Page<PostSummary> getPublicProfilePosts(Long targetUserId, Long viewerUserId, @NonNull Pageable pageable) {
@@ -205,7 +205,7 @@ public class PostListReadService {
         }
         postUserReadPort.requireProfilePostsVisible(targetUserId, viewerUserId);
         Page<Post> posts = postRepository.findPublicProfilePostsByUserId(activeTargetUserId, safePageable);
-        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, false);
+        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, false, viewerUserId);
     }
 
     public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {

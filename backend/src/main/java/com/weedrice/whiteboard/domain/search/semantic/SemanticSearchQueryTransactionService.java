@@ -42,12 +42,23 @@ class SemanticSearchQueryTransactionService {
 
     @Transactional(readOnly = true)
     public SemanticSearchQueryRows searchVector(SemanticSearchQuery query) {
-        return new SemanticSearchQueryRows(vectorRepository.search(query), vectorRepository.count(query));
+        vectorRepository.configureCandidateSearch(query.candidateLimit());
+        return SemanticSearchHybridRanking.page(vectorRepository.search(query.candidates()),
+                query.candidateLimit(), query.limit(), query.offset());
     }
 
     @Transactional(readOnly = true)
     public SemanticSearchQueryRows searchKeyword(SemanticSearchKeywordQuery query) {
-        return new SemanticSearchQueryRows(keywordFallbackRepository.search(query), keywordFallbackRepository.count(query));
+        return SemanticSearchHybridRanking.page(keywordFallbackRepository.search(query.candidates()),
+                query.candidateLimit(), query.limit(), query.offset());
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public SemanticSearchQueryRows searchHybrid(SemanticSearchQuery vectors, SemanticSearchKeywordQuery keywords) {
+        vectorRepository.configureCandidateSearch(vectors.candidateLimit());
+        return SemanticSearchHybridRanking.merge(
+                vectorRepository.search(vectors.candidates()), keywordFallbackRepository.search(keywords.candidates()),
+                keywords.keyword(), vectors.candidateLimit(), vectors.limit(), vectors.offset());
     }
 
     @Transactional(readOnly = true)
