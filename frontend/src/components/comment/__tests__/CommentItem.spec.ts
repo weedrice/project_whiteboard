@@ -143,6 +143,7 @@ describe('CommentItem', () => {
 
     it('loads replies only after the parent branch is opened', async () => {
         const wrapper = mount(CommentItem, {
+            attachTo: document.body,
             props: {
                 comment: {
                     commentId: 1,
@@ -468,6 +469,7 @@ describe('CommentItem', () => {
         query.isFetchNextPageError.value = nextPageError
         useRepliesMock.mockImplementationOnce(() => query)
         const wrapper = mount(CommentItem, {
+            attachTo: document.body,
             props: {
                 comment: {
                     commentId: 1, content: 'parent', author: null, likeCount: 0,
