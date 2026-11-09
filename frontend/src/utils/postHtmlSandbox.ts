@@ -346,7 +346,17 @@ function hasSupportedEditorClass(element: HTMLElement, tag: string): boolean {
 function hasSupportedEditorStyle(element: HTMLElement, tag: string): boolean {
     if (!element.hasAttribute('style')) return true
     const allowedProperties = EDITOR_STYLE_PROPERTIES[tag]
-    const properties = Array.from(element.style)
+    const rawProperties = Array.from(element.style)
+    // Some CSSOM implementations enumerate text-align as its two longhands.
+    // Only fold a complete shorthand that the editor can serialize losslessly.
+    const hasSupportedTextAlignShorthand = rawProperties.includes('text-align-all')
+        && rawProperties.includes('text-align-last')
+        && ['left', 'center', 'right', 'justify'].includes(element.style.textAlign)
+    const properties = rawProperties.map(property => (
+        hasSupportedTextAlignShorthand && (property === 'text-align-all' || property === 'text-align-last')
+            ? 'text-align'
+            : property
+    ))
     if (!allowedProperties || properties.length === 0) return false
     if (!properties.every((property) => allowedProperties.has(property.toLowerCase()))) return false
     if (tag === 'img') {

@@ -107,6 +107,25 @@ describe('postHtmlSandbox', () => {
         expect(encodeSandboxedPostHtml('<p>Hello</p>')).toBe('<p>Hello</p>')
     })
 
+    it.each(['left', 'center', 'right', 'justify'])('keeps supported %s alignment editable', (alignment) => {
+        const html = `<h2 style="text-align:${alignment}">Heading</h2><table><tbody><tr><td style="text-align:${alignment}"><p>Cell</p></td></tr></tbody></table>`
+
+        expect(requiresPreservedPostHtml(html)).toBe(false)
+        expect(encodeSandboxedPostHtml(html)).toBe(html)
+    })
+
+    it.each([
+        'text-align-last:center',
+        'text-align-all:center',
+        'text-align:center;text-align-last:justify',
+        'text-align:center;letter-spacing:2px',
+    ])('preserves alignment styles the editor cannot reproduce: %s', (style) => {
+        const html = `<p style="${style}">Aligned content</p>`
+
+        expect(requiresPreservedPostHtml(html)).toBe(true)
+        expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+    })
+
     it('preserves unsupported editor tags, attributes, styles, and comments', () => {
         const lossyExamples = [
             '<section><p>Section</p></section>',

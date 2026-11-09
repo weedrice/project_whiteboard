@@ -285,8 +285,9 @@ const getSaveButtons = (wrapper: ReturnType<typeof mount>) => {
   }
 }
 
-const mountUserSettings = () => {
+const mountUserSettings = (attachTo?: Element) => {
   const wrapper = mount(UserSettings, {
+    attachTo,
     global: {
       mocks: {
         $t: identityT,
@@ -486,7 +487,7 @@ describe('UserSettings', () => {
 
   it('restores the selected section from the URL hash and updates deep links', async () => {
     routeMock.hash = '#security'
-    const wrapper = mountUserSettings()
+    const wrapper = mountUserSettings(document.body)
     await nextTick()
 
     expect(wrapper.get('#security').isVisible()).toBe(true)
