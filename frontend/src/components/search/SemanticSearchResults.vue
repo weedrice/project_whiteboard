@@ -21,7 +21,7 @@ defineProps<{
       class="block min-w-0 rounded-md border nv-border p-4 nv-surface nv-hover-surface"
     >
       <p class="truncate text-sm font-semibold nv-title">{{ result.title }}</p>
-      <p class="mt-1 line-clamp-2 text-sm nv-text-subtle">{{ result.excerpt }}</p>
+      <p class="mt-1 line-clamp-2 text-sm nv-text-muted">{{ result.excerpt }}</p>
       <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
     </RouterLink>
   </section>

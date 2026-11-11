@@ -1,9 +1,13 @@
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSearchSubmitNavigation } from '@/features/search/navigation/useSearchSubmitNavigation'
 import { firstQueryValue } from '@/utils/routeQueryValue'
 import { DEFAULT_POST_LIST_SORT, normalizePostListSort } from '@/utils/postListSort'
 import type { PostSearchType, SearchParams } from '@/types'
+
+export type SearchPageGroup = 'post' | 'comment' | 'other'
+
+type SearchPages = { page: number, postPage: number, commentPage: number }
 
 export type SearchFilterKey = 'searchType' | 'author' | 'period' | 'dateRange'
 
@@ -31,6 +35,7 @@ const normalizeSearchQuery = (query: Record<string, unknown>) => (
 
 export function useSearchRouteQuery() {
   const route = useRoute()
+  const router = useRouter()
   const searchInput = ref('')
   const authorInput = ref('')
   const searchTypeInput = ref<PostSearchType>('TITLE_CONTENT')
@@ -46,6 +51,8 @@ export function useSearchRouteQuery() {
   const toQuery = computed(() => firstQueryValue(route.query.to).trim())
   const boardUrlQuery = computed(() => firstQueryValue(route.query.boardUrl).trim())
   const pageQuery = computed(() => normalizePage(route.query.page))
+  const postPageQuery = computed(() => normalizePage(route.query.postPage ?? route.query.page))
+  const commentPageQuery = computed(() => normalizePage(route.query.commentPage ?? route.query.page))
   const sortQuery = computed(() => normalizePostListSort(route.query.sort))
   const { submitSearch } = useSearchSubmitNavigation({
     getCurrentSearchQuery: () => searchQuery.value,
@@ -61,6 +68,8 @@ export function useSearchRouteQuery() {
     const nextParams: SearchParams = {
       q: searchQuery.value,
       page: pageQuery.value,
+      postPage: postPageQuery.value,
+      commentPage: commentPageQuery.value,
       size: 20,
       searchType: searchTypeQuery.value,
     }
@@ -101,7 +110,17 @@ export function useSearchRouteQuery() {
   }, { immediate: true })
 
   function handleSearchSubmit() {
-    submitSearch(searchInput.value, buildPreservedFilterQuery())
+    if (!searchInput.value.trim() || !isCustomDateRangeValid.value) return
+    const { q, ...filters } = buildFilterQuery()
+    const currentFilters = buildPreservedFilterQuery()
+    const filterKeys = new Set([...Object.keys(filters), ...Object.keys(currentFilters)])
+    const filtersChanged = [...filterKeys].some((key) => filters[key] !== currentFilters[key])
+    if (q === searchQuery.value && (filtersChanged || pageQuery.value > 0
+      || postPageQuery.value > 0 || commentPageQuery.value > 0)) {
+      void router.push({ name: 'search', query: { q, ...filters } })
+      return
+    }
+    submitSearch(q, filters)
   }
 
   function buildPreservedFilterQuery() {
@@ -162,11 +181,24 @@ export function useSearchRouteQuery() {
     return query
   }
 
-  function buildPageQuery(page: number) {
-    const query = buildPreservedFilterQuery()
-    query.q = searchQuery.value
-    if (page > 0) query.page = String(page)
+  function buildPaginationQuery(overrides: Partial<SearchPages> = {}) {
+    const pages = {
+      page: pageQuery.value,
+      postPage: postPageQuery.value,
+      commentPage: commentPageQuery.value,
+      ...overrides,
+    }
+    const query = { ...buildPreservedFilterQuery(), q: searchQuery.value } as Record<string, string>
+    if (pages.page > 0) query.page = String(pages.page)
+    // Explicit zero overrides a legacy shared page in saved links.
+    if (pages.postPage > 0 || pages.page > 0) query.postPage = String(pages.postPage)
+    if (pages.commentPage > 0 || pages.page > 0) query.commentPage = String(pages.commentPage)
     return query
+  }
+
+  function buildPageQuery(page: number, group: SearchPageGroup = 'post') {
+    const key = group === 'post' ? 'postPage' : group === 'comment' ? 'commentPage' : 'page'
+    return buildPaginationQuery({ [key]: page })
   }
 
   function buildSortQuery(sort: string) {
@@ -192,6 +224,8 @@ export function useSearchRouteQuery() {
     toQuery,
     boardUrlQuery,
     pageQuery,
+    postPageQuery,
+    commentPageQuery,
     sortQuery,
     hasSearchQuery,
     isCustomDateRangeValid,
@@ -200,6 +234,7 @@ export function useSearchRouteQuery() {
     buildFilterQuery,
     buildQueryWithoutFilter,
     buildPageQuery,
+    buildPaginationQuery,
     buildSortQuery,
   }
 }

@@ -23,7 +23,7 @@ export const searchEn: SearchMessages = {
   scopeContent: 'Content',
   scopeAuthor: 'Author',
   scopeFilterChip: 'Search scope: {value}',
-  periodFilter: 'Date range',
+  periodFilter: 'Date posted',
   periodAll: 'Any time',
   periodToday: 'Today',
   periodWeek: 'Past week',

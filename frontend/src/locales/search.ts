@@ -24,7 +24,7 @@ export const search: SearchMessages = {
   scopeContent: '본문',
   scopeAuthor: '작성자',
   scopeFilterChip: '검색 범위: {value}',
-  periodFilter: '기간',
+  periodFilter: '작성 기간',
   periodAll: '전체 기간',
   periodToday: '오늘',
   periodWeek: '최근 1주',

@@ -1,4 +1,4 @@
-import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import { computed, defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,25 +38,24 @@ const searchState = vi.hoisted(() => ({
     boardPage?: ResultPageState
   },
   isLoading: false,
+  isFetching: false,
   integratedError: null as Error | null,
   semanticError: null as Error | null,
   popularKeywordsLoading: false,
   popularKeywordsError: false,
-  popularTagsLoading: false,
-  popularTagsError: false,
   recentKeywordsLoading: false,
   recentKeywordsError: false,
   recentKeywords: [] as Array<{ logId: number, keyword: string }>,
   refetchIntegrated: vi.fn(),
   refetchSemantic: vi.fn(),
   refetchPopularKeywords: vi.fn(),
-  refetchPopularTags: vi.fn(),
   refetchRecentKeywords: vi.fn(),
 }))
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
   sessionGeneration: 0,
+  user: { userId: 7 } as { userId: number } | null,
 }))
 
 const searchApiMocks = vi.hoisted(() => ({
@@ -106,12 +105,6 @@ vi.mock('@/api/search', () => ({
   },
 }))
 
-vi.mock('@/api/tag', () => ({
-  tagApi: {
-    getPopularTags: vi.fn(),
-  },
-}))
-
 vi.mock('@/features/search/queries/useSearch', () => ({
   useSearch: () => ({
     useIntegratedSearch: (params: ReturnType<typeof computed<Record<string, unknown>>>) => {
@@ -119,6 +112,7 @@ vi.mock('@/features/search/queries/useSearch', () => ({
       return {
         data: ref(searchState.searchData),
         isLoading: ref(searchState.isLoading),
+        isFetching: ref(searchState.isFetching),
         error: ref(searchState.integratedError),
         refetch: searchState.refetchIntegrated,
       }
@@ -143,20 +137,11 @@ vi.mock('@/features/search/queries/useSearch', () => ({
       refetch: searchState.refetchPopularKeywords,
     }),
     useRecentSearches: () => ({
-      data: ref({ content: searchState.recentKeywords }),
+      data: ref({ content: searchState.recentKeywords.map(item => ({ ...item, searchedAt: '2026-11-10T00:00:00Z' })) }),
       isLoading: ref(searchState.recentKeywordsLoading),
       isError: ref(searchState.recentKeywordsError),
       refetch: searchState.refetchRecentKeywords,
     }),
-  }),
-}))
-
-vi.mock('@/composables/useApiQuery', () => ({
-  useApiQuery: () => ({
-    data: ref({ tags: [] }),
-    isLoading: ref(searchState.popularTagsLoading),
-    isError: ref(searchState.popularTagsError),
-    refetch: searchState.refetchPopularTags,
   }),
 }))
 
@@ -197,6 +182,8 @@ const EmptyStateStub = defineComponent({
 
 describe('SearchPage', () => {
   beforeEach(() => {
+    localStorage.clear()
+    authState.user = { userId: 7 }
     routeState.query = {}
     searchState.lastParams = null
     searchState.lastSemanticParams = null
@@ -208,12 +195,11 @@ describe('SearchPage', () => {
       boardResults: [],
     }
     searchState.isLoading = false
+    searchState.isFetching = false
     searchState.integratedError = null
     searchState.semanticError = null
     searchState.popularKeywordsLoading = false
     searchState.popularKeywordsError = false
-    searchState.popularTagsLoading = false
-    searchState.popularTagsError = false
     searchState.recentKeywordsLoading = false
     searchState.recentKeywordsError = false
     searchState.recentKeywords = []
@@ -222,7 +208,6 @@ describe('SearchPage', () => {
     searchState.refetchIntegrated.mockClear()
     searchState.refetchSemantic.mockClear()
     searchState.refetchPopularKeywords.mockClear()
-    searchState.refetchPopularTags.mockClear()
     searchState.refetchRecentKeywords.mockClear()
     routeState.routerPush.mockClear()
     routeState.routerReplace.mockClear()
@@ -263,6 +248,8 @@ describe('SearchPage', () => {
     expect(searchState.lastParams?.value).toEqual({
       q: 'vue',
       page: 0,
+      postPage: 0,
+      commentPage: 0,
       size: 20,
       searchType: 'TITLE_CONTENT',
     })
@@ -284,7 +271,7 @@ describe('SearchPage', () => {
   })
 
   it('connects post sorting to the request and resets pagination without losing filters', async () => {
-    routeState.query = { q: 'vue', page: '2', author: 'hong', sort: 'likeCount,desc' }
+    routeState.query = { q: 'vue', postPage: '2', commentPage: '1', author: 'hong', sort: 'likeCount,desc' }
     searchState.searchData.postResults = [{ postId: 1, title: 'Post' }]
     const wrapper = mountPage()
     const posts = wrapper.getComponent({ name: 'PostListStub' })
@@ -296,7 +283,7 @@ describe('SearchPage', () => {
 
     expect(routeState.routerPush).toHaveBeenCalledWith({
       name: 'search',
-      query: { q: 'vue', author: 'hong', sort: 'viewCount,desc' },
+      query: { q: 'vue', commentPage: '1', author: 'hong', sort: 'viewCount,desc' },
     })
   })
 
@@ -368,7 +355,7 @@ describe('SearchPage', () => {
       'aria-atomic': 'true',
     })
     expect(status.text()).toBe('search.resultSummary:15')
-    expect(wrapper.get('nav').attributes('aria-label')).toBe('common.pagination')
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('common.post common.pagination')
   })
 
   it('renders comment and user results and includes them in empty and total decisions', () => {
@@ -438,7 +425,7 @@ describe('SearchPage', () => {
     const wrapper = mountPage()
 
     expect(wrapper.get('[data-testid="post-list"]').text()).toBe('1')
-    const alert = wrapper.get('aside [role="alert"]')
+    const alert = wrapper.get('[data-testid="search-results"] [role="alert"]')
     expect(alert.text()).toContain('common.messages.loadFailed')
 
     await alert.get('button').trigger('click')
@@ -447,13 +434,14 @@ describe('SearchPage', () => {
   })
 
   it('replaces an out-of-range result page with the last valid page', async () => {
-    routeState.query = { q: 'vue', page: '99', searchType: 'TITLE' }
+    routeState.query = { q: 'vue', postPage: '99', commentPage: '1' }
     searchState.searchData = {
       postResults: [],
       commentResults: [],
       userResults: [],
       boardResults: [],
       postPage: { totalElements: 21, totalPages: 3, page: 99, size: 10, hasMore: false },
+      commentPage: { totalElements: 20, totalPages: 2, page: 1, size: 10, hasMore: false },
     }
 
     mountPage()
@@ -461,7 +449,7 @@ describe('SearchPage', () => {
 
     expect(routeState.routerReplace).toHaveBeenCalledWith({
       name: 'search',
-      query: { q: 'vue', page: '2', searchType: 'TITLE' },
+      query: { q: 'vue', postPage: '2', commentPage: '1' },
     })
   })
 
@@ -498,9 +486,6 @@ describe('SearchPage', () => {
     routeState.query = { q: 'vue' }
     const wrapper = mountPage()
 
-    const filterToggle = wrapper.findAll('button').find((button) => button.text() === 'search.filterToggle')
-    await filterToggle?.trigger('click')
-
     const scope = wrapper.get('select[name="searchType"]')
     expect(scope.findAll('option').map((option) => option.attributes('value'))).toEqual([
       'TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR',
@@ -525,33 +510,110 @@ describe('SearchPage', () => {
     expect(searchState.lastParams?.value.author).toBeUndefined()
     expect(wrapper.text()).toContain('search.scopeFilterChip')
 
-    const filterToggle = wrapper.findAll('button').find((button) => button.text() === 'search.filterToggle')
-    await filterToggle?.trigger('click')
     expect(wrapper.find('#search-author-filter').exists()).toBe(false)
   })
 
-  it('keeps sidebar loading, failure, and empty states distinct and retryable', async () => {
+  it('shows the default period and scope before searching and submits edited filters together', async () => {
+    const wrapper = mountPage()
+    expect(wrapper.get<HTMLSelectElement>('select[name="period"]').element.value).toBe('')
+    expect(wrapper.get<HTMLSelectElement>('select[name="searchType"]').element.value).toBe('TITLE_CONTENT')
+    expect(wrapper.text()).not.toContain('search.filterToggle')
+    await wrapper.get('select[name="period"]').setValue('WEEK')
+    await wrapper.get('select[name="searchType"]').setValue('TITLE')
+    await wrapper.get('#search-page-query').setValue('vue')
+    await wrapper.get('form[role="search"]').trigger('submit')
+    expect(routeState.routerPush).toHaveBeenCalledWith({
+      name: 'search', query: { q: 'vue', searchType: 'TITLE', period: 'WEEK' },
+    })
+  })
+
+  it('opens the native calendar on click and preserves manual entry when the picker is unavailable', async () => {
+    const wrapper = mountPage()
+    await wrapper.get('select[name="period"]').setValue('CUSTOM')
+    const dateInput = wrapper.get('#search-from-filter')
+    const showPicker = vi.fn()
+    Object.defineProperty(dateInput.element, 'showPicker', { configurable: true, value: showPicker })
+    await dateInput.trigger('click')
+    expect(showPicker).toHaveBeenCalledOnce()
+    showPicker.mockImplementation(() => { throw new DOMException('Unavailable', 'NotAllowedError') })
+    await dateInput.trigger('click')
+    await dateInput.setValue('2026-11-01')
+    expect((dateInput.element as HTMLInputElement).value).toBe('2026-11-01')
+    wrapper.unmount()
+  })
+
+  it('does not navigate for an invalid custom date range', async () => {
+    routeState.query = { q: 'vue' }
+    const wrapper = mountPage()
+    await wrapper.get('select[name="period"]').setValue('CUSTOM')
+    await wrapper.get('#search-from-filter').setValue('2026-11-10')
+    await wrapper.get('#search-to-filter').setValue('2026-11-01')
+    expect(wrapper.get('form[role="search"] button[type="submit"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('form[role="search"]').trigger('submit')
+    expect(routeState.routerPush).not.toHaveBeenCalled()
+    expect(routeState.invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('renders independent page links with each result group', () => {
+    routeState.query = { q: 'vue', postPage: '1', commentPage: '2' }
+    searchState.searchData = {
+      postResults: [{ postId: 1, title: 'Post' }],
+      commentResults: [{ commentId: 2, postId: 1, boardUrl: 'general', content: 'Comment' }],
+      userResults: [], boardResults: [],
+      postPage: { totalElements: 60, totalPages: 3, page: 1, size: 20, hasMore: true },
+      commentPage: { totalElements: 80, totalPages: 4, page: 2, size: 20, hasMore: true },
+    }
+    const wrapper = mountPage()
+    const postLinks = wrapper.get('[data-testid="post-results"] nav').findAllComponents(RouterLinkStub)
+    const commentLinks = wrapper.get('[data-testid="comment-results"] nav').findAllComponents(RouterLinkStub)
+    expect(postLinks.find((link: VueWrapper) => link.text() === '3')?.props('to')).toEqual({
+      name: 'search', query: { q: 'vue', postPage: '2', commentPage: '2' },
+    })
+    expect(commentLinks.find((link: VueWrapper) => link.text() === '2')?.props('to')).toEqual({
+      name: 'search', query: { q: 'vue', postPage: '1', commentPage: '1' },
+    })
+  })
+
+  it('keeps keyword loading and failures distinct and retryable in their new locations', async () => {
     searchState.popularKeywordsLoading = true
-    searchState.popularTagsError = true
     searchState.recentKeywordsError = true
     const wrapper = mountPage()
-    const sections = wrapper.findAll('aside section')
-      .filter((section) => section.attributes('aria-busy') !== undefined)
+    const popular = wrapper.get('[data-testid="search-results"] [data-testid="popular-keywords"]')
+    const recent = wrapper.get('[data-testid="search-query-panel"] [data-testid="recent-keywords"]')
 
-    expect(sections).toHaveLength(3)
-    expect(sections[0].attributes('aria-busy')).toBe('true')
-    expect(sections[0].findComponent({ name: 'BaseSpinner' }).exists()).toBe(true)
-    expect(sections[0].text()).not.toContain('search.noResults')
+    expect(wrapper.find('aside').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('common.tags')
+    expect(popular.attributes('aria-busy')).toBe('true')
+    expect(popular.findComponent({ name: 'BaseSpinner' }).exists()).toBe(true)
+    expect(popular.text()).not.toContain('search.noResults')
 
-    const tagAlert = sections[1].get('[role="alert"]')
-    expect(tagAlert.text()).toContain('common.messages.loadFailed')
-    expect(sections[1].text()).not.toContain('search.noResults')
-    await tagAlert.get('button').trigger('click')
-    expect(searchState.refetchPopularTags).toHaveBeenCalledOnce()
-
-    const recentAlert = sections[2].get('[role="alert"]')
+    const recentAlert = recent.get('[role="alert"]')
+    expect(recentAlert.text()).toContain('common.messages.loadFailed')
     await recentAlert.get('button').trigger('click')
     expect(searchState.refetchRecentKeywords).toHaveBeenCalledOnce()
+    wrapper.unmount()
+
+    searchState.popularKeywordsLoading = false
+    searchState.popularKeywordsError = true
+    const failedWrapper = mountPage()
+    await failedWrapper.get('[data-testid="popular-keywords"] [role="alert"] button').trigger('click')
+    expect(searchState.refetchPopularKeywords).toHaveBeenCalledOnce()
+  })
+
+  it('hides empty recent keywords without an empty-results message', () => {
+    const wrapper = mountPage()
+    expect(wrapper.find('[data-testid="recent-keywords"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps recent keywords visible when refreshing the server history fails', () => {
+    searchState.recentKeywords = [{ logId: 8, keyword: 'cached keyword' }]
+    searchState.recentKeywordsError = true
+    const wrapper = mountPage()
+    const recent = wrapper.get('[data-testid="recent-keywords"]')
+    expect(recent.text()).toContain('cached keyword')
+    expect(recent.get('[role="alert"]').text()).toContain('common.messages.loadFailed')
+    wrapper.unmount()
   })
 
   it('aborts a recent-search deletion and skips stale cache work after a session boundary', async () => {

@@ -38,7 +38,7 @@ describe('useSearchRouteQuery', () => {
     let routeQuery = useSearchRouteQuery()
 
     expect(routeQuery.searchQuery.value).toBe('vue')
-    expect(routeQuery.params.value).toEqual({ q: 'vue', page: 0, size: 20, searchType: 'TITLE_CONTENT' })
+    expect(routeQuery.params.value).toEqual({ q: 'vue', page: 0, postPage: 0, commentPage: 0, size: 20, searchType: 'TITLE_CONTENT' })
 
     routeState.query = { keyword: ['pinia', 'second'] }
     routeQuery = useSearchRouteQuery()
@@ -66,7 +66,7 @@ describe('useSearchRouteQuery', () => {
     const routeQuery = useSearchRouteQuery()
 
     expect(routeQuery.params.value.sort).toBe('viewCount,asc')
-    expect(routeQuery.buildPageQuery(3)).toEqual({ q: 'vue', page: '3', author: 'hong', sort: 'viewCount,asc' })
+    expect(routeQuery.buildPageQuery(3)).toEqual({ q: 'vue', page: '2', postPage: '3', commentPage: '2', author: 'hong', sort: 'viewCount,asc' })
     expect(routeQuery.buildFilterQuery()).toEqual({ q: 'vue', author: 'hong', sort: 'viewCount,asc' })
     expect(routeQuery.buildQueryWithoutFilter('author')).toEqual({ q: 'vue', sort: 'viewCount,asc' })
     routeQuery.searchInput.value = 'next'
@@ -187,15 +187,66 @@ describe('useSearchRouteQuery', () => {
     expect(routeQuery.params.value.page).toBe(2)
     expect(routeQuery.buildPageQuery(3)).toEqual({
       q: 'vue',
-      page: '3',
+      page: '2',
+      postPage: '3',
+      commentPage: '2',
       searchType: 'TITLE',
       period: 'WEEK',
     })
     expect(routeQuery.buildPageQuery(0)).toEqual({
       q: 'vue',
+      page: '2',
+      postPage: '0',
+      commentPage: '2',
       searchType: 'TITLE',
       period: 'WEEK',
     })
+  })
+
+  it('keeps post, comment and other result pages independent', () => {
+    routeState.query = { q: 'vue', postPage: '2', commentPage: '4', page: '1', sort: 'viewCount,asc' }
+    const routeQuery = useSearchRouteQuery()
+    expect(routeQuery.params.value).toMatchObject({ page: 1, postPage: 2, commentPage: 4 })
+    expect(routeQuery.buildPageQuery(3, 'post')).toEqual({
+      q: 'vue', page: '1', postPage: '3', commentPage: '4', sort: 'viewCount,asc',
+    })
+    expect(routeQuery.buildPageQuery(0, 'comment')).toEqual({
+      q: 'vue', page: '1', postPage: '2', commentPage: '0', sort: 'viewCount,asc',
+    })
+    expect(routeQuery.buildSortQuery('likeCount,desc')).toEqual({
+      q: 'vue', page: '1', postPage: '0', commentPage: '4', sort: 'likeCount,desc',
+    })
+    expect(routeQuery.buildPageQuery(0, 'other')).toEqual({
+      q: 'vue', postPage: '2', commentPage: '4', sort: 'viewCount,asc',
+    })
+  })
+
+  it('applies changed filters for the same keyword and resets every page', () => {
+    routeState.query = { q: 'vue', postPage: '2', commentPage: '4', page: '1' }
+    const routeQuery = useSearchRouteQuery()
+    routeQuery.searchTypeInput.value = 'TITLE'
+    routeQuery.periodInput.value = 'MONTH'
+    routeQuery.handleSearchSubmit()
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'search', query: { q: 'vue', searchType: 'TITLE', period: 'MONTH' },
+    })
+    expect(invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('applies edited filters at the first page instead of only refreshing the same keyword', () => {
+    routeState.query = { q: 'vue' }
+    const routeQuery = useSearchRouteQuery()
+    routeQuery.periodInput.value = 'WEEK'
+    routeQuery.handleSearchSubmit()
+    expect(routerPush).toHaveBeenCalledWith({ name: 'search', query: { q: 'vue', period: 'WEEK' } })
+    expect(invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('resets pages when submitting the same search again', () => {
+    routeState.query = { q: 'vue', postPage: '2', commentPage: '1' }
+    const routeQuery = useSearchRouteQuery()
+    routeQuery.handleSearchSubmit()
+    expect(routerPush).toHaveBeenCalledWith({ name: 'search', query: { q: 'vue' } })
   })
 
   it.each(['TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR'] as const)(

@@ -41,7 +41,7 @@ test('consecutive searches reconcile delayed history and delete confirmed record
 
   await page.goto('/search')
   await expect.poll(() => historyReads).toBeGreaterThan(0)
-  const recent = page.locator('aside section').filter({ has: page.getByRole('heading', { name: '최근 검색어', exact: true }) })
+  const recent = page.getByTestId('search-query-panel').getByTestId('recent-keywords')
   const input = page.locator('#search-page-query')
   const readsBeforeSearch = historyReads
   await input.fill('second')
