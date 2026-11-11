@@ -49,6 +49,8 @@ export interface SearchParams {
     q?: string
     /** @deprecated Use q. Retained as a request-boundary compatibility alias. */
     keyword?: string
+    postPage?: number
+    commentPage?: number
     page?: number
     size?: number
     type?: string

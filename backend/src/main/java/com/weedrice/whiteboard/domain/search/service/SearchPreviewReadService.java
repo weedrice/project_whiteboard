@@ -56,12 +56,18 @@ public class SearchPreviewReadService {
     }
 
     public IntegratedSearchResponse integratedSearch(String keyword, int page, int size, Long currentUserId) {
+        return integratedSearch(keyword, page, size, null, null, currentUserId);
+    }
+
+    public IntegratedSearchResponse integratedSearch(String keyword, int page, int size,
+            Integer requestedPostPage, Integer requestedCommentPage, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, Sort.unsorted());
         Pageable previewPageable = PageRequest.of(
                 normalizedPageable.getPageNumber(), normalizedPageable.getPageSize());
-        Pageable commentPreviewPageable = PageRequest.of(
-                previewPageable.getPageNumber(), previewPageable.getPageSize(), COMMENT_PREVIEW_SORT);
+        Pageable postPreviewPageable = normalizeGroupPageable(requestedPostPage, previewPageable, Sort.unsorted());
+        Pageable commentPreviewPageable = normalizeGroupPageable(requestedCommentPage, previewPageable,
+                COMMENT_PREVIEW_SORT);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -69,7 +75,7 @@ public class SearchPreviewReadService {
         }
 
         Page<Post> postPage = postRepository.searchPostsByKeyword(canonicalKeyword,
-                blockedUserIds, currentUserId, previewPageable);
+                blockedUserIds, currentUserId, postPreviewPageable);
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
 
         Page<CommentResponse> comments = commentSummaryAssembler.assemble(commentRepository
@@ -95,13 +101,22 @@ public class SearchPreviewReadService {
 
     public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
+        return integratedSearch(keyword, searchType, boardUrl, author, from, to, period,
+                page, size, null, null, sort, currentUserId);
+    }
+
+    public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int page, int size,
+            Integer requestedPostPage, Integer requestedCommentPage, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
         String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
-        Pageable postPreviewPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         Pageable previewPageable = PageRequest.of(
-                postPreviewPageable.getPageNumber(), postPreviewPageable.getPageSize());
-        Pageable commentPreviewPageable = PageRequest.of(
-                previewPageable.getPageNumber(), previewPageable.getPageSize(), COMMENT_PREVIEW_SORT);
+                normalizedPageable.getPageNumber(), normalizedPageable.getPageSize());
+        Pageable postPreviewPageable = normalizeGroupPageable(requestedPostPage, previewPageable,
+                normalizedPageable.getSort());
+        Pageable commentPreviewPageable = normalizeGroupPageable(requestedCommentPage, previewPageable,
+                COMMENT_PREVIEW_SORT);
 
         BoardSearchContext boardContext = resolveBoardSearchContext(boardUrl, currentUserId);
 
@@ -154,6 +169,13 @@ public class SearchPreviewReadService {
                         .map(BoardSummary::from);
 
         return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
+    }
+
+    private Pageable normalizeGroupPageable(Integer requestedPage, Pageable fallback, Sort sort) {
+        int page = requestedPage == null ? fallback.getPageNumber() : requestedPage;
+        Pageable normalized = SearchRequestNormalizer.normalizePostSearchPageable(page, fallback.getPageSize(),
+                Sort.unsorted());
+        return PageRequest.of(normalized.getPageNumber(), normalized.getPageSize(), sort);
     }
 
     private boolean hasPostOnlyFilters(String searchType, String canonicalAuthor, String period,

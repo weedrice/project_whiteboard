@@ -462,6 +462,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
 | `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 semantic 재색인 cursor job 재실행(SUPER_ADMIN) |
 
+적용: `GET /api/v1/search`는 선택적 `postPage`, `commentPage`(0부터 시작)를 받아 게시글과 댓글 페이지를 각각 조회한다. 생략한 그룹은 기존 `page`(기본 0)를 사용하고, 사용자·스페이스 결과는 계속 `page`를 사용한다. `size`는 모든 그룹에 공통 적용된다. 음수 페이지는 기존 페이지 검증 규칙에 따라 `VALIDATION_ERROR`로 거부한다. 각 결과 그룹의 `page`, `totalPages`, `totalElements`는 해당 그룹의 값이며 응답 envelope는 변경하지 않는다. 예: `?q=vue&page=0&postPage=2&commentPage=1&size=20`은 게시글 3페이지와 댓글 2페이지를 함께 반환한다.
+
 `GET /api/v1/search`와 `GET /api/v1/search/posts`의 `period`는 `TODAY`, `WEEK`, `MONTH`, `CUSTOM`을 지원한다. `WEEK`는 오늘을 포함한 7일, `MONTH`는 오늘을 포함한 최근 달력상 1개월로 계산하며 종료일의 다음 날 00:00을 exclusive upper bound로 사용한다. `CUSTOM`의 `from`이 `to`보다 늦거나 지원하지 않는 `period`이면 `VALIDATION_ERROR`를 반환한다.
 
 적용: 의미 검색은 벡터 후보와 키워드 후보를 결합하고 `(contentType, contentId)`로 중복을 제거한다. 정확한 게시글 제목 일치를 우선하며 나머지는 두 후보 목록의 순위를 결합한다. 벡터 후보의 최소 유사도는 `SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY`(기본 0.20), 최종 후보 상한은 `SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT`(기본 200, 20~1000)이다. `totalElements`는 전체 색인 건수가 아닌 이 제한된 후보 집합의 크기이며, 같은 집합에서 페이지를 나누므로 범위 밖 페이지는 빈 목록이다. 비활성·임베딩 호출 실패의 키워드 대체 검색도 같은 후보 상한을 적용한다. 응답 필드와 `VECTOR`·`KEYWORD_FALLBACK` 값은 유지한다. 유형별 HNSW 후보가 상한보다 적으면 같은 공개·게시판·작성자 조건의 정확 검색으로 후보를 대체하여 필터로 인한 누락을 보완한다. 후보가 충분하면 기존 근사 검색을 유지한다.

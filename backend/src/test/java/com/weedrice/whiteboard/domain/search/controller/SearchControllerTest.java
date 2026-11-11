@@ -169,6 +169,47 @@ class SearchControllerTest {
     }
 
     @Test
+    void integratedSearch_bindsIndependentPages() throws Exception {
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(
+                Page.empty(PageRequest.of(2, 10)), Page.empty(PageRequest.of(1, 10)),
+                Page.empty(PageRequest.of(0, 10)), List.of(), "test");
+        when(searchPreviewReadService.integratedSearch(eq("test"), eq(0), eq(10), eq(2), eq(1), isNull()))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/search").param("q", "test").param("size", "10")
+                        .param("postPage", "2").param("commentPage", "1").with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postResults.page").value(2))
+                .andExpect(jsonPath("$.data.commentResults.page").value(1));
+        verify(searchRecordFacade).record(null, "test");
+    }
+
+    @Test
+    void integratedSearch_bindsOptionalPageWithFilters() throws Exception {
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(
+                Page.empty(PageRequest.of(2, 10)), Page.empty(PageRequest.of(1, 10)),
+                Page.empty(PageRequest.of(1, 10)), List.of(), "test");
+        when(searchPreviewReadService.integratedSearch(eq("test"), eq("TITLE_CONTENT"), isNull(), isNull(),
+                isNull(), isNull(), isNull(), eq(1), eq(10), eq(2), isNull(), any(Sort.class), isNull()))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/search").param("q", "test").param("searchType", "TITLE_CONTENT")
+                        .param("page", "1").param("size", "10").param("postPage", "2").with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postResults.page").value(2))
+                .andExpect(jsonPath("$.data.commentResults.page").value(1));
+        verify(searchRecordFacade).record(null, "test");
+    }
+
+    @Test
+    void integratedSearch_rejectsMalformedGroupPage() throws Exception {
+        mockMvc.perform(get("/api/v1/search").param("q", "test").param("commentPage", "invalid")
+                        .with(anonymous()))
+                .andExpect(status().isBadRequest());
+        verify(searchRecordFacade, never()).record(any(), anyString());
+    }
+
+    @Test
     @DisplayName("통합 검색은 raw 검색어를 서비스에 위임한다")
     void integratedSearch_delegatesRawKeywordToService() throws Exception {
         String rawQuery = " test ";

@@ -396,6 +396,94 @@ class SearchPreviewReadServiceTest {
                 any(), any(), any(Pageable.class));
     }
 
+    @Test
+    void integratedSearch_overridesPostAndCommentPagesIndependently() {
+        String keyword = "test";
+        Pageable legacyPage = PageRequest.of(1, 10);
+        Pageable postRequested = PageRequest.of(3, 10);
+        Pageable commentRequested = PageRequest.of(2, 10, Sort.by(
+                Sort.Order.desc("createdAt"), Sort.Order.desc("commentId")));
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(postRequested)))
+                .thenReturn(new PageImpl<>(List.of(), postRequested, 42));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), eq(commentRequested)))
+                .thenReturn(new PageImpl<>(List.of(), commentRequested, 31));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), eq(legacyPage)))
+                .thenReturn(new PageImpl<>(List.of(), legacyPage, 23));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(legacyPage)))
+                .thenReturn(new PageImpl<>(List.of(), legacyPage, 21));
+
+        var result = searchPreviewReadService.integratedSearch(keyword, 1, 10, 3, 2, null);
+
+        assertThat(result.getPostResults().getPage()).isEqualTo(3);
+        assertThat(result.getPostResults().getTotalElements()).isEqualTo(42);
+        assertThat(result.getCommentResults().getPage()).isEqualTo(2);
+        assertThat(result.getCommentResults().getTotalElements()).isEqualTo(31);
+        assertThat(result.getUserResults().getPage()).isEqualTo(1);
+        assertThat(result.getBoardResultPage().getPage()).isEqualTo(1);
+    }
+
+    @Test
+    void integratedSearch_filteredRequestKeepsCommentFallbackAndPostSort() {
+        String keyword = "test";
+        Pageable legacyPage = PageRequest.of(1, 10);
+        Pageable postRequested = PageRequest.of(3, 10, Sort.by(
+                Sort.Order.desc("viewCount"), Sort.Order.desc("createdAt"), Sort.Order.desc("postId")));
+        Pageable commentRequested = PageRequest.of(1, 10, Sort.by(
+                Sort.Order.desc("createdAt"), Sort.Order.desc("commentId")));
+        when(postRepository.searchPosts(eq(keyword), eq("TITLE_CONTENT"), isNull(), isNull(), isNull(), isNull(),
+                isNull(), eq(false), isNull(), eq(postRequested)))
+                .thenReturn(new PageImpl<>(List.of(), postRequested, 42));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), eq(false), isNull(),
+                eq(commentRequested))).thenReturn(new PageImpl<>(List.of(), commentRequested, 31));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), eq(legacyPage)))
+                .thenReturn(Page.empty(legacyPage));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(legacyPage))).thenReturn(Page.empty(legacyPage));
+
+        var result = searchPreviewReadService.integratedSearch(keyword, "TITLE_CONTENT", null, null, null, null, null,
+                1, 10, 3, null, Sort.by(Sort.Order.desc("viewCount")), null);
+
+        assertThat(result.getPostResults().getPage()).isEqualTo(3);
+        assertThat(result.getCommentResults().getPage()).isEqualTo(1);
+        assertThat(result.getUserResults().getPage()).isEqualTo(1);
+        assertThat(result.getBoardResultPage().getPage()).isEqualTo(1);
+    }
+
+    @Test
+    void integratedSearch_commentOverrideKeepsPostFallback() {
+        String keyword = "test";
+        Pageable legacyPage = PageRequest.of(2, 10);
+        Pageable commentRequested = PageRequest.of(0, 10, Sort.by(
+                Sort.Order.desc("createdAt"), Sort.Order.desc("commentId")));
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(legacyPage)))
+                .thenReturn(new PageImpl<>(List.of(), legacyPage, 42));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), eq(commentRequested)))
+                .thenReturn(new PageImpl<>(List.of(), commentRequested, 31));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), eq(legacyPage)))
+                .thenReturn(Page.empty(legacyPage));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(legacyPage))).thenReturn(Page.empty(legacyPage));
+
+        var result = searchPreviewReadService.integratedSearch(keyword, 2, 10, null, 0, null);
+
+        assertThat(result.getPostResults().getPage()).isEqualTo(2);
+        assertThat(result.getCommentResults().getPage()).isZero();
+    }
+
+    @Test
+    void integratedSearch_rejectsNegativeGroupPagesBeforeReading() {
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch("test", 0, 10, -1, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch("test", "TITLE_CONTENT", null, null,
+                null, null, null, 0, 10, null, -1, Sort.unsorted(), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+        verify(postRepository, never()).searchPostsByKeyword(any(), any(), any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+    }
+
     private void givenEmptyPreview(String keyword, Pageable previewPageable) {
         when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
