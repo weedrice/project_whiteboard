@@ -135,7 +135,7 @@ async function installCommonizedPageApi(page: Page) {
   await page.route('**/api/v1/search/recent**', (route) => fulfill(route, {
     content: [{ logId: 51, keyword: 'dialog contract', searchedAt: '2026-09-15T08:00:00' }],
     page: 0,
-    size: 8,
+    size: 20,
     totalElements: 1,
     totalPages: 1,
     hasNext: false,
@@ -235,10 +235,16 @@ for (const viewport of viewports) {
 
     await page.goto('/search')
     await expect(page.getByRole('heading', { level: 1, name: '검색 결과' })).toBeVisible()
-    await expect(page.locator('aside section')).toHaveCount(3)
-    await expect(page.getByText('Vue 공통화', { exact: true })).toBeVisible()
-    await expect(page.getByText('#frontend', { exact: true })).toBeVisible()
-    await expect(page.getByText('dialog contract', { exact: true })).toBeVisible()
+    const search = page.getByTestId('search-page')
+    const queryPanel = search.getByTestId('search-query-panel')
+    const popularKeywords = search.getByTestId('search-results').getByTestId('popular-keywords')
+    const recentKeywords = queryPanel.getByTestId('recent-keywords')
+    await expect(search.locator('aside')).toHaveCount(0)
+    await expect(popularKeywords.getByRole('button', { name: 'Vue 공통화 검색', exact: true })).toBeVisible()
+    await expect(recentKeywords.getByRole('button', { name: 'dialog contract 검색', exact: true })).toBeVisible()
+    await expect(queryPanel.getByRole('combobox', { name: '게시글 검색 범위', exact: true })).toBeVisible()
+    await expect(queryPanel.getByRole('combobox', { name: '작성 기간', exact: true })).toHaveValue('')
+    await expect(search.getByText('#frontend', { exact: true })).toHaveCount(0)
     await expectNoSeriousAccessibilityViolations(page)
   })
 
