@@ -15562,6 +15562,22 @@
           }
         }, {
           "in" : "query",
+          "name" : "postPage",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "commentPage",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
           "name" : "sort",
           "required" : true,
           "schema" : {

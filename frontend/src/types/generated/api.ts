@@ -11014,6 +11014,8 @@ export interface operations {
                 period?: string;
                 page?: number;
                 size?: number;
+                postPage?: number;
+                commentPage?: number;
                 sort: components["schemas"]["Sort"];
                 userId: number;
             };

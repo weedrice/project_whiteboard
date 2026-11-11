@@ -24,7 +24,7 @@ export const searchJa: SearchMessages = {
   scopeContent: '本文',
   scopeAuthor: '投稿者',
   scopeFilterChip: '検索対象：{value}',
-  periodFilter: '期間',
+  periodFilter: '投稿期間',
   periodAll: '全期間',
   periodToday: '今日',
   periodWeek: '過去1週間',

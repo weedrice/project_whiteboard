@@ -29,6 +29,7 @@ import {
     countUnsyncedStoredDraftSnapshotsForUser,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import { clearDraftTombstonesForUser } from '@/features/board/posts/draft/postDraftTombstone'
+import { installRecentSearchStorageCleanup } from '@/features/search/recentSearchStorage'
 
 cleanupLegacyDraftStorage()
 validateEnv()
@@ -97,6 +98,7 @@ configureAuthQueryScope(
   () => useAuthStore(pinia).sessionGeneration,
   () => useAuthStore(pinia).user?.userId ?? null,
 )
+installRecentSearchStorageCleanup(useAuthStore(pinia))
 
 app.use(VueQueryPlugin, { queryClient })
 app.use(router)

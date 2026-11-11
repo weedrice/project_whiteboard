@@ -44,7 +44,7 @@ defineEmits<{
     />
     <EmptyState
       v-else-if="empty"
-      class="mt-3"
+      class="search-keyword-empty mt-3"
       title-tag="h3"
       :title="emptyText || $t('search.noResults')"
       container-class="py-2"
@@ -54,3 +54,10 @@ defineEmits<{
     </div>
   </BaseCard>
 </template>
+
+<style scoped>
+.search-keyword-empty {
+  padding-block: 0.5rem;
+  text-align: left;
+}
+</style>

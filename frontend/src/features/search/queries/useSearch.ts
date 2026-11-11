@@ -121,6 +121,9 @@ export function useSearch() {
             },
             selectData: toSearchPageViewModel,
             enabled: computed(() => hasSearchText(normalizedParams.value.q)),
+            // Returning to a previous search must record it again, including
+            // server-side history. Cached results remain available during refresh.
+            staleTime: 0,
             keepPreviousData: true,
             meta: AUTH_SCOPED_QUERY_META,
         })
@@ -144,8 +147,8 @@ export function useSearch() {
             queryKey: searchQueryKeys.recent,
             request: (context) => callWithOptionalQuerySignal(
                 context,
-                () => searchApi.getRecentSearches({ page: 0, size: 8 }),
-                (config) => searchApi.getRecentSearches({ page: 0, size: 8 }, config),
+                () => searchApi.getRecentSearches({ page: 0, size: 20 }),
+                (config) => searchApi.getRecentSearches({ page: 0, size: 20 }, config),
             ),
             enabled,
             staleTime: QUERY_STALE_TIME.SHORT,

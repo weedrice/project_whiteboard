@@ -43,15 +43,25 @@ public class SearchController {
             @RequestParam(required = false) String period,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
+            @RequestParam(required = false) Integer postPage,
+            @RequestParam(required = false) Integer commentPage,
             Sort sort,
             @CurrentUserId(required = false) Long userId) {
 
         boolean hasFilters = searchType != null || boardUrl != null || author != null
                 || from != null || to != null || period != null;
-        IntegratedSearchResponse response = hasFilters
-                ? searchPreviewReadService.integratedSearch(q, searchType, boardUrl, author, from, to, period,
-                        page, size, sort, userId)
-                : searchPreviewReadService.integratedSearch(q, page, size, userId);
+        IntegratedSearchResponse response;
+        if (postPage != null || commentPage != null) {
+            response = hasFilters
+                    ? searchPreviewReadService.integratedSearch(q, searchType, boardUrl, author, from, to, period,
+                            page, size, postPage, commentPage, sort, userId)
+                    : searchPreviewReadService.integratedSearch(q, page, size, postPage, commentPage, userId);
+        } else {
+            response = hasFilters
+                    ? searchPreviewReadService.integratedSearch(q, searchType, boardUrl, author, from, to, period,
+                            page, size, sort, userId)
+                    : searchPreviewReadService.integratedSearch(q, page, size, userId);
+        }
         searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
     }
