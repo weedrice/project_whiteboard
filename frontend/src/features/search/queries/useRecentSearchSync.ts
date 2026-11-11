@@ -3,9 +3,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useAuthSessionReset } from '@/composables/useAuthSessionReset'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import type { RecentSearchResponse } from '@/types'
+import {
+  readRecentSearchItems, writeRecentSearchItems, recentSearchKeywordKey as keywordKey,
+  type RecentSearchItem,
+} from '../recentSearchStorage'
 
 const RECONCILIATION_DELAYS = [200, 500, 1000, 2000, 4000]
-const keywordKey = (keyword: string) => keyword.trim().toLowerCase()
 
 interface PendingSearch {
   keyword: string
@@ -21,6 +24,12 @@ interface RecentSearchSyncOptions {
 /** The search response precedes the asynchronous server-side history write. */
 export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) {
   const authStore = useAuthStore()
+  const owner = () => authStore.isAuthenticated ? authStore.user?.userId ?? undefined : null
+  const hydrate = () => {
+    const currentOwner = owner()
+    return currentOwner === undefined ? [] : readRecentSearchItems(currentOwner)
+  }
+  const snapshot = ref<RecentSearchItem[]>(hydrate())
   const pending = ref<PendingSearch[]>([])
   const hasSyncError = ref(false)
   const suppressed = ref(new Set<string>())
@@ -32,7 +41,7 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
   let timer: ReturnType<typeof setTimeout> | undefined
   let disposed = false
 
-  const items = computed(() => (data.value?.content ?? [])
+  const items = computed(() => snapshot.value
     .filter(item => !suppressed.value.has(keywordKey(item.keyword))))
   const isReconciling = computed(() => pending.value.length > 0)
 
@@ -58,7 +67,16 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
       stopReconciliation()
     }
   }
-  watch(data, reconcile)
+  function persistVisibleItems() {
+    const currentOwner = owner()
+    if (currentOwner !== undefined) snapshot.value = writeRecentSearchItems(currentOwner, items.value)
+  }
+  watch(data, value => {
+    if (!authStore.isAuthenticated || owner() == null || !value) return
+    snapshot.value = value.content
+    persistVisibleItems()
+    reconcile()
+  }, { immediate: true })
 
   function refreshHistory() {
     stopReconciliation()
@@ -99,11 +117,22 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
       .map(item => [keywordKey(item.keyword), item.searchedAt]))
     searchStarts.set(keywordKey(keyword), sequence)
     return (canonicalKeyword: string) => {
-      if (disposed || !authStore.isAuthenticated || !isAuthSessionIntentCurrent(authStore, intent)
+      if (disposed || !isAuthSessionIntentCurrent(authStore, intent)
         || sequence !== searchSequence || sequence <= discardedSearchSequence) return
       const key = keywordKey(canonicalKeyword)
+      if (!key) return
       if (sequence <= (discardedKeywordSequences.get(key) ?? 0)) return
       suppressed.value.delete(key)
+      if (!authStore.isAuthenticated) {
+        snapshot.value = [{ keyword: canonicalKeyword, searchedAt: new Date().toISOString() },
+          ...snapshot.value.filter(item => keywordKey(item.keyword) !== key)]
+        persistVisibleItems()
+        return
+      }
+      if (owner() == null) return
+      // A deliberate repeat may reveal a still-confirmed server row suppressed by deletion.
+      if (data.value) snapshot.value = data.value.content
+      persistVisibleItems()
       // The latest successful search owns reconciliation of the whole list.
       // An older search can no longer be required to occupy the first position.
       pending.value = [
@@ -117,12 +146,16 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
     const intent = captureAuthSessionIntent(authStore)
     const sequence = searchSequence
     const keys = keyword === undefined
-      ? new Set([...searchStarts.keys(), ...(data.value?.content ?? []).map(item => keywordKey(item.keyword))])
+      ? new Set([...searchStarts.keys(), ...snapshot.value.map(item => keywordKey(item.keyword))])
       : new Set([keywordKey(keyword)])
     return () => {
       if (disposed || !isAuthSessionIntentCurrent(authStore, intent)) return
-      if (keyword === undefined) discardedSearchSequence = Math.max(discardedSearchSequence, sequence)
-      else {
+      if (keyword === undefined) {
+        discardedSearchSequence = Math.max(discardedSearchSequence, sequence)
+        // Cache hydration can finish while DELETE is pending and reveal rows
+        // absent from the initial local snapshot. Clear those confirmed rows too.
+        for (const item of snapshot.value) keys.add(keywordKey(item.keyword))
+      } else {
         const key = keywordKey(keyword)
         discardedKeywordSequences.set(key, Math.max(discardedKeywordSequences.get(key) ?? 0, sequence))
       }
@@ -131,6 +164,7 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
         if ((searchStarts.get(key) ?? 0) <= sequence) suppressed.value.add(key)
       }
       pending.value = pending.value.filter(item => !suppressed.value.has(keywordKey(item.keyword)))
+      persistVisibleItems()
       if (pending.value.length) refreshHistory()
       else {
         hasSyncError.value = false
@@ -147,7 +181,11 @@ export function useRecentSearchSync({ data, refetch }: RecentSearchSyncOptions) 
     suppressed.value = new Set()
     searchStarts.clear()
     discardedKeywordSequences.clear()
+    snapshot.value = hydrate()
   }
+  // Token installation can follow the generation boundary while user hydration
+  // is still pending. Observe ownership itself so guest chips disappear then.
+  watch(owner, reset, { flush: 'sync' })
   useAuthSessionReset(reset, authStore)
   onScopeDispose(() => {
     disposed = true

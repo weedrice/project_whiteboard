@@ -8,6 +8,7 @@ const routeState = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routerReplace: vi.fn(),
   invalidateQueries: vi.fn(),
+  cancelQueries: vi.fn(),
 }))
 
 interface ResultPageState {
@@ -74,6 +75,7 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => {
     ...actual,
     useQueryClient: () => ({
       invalidateQueries: routeState.invalidateQueries,
+      cancelQueries: routeState.cancelQueries,
     }),
   }
 })
@@ -212,6 +214,7 @@ describe('SearchPage', () => {
     routeState.routerPush.mockClear()
     routeState.routerReplace.mockClear()
     routeState.invalidateQueries.mockClear()
+    routeState.cancelQueries.mockReset().mockResolvedValue(undefined)
     searchApiMocks.deleteRecentSearch.mockReset()
     searchApiMocks.deleteAllRecentSearches.mockReset()
     searchApiMocks.deleteRecentSearch.mockResolvedValue(undefined)
@@ -644,9 +647,29 @@ describe('SearchPage', () => {
     await wrapper.get('button[aria-label="search.deleteRecent"]').trigger('click')
     await flushPromises()
 
+    expect(routeState.cancelQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 3, 'search', 'recent'],
+    })
+    expect(routeState.cancelQueries.mock.invocationCallOrder[0]).toBeLessThan(routeState.invalidateQueries.mock.invocationCallOrder[0])
     expect(routeState.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['session', 3, 'search', 'recent'],
     })
+  })
+
+  it('skips deletion cache work if the session changes while cancelling a history read', async () => {
+    searchState.recentKeywords = [{ logId: 8, keyword: 'old account' }]
+    let finishCancellation!: () => void
+    routeState.cancelQueries.mockReturnValueOnce(new Promise<void>(resolve => { finishCancellation = resolve }))
+    const wrapper = mountPage()
+    await wrapper.get('button[aria-label="search.deleteRecent"]').trigger('click')
+    await flushPromises()
+    expect(routeState.cancelQueries).toHaveBeenCalledOnce()
+    authState.sessionGeneration += 1
+    notifyAuthSessionBoundary(authState.sessionGeneration)
+    finishCancellation()
+    await flushPromises()
+    expect(routeState.invalidateQueries).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 
   it('consumes a recent-search deletion rejection at the click boundary', async () => {

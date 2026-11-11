@@ -422,7 +422,7 @@ const {
   data: recentKeywordData,
   isError: isRecentKeywordsError,
   refetch: refetchRecentKeywords,
-} = useRecentSearches(computed(() => authStore.isAuthenticated))
+} = useRecentSearches(computed(() => authStore.isAuthenticated && authStore.user?.userId != null))
 const recentSearchSync = useRecentSearchSync({
   data: recentKeywordData,
   refetch: refetchRecentKeywords,
@@ -595,6 +595,11 @@ async function runRecentKeywordMutation(request: (signal: AbortSignal) => Promis
     await request(controller.signal)
     if (controller.signal.aborted
       || !isSessionGenerationCurrent(authStore, generation)) return
+    await queryClient.cancelQueries({
+      queryKey: sessionQueryKey(generation, searchQueryKeys.recent),
+    })
+    if (controller.signal.aborted
+      || !isSessionGenerationCurrent(authStore, generation)) return
     completeDeletion()
     await queryClient.invalidateQueries({
       queryKey: sessionQueryKey(generation, searchQueryKeys.recent),
@@ -654,11 +659,20 @@ async function clearRecentKeywords() {
   await runRecentKeywordMutation((signal) => searchApi.deleteAllRecentSearches({ signal }))
 }
 
-function handleDeleteRecentKeyword(logId: number, keyword: string) {
+function handleDeleteRecentKeyword(logId: number | undefined, keyword: string) {
+  if (!authStore.isAuthenticated) {
+    recentSearchSync.beginDeletion(keyword)()
+    return
+  }
+  if (logId === undefined) return
   void deleteRecentKeyword(logId, keyword).catch(() => undefined)
 }
 
 function handleClearRecentKeywords() {
+  if (!authStore.isAuthenticated) {
+    recentSearchSync.beginDeletion()()
+    return
+  }
   void clearRecentKeywords().catch(() => undefined)
 }
 

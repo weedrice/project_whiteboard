@@ -4,8 +4,11 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { useSearch } from '../useSearch'
 import { useRecentSearchSync } from '../useRecentSearchSync'
+import { installRecentSearchStorageCleanup, readRecentSearchItems, recentSearchStorageKey,
+  removeRecentSearchItems, writeRecentSearchItems } from '../../recentSearchStorage'
 import { searchApi } from '@/api/search'
-import { configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { configureAuthQueryScope, notifyAuthSessionBoundary, sessionQueryKey } from '@/queryAuthScope'
+import { searchQueryKeys } from '../searchQueryKeys'
 import { createDeferred } from '@/test/async'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { IntegratedSearchResponse, RecentSearchLog, RecentSearchResponse, SearchParams } from '@/types'
@@ -20,6 +23,7 @@ vi.mock('@/api/search', () => ({
 const clients: QueryClient[] = []
 const wrappers: VueWrapper[] = []
 let serverHistory: RecentSearchLog[]
+let stopStorageCleanup: () => void
 
 function makeAuth() {
   return reactive({ sessionGeneration: 1, user: { userId: 10 } as { userId: number } | null,
@@ -46,14 +50,14 @@ async function settle() {
 }
 
 function mountSearch(initialKeyword = 'vue') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity, staleTime: 30_000 } } })
   clients.push(client)
   const params = ref<SearchParams>({ q: initialKeyword })
   let sync!: ReturnType<typeof useRecentSearchSync>
   let recent!: ReturnType<ReturnType<typeof useSearch>['useRecentSearches']>
   wrappers.push(mount(defineComponent({ setup() {
     const searches = useSearch()
-    recent = searches.useRecentSearches(computed(() => auth.isAuthenticated))
+    recent = searches.useRecentSearches(computed(() => auth.isAuthenticated && auth.user?.userId != null))
     sync = useRecentSearchSync({ data: recent.data, refetch: recent.refetch })
     searches.useIntegratedSearch(params, sync.beginSearch)
     return () => null
@@ -64,7 +68,10 @@ function mountSearch(initialKeyword = 'vue') {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
+  localStorage.clear()
+  ;[null, 10, 20].forEach(removeRecentSearchItems)
   auth = makeAuth()
+  stopStorageCleanup = installRecentSearchStorageCleanup(auth)
   serverHistory = []
   configureAuthQueryScope(() => auth.sessionGeneration, () => auth.user?.userId ?? null)
   vi.mocked(searchApi.search).mockImplementation(async params => searchResponse(params.q!))
@@ -77,10 +84,203 @@ afterEach(() => {
   wrappers.splice(0).forEach(wrapper => wrapper.unmount())
   clients.splice(0).forEach(client => client.clear())
   configureAuthQueryScope(() => 0)
+  stopStorageCleanup()
+  vi.restoreAllMocks()
   vi.useRealTimers()
 })
 
 describe('recent-search synchronization with real Vue Query', () => {
+  it('records a repeated guest search ahead of newer terms even while its cached results are fresh', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    const { sync, params } = mountSearch('first')
+    await settle()
+    await vi.advanceTimersByTimeAsync(10)
+    params.value = { q: 'second' }
+    await settle()
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['second', 'first'])
+    await vi.advanceTimersByTimeAsync(10)
+    params.value = { q: 'first' }
+    await settle()
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['first', 'second'])
+    expect(readRecentSearchItems(null).map(item => item.keyword)).toEqual(['first', 'second'])
+    expect(searchApi.search).toHaveBeenCalledTimes(3)
+  })
+
+  it('recreates a deliberately re-searched guest keyword after deletion even with cached results', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    const { sync, params } = mountSearch('deleted')
+    await settle()
+    params.value = { q: 'other' }
+    await settle()
+    sync.beginDeletion('deleted')()
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['other'])
+    await vi.advanceTimersByTimeAsync(10)
+    params.value = { q: 'deleted' }
+    await settle()
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['deleted', 'other'])
+    expect(searchApi.search).toHaveBeenCalledTimes(3)
+    expect(searchApi.getRecentSearches).not.toHaveBeenCalled()
+  })
+
+  it('persists guest history across remounts and deletes it without a history API request', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    const first = mountSearch('guest term')
+    await settle()
+    expect(first.sync.items.value).toEqual([{ keyword: 'guest term', searchedAt: expect.any(String) }])
+    wrappers.pop()!.unmount()
+    const second = mountSearch('')
+    await settle()
+    expect(second.sync.items.value[0]?.keyword).toBe('guest term')
+    second.sync.beginDeletion('guest term')()
+    expect(readRecentSearchItems(null)).toEqual([])
+    expect(searchApi.getRecentSearches).not.toHaveBeenCalled()
+  })
+
+  it('hydrates only the signed-in account then replaces its cache with the authoritative DB snapshot', async () => {
+    writeRecentSearchItems(null, [{ keyword: 'guest', searchedAt: '2026-10-27T12:00:00' }])
+    writeRecentSearchItems(10, [{ logId: 10, keyword: 'cached', searchedAt: '2026-10-27T12:00:00' }])
+    const response = createDeferred<Awaited<ReturnType<typeof searchApi.getRecentSearches>>>()
+    vi.mocked(searchApi.getRecentSearches).mockImplementationOnce(() => response.promise)
+    const { sync } = mountSearch('')
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['cached'])
+    await settle()
+    response.resolve(apiSuccessDataResponse<typeof searchApi.getRecentSearches>(historyResponse()))
+    await settle()
+    expect(sync.items.value).toEqual([])
+    expect(readRecentSearchItems(10)).toEqual([])
+    expect(readRecentSearchItems(null)[0]?.keyword).toBe('guest')
+    expect(searchApi.search).not.toHaveBeenCalled()
+  })
+
+  it('keeps guest and account histories isolated through login, account switch and logout', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    const { sync, params } = mountSearch('guest')
+    await settle()
+    params.value = { q: '' }
+    serverHistory = [{ logId: 10, keyword: 'account ten', searchedAt: '2026-10-27T12:00:00' }]
+    auth.sessionGeneration += 1
+    auth.isAuthenticated = true
+    auth.user = { userId: 10 }
+    notifyAuthSessionBoundary(auth.sessionGeneration)
+    await settle()
+    expect(sync.items.value).toEqual(serverHistory)
+    expect(searchApi.search).toHaveBeenCalledTimes(1)
+    serverHistory = [{ logId: 20, keyword: 'account twenty', searchedAt: '2026-10-27T13:00:00' }]
+    auth.sessionGeneration += 1
+    auth.user = { userId: 20 }
+    notifyAuthSessionBoundary(auth.sessionGeneration)
+    await settle()
+    expect(sync.items.value).toEqual(serverHistory)
+    expect(localStorage.getItem(recentSearchStorageKey(10))).toBeNull()
+    wrappers.pop()!.unmount()
+    auth.sessionGeneration += 1
+    auth.isAuthenticated = false
+    auth.user = null
+    notifyAuthSessionBoundary(auth.sessionGeneration)
+    expect(localStorage.getItem(recentSearchStorageKey(20))).toBeNull()
+    const guest = mountSearch('')
+    await settle()
+    expect(guest.sync.items.value.map(item => item.keyword)).toEqual(['guest'])
+  })
+
+  it('retains account storage through bootstrap generation changes and ordinary token rotation', () => {
+    const cached = [{ logId: 10, keyword: 'cache', searchedAt: '2026-10-27T12:00:00' }]
+    writeRecentSearchItems(10, cached)
+    auth.sessionGeneration += 1
+    auth.accessToken = 'rotated'
+    expect(readRecentSearchItems(10)).toEqual(cached)
+  })
+
+  it('never displays guest history while authenticated user hydration is pending', async () => {
+    writeRecentSearchItems(null, [{ keyword: 'guest', searchedAt: '2026-10-27T12:00:00' }])
+    auth.user = null
+    const { sync } = mountSearch('')
+    await settle()
+    expect(sync.items.value).toEqual([])
+    expect(readRecentSearchItems(null)[0]?.keyword).toBe('guest')
+  })
+
+  it('clears mounted guest chips when token installation precedes delayed user hydration', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    writeRecentSearchItems(null, [{ keyword: 'guest', searchedAt: '2026-10-27T12:00:00' }])
+    const accountCache = [{ logId: 10, keyword: 'account cache', searchedAt: '2026-10-27T12:00:00' }]
+    writeRecentSearchItems(10, accountCache)
+    const { sync } = mountSearch('')
+    await settle()
+    expect(sync.items.value.map(item => item.keyword)).toEqual(['guest'])
+    // Real setTokens/applyNewSession order: boundary, token, then async user hydration.
+    auth.sessionGeneration += 1
+    notifyAuthSessionBoundary(auth.sessionGeneration)
+    auth.isAuthenticated = true
+    expect(sync.items.value).toEqual([])
+    await settle()
+    expect(sync.items.value).toEqual([])
+    expect(searchApi.getRecentSearches).not.toHaveBeenCalled()
+    serverHistory = [{ logId: 11, keyword: 'confirmed account', searchedAt: '2026-10-27T13:00:00' }]
+    auth.user = { userId: 10 }
+    expect(sync.items.value).toEqual(accountCache)
+    await settle()
+    expect(searchApi.getRecentSearches).toHaveBeenCalledOnce()
+    expect(sync.items.value).toEqual(serverHistory)
+    expect(readRecentSearchItems(null)[0]?.keyword).toBe('guest')
+    expect(searchApi.search).not.toHaveBeenCalled()
+  })
+
+  it('does not restore the departed account cache from a late history response', async () => {
+    writeRecentSearchItems(10, [{ logId: 10, keyword: 'private ten', searchedAt: '2026-10-27T12:00:00' }])
+    const response = createDeferred<Awaited<ReturnType<typeof searchApi.getRecentSearches>>>()
+    vi.mocked(searchApi.getRecentSearches).mockImplementationOnce(() => response.promise)
+    const oldHistory = { ...historyResponse(), content: readRecentSearchItems(10) as RecentSearchLog[] }
+    const { sync } = mountSearch('')
+    await settle()
+    serverHistory = [{ logId: 20, keyword: 'twenty', searchedAt: '2026-10-27T13:00:00' }]
+    auth.sessionGeneration += 1
+    auth.user = { userId: 20 }
+    notifyAuthSessionBoundary(auth.sessionGeneration)
+    await settle()
+    response.resolve(apiSuccessDataResponse<typeof searchApi.getRecentSearches>(oldHistory))
+    await settle()
+    expect(sync.items.value).toEqual(serverHistory)
+    expect(readRecentSearchItems(20)).toEqual(serverHistory)
+    expect(localStorage.getItem(recentSearchStorageKey(10))).toBeNull()
+  })
+
+  it('ignores corrupt storage and retains guest history in memory when browser storage is denied', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    localStorage.setItem(recentSearchStorageKey(null), '{broken json')
+    const { sync } = mountSearch('')
+    await settle()
+    expect(sync.items.value).toEqual([])
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    sync.beginSearch('memory')('memory')
+    wrappers.pop()!.unmount()
+    const next = mountSearch('')
+    await settle()
+    expect(next.sync.items.value.map(item => item.keyword)).toEqual(['memory'])
+    next.sync.beginDeletion()()
+    expect(next.sync.items.value).toEqual([])
+  })
+
+  it('does not restore a deleted guest keyword when its old successful search arrives late', async () => {
+    auth.isAuthenticated = false
+    auth.user = null
+    const response = createDeferred<Awaited<ReturnType<typeof searchApi.search>>>()
+    vi.mocked(searchApi.search).mockImplementationOnce(() => response.promise)
+    const { sync } = mountSearch('late guest')
+    await settle()
+    sync.beginDeletion()()
+    response.resolve(searchResponse('late guest'))
+    await settle()
+    expect(sync.items.value).toEqual([])
+    expect(readRecentSearchItems(null)).toEqual([])
+  })
   it('refreshes after a completed search and shows only server-confirmed history after delayed persistence', async () => {
     const { sync } = mountSearch()
     await settle()
@@ -261,6 +461,50 @@ describe('recent-search synchronization with real Vue Query', () => {
     completeDelete()
     expect(sync.items.value).toEqual([])
     expect(sync.isReconciling.value).toBe(true)
+  })
+
+  it('clears server rows first discovered while a cached-history clear request is pending', async () => {
+    writeRecentSearchItems(10, [{ logId: 1, keyword: 'cached', searchedAt: '2026-10-27T12:00:00' }])
+    const response = createDeferred<Awaited<ReturnType<typeof searchApi.getRecentSearches>>>()
+    vi.mocked(searchApi.getRecentSearches).mockImplementationOnce(() => response.promise)
+    const { sync } = mountSearch('')
+    await settle()
+    const completeDeletion = sync.beginDeletion()
+    serverHistory = [
+      { logId: 2, keyword: 'previously unknown', searchedAt: '2026-10-27T13:00:00' },
+      { logId: 1, keyword: 'cached', searchedAt: '2026-10-27T12:00:00' },
+    ]
+    response.resolve(apiSuccessDataResponse<typeof searchApi.getRecentSearches>(historyResponse()))
+    await settle()
+    expect(sync.items.value).toEqual(serverHistory)
+    completeDeletion()
+    expect(sync.items.value).toEqual([])
+    expect(readRecentSearchItems(10)).toEqual([])
+  })
+
+  it('cancels a pre-clear history snapshot before deletion completion and accepts the next authoritative read', async () => {
+    writeRecentSearchItems(10, [{ logId: 1, keyword: 'cached', searchedAt: '2026-10-27T12:00:00' }])
+    const response = createDeferred<Awaited<ReturnType<typeof searchApi.getRecentSearches>>>()
+    vi.mocked(searchApi.getRecentSearches).mockImplementationOnce(() => response.promise)
+    const { sync, client } = mountSearch('')
+    await settle()
+    const completeDeletion = sync.beginDeletion()
+    const queryKey = sessionQueryKey(auth.sessionGeneration, searchQueryKeys.recent)
+    await client.cancelQueries({ queryKey })
+    completeDeletion()
+    response.resolve(apiSuccessDataResponse<typeof searchApi.getRecentSearches>({ ...historyResponse(),
+      content: [{ logId: 2, keyword: 'old unknown', searchedAt: '2026-10-27T13:00:00' }] }))
+    const refresh = client.invalidateQueries({ queryKey })
+    await settle()
+    await refresh
+    expect(sync.items.value).toEqual([])
+    expect(readRecentSearchItems(10)).toEqual([])
+    const completeSearch = sync.beginSearch('new after clear')
+    serverHistory = [{ logId: 3, keyword: 'new after clear', searchedAt: '2026-10-27T14:00:00' }]
+    completeSearch('new after clear')
+    await settle()
+    expect(sync.items.value).toEqual(serverHistory)
+    expect(sync.isReconciling.value).toBe(false)
   })
 
   it('continues a different pending search after deleting one saved keyword', async () => {
