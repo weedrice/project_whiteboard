@@ -62,7 +62,7 @@
     "@tiptap/suggestion": "3.33.0",
     "@tiptap/vue-3": "3.33.0",
     "@unhead/vue": "^3.4.3",
-    "axios": "^1.21.0",
+    "axios": "^1.21.1",
     "dompurify": "^3.4.17",
     "loglevel": "^1.9.2",
     "loglevel-plugin-prefix": "^0.8.4",
