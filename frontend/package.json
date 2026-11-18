@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.22.1 <25"
+    "node": ">=24.22.3 <25"
   },
   "browserslist": [
     "baseline widely available"
@@ -43,7 +43,15 @@
     "coverage:focused": "node ./scripts/verify-focused-coverage.mjs",
     "lint": "eslint \"src/**/*.{ts,vue}\" --cache",
     "lint:fix": "eslint \"src/**/*.{ts,vue}\" --fix",
-    "lint:ci": "eslint \"src/**/*.{ts,vue}\" --max-warnings=0"
+    "lint:ci": "eslint \"src/**/*.{ts,vue}\" --max-warnings=0",
+    "prebuild": "node ./scripts/patch-picomatch.mjs --check",
+    "predev": "node ./scripts/patch-picomatch.mjs --check",
+    "pretest": "node ./scripts/patch-picomatch.mjs --check",
+    "pretest:run": "node ./scripts/patch-picomatch.mjs --check",
+    "prelint:ci": "node ./scripts/patch-picomatch.mjs --check",
+    "pretype-check": "node ./scripts/patch-picomatch.mjs --check",
+    "postinstall": "node ./scripts/patch-picomatch.mjs",
+    "security:patch": "node ./scripts/patch-picomatch.mjs"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.106.1",
@@ -92,7 +100,7 @@
     "autoprefixer": "^10.6.2",
     "baseline-browser-mapping": "^2.11.37",
     "esbuild": "0.28.2",
-    "eslint": "^10.13.0",
+    "eslint": "^10.15.0",
     "eslint-plugin-vue": "^10.12.1",
     "globals": "^17.14.0",
     "istanbul-lib-coverage": "^3.2.2",
@@ -103,7 +111,7 @@
     "satori": "^0.63.2",
     "tailwindcss": "^4.3.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.2",
+    "typescript-eslint": "^8.73.0",
     "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0",
     "vite-plugin-vue-devtools": "^8.2.1",
@@ -118,6 +126,10 @@
     },
     "@tailwindcss/typography": {
       "postcss-selector-parser": "7.1.7"
-    }
+    },
+    "glob@>=9 <14.0.2": "14.0.6",
+    "minimatch@>=7 <11.0.1": "11.0.9",
+    "serialize-javascript@<7.1.3": "7.1.4",
+    "picomatch": "4.0.7"
   }
 }

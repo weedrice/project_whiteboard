@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # CVE-2026-114938: defense in depth, matching the native-host mitigation.
+  JAVA_TOOL_OPTIONS: '-XX:-UseBASE64Intrinsics'
+
 jobs:
   changes:
     runs-on: ubuntu-24.04
@@ -46,7 +50,7 @@ jobs:
       - name: Setup Node for deployment baseline resolution
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.1'
+          node-version: '24.22.3'
 
       - name: Detect validation areas
         id: filter
@@ -240,8 +244,8 @@ jobs:
       - name: Setup JDK 25
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          distribution: temurin
-          java-version: 25
+          distribution: zulu
+          java-version: '25.0.5.1+2'
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
@@ -288,7 +292,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.1'
+          node-version: '24.22.3'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -383,7 +387,7 @@ jobs:
           trap cleanup EXIT
           docker network create "$network" >/dev/null
           docker run -d --name "$backend_container" --network "$network" --network-alias backend \
-            nginx:1.27.4-alpine@sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591 >/dev/null
+            nginx:1.30.6-alpine3.24-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 >/dev/null
           docker run --rm --network "$network" --entrypoint nginx noviis-frontend:ci -t
         working-directory: .
 
@@ -398,7 +402,7 @@ jobs:
       contract_migration: ${{ steps.migration_guard.outputs.contract_migration }}
     services:
       postgres:
-        image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
+        image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
         env:
           POSTGRES_DB: noviis_ci
           POSTGRES_USER: noviis_ci
@@ -472,8 +476,8 @@ jobs:
       - name: Setup JDK 25
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          distribution: temurin
-          java-version: 25
+          distribution: zulu
+          java-version: '25.0.5.1+2'
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
@@ -540,7 +544,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
+        image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
         env:
           POSTGRES_DB: noviis_ci_upgrade
           POSTGRES_USER: noviis_ci
@@ -575,8 +579,8 @@ jobs:
       - name: Setup JDK 25
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          distribution: temurin
-          java-version: 25
+          distribution: zulu
+          java-version: '25.0.5.1+2'
           cache: 'gradle'
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -648,15 +652,29 @@ jobs:
           -ignore 'unexpected key.*queue.*concurrency'
           -ignore 'artifact-metadata'
 
+      - name: Verify Redis security image
+        run: |
+          docker build -t noviis-redis:ci deploy/docker/redis
+          docker run --rm --network none --read-only --user 999:1000 --cap-drop ALL --security-opt no-new-privileges:true --tmpfs /data:uid=999,gid=1000,mode=0700 --entrypoint sh noviis-redis:ci -ec '
+            apk info --installed "zlib>=1.4-r0"
+            redis-server --save "" --appendonly no --daemonize yes
+            trap "redis-cli shutdown nosave >/dev/null 2>&1 || true" EXIT
+            test "$(redis-cli ping)" = PONG
+            test "$(redis-cli set security-smoke ok)" = OK
+            test "$(redis-cli get security-smoke)" = ok
+          '
+
       - name: Setup Node for workflow validation
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.1'
+          node-version: '24.22.3'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install workflow AST validator
-        run: npm ci --ignore-scripts
+        run: |
+          npm ci --ignore-scripts
+          node scripts/patch-picomatch.mjs
         working-directory: frontend
 
       - name: Validate Prometheus configuration and rules
@@ -676,7 +694,7 @@ jobs:
           docker run --rm --entrypoint /bin/promtool -w /etc/prometheus \
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
             "$PROMETHEUS_VALIDATION_IMAGE" \
-            test rules noviis-alerts.test.yml
+            test rules noviis-alerts.test.yml noviis-inline-profile.test.yml
           docker run --rm --entrypoint /bin/promtool \
             -v "$dashboard_rules:/tmp/noviis-dashboard-promql.json:ro" \
             "$PROMETHEUS_VALIDATION_IMAGE" \
@@ -737,6 +755,7 @@ jobs:
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
           bash deploy/monitoring/tests/verify-grafana-archive-test.sh
           bash deploy/monitoring/tests/check-prometheus-health-test.sh
+          bash deploy/monitoring/tests/notify-prometheus-watchdog-failure-test.sh
           bash deploy/monitoring/tests/verify-resource-limit-evidence-test.sh
 
       - name: Validate repository migration policy changes
@@ -864,8 +883,8 @@ jobs:
       - name: Setup JDK 25
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
-          distribution: temurin
-          java-version: 25
+          distribution: zulu
+          java-version: '25.0.5.1+2'
           cache: gradle
       - name: Build backend release once after the CI gate
         working-directory: backend
@@ -1023,7 +1042,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.1'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Build frontend release once after the CI gate

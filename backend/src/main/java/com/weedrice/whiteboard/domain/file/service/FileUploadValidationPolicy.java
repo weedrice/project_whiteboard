@@ -25,7 +25,7 @@ class FileUploadValidationPolicy {
      * 그쪽이 먼저 걸리면 {@code MaxUploadSizeExceededException}으로 처리된다.
      * 대상별 상한은 {@link FileUploadTarget}에 둔다.
      */
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
+    static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
     static final int MAX_IMAGE_DIMENSION = 16_384;
     static final long MAX_IMAGE_PIXELS = 50_000_000L;
 

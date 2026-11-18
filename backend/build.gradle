@@ -1,3 +1,13 @@
+buildscript {
+    dependencies {
+        constraints {
+            classpath('org.apache.commons:commons-lang3:3.20.0') {
+                because 'Fix CVE-2025-48924 in the Spring Boot plugin build classpath.'
+            }
+        }
+    }
+}
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.2'
@@ -104,7 +114,13 @@ dependencies {
 	implementation 'com.github.usefulness:webp-imageio:0.11.0'
 }
 
+// Temporary mitigation for CVE-2026-114938 until the JDK includes the permanent fix.
+tasks.withType(JavaExec).configureEach {
+	jvmArgs '-XX:-UseBASE64Intrinsics'
+}
+
 tasks.withType(Test).configureEach {
+	jvmArgs '-XX:-UseBASE64Intrinsics'
 	// Match the application's KST policy before JDBC/H2 cache the JVM default zone.
 	systemProperty 'user.timezone', 'Asia/Seoul'
 }

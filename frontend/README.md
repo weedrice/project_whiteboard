@@ -106,7 +106,7 @@ PWA는 `service-worker.ts`에서 API/OAuth 요청을 네트워크 전용으로 �
 
 ### 요구 사항
 
-- Node.js `>=24.22.1 <25` (CVE-2026-111497 보안 패치 최소 버전; Docker·CI·`.nvmrc`는 24.22.1 사용)
+- Node.js `>=24.22.3 <25` (2026-11-11 보안 패치 최소 버전; Docker·CI·`.nvmrc`는 24.22.3 사용)
 - npm
 
 ### 설치
@@ -139,6 +139,27 @@ Tailwind typography의 `postcss-selector-parser`를 7.1.7로 지정합니다. �
 취약한 버전을 고정하고 있어 해당 의존 경로에만 적용합니다. 상위 패키지가 수정
 버전을 채택하면 override 제거를 검토하고, 변경 시 공유 이미지 생성과 typography
 CSS 출력을 확인합니다. Vitest와 `@vitest/coverage-v8`는 동일 버전으로 갱신합니다.
+
+2026-11-18 보안 갱신에서는 취약 범위의 `glob`을 14.0.6, `minimatch`를 11.0.9,
+`serialize-javascript`를 7.1.4로 제한합니다. Glob/Minimatch major 변경은 lint,
+테스트 파일 탐색, production build와 PWA precache 검증을 함께 수행해야 합니다.
+
+`picomatch`는 공식 수정 릴리스가 없어 4.0.7에
+[upstream PR #237](https://github.com/micromatch/picomatch/pull/237)의 단일 분기 반복
+extglob 수정안을 기반으로 로컬 패치를 적용합니다. 기존 파서의 토큰을 사용해 따옴표와
+POSIX 문자클래스의 반복 의미를 보존하고, 경로 구분자 등 안전한 병합을 증명할 수 없는
+패턴은 Picomatch의 기존 위험 패턴 처리처럼 리터럴로 취급합니다.
+`scripts/patch-picomatch.mjs`는 공식 tarball에서 확인한
+원본과 수정 후 SHA-256을 검사하고, 다른 버전이나 변형된 파일은 수정하지 않고 실패합니다.
+`npm ci`의 `postinstall`에서 적용하며, `npm run check:dependencies`는 적용 여부도
+검증합니다. 기본 build/dev/test 및 CI lint/type-check 진입점도 패치 누락 시 중단합니다.
+`npm ci --ignore-scripts`를 사용하는 환경은 다른 도구 실행 전에
+`npm run security:patch`를 명시적으로 실행해야 합니다.
+
+패키지 버전은 4.0.7로 유지하므로 `npm audit`의 GHSA-fc5q-39xc-vjpf 경고는 계속
+표시됩니다. 취약점을 숨기거나 감사 실패를 일괄 무시하지 않습니다. 공격 입력은 별도
+프로세스의 시간 제한을 둔 `scripts/__tests__/dependency-security.spec.mjs`에서 검증합니다.
+공식 수정 버전이 출시되면 override·로컬 패치·설치 hook을 함께 제거하고 재검증합니다.
 
 ### 개발 서버
 

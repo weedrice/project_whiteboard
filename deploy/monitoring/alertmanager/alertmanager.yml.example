@@ -1,0 +1,22 @@
+# Replace sender and recipient locally; never commit the rendered host file.
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'sender@example.com'
+  smtp_auth_username: 'sender@example.com'
+  smtp_auth_password_file: /etc/alertmanager/smtp-password
+  smtp_require_tls: true
+  smtp_tls_config:
+    server_name: smtp.gmail.com
+    min_version: TLS12
+route:
+  receiver: operations-email
+  group_by: [alertname, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: operations-email
+    email_configs:
+      - to: 'operator@example.com'
+        send_resolved: true

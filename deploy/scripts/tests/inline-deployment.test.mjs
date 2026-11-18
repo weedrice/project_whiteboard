@@ -31,6 +31,7 @@ function fixture(t, runAttempt = 1) {
     fs.writeFileSync(target, value, 'utf8')
   }
   const read = (file) => fs.readFileSync(path.join(directory, file), 'utf8')
+  fs.mkdirSync(path.join(directory, 'opt-app'))
   write('app/app.jar', 'previous jar')
   write('process-state', 'active')
   write('runtime-sha', previous)
@@ -65,7 +66,21 @@ sudo() {
         fi
         return 0 ;;
       show)
-        if [ "$4" = --property=MainPID ]; then
+        if [ "$4" = --property=ExecStart ]; then
+          [ -f "$FIXTURE/unit-reloaded" ] || return 1
+          [ "\${MOCK_JVM_MITIGATION_MISSING:-false}" != true ] || return 0
+          printf '{ path=/usr/bin/java ; argv[]=%s ; ignore_errors=no ; start_time=[n/a] }\\n' "\${MOCK_JVM_EXEC_START:-/usr/bin/java -XX:-UseBASE64Intrinsics -jar /opt/app/backend/app.jar}"
+        elif [ "$4" = --property=User ]; then
+          printf '%s\\n' "\${MOCK_SERVICE_USER:-noviis-app}"
+        elif [ "$4" = --property=Group ]; then
+          printf '%s\\n' "\${MOCK_SERVICE_GROUP:-noviis-app}"
+        elif [ "$4" = --property=ProtectHome ]; then
+          printf '%s\\n' "\${MOCK_PROTECT_HOME:-yes}"
+        elif [ "$4" = --property=ProtectSystem ]; then
+          printf '%s\\n' "\${MOCK_PROTECT_SYSTEM:-strict}"
+        elif [ "$4" = --property=ReadWritePaths ]; then
+          printf '%s\\n' "\${MOCK_WRITABLE_PATHS-/opt/app/logs /opt/app/uploads}"
+        elif [ "$4" = --property=MainPID ]; then
           printf '%s\\n' "\${MOCK_STOP_PID:-0}"
         else
           printf '%s' "$*" > "$FIXTURE/diagnostic-command"
@@ -87,7 +102,7 @@ sudo() {
           printf '%s' "\${MOCK_START_SHA:-$EXPECTED_SHA}" > "$FIXTURE/runtime-sha"
         fi
         return 0 ;;
-      daemon-reload) [ "\${MOCK_RELOAD_FAIL:-false}" != true ]; return $? ;;
+      daemon-reload) [ "\${MOCK_RELOAD_FAIL:-false}" != true ] || return 1; touch "$FIXTURE/unit-reloaded"; return $? ;;
       *) return 64 ;;
     esac
   fi
@@ -107,7 +122,18 @@ sudo() {
       fi
       [ "\${MOCK_SWAP_RESULT_FAIL:-false}" != true ] || return 1
       if [ "\${MOCK_SWAP_TERM:-false}" = true ]; then kill -TERM $$; fi ;;
-    test|sha256sum|rm|cat|tr) "$@" ;;
+    stat)
+      [ "$2" = -c ] && [ "$3" = '%u:%g:%a' ] || return 64
+      if [ "$4" = "$FIXTURE/opt-app" ]; then
+        printf '%s\\n' "\${MOCK_PARENT_OWNERSHIP:-0:0:755}"
+      elif [ "$4" = "$FIXTURE/app" ]; then
+        printf '%s\\n' "\${MOCK_BACKEND_OWNERSHIP:-0:0:755}"
+      else return 64; fi ;;
+    test)
+      if [ "$2" = -L ] && [ "$3" = "$FIXTURE/opt-app" ] && [ "\${MOCK_PARENT_SYMLINK:-false}" = true ]; then return 0; fi
+      if [ "$2" = -L ] && [ "$3" = "$FIXTURE/app" ] && [ "\${MOCK_BACKEND_SYMLINK:-false}" = true ]; then return 0; fi
+      "$@" ;;
+    sha256sum|rm|cat|tr) "$@" ;;
     *) return 64 ;;
   esac
 }
@@ -144,6 +170,7 @@ function runStep(f, workflow, idOrName, options = {}) {
     .replaceAll('${{ github.run_attempt }}', String(options.runAttempt ?? 1))
     .replaceAll('/tmp/noviis-', `${base}/tmp/noviis-`)
     .replaceAll('/opt/app/backend', `${base}/app`)
+    .replaceAll('in /opt/app ', `in ${base}/opt-app `)
     .replaceAll('/var/www', `${base}/www`)
   assert.ok(!script.includes('${{'), 'unresolved workflow expression')
   return spawnSync(process.env.BASH_EXECUTABLE ?? 'bash', ['-s'], {
@@ -162,6 +189,75 @@ function succeeds(result) {
 function fails(result) {
   assert.equal(result.error, undefined)
   assert.notEqual(result.status, 0, result.stdout)
+}
+
+test('backend refuses an unmitigated host JVM before preparing files or stopping the service', (t) => {
+  const f = fixture(t)
+  const result = runStep(f, backend, 'activate', { env: { MOCK_JVM_MITIGATION_MISSING: 'true' } })
+  fails(result)
+  assert.match(result.stderr, /Backend JVM mitigation missing/)
+  assert.equal(f.read('process-state'), 'active')
+  assert.equal(f.read('app/app.jar'), 'previous jar')
+  assert.equal(fs.existsSync(path.join(f.directory, 'app/app.jar.next')), false)
+})
+
+for (const [name, env] of [
+  ['wrong service user', { MOCK_SERVICE_USER: 'ubuntu' }],
+  ['wrong service group', { MOCK_SERVICE_GROUP: 'root' }],
+  ['home directories exposed', { MOCK_PROTECT_HOME: 'no' }],
+  ['system protection weakened', { MOCK_PROTECT_SYSTEM: 'full' }],
+  ['extra writable code path', { MOCK_WRITABLE_PATHS: '/opt/app/logs /opt/app/uploads /opt/app/backend' }],
+  ['missing writable upload path', { MOCK_WRITABLE_PATHS: '/opt/app/logs' }],
+  ['empty writable paths', { MOCK_WRITABLE_PATHS: '' }],
+  ['parent directory owned by app', { MOCK_PARENT_OWNERSHIP: '1001:1001:755' }],
+  ['backend directory owned by app', { MOCK_BACKEND_OWNERSHIP: '1001:1001:755' }],
+  ['parent directory group writable', { MOCK_PARENT_OWNERSHIP: '0:0:775' }],
+  ['backend directory group writable', { MOCK_BACKEND_OWNERSHIP: '0:0:775' }],
+  ['parent directory symlink', { MOCK_PARENT_SYMLINK: 'true' }],
+  ['backend directory symlink', { MOCK_BACKEND_SYMLINK: 'true' }],
+]) {
+  test(`backend isolation preflight preserves the current service when ${name}`, (t) => {
+    const f = fixture(t)
+    const result = runStep(f, backend, 'activate', { env })
+    fails(result)
+    assert.equal(f.read('process-state'), 'active')
+    assert.equal(f.read('app/app.jar'), 'previous jar')
+    assert.equal(fs.existsSync(path.join(f.directory, 'app/app.jar.next')), false)
+    assert.equal(fs.existsSync(path.join(f.directory, 'app/app.jar.rollback')), false)
+  })
+}
+
+test('backend accepts either ordering of the exact writable paths', (t) => {
+  const f = fixture(t)
+  succeeds(runStep(f, backend, 'activate', { env: {
+    MOCK_WRITABLE_PATHS: '/opt/app/uploads /opt/app/logs',
+  } }))
+})
+
+test('backend accepts the last JVM option disabling Base64 intrinsics before -jar', (t) => {
+  const f = fixture(t)
+  succeeds(runStep(f, backend, 'activate', { env: {
+    MOCK_JVM_EXEC_START: '/usr/bin/java -XX:+UseBASE64Intrinsics -XX:-UseBASE64Intrinsics -jar /opt/app/backend/app.jar',
+  } }))
+})
+
+for (const command of [
+  '/usr/bin/java -jar /opt/app/backend/app.jar -XX:-UseBASE64Intrinsics',
+  '/usr/bin/java -XX:-UseBASE64Intrinsics -XX:+UseBASE64Intrinsics -jar /opt/app/backend/app.jar',
+  '/bin/sh -c java -XX:-UseBASE64Intrinsics -jar /opt/app/backend/app.jar',
+  '/usr/bin/java @options -XX:-UseBASE64Intrinsics -jar /opt/app/backend/app.jar',
+  '/usr/bin/java -XX:-UseBASE64Intrinsics -XX:VMOptionsFile=/etc/noviis/jvm.options -jar /opt/app/backend/app.jar',
+  '/usr/bin/java -XX:-UseBASE64Intrinsics -XX:Flags=/etc/noviis/jvm.flags -jar /opt/app/backend/app.jar',
+]) {
+  test(`backend rejects ineffective JVM mitigation: ${command}`, (t) => {
+    const f = fixture(t)
+    const result = runStep(f, backend, 'activate', { env: { MOCK_JVM_EXEC_START: command } })
+    fails(result)
+    assert.match(result.stderr, /Backend JVM mitigation missing/)
+    assert.equal(f.read('process-state'), 'active')
+    assert.equal(f.read('app/app.jar'), 'previous jar')
+    assert.equal(fs.existsSync(path.join(f.directory, 'app/app.jar.next')), false)
+  })
 }
 
 for (const [name, env] of [

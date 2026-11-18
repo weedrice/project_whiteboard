@@ -4,6 +4,16 @@ The default `docker-compose.yml` runs the Spring Boot backend, built Vue fronten
 to a PostgreSQL database outside the Compose stack, defaulting to `host.docker.internal:5432`. Redis provides the shop
 sale-status stream relay; the backend starts after Redis is healthy, and the frontend starts after the backend is healthy.
 
+Container versions and digests are pinned in the Dockerfiles and Compose files. The security baseline is Node 24.22.3,
+Zulu CA 25.0.5.1+2, Nginx 1.30.6 on Alpine 3.24 slim, Redis 7.4.12 on Alpine 3.22, and pgvector 0.8.7 with PostgreSQL 16
+on Debian Bookworm. The Nginx slim image omits unused image/XSLT modules while preserving static files and reverse proxy
+behavior. PostgreSQL stays on the existing major version and Bookworm base to avoid an implicit data or locale migration.
+
+Updating these pins does not restart existing containers or upgrade an installed database extension. Back up the local
+database before an intentional recreate; check `SELECT version()` and `SELECT extversion FROM pg_extension WHERE extname = 'vector'`
+afterward. Existing vector installations retain their extension version until a separately reviewed `ALTER EXTENSION vector UPDATE`
+is run. Do not remove the PostgreSQL volume to apply an image update.
+
 ## Required Secret
 
 `JWT_SECRET_DEV` must be provided from your shell or an untracked `.env` file. Use a Base64-encoded HS256 key.
@@ -88,3 +98,11 @@ docker compose down
 `logs/backend/`. Redis stores `/data` in tmpfs, so its data is ephemeral. Adding `-v` when stopping the override stack
 deletes its PostgreSQL named volume and database data; use that destructive option only when explicitly intending to
 reset that local database. Neither variant deletes an external PostgreSQL database or the host bind-mounted files.
+
+Redis is built from `deploy/docker/redis/Dockerfile` as `noviis-redis:local`. The pinned upstream Redis image still contains zlib 1.3.2-r1, so the derivative installs only `zlib>=1.4-r0` from its existing Alpine 3.22 repository (CVE-2026-4738). The minimum permits later vendor security revisions without a full OS upgrade. Rebuild with the normal `docker compose build` flow before recreating services. CI verifies the image under the same UID, read-only filesystem, dropped capabilities, and tmpfs data contract. Existing Redis volumes are unchanged.
+
+Dependabot monitors the Alpine and Redis Docker base pins. Azul archive versions and SHA-256 values must be updated together from the official metadata API; Docker Dependabot does not update URLs embedded in RUN instructions. Keep Java25, CI setup-java, and native host prerequisites synchronized.
+
+For a local enterprise TLS interception environment, backend/frontend/Redis Dockerfiles accept the optional BuildKit `build_ca` secret containing a trusted public PEM CA bundle. Use `docker build --secret id=build_ca,src=/path/to/trusted-ca.pem ...`; trust applies only to download RUN steps and the certificate bundle is not copied into the final image. Standard CI omits the secret. TLS verification and archive checksums stay enabled.
+
+The Nginx runtime likewise installs only `zlib>=1.4-r0` after the pinned upstream image because the final rescan detected the same older library. The backend Alpine runtime also declares this minimum.

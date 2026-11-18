@@ -1,0 +1,22 @@
+rule_files:
+  - noviis-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: inline deployment does not require unprovisioned cleanup writers
+    interval: 1m
+    promql_expr_test:
+      - expr: noviis_deployment_cleanup_expected
+        eval_time: 30m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: NoviIsDeploymentCleanupMetricMissing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: NoviIsDeploymentCleanupMetricStale
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: NoviIsDeploymentCleanupDebt
+        exp_alerts: []

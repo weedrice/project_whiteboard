@@ -6,15 +6,15 @@
 
 검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 자동 배포 범위는 현재 push 하나가 아니라 GitHub Actions 이력에서 찾은 component별 마지막 성공 production 배포 SHA부터 현재 SHA까지의 누적 diff로 계산한다. 이력 조회는 workflow run과 각 run의 전체 재실행 job 페이지를 모두 순회하므로 100개를 넘는 job 이력에서도 성공 배포를 빠뜨리지 않는다. 따라서 runtime 변경의 CI가 실패하고 테스트·설정만 수정한 후속 커밋이 성공해도 미배포 runtime 변경은 다음 성공 실행의 배포 범위에 남으며, 해당 component 검증도 다시 실행한다. 성공 배포 이력을 찾지 못하면 안전하게 해당 component를 검증·배포 대상으로 선택하고 contract migration으로 취급해 rollback 제한을 적용한다. `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 backend 배포도 마지막 성공 backend 배포 SHA를 조회하며, 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
 
-프로젝트의 Node 지원 범위는 `>=24.22.1 <25`다. changes job의 배포 기준 조회, frontend·ops 검증, frontend candidate, 배포 후 검증, SEO monitor의 shell Node는 검증된 보안 패치 버전 `24.22.1`로 고정한다. [CVE-2026-111497 Brotli 보안 수정](https://nodejs.org/en/blog/release/v24.22.1)을 포함하며, runner 캐시에서 취약한 이전 Node 24 버전이 선택되는 것을 방지한다.
+프로젝트의 Node 지원 범위는 `>=24.22.3 <25`다. changes job의 배포 기준 조회, frontend·ops 검증, frontend candidate, 배포 후 검증, SEO monitor의 shell Node는 검증된 보안 패치 버전 `24.22.3`로 고정한다. [2026년 11월 HTTP/2·TLS 보안 수정](https://nodejs.org/en/blog/release/v24.22.3)을 포함하며, runner 캐시에서 취약한 이전 Node 24 버전이 선택되는 것을 방지한다.
 
 검증 job은 다음 책임을 가진다.
 
-Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all --package-lock-only`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24.22.1을 먼저 설정한다.
+Frontend 의존성은 `npm ci` 직후 `npm run check:dependencies` (`npm ls --all --package-lock-only`)로 전체 트리의 peer 호환성까지 검사한다. 잠금 파일 설치가 성공해도 optional peer 버전 충돌이 남을 수 있으므로 이 검사가 실패하면 후속 검증을 진행하지 않는다. TypeScript major 전환은 API 타입 생성기와 Vue/ESLint 도구의 지원 범위를 함께 검토하며, Dependabot의 알려진 비호환 버전 예외는 `.github/dependabot.yml`에서 관리한다. Ops job도 같은 frontend 잠금 파일로 AST 검증기를 설치하므로 runner 기본 버전에 의존하지 않고 Node 24.22.3을 먼저 설정한다. `--ignore-scripts`를 사용하는 ops 설치는 AST 검증 전에 `scripts/patch-picomatch.mjs`를 명시적으로 실행해 일반 설치의 보안 패치와 동일한 상태를 만든다.
 
-- Backend: Java 25, Gradle test, JaCoCo coverage verification
+- Backend: Zulu CA Java 25.0.5.1+2, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행. 현재 application smoke는 문서화된 `postgresSmokeTest --rerun-tasks` 작업 자체를 검증
-- Frontend: Node 24.22.1, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 이미지 로딩·실패 상태는 `test:e2e:images`로 Chromium·WebKit에서 별도 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
+- Frontend: Node 24.22.3, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성. i18n 템플릿 규칙은 `lint:ci`, locale 키 테스트는 전체 `coverage` 실행에서 검증한다. 이미지 로딩·실패 상태는 `test:e2e:images`로 Chromium·WebKit에서 별도 검증한다. 보호된 파일 다운로드의 Chromium 검증은 기본 E2E에 포함하며, CI의 다운로드 전용 실행은 Firefox·WebKit만 선택해 브라우저별로 한 번씩 검증한다. 로컬 `test:e2e:download` 명령은 세 브라우저를 모두 실행한다
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
 - CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
 - Deployment gate: CI 성공 뒤 요청된 backend/frontend production 배포가 `success`가 아니면 workflow를 실패시켜 contract 승인 누락이나 조건식 skip을 숨기지 않음
@@ -59,11 +59,11 @@ production 배포와 정기 monitor는 공개 SEO endpoint 검증만 수행한�
 
 Grafana dashboard는 JSON parse뿐 아니라 panel/refId 중복, backend query scope와 모든 PromQL을 검사한다. systemd unit과 monitoring drop-in은 `hardening-contract.json`의 exact directive 및 writable-path 계약을 통과해야 한다.
 
-`ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, 부분 재실행의 producer artifact ID 전달, 누적 backend 배포 기준과 migration 기준의 일치, Deployment Gate 원인 진단, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. `inline-deployment.test.mjs`는 실제 reusable workflow의 shell을 추출해 서비스·HTTP 호출만 모킹하고, 준비 실패 시 서비스 유지, 중지 실패·잔여 PID·교체 실패·종료 signal 복구, 실행 SHA 불일치·contract 시작 경계의 rollback 금지·공개 readback 실패와 복원 identity 검증을 검사한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
+`ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, 부분 재실행의 producer artifact ID 전달, 누적 backend 배포 기준과 migration 기준의 일치, Deployment Gate 원인 진단, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. `inline-deployment.test.mjs`는 실제 reusable workflow의 shell을 추출해 서비스·HTTP 호출만 모킹하고, 준비 실패 시 서비스 유지, 중지 실패·잔여 PID·교체 실패·종료 signal 복구, 실행 SHA 불일치·contract 시작 경계의 rollback 금지·공개 readback 실패와 복원 identity 검증을 검사한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 host exporter를 사용한다. 서명된 배포판 패키지가 승인 버전을 제공하지 않으면 공식 SHA-256을 검증한 upstream archive를 root 소유의 버전별 경로에 설치하고 systemd의 실제 실행 경로를 확인한다.
 
 non-Agent `@Scheduled` 메서드는 `scheduled-jobs.txt`와 freshness rule이 일치해야 한다. sudoers는 `visudo -cf`와 허용·거부 command matrix를 모두 통과해야 한다. systemd 메모리 상한은 운영 측정 기록과 staging 검증이 없으면 추가하지 않는다.
 
-Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 helper로만 관리한다. helper는 loopback User API를 사용하고 비밀번호를 argv나 shell history에 넣지 않는다. Prometheus rule은 로컬에서 평가되지만 외부 Alertmanager receiver는 아직 없으므로 firing 자체가 Slack 또는 이메일 전달을 의미하지 않는다.
+Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 helper로만 관리한다. helper는 loopback User API를 사용하고 비밀번호를 argv나 shell history에 넣지 않는다. Prometheus rule은 loopback Alertmanager에 연결되며 이메일 receiver는 서버 내부에서 별도 구성한다. 저장소 예제, firing 상태, API 접수 성공만으로 전달을 보장하지 않는다. SMTP 알림 성공·실패 counter와 실제 수신을 확인하고 비밀값은 저장소에 남기지 않는다.
 
 ## 권한과 유지보수
 
@@ -88,3 +88,23 @@ GitHub `production` environment는 `main` branch restriction, required reviewer,
 - `EC2_USER`
 
 secret 값은 workflow 로그, fixture, 문서, release metadata에 기록하지 않는다. reusable workflow에는 필요한 secret만 명시적으로 매핑하며 `secrets: inherit`를 사용하지 않는다.
+
+## November 2026 JVM security baseline
+
+CI and Docker use free Azul Zulu CA OpenJDK 25.0.5.1+2 (Zulu 25.38.201), which contains the November security update. The pinned setup-java action requires the full input `25.0.5.1+2`: omitting `+2` does not match this four-part Azul version. The Docker build verifies Azul's published SHA-256 for each AMD64/ARM64 JDK/JRE archive on pinned Alpine 3.24.4. Temurin 25.0.5 predates this update.
+
+The native production unit is managed on the host, separately from artifact activation. Before the next backend deployment, the operator must update that host JDK and add `-XX:-UseBASE64Intrinsics` to its existing Java `ExecStart` arguments before `-jar`, preserving the configured paths, environment, and other arguments while applying the dedicated service account contract below. Then run `sudo systemctl daemon-reload` and perform a controlled `sudo systemctl restart app` under the normal operational rollout. Read back the effective `ExecStart` privately (it may contain secret arguments), check the running JVM version and `UseBASE64Intrinsics=false`, and verify the loopback health/build identity. These host operations were not performed by this repository change. The workflow fails before JAR preparation or service interruption when the explicit flag is absent; the separately tested hardened unit includes it directly.
+
+The Base64 flag mitigates CVE-2026-114938 only. It is defense in depth for patched Zulu and an interim protection for native hosts awaiting the update, not a substitute for the other November JVM fixes. The preferred flag is supported on AMD64 and ARM64; do not substitute the x86-only `-XX:UseAVX=2` on ARM64.
+
+References: [Red Hat advisory and mitigation](https://access.redhat.com/security/vulnerabilities/RHSB-2026-018), [Azul November versions](https://docs.azul.com/core/version-search), [Oracle November security update](https://www.oracle.com/security-alerts/cspunov2026.html).
+
+The native preflight reloads unit definitions first and accepts only a direct `/usr/bin/java` ExecStart with simple unquoted arguments. It checks the last Base64 intrinsic option before `-jar`; shell wrappers, `@argfiles`, `-XX:VMOptionsFile`/`-XX:Flags` files, quoted/escaped arguments and ambiguous formats fail closed. Hosts using those forms must move to the supported direct form or extend the verifier and fixtures in a separately reviewed change. No unit or secret argument contents are written to logs.
+
+## Inline backend service isolation
+
+The inline workflow continues to activate artifacts using the existing SSH deployment account and its sudo permissions. The application runs separately as the non-login `noviis-app:noviis-app` account. Before preparing any JAR or stopping the service, the workflow checks the effective unit's `User`, `Group`, `ProtectHome=yes`, `ProtectSystem=strict`, and the exact writable paths `/opt/app/logs /opt/app/uploads` (either order). Both `/opt/app` and `/opt/app/backend` must be real directories owned by `root:root` with mode `0755`. Provision these prerequisites on the host before deploying; the workflow fails closed rather than changing host accounts or sandbox settings.
+
+Keep the active JAR and backend code directory root-owned; grant the application access to its existing logs and uploads only. The production `logback-prod.xml` uses `/opt/app/logs`; confirm the effective logging configuration and upload path, existing file ownership, and any symlink targets before changing the service account. Preserve `PrivateTmp=true` for temporary-file writes under the strict sandbox. Verify the running process UID/GID, logging, upload/download, MCP, loopback health/build identity, and stable restart count after the controlled restart. Verify that code paths cannot be written from the service namespace while logs/uploads can. Keep a private backup of the previous unit and permission metadata for operator rollback; JAR rollback does not undo host provisioning.
+
+This adopts service isolation only. It does not install the separately tested hardened activators, their sudoers matrix, start-state verifier, deployment state, or frontend symlink layout. Do not copy that profile's `ExecStartPre` helper into the inline service. Inline checksum, attestation, readback, and contract-migration rollback boundaries remain unchanged. The inline fixture covers isolation-preflight failures without preparing a JAR or interrupting the current service.
