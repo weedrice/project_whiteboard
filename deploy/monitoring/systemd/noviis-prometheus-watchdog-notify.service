@@ -1,0 +1,24 @@
+[Unit]
+Description=Submit a Prometheus watchdog failure to local Alertmanager
+After=noviis-alertmanager.service
+
+[Service]
+Type=oneshot
+User=noviis-alertmanager
+Group=noviis-alertmanager
+ExecStart=/usr/local/sbin/notify-noviis-prometheus-watchdog-failure
+TimeoutStartSec=15
+Restart=no
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=

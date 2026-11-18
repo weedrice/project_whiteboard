@@ -54,9 +54,11 @@ services:
       start_period: 45s
 
   redis:
-    image: redis:7.4-alpine
+    build:
+      context: ./deploy/docker/redis
+    image: noviis-redis:local
     container_name: noviis-redis
-    # Match the redis user in redis:7.4-alpine; do not require setuid/chown capabilities.
+    # Match the redis user in redis:7.4.12-alpine3.22; do not require setuid/chown capabilities.
     user: "999:1000"
     restart: unless-stopped
     read_only: true

@@ -6,7 +6,7 @@
 
 -   **Framework**: Spring Boot 4.1
 -   **Language**: Java 25
--   **Build Tool**: Gradle 9.8.1
+-   **Build Tool**: Gradle 9.9.1
 -   **Database**: PostgreSQL
 -   **ORM**: Spring Data JPA / Hibernate
 -   **Security**: Spring Security, JWT (JSON Web Token)
@@ -64,10 +64,30 @@ com.weedrice.whiteboard
 ## 🚀 시작하기 (Getting Started)
 
 ### 전제 조건 (Prerequisites)
--   JDK 25
+-   JDK 25.0.5.1 이상 (현재 CI/Docker 기준: Azul Zulu CA 25.38.201, OpenJDK 25.0.5.1+2; [공식 버전 목록의 무료 CA PSU 배포](https://docs.azul.com/core/version-search))
 -   PostgreSQL과 `pg_trgm`, `vector` 확장
 
 Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을 실행하는 데이터베이스 사용자는 해당 확장을 생성할 권한이 있어야 합니다. 권한을 부여할 수 없는 환경에서는 관리자가 두 확장을 미리 설치해야 합니다.
+
+Windows에서는 설치한 보안 패치 JDK를 현재 PowerShell 세션과 IDE의 Gradle JVM에서 선택하고, `gradlew.bat --version`의 Launcher JVM을 확인하세요. 아래 경로는 실제 설치 경로로 바꿉니다. `$env:JAVA_HOME` 설정은 현재 셸에만 적용됩니다.
+
+```powershell
+$env:JAVA_HOME = 'C:\tools\zulu25.38.201-ca-jdk25.0.5.1-win_x64'
+.\gradlew.bat --version
+```
+
+#### 임시 JVM 보안 완화 (CVE-2026-114938)
+
+CI/Docker는 영구 수정이 포함된 Zulu 25.0.5.1+2를 사용합니다. 아직 Temurin 25.0.5+8 등 이전 JDK를 사용하는 로컬·native 실행 환경의 Base64 intrinsic 취약점에 대해 [공식 완화 지침](https://access.redhat.com/security/vulnerabilities/RHSB-2026-018)에 따라 `-XX:-UseBASE64Intrinsics`를 적용합니다. Gradle의 `bootRun`을 포함한 `JavaExec` 작업과 모든 `Test` 작업에는 이 옵션이 설정되어 있습니다. 수정된 JDK에서도 구버전 호스트를 위한 추가 방어 설정으로 유지합니다.
+
+IDE에서 애플리케이션을 직접 실행하거나 `java -jar`로 실행할 때도 VM options에 같은 옵션을 추가하세요. Gradle 자체의 JVM까지 포함하려면 현재 PowerShell 세션에서 다음과 같이 기존 옵션을 보존해 설정할 수 있습니다.
+
+```powershell
+$env:JAVA_TOOL_OPTIONS = ("$env:JAVA_TOOL_OPTIONS -XX:-UseBASE64Intrinsics").Trim()
+java -XX:+PrintFlagsFinal -version 2>&1 | Select-String 'UseBASE64Intrinsics'
+```
+
+출력의 `UseBASE64Intrinsics`가 `false`인지 확인합니다. 이는 임시 완화이므로 해당 취약점의 영구 수정이 포함된 JDK로 개발·CI·운영 환경을 모두 업데이트한 뒤 옵션을 제거하고 재검증하세요.
 
 ### 설정 (Configuration)
 

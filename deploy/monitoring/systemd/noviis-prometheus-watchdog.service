@@ -1,6 +1,7 @@
 [Unit]
 Description=NoviIs independent Prometheus health watchdog
 After=prometheus.service
+OnFailure=noviis-prometheus-watchdog-notify.service
 
 [Service]
 Type=oneshot

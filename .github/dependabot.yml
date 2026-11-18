@@ -71,8 +71,21 @@ updates:
       timezone: Asia/Seoul
     open-pull-requests-limit: 5
     ignore:
-      # Keep Java runtime baseline upgrades explicit and coordinated with Gradle and CI.
-      - dependency-name: "eclipse-temurin"
+      # Coordinate Alpine majors with the SHA-verified Azul musl runtime archives.
+      - dependency-name: "alpine"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: docker
+    directory: /deploy/docker/redis
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:45"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "redis"
         update-types:
           - "version-update:semver-major"
 

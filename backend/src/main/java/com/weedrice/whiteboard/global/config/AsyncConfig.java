@@ -13,7 +13,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Configuration
@@ -71,19 +70,20 @@ public class AsyncConfig implements AsyncConfigurer {
                 executorName, rejectionOutcome, meterRegistry));
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(properties.getAwaitTerminationSeconds());
-        executor.initialize();
-        registerExecutorGauges(executorName, executor.getThreadPoolExecutor());
+        registerExecutorGauges(executorName, executor);
         return executor;
     }
 
-    private void registerExecutorGauges(String executorName, ThreadPoolExecutor executor) {
-        Gauge.builder("noviis.async.active", executor, ThreadPoolExecutor::getActiveCount)
+    private void registerExecutorGauges(String executorName, ThreadPoolTaskExecutor executor) {
+        // Spring initializes the pool after bean creation; observe the managed executor,
+        // not a temporary pool that Micrometer only retains through a weak reference.
+        Gauge.builder("noviis.async.active", executor, ThreadPoolTaskExecutor::getActiveCount)
                 .tag("executor", executorName)
                 .register(meterRegistry);
-        Gauge.builder("noviis.async.queue.depth", executor, value -> value.getQueue().size())
+        Gauge.builder("noviis.async.queue.depth", executor, value -> value.getThreadPoolExecutor().getQueue().size())
                 .tag("executor", executorName)
                 .register(meterRegistry);
-        Gauge.builder("noviis.async.queue.remaining", executor, value -> value.getQueue().remainingCapacity())
+        Gauge.builder("noviis.async.queue.remaining", executor, value -> value.getThreadPoolExecutor().getQueue().remainingCapacity())
                 .tag("executor", executorName)
                 .register(meterRegistry);
     }

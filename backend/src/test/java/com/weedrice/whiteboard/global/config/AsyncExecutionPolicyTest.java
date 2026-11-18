@@ -32,6 +32,7 @@ class AsyncExecutionPolicyTest {
     @Test
     void executorsUseConfiguredSizesAndQueueCapacities() {
         executor = config.durableTaskExecutor();
+        executor.afterPropertiesSet();
         assertThat(executor.getCorePoolSize()).isEqualTo(4);
         assertThat(executor.getMaxPoolSize()).isEqualTo(8);
         assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(200);
@@ -41,12 +42,14 @@ class AsyncExecutionPolicyTest {
 
         executor.shutdown();
         executor = config.observabilityTaskExecutor();
+        executor.afterPropertiesSet();
         assertThat(executor.getCorePoolSize()).isEqualTo(2);
         assertThat(executor.getMaxPoolSize()).isEqualTo(4);
         assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(100);
 
         executor.shutdown();
         executor = config.streamTaskExecutor();
+        executor.afterPropertiesSet();
         assertThat(executor.getCorePoolSize()).isEqualTo(1);
         assertThat(executor.getMaxPoolSize()).isEqualTo(2);
         assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(50);
@@ -55,6 +58,7 @@ class AsyncExecutionPolicyTest {
     @Test
     void mdcIsCopiedToWorkerAndRestored() throws InterruptedException {
         executor = config.observabilityTaskExecutor();
+        executor.afterPropertiesSet();
         MDC.put("traceId", "trace-123");
         AtomicReference<String> workerTraceId = new AtomicReference<>();
         CountDownLatch completed = new CountDownLatch(1);
@@ -75,6 +79,7 @@ class AsyncExecutionPolicyTest {
         AsyncTaskProperties properties = new AsyncTaskProperties();
         properties.setDurable(new AsyncTaskProperties.Pool(1, 1, 0));
         executor = new AsyncConfig(properties, meterRegistry).durableTaskExecutor();
+        executor.afterPropertiesSet();
         CountDownLatch release = occupySingleThread(executor);
 
         assertThatThrownBy(() -> executor.execute(() -> { }))
@@ -88,6 +93,7 @@ class AsyncExecutionPolicyTest {
         AsyncTaskProperties properties = new AsyncTaskProperties();
         properties.setNotification(new AsyncTaskProperties.Pool(1, 1, 0));
         executor = new AsyncConfig(properties, meterRegistry).notificationTaskExecutor();
+        executor.afterPropertiesSet();
         CountDownLatch release = occupySingleThread(executor);
         assertThatThrownBy(() -> executor.execute(() -> { }))
                 .isInstanceOf(TaskRejectedException.class);
@@ -100,6 +106,7 @@ class AsyncExecutionPolicyTest {
         AsyncTaskProperties properties = new AsyncTaskProperties();
         properties.setObservability(new AsyncTaskProperties.Pool(1, 1, 0));
         executor = new AsyncConfig(properties, meterRegistry).observabilityTaskExecutor();
+        executor.afterPropertiesSet();
         CountDownLatch release = occupySingleThread(executor);
         AtomicReference<Boolean> ran = new AtomicReference<>(false);
 
@@ -115,6 +122,7 @@ class AsyncExecutionPolicyTest {
         AsyncTaskProperties properties = new AsyncTaskProperties();
         properties.setStream(new AsyncTaskProperties.Pool(1, 1, 0));
         executor = new AsyncConfig(properties, meterRegistry).streamTaskExecutor();
+        executor.afterPropertiesSet();
         CountDownLatch release = occupySingleThread(executor);
         AtomicReference<Boolean> ran = new AtomicReference<>(false);
 

@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.dao.DataIntegrityViolationException;
+import software.amazon.awssdk.http.Abortable;
 
 import com.weedrice.whiteboard.domain.file.service.FileUploadValidationPolicy.ValidatedUpload;
 
@@ -21,6 +22,7 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,8 +60,8 @@ class FileImageVariantGenerator {
     }
 
     public ReconciliationResult generateMissingVariants(File originalFile) {
-        MultipartFile storedFile = new StoredMultipartFile(originalFile, fileStorageService);
         try {
+            MultipartFile storedFile = readStoredOriginal(originalFile);
             ValidatedUpload upload = validationPolicy.validate(storedFile);
             int generated = generateVariantsOrThrow(originalFile, storedFile, upload);
             return new ReconciliationResult(
@@ -69,6 +71,24 @@ class FileImageVariantGenerator {
                     expectedVariantCount(upload.width(), upload.height()));
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to regenerate image variants", exception);
+        }
+    }
+
+    private MultipartFile readStoredOriginal(File originalFile) throws IOException {
+        // Legacy metadata may have a zero or stale size. Validate the actual object,
+        // reusing one bounded snapshot for validation and both variants, with S3 closed first.
+        try (InputStream input = fileStorageService.loadFile(originalFile.getFilePath())) {
+            boolean fullyRead = false;
+            try {
+                byte[] contents = input.readNBytes(Math.toIntExact(FileUploadValidationPolicy.MAX_FILE_SIZE) + 1);
+                fullyRead = contents.length <= FileUploadValidationPolicy.MAX_FILE_SIZE;
+                return new StoredMultipartFile(originalFile, contents);
+            } finally {
+                // Apache's S3 stream close otherwise drains the rest of an oversized object.
+                if (!fullyRead && input instanceof Abortable abortable) {
+                    abortable.abort();
+                }
+            }
         }
     }
 
@@ -220,16 +240,14 @@ class FileImageVariantGenerator {
     record ReconciliationResult(int generated, int width, int height, int expectedVariantCount) {
     }
 
-    private record StoredMultipartFile(File file, FileStorageService storageService) implements MultipartFile {
+    private record StoredMultipartFile(File file, byte[] contents) implements MultipartFile {
         @Override public String getName() { return "file"; }
         @Override public String getOriginalFilename() { return file.getOriginalName(); }
         @Override public String getContentType() { return file.getMimeType(); }
-        @Override public boolean isEmpty() { return file.getFileSize() == null || file.getFileSize() == 0; }
-        @Override public long getSize() { return file.getFileSize() == null ? 0 : file.getFileSize(); }
-        @Override public byte[] getBytes() throws IOException {
-            try (InputStream input = getInputStream()) { return input.readAllBytes(); }
-        }
-        @Override public InputStream getInputStream() { return storageService.loadFile(file.getFilePath()); }
+        @Override public boolean isEmpty() { return contents.length == 0; }
+        @Override public long getSize() { return contents.length; }
+        @Override public byte[] getBytes() { return contents.clone(); }
+        @Override public InputStream getInputStream() { return new ByteArrayInputStream(contents); }
         @Override public void transferTo(java.io.File destination) throws IOException {
             try (InputStream input = getInputStream()) { Files.copy(input, destination.toPath()); }
         }

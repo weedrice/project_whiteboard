@@ -10,7 +10,7 @@ This directory owns Prometheus, Grafana, exporters, watchdogs, alerts, dashboard
 - Adding, renaming, or rescheduling a non-Agent `@Scheduled` method requires coordinated [scheduled-jobs.txt](scheduled-jobs.txt), freshness rules, README cadence, and [verifier](verify-scheduled-jobs.py) updates.
 - Required metric changes coordinate [required-backend-metrics.txt](required-backend-metrics.txt), matching `absent()` checks, panels, README generated block, and [verifier](verify-required-backend-metrics.py).
 - [tool-versions.env](tool-versions.env) owns pinned monitoring versions. Change version, architecture, checksum, CI download, rollout, and rollback guidance together.
-- A firing rule proves evaluation only: no Alertmanager receiver is configured, so it does not establish Slack/email delivery.
+- A firing rule proves evaluation only. The loopback Alertmanager template requires server-local SMTP provisioning and a real delivery check; verify successful notification counters and receiver delivery before claiming email works. Never store rendered SMTP credentials in the repository.
 - CPU/memory ceilings require representative evidence and staging validation from README plus the resource-evidence fixture; never guess limits.
 - Keep Grafana passwords, recovery contents, raw telemetry, and unredacted diagnostics out of the repository, arguments, logs, fixtures, and chat.
 

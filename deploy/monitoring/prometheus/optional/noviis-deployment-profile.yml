@@ -1,0 +1,22 @@
+# Install only after the hardened deployment cleanup writers are provisioned.
+groups:
+  - name: noviis-deployment-profile
+    rules:
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: release_retention }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: incoming_release }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: status_diagnostic }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: release_retention }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: incoming_release }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: seo_submission }

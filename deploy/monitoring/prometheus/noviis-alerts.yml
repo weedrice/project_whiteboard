@@ -1,24 +1,6 @@
 groups:
   - name: noviis
     rules:
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: backend, debt: release_retention }
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: backend, debt: incoming_release }
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: backend, debt: status_diagnostic }
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: frontend, debt: release_retention }
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: frontend, debt: incoming_release }
-      - record: noviis_deployment_cleanup_expected
-        expr: vector(1)
-        labels: { component: frontend, debt: seo_submission }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
         labels: { cadence: frequent, scheduled_job: FeedGenerationJobScheduler.processPendingFeedGenerationJobs, threshold: 10m }
@@ -86,6 +68,15 @@ groups:
         expr: vector(108000)
         labels: { cadence: daily, scheduled_job: VerificationCodeCleanupScheduler.cleanupExpiredVerificationCodes, threshold: 30h }
 
+      - alert: NoviIsAlertmanagerDown
+        expr: up{job="alertmanager"} == 0 or absent(up{job="alertmanager"})
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Local Alertmanager is unavailable; external notifications may not be delivered" }
+      - alert: NoviIsAlertmanagerNotificationFailure
+        expr: increase(alertmanager_notifications_failed_total{job="alertmanager",integration="email"}[15m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Alertmanager recorded an email delivery failure" }
       - alert: NoviIsBackendDown
         expr: up{job="noviis-backend"} == 0 or absent(up{job="noviis-backend"})
         for: 2m
@@ -142,6 +133,8 @@ groups:
             or label_replace(absent(noviis_file_variant_cleanup_dead_letter), "missing_metric", "noviis_file_variant_cleanup_dead_letter", "", "")
             or label_replace(absent(noviis_file_variant_cleanup_oldest_due_age_seconds), "missing_metric", "noviis_file_variant_cleanup_oldest_due_age_seconds", "", "")
             or label_replace(absent(noviis_file_variant_cleanup_total), "missing_metric", "noviis_file_variant_cleanup_total", "", "")
+            or label_replace(absent(noviis_file_variant_reconciliation_total), "missing_metric", "noviis_file_variant_reconciliation_total", "", "")
+            or label_replace(absent(noviis_file_variant_reconciliation_backoff_files), "missing_metric", "noviis_file_variant_reconciliation_backoff_files", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_pending), "missing_metric", "noviis_semantic_reindex_jobs_pending", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_processing), "missing_metric", "noviis_semantic_reindex_jobs_processing", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_oldest_active_age_seconds), "missing_metric", "noviis_semantic_reindex_jobs_oldest_active_age_seconds", "", "")
@@ -256,6 +249,14 @@ groups:
         expr: increase(noviis_async_rejected_total{executor="observability",outcome="dropped"}[5m]) > 0
         labels: { severity: warning }
         annotations: { summary: "An observability asynchronous task was dropped" }
+      - alert: NoviIsAsyncExecutorGaugeNaN
+        expr: |
+          (label_replace(noviis_async_active != noviis_async_active, "invalid_metric", "noviis_async_active", "", "")
+            or label_replace(noviis_async_queue_depth != noviis_async_queue_depth, "invalid_metric", "noviis_async_queue_depth", "", "")
+            or label_replace(noviis_async_queue_remaining != noviis_async_queue_remaining, "invalid_metric", "noviis_async_queue_remaining", "", ""))
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "Async executor {{ $labels.executor }} gauge {{ $labels.invalid_metric }} is NaN" }
       - alert: NoviIsAsyncExecutorSaturated
         expr: >-
           noviis_async_queue_remaining{executor=~"durable|notification|observability"} == 0
@@ -361,6 +362,15 @@ groups:
         expr: increase(noviis_file_variant_cleanup_total{outcome="retry"}[15m]) > 20
         labels: { severity: warning }
         annotations: { summary: "Image variant cleanup retries exceeded 20 in 15 minutes" }
+      - alert: NoviIsFileVariantReconciliationFailure
+        expr: increase(noviis_file_variant_reconciliation_total{outcome="failure"}[1h]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Image variant reconciliation failed within the last hour" }
+      - alert: NoviIsFileVariantReconciliationBackoff
+        expr: noviis_file_variant_reconciliation_backoff_files > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Image variant reconciliation has files waiting for retry" }
       - alert: NoviIsSemanticReindexStale
         expr: noviis_semantic_reindex_jobs_oldest_active_age_seconds > 900
         for: 5m

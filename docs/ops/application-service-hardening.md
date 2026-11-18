@@ -6,6 +6,12 @@ This document defines a separately tested hardened host profile. The current pro
 
 Do not treat tracked scripts or passing fixtures as proof that this profile is installed on a host. Adopting it requires one coordinated, reviewed rollout that updates the reusable workflows, provisions and verifies every installed entrypoint, migrates the frontend web root to the managed symlink layout, establishes secured state files, validates rollback and contract-recovery behavior, and updates `.github/workflows/README.md`. Until that adoption is complete, use the workflow README as the source of truth for current production deployment behavior.
 
+## Inline Service Isolation Without Activator Adoption
+
+The current inline workflow also requires a dedicated `noviis-app:noviis-app` service account, `ProtectHome=yes`, `ProtectSystem=strict`, and exactly `/opt/app/logs /opt/app/uploads` as persistent writable paths. It verifies root ownership and mode `0755` for the real `/opt/app` and `/opt/app/backend` directories before preparing a JAR or stopping the service. The existing SSH deployment account and inline sudo activation remain in use. See the [workflow guide](../../.github/workflows/README.md#inline-backend-service-isolation) for host prerequisites, runtime checks, and operator rollback scope.
+
+These service restrictions are a separate, limited adoption. They do not install or enable the hardened profile's activators, privileged start-state verifier, state files, sudoers matrix, or frontend symlink layout described below. Do not copy the complete hardened unit into an inline host without the coordinated adoption described above.
+
 ## Current Inline Failure Diagnosis
 
 The current inline backend workflow records the activation phase and original exit code before recovery, together with only `ActiveState`, `SubState`, `Result`, `ExecMainCode`, `ExecMainStatus`, `NRestarts`, and `MainPID` from systemd. Diagnostic lookup failure does not prevent recovery or replace the original failure. No journal, environment, or unit contents are published to Actions. These diagnostics do not require adopting the hardened profile or its diagnostic directory.
@@ -81,3 +87,9 @@ The unit limits crash loops to five starts per five minutes and explicitly uses 
 Choose `MemoryHigh` above the measured p99 total process usage and `MemoryMax` above the measured peak with explicit native-memory and deployment headroom. Validate the proposed values in a temporary drop-in, force a heap-pressure test in staging, confirm the management health endpoint remains responsive, and record the rollback command. A missing measurement record blocks the limit change; `verify-resource-limit-evidence.sh` checks `app.service` as well as the Prometheus and Grafana drop-ins and requires configured byte values to match the reviewed evidence. The tracked unit intentionally contains no guessed memory cap.
 
 After any restart-policy or resource change, run `systemd-analyze verify`, inspect `systemd-analyze security app.service`, and confirm that repeated startup failures reach `start-limit-hit` without affecting the active release rollback procedure.
+
+## November 2026 JVM security baseline
+
+The hardened unit uses an explicit `-XX:-UseBASE64Intrinsics` argument before `-jar`; install the patched Zulu CA OpenJDK 25.0.5.1+2 runtime as well. The flag mitigates CVE-2026-114938 only and does not replace the other November fixes. Follow the [workflow guide's JVM prerequisites and private readback procedure](../../.github/workflows/README.md#november-2026-jvm-security-baseline) for host preparation and the supported direct Java command format.
+
+This remains a separately tested profile: neither this repository change nor passing CI installs it, changes the production host, or performs deployment. Preserve the current profile's account, permissions, environment and activation contracts when provisioning the runtime.
