@@ -40,7 +40,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -i --network none --read-only --user nginx --
   -v "$(docker_path "$fixture/snippets"):/etc/nginx/snippets:ro" \
   -v "$(docker_path "$fixture/letsencrypt"):/etc/letsencrypt:ro" \
   -v "$(docker_path "$fixture/site"):/var/www/app:ro" \
-  nginx:1.30.6-alpine3.24-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 \
+  nginx:1.30.7-alpine3.24-slim@sha256:8c950211a641ec5b23f265450517001f6bcca533666120ebe36cb4cff3d00a55 \
   sh -eu <<'CONTAINER'
 nginx -t
 nginx

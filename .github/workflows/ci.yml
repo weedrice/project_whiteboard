@@ -387,7 +387,7 @@ jobs:
           trap cleanup EXIT
           docker network create "$network" >/dev/null
           docker run -d --name "$backend_container" --network "$network" --network-alias backend \
-            nginx:1.30.6-alpine3.24-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 >/dev/null
+            nginx:1.30.7-alpine3.24-slim@sha256:8c950211a641ec5b23f265450517001f6bcca533666120ebe36cb4cff3d00a55 >/dev/null
           docker run --rm --network "$network" --entrypoint nginx noviis-frontend:ci -t
         working-directory: .
 

@@ -41,6 +41,8 @@ backend는 새 JAR 복사·digest 검증과 daemon reload, 이전 JAR backup·di
 
 정적 자산 `/assets/`, `/js/`, `/css/`, `/img/`, `/fonts/`는 파일이 없으면 SPA HTML 대신 `404`와 `Cache-Control: no-store`를 반환한다. 정상 자산의 immutable 캐시와 SPA·API 정책은 유지한다. PWA는 정적 캐시에서 HTML·비정상 상태 응답을 읽거나 저장하지 않으며 활성화 시 기존 오염 항목만 제거해 정상 오프라인 자산을 보존한다. `test-nginx-config.sh`는 구문 검사와 16개 HTTP 응답 계약을 검증한다. **현재 frontend 배포 workflow는 운영 Nginx 설정을 설치하거나 reload하지 않으므로**, 저장소 템플릿 수정과 실제 호스트 반영을 구분해야 한다. 적용·복구 확인은 [프론트엔드 정적 캐시 운영 가이드](../../docs/ops/frontend-static-cache.md)를 따른다.
 
+운영 native Nginx는 2026-11-19에 공식 stable `1.30.7-1~jammy`로 교체했다. 이 호스트 패키지는 frontend artifact 배포와 별도로 관리한다. Dockerfile과 ops fixture는 동일 보안 패치 버전의 이미지를 digest로 고정하며, 설치·응답·인증서 갱신 검증과 복구 절차는 [운영 Nginx 보안 업데이트](../../docs/ops/nginx-security-upgrade.md)를 따른다.
+
 ## SEO
 
 Frontend candidate의 SEO 빌드는 운영 API를 조회하므로 `deploy-backend` 완료를 기다린다. backend도 배포 대상이면 배포 성공과 `activated_sha == github.sha`를 확인한 뒤 시작한다. frontend만 배포하는 push 또는 수동 실행에서는 요청하지 않은 backend의 `skipped`를 허용한다. 요청된 backend의 실패·취소·예상하지 않은 skip·실행 SHA 불일치는 frontend candidate를 차단한다. backend 복구 전에 사이트맵을 먼저 조회해 502로 실패하거나 backend 재시작과 같은 실행의 SEO 빌드가 겹치는 것을 방지하며, candidate/release 권한 분리와 최종 Deployment Gate는 유지한다.
