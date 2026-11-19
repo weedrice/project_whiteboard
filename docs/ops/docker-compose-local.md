@@ -5,7 +5,7 @@ to a PostgreSQL database outside the Compose stack, defaulting to `host.docker.i
 sale-status stream relay; the backend starts after Redis is healthy, and the frontend starts after the backend is healthy.
 
 Container versions and digests are pinned in the Dockerfiles and Compose files. The security baseline is Node 24.22.3,
-Zulu CA 25.0.5.1+2, Nginx 1.30.6 on Alpine 3.24 slim, Redis 7.4.12 on Alpine 3.22, and pgvector 0.8.7 with PostgreSQL 16
+Zulu CA 25.0.5.1+2, Nginx 1.30.7 on Alpine 3.24 slim, Redis 7.4.12 on Alpine 3.22, and pgvector 0.8.7 with PostgreSQL 16
 on Debian Bookworm. The Nginx slim image omits unused image/XSLT modules while preserving static files and reverse proxy
 behavior. PostgreSQL stays on the existing major version and Bookworm base to avoid an implicit data or locale migration.
 
