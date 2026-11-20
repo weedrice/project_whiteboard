@@ -114,7 +114,7 @@ public class CommentCommandService {
         Comment savedComment = commentRepository.save(comment);
         commentPostPort.incrementCommentCount(post.postId());
         saveCommentVersion(savedComment, userId, "CREATE", null);
-        replaceCommentMentions(savedComment, userId, mentionedUserIds);
+        saveAddedMentions(savedComment, Set.of(), commentUserWritePort.resolveMentionedUserIds(userId, mentionedUserIds));
 
         if (parentId != null) {
             commentClosureRepository.createClosures(savedComment.getCommentId(), parentId);
@@ -205,7 +205,14 @@ public class CommentCommandService {
         saveCommentVersion(comment, userId, "MODIFY", originalContent);
         if (mentionedUserIds != null) {
             Set<Long> previousMentionedUserIds = loadStoredMentionUserIds(comment.getCommentId());
-            List<Long> storedMentionedUserIds = replaceCommentMentions(comment, userId, mentionedUserIds);
+            List<Long> storedMentionedUserIds = commentUserWritePort.resolveMentionedUserIds(userId, mentionedUserIds);
+            List<Long> removedUserIds = previousMentionedUserIds.stream()
+                    .filter(id -> !storedMentionedUserIds.contains(id))
+                    .toList();
+            if (!removedUserIds.isEmpty()) {
+                commentMentionRepository.deleteByCommentCommentIdAndUserIdIn(commentId, removedUserIds);
+            }
+            saveAddedMentions(comment, previousMentionedUserIds, storedMentionedUserIds);
             commentUserWritePort.publishNewMentions(
                     userId,
                     comment.getAgentId(),
@@ -334,21 +341,17 @@ public class CommentCommandService {
         commentVersionRepository.save(commentVersion);
     }
 
-    private List<Long> replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
-        commentMentionRepository.deleteByCommentCommentId(comment.getCommentId());
-        List<Long> resolvedMentionedUserIds = commentUserWritePort.resolveMentionedUserIds(
-                authorUserId, mentionedUserIds);
-        if (resolvedMentionedUserIds.isEmpty()) {
-            return List.of();
-        }
-        List<CommentMention> mentions = resolvedMentionedUserIds.stream()
+    private void saveAddedMentions(Comment comment, Set<Long> existingUserIds, List<Long> requestedUserIds) {
+        List<CommentMention> mentions = requestedUserIds.stream()
+                .filter(id -> !existingUserIds.contains(id))
                 .map(userId -> CommentMention.builder()
                         .comment(comment)
                         .userId(userId)
                         .build())
                 .toList();
-        commentMentionRepository.saveAll(mentions);
-        return resolvedMentionedUserIds;
+        if (!mentions.isEmpty()) {
+            commentMentionRepository.saveAll(mentions);
+        }
     }
 
     private Set<Long> loadStoredMentionUserIds(Long commentId) {

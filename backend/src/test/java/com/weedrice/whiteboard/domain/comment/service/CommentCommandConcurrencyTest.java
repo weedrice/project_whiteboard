@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.actor.ActorWritePort;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
 import com.weedrice.whiteboard.domain.comment.port.CommentNotificationPort;
 import com.weedrice.whiteboard.domain.comment.port.CommentPostPort;
@@ -37,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -61,6 +63,8 @@ class CommentCommandConcurrencyTest {
     private EntityManager entityManager;
     @Autowired
     private CommentRepository commentRepository;
+    @Autowired
+    private CommentMentionRepository mentionRepository;
     @Autowired
     private TransactionTemplate transactions;
 
@@ -98,7 +102,7 @@ class CommentCommandConcurrencyTest {
         rewardService = mock(ContentRewardService.class);
         commandService = new CommentCommandService(
                 commentRepository, mock(CommentLikeRepository.class), versionRepository,
-                mock(CommentClosureRepository.class), mock(CommentMentionRepository.class),
+                mock(CommentClosureRepository.class), mentionRepository,
                 mock(ActorWritePort.class), userWritePort, postPort, rewardService,
                 mock(CommentNotificationPort.class), mock(CommentStreamEventDispatcher.class),
                 mock(SemanticSearchEventPublisher.class), mock(CommentLikeCommand.class),
@@ -126,6 +130,40 @@ class CommentCommandConcurrencyTest {
         Boolean deleted = transactions.execute(status -> commentRepository.findById(commentId).orElseThrow()
                 .getIsDeleted());
         assertThat(deleted).isTrue();
+    }
+
+    @Test
+    void overlappingMentionEditsPersistOnlyAdditionsAndRemovals() {
+        transactions.executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            User added = User.builder().loginId("mention-added").email("mention-added@example.com")
+                    .password("test-password").displayName("New mention").build();
+            entityManager.persist(added);
+            Comment comment = entityManager.find(Comment.class, commentId);
+            CommentMention retained = mentionRepository.saveAndFlush(
+                    CommentMention.builder().comment(comment).userId(userId).build());
+            Long retainedId = retained.getCommentMentionId();
+            Long addedId = added.getUserId();
+            List<Long> expanded = List.of(userId, addedId);
+            when(userWritePort.resolveMentionedUserIds(userId, expanded)).thenReturn(expanded);
+            when(userWritePort.resolveMentionedUserIds(userId, List.of(addedId))).thenReturn(List.of(addedId));
+            when(postPort.lockForWrite(postId)).thenReturn(new CommentPostSnapshot(
+                    postId, boardId, "comment-locks", "Comment locks", null, "Post", userId, null, false, true, true));
+
+            commandService.updateComment(new CommentUpdateCommand(userId, commentId, "Keep and add", expanded));
+            entityManager.flush();
+            entityManager.clear();
+            List<CommentMention> saved = mentionRepository.findByCommentCommentIdIn(List.of(commentId));
+            assertThat(saved).extracting(CommentMention::getUserId).containsExactlyInAnyOrder(userId, addedId);
+            assertThat(saved).filteredOn(row -> row.getUserId().equals(userId))
+                    .extracting(CommentMention::getCommentMentionId).containsExactly(retainedId);
+
+            commandService.updateComment(new CommentUpdateCommand(userId, commentId, "Remove one", List.of(addedId)));
+            entityManager.flush();
+            entityManager.clear();
+            assertThat(mentionRepository.findByCommentCommentIdIn(List.of(commentId)))
+                    .extracting(CommentMention::getUserId).containsExactly(addedId);
+        });
     }
 
     @Test
