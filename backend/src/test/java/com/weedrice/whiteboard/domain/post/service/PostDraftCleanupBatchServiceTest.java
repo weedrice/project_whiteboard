@@ -36,7 +36,7 @@ class PostDraftCleanupBatchServiceTest {
                 .thenReturn(List.of(expired));
         PostDraftCleanupBatchService service = new PostDraftCleanupBatchService(draftPostRepository, fileService);
 
-        assertThat(service.cleanupExpiredBatch(cutoff, 100)).isEqualTo(1);
+        assertThat(service.cleanupExpiredBatch(cutoff, 100)).isEqualTo(new PostDraftCleanupBatchService.BatchResult(1, 1));
         var ordered = inOrder(fileService, draftPostRepository);
         ordered.verify(fileService).markDraftFilesDeletionPending(3L);
         ordered.verify(draftPostRepository).delete(expired);

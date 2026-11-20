@@ -57,9 +57,9 @@ public class PostDraftCleanupService {
         int deletedCount = 0;
 
         while (true) {
-            int batchDeletedCount = cleanupBatchService.cleanupExpiredBatch(cutoff, CLEANUP_BATCH_SIZE);
-            deletedCount += batchDeletedCount;
-            if (batchDeletedCount < CLEANUP_BATCH_SIZE) {
+            var batch = cleanupBatchService.cleanupExpiredBatch(cutoff, CLEANUP_BATCH_SIZE);
+            deletedCount += batch.deleted();
+            if (batch.scanned() < CLEANUP_BATCH_SIZE) {
                 break;
             }
         }

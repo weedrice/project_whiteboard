@@ -80,13 +80,14 @@ class PostDraftCleanupServiceTest {
     void cleanupExpiredDrafts_repeatsIndependentBatchesUntilPartialBatch() {
         LocalDateTime cutoff = LocalDateTime.of(2026, 4, 14, 0, 0);
         when(cleanupBatchService.cleanupExpiredBatch(cutoff, 100))
-                .thenReturn(100, 2);
+                .thenReturn(new PostDraftCleanupBatchService.BatchResult(100, 99),
+                        new PostDraftCleanupBatchService.BatchResult(2, 2));
 
         int deleted = cleanupService.cleanupExpiredDrafts();
 
-        assertThat(deleted).isEqualTo(102);
+        assertThat(deleted).isEqualTo(101);
         assertThat(meterRegistry.counter("noviis.post.draft.cleaned", "reason", "retention").count())
-                .isEqualTo(102);
+                .isEqualTo(101);
         org.mockito.Mockito.verify(cleanupBatchService, org.mockito.Mockito.times(2))
                 .cleanupExpiredBatch(cutoff, 100);
     }

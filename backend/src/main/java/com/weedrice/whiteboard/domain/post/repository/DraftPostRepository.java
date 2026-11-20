@@ -14,8 +14,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
     @EntityGraph(attributePaths = {"board", "originalPost"})
@@ -169,6 +171,13 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             ORDER BY d.modifiedAt ASC, d.draftId ASC
             """)
     List<DraftPost> findExpiredBefore(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+
+    @Query("""
+            SELECT s.draftId FROM ScheduledPost s
+            WHERE s.draftId IN :draftIds AND s.status IN :protectedStatuses
+            """)
+    Set<Long> findProtectedDraftIds(@Param("draftIds") List<Long> draftIds,
+            @Param("protectedStatuses") Collection<String> protectedStatuses);
 
     void deleteByBoard(Board board);
 
