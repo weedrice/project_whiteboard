@@ -587,7 +587,7 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | Method | URI | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/emoticons/popular` | 인기 이모티콘 |
-| `GET` | `/api/v1/emoticons/search/all` | 이모티콘 목록 및 통합 검색 |
+| `GET` | `/api/v1/emoticons/search/all` | 이모티콘 목록 및 통합 검색. 제작자 정보가 없는 팩도 표시하며 제작자 ID와 이름은 null이다. |
 | `GET` | `/api/v1/emoticons/my` | 내가 만든 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 상세 |
 | `POST` | `/api/v1/emoticons` | 이모티콘 생성 |
