@@ -196,7 +196,7 @@ class EmoticonCatalogService {
     private EmoticonMasterDto toSummaryDto(EmoticonMaster master, Map<Long, String> creatorNamesById) {
         Long creatorId = extractCreatorId(master);
         String creatorName = extractLoadedCreatorName(master);
-        if (creatorName == null) {
+        if (creatorName == null && creatorId != null) {
             creatorName = creatorNamesById.get(creatorId);
         }
         return EmoticonMasterDto.fromWithoutImages(master, creatorId, creatorName);

@@ -836,9 +836,50 @@ class GlobalConfigServiceTest {
         verify(globalConfigRepository, never()).save(any());
     }
 
+    private void stubInquiryPriorityGuard() {
+        String key = GlobalConfigService.INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY;
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(key)))
+                .thenReturn(List.of(new GlobalConfig(key, "N", null)));
+    }
+
+    @Test
+    void deletingThresholdValidatesEffectiveDefaultsForBothKeys() {
+        stubInquiryPriorityGuard();
+        String high = GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY;
+        String urgent = GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY;
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(high, urgent)))
+                .thenReturn(List.of(new GlobalConfig(high, "8", null), new GlobalConfig(urgent, "12", null)))
+                .thenReturn(List.of(new GlobalConfig(high, "80", null), new GlobalConfig(urgent, "96", null)))
+                .thenReturn(List.of(new GlobalConfig(high, "8", null), new GlobalConfig(urgent, "96", null)));
+
+        for (String key : List.of(high, urgent)) {
+            assertThatThrownBy(() -> globalConfigService.deleteConfig(ACTOR_USER_ID, key))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+        verify(globalConfigRepository, never()).deleteById(anyString());
+        globalConfigService.deleteConfig(ACTOR_USER_ID, high);
+        verify(globalConfigRepository).deleteById(high);
+    }
+
+    @Test
+    void deletingAbsentThresholdPreservesNotFound() {
+        stubInquiryPriorityGuard();
+        String high = GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY;
+        String urgent = GlobalConfigService.INQUIRY_PRIORITY_URGENT_HOURS_CONFIG_KEY;
+        when(globalConfigRepository.findAllByKeysForUpdate(List.of(high, urgent)))
+                .thenReturn(List.of(new GlobalConfig(urgent, "12", null)));
+
+        assertThatThrownBy(() -> globalConfigService.deleteConfig(ACTOR_USER_ID, high))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+        verify(globalConfigRepository, never()).deleteById(anyString());
+    }
+
     @Test
     @DisplayName("문의 HIGH 임계값은 URGENT 임계값보다 작아야 한다")
     void updateConfig_inquiryPriorityHighThreshold_rejectsReversedRelationship() {
+        stubInquiryPriorityGuard();
         GlobalConfig high = new GlobalConfig(
                 GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY, "24", "high");
         GlobalConfig urgent = new GlobalConfig(
@@ -863,6 +904,7 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("문의 HIGH/URGENT 임계값의 유효한 관계는 저장한다")
     void updateConfig_inquiryPriorityThreshold_acceptsValidRelationship() {
+        stubInquiryPriorityGuard();
         GlobalConfig high = new GlobalConfig(
                 GlobalConfigService.INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY, "24", "high");
         GlobalConfig urgent = new GlobalConfig(

@@ -111,7 +111,8 @@ class SemanticSearchRecoveryPostgresTest {
         indexing.delete(deletion.contentType(), deletion.contentId());
         assertThat(isLive("POST", post.getPostId())).isFalse();
         assertThat(isLive("COMMENT", comment.getCommentId())).isFalse();
-        assertThat(jobs.redriveFailedDeletes("POST", 1)).isZero();
+        backfill.enqueueBackfill("POST", 1);
+        assertThat(jobs.findPendingDeletionJobs(5, 1000)).contains(deletion);
     }
 
     @Test

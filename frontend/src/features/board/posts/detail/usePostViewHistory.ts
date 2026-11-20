@@ -1,14 +1,31 @@
 import { onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
+import { isAxiosError } from 'axios'
+import { API_ERROR_CODES } from '@/api/errorCodes'
+import { extractErrorCode } from '@/utils/errorHandler'
 import { postApi, type ViewHistoryPayload } from '@/api/post'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const FLUSH_INTERVAL_MS = 30_000
+const MAX_REQUEST_DURATION_MS = 86_400_000
+
+function createViewSessionId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  // getRandomValues is also available on HTTP development origins.
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-')
+}
 
 interface TrackingState {
   postId: string | number
+  viewSessionId: string
+  confirmedDurationMs: number
   pendingDurationMs: number
-  lastReadCommentId: number | null
-  lastSentCommentId: number | null
+  pendingCommentIds: Set<number>
+  confirmedCommentId: number | null
+  rejectedCommentIds: Set<number>
   activeStartedAt: number | null
   inFlight: boolean
   finalFlushRequested: boolean
@@ -46,18 +63,20 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
     const key = stateKey(postId, sessionGeneration, userId)
     const existing = states.get(key)
     if (existing) {
-      if (existing.lastReadCommentId == null && initialLastReadCommentId != null) {
-        existing.lastReadCommentId = initialLastReadCommentId
-        existing.lastSentCommentId = initialLastReadCommentId
+      if (existing.confirmedCommentId == null && existing.pendingCommentIds.size === 0 && initialLastReadCommentId != null) {
+        existing.confirmedCommentId = initialLastReadCommentId
       }
       return existing
     }
 
     const state: TrackingState = {
       postId,
+      viewSessionId: createViewSessionId(),
+      confirmedDurationMs: 0,
       pendingDurationMs: 0,
-      lastReadCommentId: initialLastReadCommentId ?? null,
-      lastSentCommentId: initialLastReadCommentId ?? null,
+      pendingCommentIds: new Set(),
+      confirmedCommentId: initialLastReadCommentId ?? null,
+      rejectedCommentIds: new Set(),
       activeStartedAt: null,
       inFlight: false,
       finalFlushRequested: false,
@@ -120,44 +139,80 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       startAccruing()
     }
 
-    const durationMs = Math.floor(state.pendingDurationMs)
-    const sentCommentId = state.lastReadCommentId
-    const commentChanged = sentCommentId !== state.lastSentCommentId
-    if (durationMs <= 0 && !commentChanged) return
+    const durationMs = Math.min(Math.floor(state.pendingDurationMs), MAX_REQUEST_DURATION_MS)
+    const sessionDurationMs = state.confirmedDurationMs + durationMs
+    let sentCommentId: number | undefined
+    for (const commentId of state.pendingCommentIds) {
+      if (sentCommentId === undefined || commentId > sentCommentId) sentCommentId = commentId
+    }
+    if (durationMs <= 0 && sentCommentId === undefined) return
 
     state.pendingDurationMs -= durationMs
     state.inFlight = true
     const controller = new AbortController()
     state.controller = controller
-    const payload: ViewHistoryPayload = {
+    const durationPayload: ViewHistoryPayload = {
       durationMs,
-      ...(sentCommentId != null ? { lastReadCommentId: sentCommentId } : {}),
+      viewSessionId: state.viewSessionId,
+      sessionDurationMs,
     }
 
+    const send = (payload: ViewHistoryPayload) => postApi.updateViewHistory(state.postId, payload, {
+      expectedSession: { sessionGeneration: state.sessionGeneration, userId: state.userId },
+      signal: controller.signal,
+      skipAuthRefresh: true,
+      skipGlobalErrorHandler: true,
+    })
+    let acknowledged = false
+    let retryingWithoutCursor = false
     try {
-      await postApi.updateViewHistory(state.postId, payload, {
-        expectedSession: { sessionGeneration: state.sessionGeneration, userId: state.userId },
-        signal: controller.signal,
-        skipAuthRefresh: true,
-        skipGlobalErrorHandler: true,
-      })
+      if (sentCommentId !== undefined) {
+        try {
+          await send({ ...durationPayload, lastReadCommentId: sentCommentId })
+          if (controller.signal.aborted || !isCurrentSession(state)) return
+          state.confirmedCommentId = sentCommentId
+          for (const candidates of [state.pendingCommentIds, state.rejectedCommentIds]) {
+            for (const commentId of candidates) {
+              if (commentId <= sentCommentId) candidates.delete(commentId)
+            }
+          }
+        } catch (error) {
+          if (controller.signal.aborted || !isCurrentSession(state)) return
+          if (!isAxiosError(error) || error.response?.status !== 400
+            || extractErrorCode(error) !== API_ERROR_CODES.INVALID_INPUT_VALUE) throw error
+
+          // A rejected comment must not block valid progress below it.
+          state.rejectedCommentIds.add(sentCommentId)
+          state.pendingCommentIds.delete(sentCommentId)
+          if (durationMs > 0) {
+            retryingWithoutCursor = true
+            await send(durationPayload)
+          }
+        }
+      } else {
+        await send(durationPayload)
+      }
       if (controller.signal.aborted || !isCurrentSession(state)) return
-      state.lastSentCommentId = sentCommentId
+      acknowledged = true
+      state.confirmedDurationMs = sessionDurationMs
     } catch {
-      // A failed response can still have persisted additive duration on the server.
-      // The final follow-up sends only new data, without replaying this request.
-      if (!disposed && !controller.signal.aborted && isCurrentSession(state)) {
+      // The server may have committed the request. Keep its duration unconfirmed until acknowledged.
+      if (!controller.signal.aborted && isCurrentSession(state)) {
+        if (retryingWithoutCursor && Math.floor(state.pendingDurationMs) === 0
+          && state.pendingCommentIds.size === 0) {
+          state.finalFlushRequested = false
+        }
         state.pendingDurationMs += durationMs
       }
     } finally {
       state.inFlight = false
       if (state.controller === controller) state.controller = null
-      if (state.finalFlushRequested) {
+      if (state.finalFlushRequested || (disposed && acknowledged)) {
         state.finalFlushRequested = false
         if (
           !controller.signal.aborted
           && isCurrentSession(state)
-          && (Math.floor(state.pendingDurationMs) > 0 || state.lastReadCommentId !== sentCommentId)
+          && (Math.floor(state.pendingDurationMs) > 0 || state.pendingCommentIds.size > 0)
         ) {
           void flushState(state)
         }
@@ -194,8 +249,9 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
 
   function setLastReadCommentId(commentId: number) {
     const state = currentState()
-    if (!state || !Number.isFinite(commentId) || commentId <= 0) return
-    state.lastReadCommentId = Math.max(state.lastReadCommentId ?? 0, commentId)
+    if (!state || !Number.isFinite(commentId) || commentId <= (state.confirmedCommentId ?? 0)
+      || state.rejectedCommentIds.has(commentId)) return
+    state.pendingCommentIds.add(commentId)
   }
 
   watch(

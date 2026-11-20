@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -233,6 +235,38 @@ class FileDeletionWorkerTest {
         fileDeletionWorker.processDeletion(10L);
 
         verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        verify(fileRepository, never()).delete(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FileStorageStatus.class, names = {"PENDING_DELETE", "DELETING", "DELETE_FAILED"})
+    void processDeletion_preservesScheduledFileBeforeAccessingStorage(FileStorageStatus originalState) {
+        File file = pendingFile();
+        ReflectionTestUtils.setField(file, "storageStatus", originalState);
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findFileIdsReservedForOtherScheduledPost(List.of(10L), null)).thenReturn(List.of(10L));
+        executeTransactionCallbackOnly();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        assertThat(file.getStorageStatus()).isEqualTo(originalState == FileStorageStatus.PENDING_DELETE
+                ? FileStorageStatus.ACTIVE : originalState);
+        verify(fileStorageService, never()).deleteFileOrThrow(any());
+        verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
+    void processDeletion_skipsStorageWhenClaimChangedBeforeStorageCheck() {
+        File file = pendingFile();
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pendingFile()));
+        executeTransactionCallbackOnly();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService, never()).deleteFileOrThrow(any());
         verify(fileRepository, never()).delete(any());
     }
 

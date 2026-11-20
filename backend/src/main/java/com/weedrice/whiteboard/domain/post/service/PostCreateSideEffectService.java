@@ -42,7 +42,7 @@ public class PostCreateSideEffectService {
             Long publishingScheduledPostId) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
         pollService.createPoll(savedPost, request.getPoll());
-        postVersionRecorder.record(savedPost, user, "CREATE", null, null);
+        postVersionRecorder.record(savedPost, user, "CREATE", savedPost.getTitle(), null);
 
         DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
                 request.getDraftId(), user, savedPost.getBoard(), null, publishingScheduledPostId);

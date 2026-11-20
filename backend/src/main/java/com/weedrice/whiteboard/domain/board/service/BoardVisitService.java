@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 @Slf4j
 class BoardVisitService {
     private static final long ACTIVITY_LOOKBACK_DAYS = 30L;
@@ -42,6 +41,7 @@ class BoardVisitService {
         }
     }
 
+    @Transactional(readOnly = true)
     public Map<Long, BoardActivitySummary> getActivitySummaries(Collection<Long> boardIds, User user) {
         if (boardIds == null || boardIds.isEmpty()) {
             return Map.of();

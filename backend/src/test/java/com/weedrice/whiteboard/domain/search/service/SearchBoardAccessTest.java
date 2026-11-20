@@ -65,12 +65,11 @@ class SearchBoardAccessTest {
         UserBlockService blocks = mock(UserBlockService.class);
         PostSummaryAssembler summaries = mock(PostSummaryAssembler.class);
         SearchUserLookupPolicy userLookup = new SearchUserLookupPolicy(users);
-        search = new SearchService(mock(SearchStatisticRepository.class), mock(SearchStatisticCommandService.class),
-                mock(RecentSearchCommandService.class), mock(SearchPersonalizationRepository.class), posts,
-                boards, blocks, summaries, policy, inquiry, mock(SearchRecordEventPublisher.class), userLookup);
         preview = new SearchPreviewReadService(users, posts, mock(CommentRepository.class), boards, policy,
                 inquiry, blocks, summaries, new IntegratedSearchAssembler(), userLookup,
                 mock(CommentSummaryAssembler.class));
+        search = new SearchService(mock(SearchStatisticRepository.class), mock(SearchPersonalizationRepository.class),
+                preview, mock(SearchRecordEventPublisher.class), userLookup);
         viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 1L);
         board = Board.builder().boardName("Board").boardUrl("test-board").isPublic(true).build();

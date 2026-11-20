@@ -52,6 +52,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -620,6 +621,10 @@ class UserProfileServiceTest {
             assertThat(response.getCommentCount()).isEqualTo(owner || comments ? 4L : null);
             assertThat(response.getDisplayName()).isEqualTo("target");
         }
+        verify(postRepository, times(posts ? 3 : 1)).countPublicProfilePostsByUserId(2L);
+        verify(commentRepository, times(comments ? 3 : 1)).countPublicProfileCommentsByUser(2L, true, List.of(-1L));
+        verify(userBlockRepository, times(comments ? 1 : 0)).findBlockedUserIdsEitherDirectionByUserId(1L);
+        verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(2L);
     }
 
 }

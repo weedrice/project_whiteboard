@@ -48,6 +48,10 @@ public class BadgeAwardService {
         if (user == null) {
             return false;
         }
+        return awardForActiveUser(user, badgeCode);
+    }
+
+    boolean awardForActiveUser(User user, String badgeCode) {
         Badge badge = badgeRepository.findById(badgeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 

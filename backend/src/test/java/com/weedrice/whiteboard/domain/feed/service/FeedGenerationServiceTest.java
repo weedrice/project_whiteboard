@@ -19,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,12 +58,12 @@ class FeedGenerationServiceTest {
     @Test
     @DisplayName("게시글 발행 후 구독자 피드를 bulk insert 한다")
     void generatePostFeeds_bulkInsertsSubscriberFeeds() {
-        when(postRepository.findActiveByIdAndBoardIdForUpdate(100L, 10L))
+        when(postRepository.findByIdAndBoardIdForUpdate(100L, 10L))
                 .thenReturn(java.util.Optional.of(post));
 
         feedGenerationService.generatePostFeeds(board, 100L);
 
-        verify(postRepository).findActiveByIdAndBoardIdForUpdate(100L, 10L);
+        verify(postRepository).findByIdAndBoardIdForUpdate(100L, 10L);
         verify(userFeedRepository).insertSubscriptionPostFeeds(
                 10L,
                 FeedGenerationService.FEED_TYPE_SUBSCRIPTION_POST,
@@ -73,9 +74,20 @@ class FeedGenerationServiceTest {
     }
 
     @Test
+    void generatePostFeeds_skipsPostDeletedAfterPublication() {
+        post.deletePost();
+        when(postRepository.findByIdAndBoardIdForUpdate(100L, 10L))
+                .thenReturn(java.util.Optional.of(post));
+
+        feedGenerationService.generatePostFeeds(board, 100L);
+
+        verifyNoInteractions(userFeedRepository);
+    }
+
+    @Test
     @DisplayName("게시글을 찾지 못하면 구독자 피드를 생성하지 않는다")
     void generatePostFeeds_postNotFoundDoesNotInsertFeeds() {
-        when(postRepository.findActiveByIdAndBoardIdForUpdate(100L, 10L))
+        when(postRepository.findByIdAndBoardIdForUpdate(100L, 10L))
                 .thenReturn(java.util.Optional.empty());
 
         assertThatThrownBy(() -> feedGenerationService.generatePostFeeds(board, 100L))

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
+import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
 import java.util.ArrayList;
@@ -42,6 +43,25 @@ final class SemanticSearchSqlFragments {
 
     static String indexedPostPrivacyPredicate() {
         return "p.is_secret = 'N'";
+    }
+
+    static String indexableSources(String contentType) {
+        return "POST".equals(contentType) ? """
+                SELECT p.post_id AS content_id, p.created_at FROM posts p
+                JOIN boards b ON b.board_id = p.board_id
+                JOIN users pu ON pu.user_id = p.user_id
+                WHERE p.is_deleted = 'N' AND p.is_blinded = 'N' AND p.is_secret = 'N'
+                  AND b.is_active = 'Y' AND b.is_public = 'Y'
+                """ + ContentAuthorVisibility.retainedAccountSql("pu") : """
+                SELECT c.comment_id AS content_id, c.created_at FROM comments c
+                JOIN posts p ON p.post_id = c.post_id
+                JOIN boards b ON b.board_id = p.board_id
+                JOIN users pu ON pu.user_id = p.user_id
+                JOIN users cu ON cu.user_id = c.user_id
+                WHERE c.is_deleted = 'N' AND c.is_blinded = 'N'
+                  AND p.is_deleted = 'N' AND p.is_blinded = 'N' AND p.is_secret = 'N'
+                  AND b.is_active = 'Y' AND b.is_public = 'Y'
+                """ + ContentAuthorVisibility.retainedAccountSql("pu", "cu");
     }
 
     static MapSqlParameterSource commonParams(SemanticSearchSqlCriteria query) {

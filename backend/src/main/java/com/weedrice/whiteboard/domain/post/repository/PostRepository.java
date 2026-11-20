@@ -245,9 +245,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 FROM Post p
                 WHERE p.postId = :postId
                   AND p.board.boardId = :boardId
-                  AND p.isDeleted = false
                 """)
-        Optional<Post> findActiveByIdAndBoardIdForUpdate(
+        Optional<Post> findByIdAndBoardIdForUpdate(
                 @Param("postId") Long postId,
                 @Param("boardId") Long boardId);
 
@@ -262,6 +261,14 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Optional<Post> findByCommentIdWithRelationsForUpdate(@Param("commentId") Long commentId);
     
         long countByUserIdAndIsDeleted(Long userId, Boolean isDeleted);
+
+        @Query(value = """
+                SELECT COUNT(*) FROM (
+                    SELECT 1 FROM posts WHERE user_id = :userId AND is_deleted = 'N' LIMIT :threshold
+                ) active_content
+                """, nativeQuery = true)
+        int countActiveByUserIdUpTo(@Param("userId") Long userId, @Param("threshold") int threshold);
+
         default long countByUserAndIsDeleted(UserIdRef user, Boolean isDeleted) {
                 return countByUserIdAndIsDeleted(user.getUserId(), isDeleted);
         }

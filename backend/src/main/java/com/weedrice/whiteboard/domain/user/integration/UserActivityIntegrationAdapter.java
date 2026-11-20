@@ -34,14 +34,17 @@ public class UserActivityIntegrationAdapter implements UserActivityPort {
     private final UserBlockService userBlockService;
 
     @Override
-    public PublicActivityCounts getPublicActivityCounts(Long userId, Long viewerUserId) {
+    public long countPublicPosts(Long userId) {
+        return postRepository.countPublicProfilePostsByUserId(userId);
+    }
+
+    @Override
+    public long countPublicComments(Long userId, Long viewerUserId) {
         List<Long> blockedIds = viewerUserId == null ? List.of()
                 : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(viewerUserId);
         boolean blockedEmpty = blockedIds.isEmpty();
-        return new PublicActivityCounts(
-                postRepository.countPublicProfilePostsByUserId(userId),
-                commentRepository.countPublicProfileCommentsByUser(
-                        userId, blockedEmpty, blockedEmpty ? List.of(-1L) : blockedIds));
+        return commentRepository.countPublicProfileCommentsByUser(
+                userId, blockedEmpty, blockedEmpty ? List.of(-1L) : blockedIds);
     }
 
     @Override

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -415,21 +416,35 @@ public interface FileRepository extends JpaRepository<File, Long> {
             @Param("publishingScheduledPostId") Long publishingScheduledPostId,
             @Param("modifiedAt") LocalDateTime modifiedAt);
 
-    @Modifying(flushAutomatically = true)
-    @Query("""
-            UPDATE File f
-            SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
-                f.deleteRequestedAt = :deleteRequestedAt,
-                f.deleteLastError = NULL
-            WHERE f.fileId = :fileId
-              AND f.relatedId IS NULL
-              AND f.relatedType IS NULL
-              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
-              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
-                   OR f.storageStatus IS NULL)
-            """)
-    int requestDeletionIfTemporary(@Param("fileId") Long fileId,
-            @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
+    @Transactional
+    default int requestDeletionForTemporaryFiles(List<Long> fileIds, LocalDateTime deleteRequestedAt) {
+        return requestDeletionAfterLock(fileIds, null, deleteRequestedAt);
+    }
+
+    @Transactional
+    default int requestDeletionForOwnedTemporaryFiles(List<Long> fileIds, Long uploaderId,
+            LocalDateTime deleteRequestedAt) {
+        return uploaderId == null ? 0 : requestDeletionAfterLock(fileIds, uploaderId, deleteRequestedAt);
+    }
+
+    private int requestDeletionAfterLock(List<Long> fileIds, Long uploaderId, LocalDateTime deleteRequestedAt) {
+        if (fileIds.isEmpty()) {
+            return 0;
+        }
+        List<Long> lockedIds = lockTemporaryFileIds(fileIds, uploaderId);
+        // The UPDATE starts after any reservation writer has released the parent lock.
+        return lockedIds.isEmpty() ? 0 : markUnreservedTemporaryFilesForDeletion(lockedIds, deleteRequestedAt);
+    }
+
+    @Query(value = """
+            SELECT file_id FROM files
+            WHERE file_id IN (:fileIds)
+              AND uploader_id = COALESCE(CAST(:uploaderId AS BIGINT), uploader_id)
+              AND related_id IS NULL AND related_type IS NULL
+              AND (storage_status = 'ACTIVE' OR storage_status IS NULL)
+            ORDER BY file_id FOR UPDATE
+            """, nativeQuery = true)
+    List<Long> lockTemporaryFileIds(@Param("fileIds") List<Long> fileIds, @Param("uploaderId") Long uploaderId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
@@ -444,25 +459,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
             """)
-    int requestDeletionForTemporaryFiles(@Param("fileIds") List<Long> fileIds,
-            @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
-
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
-            UPDATE File f
-            SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
-                f.deleteRequestedAt = :deleteRequestedAt,
-                f.deleteLastError = NULL
-            WHERE f.fileId IN :fileIds
-              AND f.uploader.userId = :uploaderId
-              AND f.relatedId IS NULL
-              AND f.relatedType IS NULL
-              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
-              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
-                   OR f.storageStatus IS NULL)
-            """)
-    int requestDeletionForOwnedTemporaryFiles(@Param("fileIds") List<Long> fileIds,
-            @Param("uploaderId") Long uploaderId,
+    int markUnreservedTemporaryFilesForDeletion(@Param("fileIds") List<Long> fileIds,
             @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -487,6 +484,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
                OR (
                     f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETING
                     AND (f.deleteRequestedAt IS NULL OR f.deleteRequestedAt < :staleBefore)
+                    AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
                )
             ORDER BY COALESCE(f.deleteRequestedAt, f.createdAt) ASC, f.fileId ASC
             """)
@@ -497,6 +495,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             FROM File f
             WHERE f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETE_FAILED
               AND COALESCE(f.deleteRetryCount, 0) < :maxRetryCount
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
             ORDER BY COALESCE(f.deleteRequestedAt, f.createdAt) ASC, f.fileId ASC
             """)
     List<Long> findRetryableFailedDeletionFileIds(@Param("maxRetryCount") int maxRetryCount, Pageable pageable);

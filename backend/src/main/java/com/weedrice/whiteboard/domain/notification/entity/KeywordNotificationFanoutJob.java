@@ -44,7 +44,6 @@ public class KeywordNotificationFanoutJob extends BaseTimeEntity {
         return job;
     }
 
-    public boolean isDue(LocalDateTime now) { return status == Status.PENDING && !nextAttemptAt.isAfter(now); }
     public void claim(LocalDateTime now) { status = Status.PROCESSING; processingStartedAt = now; }
     public void advance(Long cursor, boolean completed, LocalDateTime now) {
         lastSubscriptionId = cursor;

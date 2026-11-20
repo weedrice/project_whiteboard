@@ -12,6 +12,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.config.CacheConfig;
+import com.weedrice.whiteboard.global.config.CacheFeatureProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,12 +21,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,6 +37,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,10 +73,7 @@ class HomeLandingServiceTest {
         homeLandingService = new HomeLandingService(
                 postListReadService,
                 boardService,
-                postRepository,
-                boardRepository,
-                commentRepository,
-                userRepository,
+                new HomeLandingStatsService(postRepository, boardRepository, commentRepository, userRepository),
                 clock);
     }
 
@@ -227,6 +230,92 @@ class HomeLandingServiceTest {
                 LocalDateTime.of(2026, 4, 29, 0, 0),
                 LocalDateTime.of(2026, 4, 30, 0, 0),
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
+    }
+
+    @Test
+    void publicStatsAreSharedAcrossViewersAndPeriodsUntilTheKstDateChanges() {
+        AtomicReference<Instant> instant = new AtomicReference<>(Instant.parse("2026-05-04T14:59:59Z"));
+        Clock mutableClock = mock(Clock.class);
+        when(mutableClock.getZone()).thenReturn(DateTimeUtils.KST_ZONE_ID);
+        when(mutableClock.instant()).thenAnswer(call -> instant.get());
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), any()))
+                .thenReturn(postStats(10, 4, 3), postStats(11, 1, 4));
+        when(userRepository.countPublicLandingUserStats(any())).thenReturn(userStats(0, 0));
+        when(postListReadService.getTrendingFeedPosts(any(), eq(1L), eq("7d")))
+                .thenReturn(List.of(post(41L, "viewer one")));
+        when(postListReadService.getTrendingFeedPosts(any(), eq(2L), eq("30d")))
+                .thenReturn(List.of(post(52L, "viewer two")));
+        when(postListReadService.getTrendingFeedPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+
+        try (var context = cacheContext(mutableClock, true)) {
+            var landing = context.getBean(HomeLandingService.class);
+            var guest = landing.getLanding(null, "24h");
+            assertThat(landing.getLanding(null, "24h")).isSameAs(guest);
+            var first = landing.getLanding(1L, "7d");
+            var second = landing.getLanding(2L, "30d");
+            assertThat(first.getCuratedPosts()).extracting(FeedPostSummary::getPostId).containsExactly(41L);
+            assertThat(second.getCuratedPosts()).extracting(FeedPostSummary::getPostId).containsExactly(52L);
+            assertThat(first.getStats()).isSameAs(guest.getStats());
+            assertThat(second.getStats()).isSameAs(first.getStats());
+            verify(postRepository).countPublicLandingPostStats(any(), any(), any(), any());
+            verify(userRepository).countPublicLandingUserStats(any());
+            verify(boardRepository).countPublicLandingVisibleBoards(any());
+            verify(commentRepository).countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                    any(), any(), any());
+
+            instant.set(Instant.parse("2026-05-04T15:00:00Z"));
+            var nextDay = landing.getLanding(null, "24h");
+            assertThat(nextDay.getStats().getPostsToday()).isEqualTo(1);
+            assertThat(landing.getLanding(1L, "24h").getStats()).isSameAs(nextDay.getStats());
+            verify(postListReadService, times(2)).getTrendingFeedPosts(any(), isNull(), eq("24h"));
+            verify(postRepository, times(2)).countPublicLandingPostStats(any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void lateAnonymousCacheFillCannotExtendTheLifeOfMemberStats() {
+        AtomicReference<Instant> instant = new AtomicReference<>(Instant.parse("2026-05-04T01:00:00Z"));
+        Clock mutableClock = mock(Clock.class);
+        when(mutableClock.getZone()).thenReturn(DateTimeUtils.KST_ZONE_ID);
+        when(mutableClock.instant()).thenAnswer(call -> instant.get());
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), any()))
+                .thenReturn(postStats(10, 4, 3), postStats(11, 5, 3));
+        when(userRepository.countPublicLandingUserStats(any())).thenReturn(userStats(0, 0));
+        try (var context = cacheContext(mutableClock, true)) {
+            var landing = context.getBean(HomeLandingService.class);
+            assertThat(landing.getLanding(7L, "7d").getStats().getPostsToday()).isEqualTo(4);
+            instant.set(instant.get().plusSeconds(29));
+            assertThat(landing.getLanding(null, "24h").getStats().getPostsToday()).isEqualTo(4);
+            instant.set(instant.get().plusSeconds(1));
+            assertThat(landing.getLanding(null, "24h").getStats().getPostsToday()).isEqualTo(5);
+            verify(postRepository, times(2)).countPublicLandingPostStats(any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void disabledOptimizationReadsFreshStatsForEveryGuestAndMemberRequest() {
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), any()))
+                .thenReturn(postStats(10, 4, 3), postStats(11, 5, 3), postStats(12, 6, 3));
+        when(userRepository.countPublicLandingUserStats(any())).thenReturn(userStats(0, 0));
+        try (var context = cacheContext(clock, false)) {
+            var landing = context.getBean(HomeLandingService.class);
+            assertThat(landing.getLanding(null, "24h").getStats().getPostsToday()).isEqualTo(4);
+            assertThat(landing.getLanding(null, "24h").getStats().getPostsToday()).isEqualTo(5);
+            assertThat(landing.getLanding(1L, "24h").getStats().getPostsToday()).isEqualTo(6);
+        }
+    }
+
+    private AnnotationConfigApplicationContext cacheContext(Clock testClock, boolean enabled) {
+        var context = new AnnotationConfigApplicationContext();
+        context.register(CacheConfig.class);
+        context.registerBean("clock", Clock.class, () -> testClock);
+        context.registerBean(HomeLandingStatsService.class,
+                () -> new HomeLandingStatsService(postRepository, boardRepository, commentRepository, userRepository));
+        context.registerBean(HomeLandingService.class, () -> new HomeLandingService(postListReadService, boardService,
+                context.getBean(HomeLandingStatsService.class), testClock));
+        context.refresh();
+        context.getBean(CacheFeatureProperties.class).setReadOptimizationEnabled(enabled);
+        return context;
     }
 
     private PostRepository.PublicLandingPostStatsProjection postStats(

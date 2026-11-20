@@ -86,7 +86,10 @@ describe('post view history final flush through the shared Axios client', () => 
 
     expect(transport).toHaveBeenCalledTimes(2)
     const finalConfig = transport.mock.calls[1]![0]
-    expect(JSON.parse(finalConfig.data)).toEqual({ durationMs: 5_000, lastReadCommentId: 9 })
+    expect(JSON.parse(finalConfig.data)).toEqual({
+      durationMs: 5_000, lastReadCommentId: 9, sessionDurationMs: 35_000,
+      viewSessionId: JSON.parse(transport.mock.calls[0]![0].data).viewSessionId,
+    })
     expect(finalConfig).toMatchObject({
       url: '/posts/15/history', method: 'put',
       expectedSession: { sessionGeneration: 1, userId: 7 },

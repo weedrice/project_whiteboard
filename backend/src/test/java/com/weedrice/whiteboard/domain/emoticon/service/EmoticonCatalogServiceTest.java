@@ -56,6 +56,22 @@ class EmoticonCatalogServiceTest {
     }
 
     @Test
+    void publicCatalogIncludesPacksWithoutACreator() {
+        var systemPack = EmoticonMaster.builder().name("System pack").build();
+        var page = PageRequest.of(0, 20);
+        when(emoticonMasterRepository.findAllActive(page)).thenReturn(new PageImpl<>(List.of(systemPack)));
+
+        var packs = catalogService.searchAll(null, "ALL", page, "latest");
+
+        assertThat(packs.getContent()).singleElement().satisfies(pack -> {
+            assertThat(pack.getName()).isEqualTo("System pack");
+            assertThat(pack.getCreatorId()).isNull();
+            assertThat(pack.getCreatorName()).isNull();
+        });
+        verify(userRepository, never()).findAllById(any());
+    }
+
+    @Test
     void getPopularEmoticons_usesInjectedClockForPeriod() {
         when(emoticonMasterRepository.findPopularEmoticons(LocalDateTime.of(2026, 7, 6, 0, 0), 5))
                 .thenReturn(List.of());

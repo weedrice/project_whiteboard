@@ -38,7 +38,7 @@ class ShopEntitlementStartupValidatorTest {
         when(shopItemRepository.findByIsActive(true)).thenReturn(List.of(item));
         when(shopEntitlementCapabilityRegistry.supports(item)).thenReturn(false);
 
-        assertThatThrownBy(() -> validator.validateActiveItems())
+        assertThatThrownBy(validator::afterSingletonsInstantiated)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("missing-handler");
     }
@@ -53,7 +53,7 @@ class ShopEntitlementStartupValidatorTest {
                 .when(shopEntitlementCapabilityRegistry)
                 .validateConfiguration(item);
 
-        assertThatThrownBy(() -> validator.validateActiveItems())
+        assertThatThrownBy(validator::afterSingletonsInstantiated)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ITEM_NOT_AVAILABLE");
     }
@@ -65,7 +65,7 @@ class ShopEntitlementStartupValidatorTest {
         when(shopItemRepository.findByIsActive(true)).thenReturn(List.of(item));
         when(shopEntitlementCapabilityRegistry.supports(item)).thenReturn(true);
 
-        validator.validateActiveItems();
+        validator.afterSingletonsInstantiated();
 
         verify(shopEntitlementCapabilityRegistry).validateConfiguration(item);
     }
@@ -79,7 +79,7 @@ class ShopEntitlementStartupValidatorTest {
         when(shopEntitlementCapabilityRegistry.supports(firstItem)).thenReturn(true);
         when(shopEntitlementCapabilityRegistry.supports(secondItem)).thenReturn(true);
 
-        assertThatThrownBy(() -> validator.validateActiveItems())
+        assertThatThrownBy(validator::afterSingletonsInstantiated)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("duplicate-active-entitlement")
                 .hasMessageContaining("itemType=EMOTICON")

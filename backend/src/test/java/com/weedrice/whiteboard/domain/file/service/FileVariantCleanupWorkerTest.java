@@ -6,13 +6,14 @@ import ch.qos.logback.core.read.ListAppender;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
-import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +41,6 @@ class FileVariantCleanupWorkerTest {
     @Mock private FileVariantRepository fileVariantRepository;
     @Mock private FileVariantStateCommand stateCommand;
     @Mock private FileUploadStateCommand uploadStateCommand;
-    @Mock private FileStorageService fileStorageService;
     @Mock private Clock clock;
     @Mock private FileRepository fileRepository;
     @Mock private FileImageVariantGenerator variantGenerator;
@@ -52,7 +53,23 @@ class FileVariantCleanupWorkerTest {
     void setUp() {
         when(clock.instant()).thenAnswer(invocation -> now);
         worker = new FileVariantCleanupWorker(fileVariantRepository, stateCommand, uploadStateCommand,
-                fileStorageService, clock, fileRepository, variantGenerator, new FileVariantCleanupMetrics(registry));
+                clock, fileRepository, variantGenerator, new FileVariantCleanupMetrics(registry));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0, true, 1", "0, false, 0", "9, true, 0"})
+    void cleanupRetryMetricCountsOnlyCommittedRetriesBelowTheLimit(
+            int previousRetryCount, boolean failureRecorded, int expectedRetries) {
+        when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+        var claim = new FileVariantStateCommand.FileVariantCleanupSnapshot(3L, previousRetryCount);
+        when(fileVariantRepository.findCleanupCandidateIds(any(), any(), eq(10), any())).thenReturn(List.of(3L));
+        when(stateCommand.claimCleanup(eq(3L), any(), any(), eq(10))).thenReturn(claim);
+        when(stateCommand.deleteClaimed(claim)).thenThrow(new IllegalStateException("unavailable"));
+        when(stateCommand.recordCleanupFailure(eq(claim), eq("IllegalStateException"), any())).thenReturn(failureRecorded);
+
+        assertThat(worker.cleanupStaleVariants()).isZero();
+        assertThat(registry.get("noviis.file.variant.cleanup").tag("outcome", "retry").counter().count())
+                .isEqualTo(expectedRetries);
     }
 
     @Test

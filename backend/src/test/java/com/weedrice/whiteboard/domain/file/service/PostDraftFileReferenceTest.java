@@ -292,10 +292,10 @@ class PostDraftFileReferenceTest {
         DraftPost expired = draftRepository.findByDraftIdAndUserForUpdate(10L, 1L).orElseThrow();
         when(draftRepository.findExpiredBefore(any(), any())).thenReturn(List.of(expired));
 
-        int count = new PostDraftCleanupBatchService(draftRepository, fileService)
+        var batch = new PostDraftCleanupBatchService(draftRepository, fileService)
                 .cleanupExpiredBatch(java.time.LocalDateTime.now().minusDays(90), 100);
 
-        assertThat(count).isEqualTo(1);
+        assertThat(batch.deleted()).isEqualTo(1);
         assertThat(attachment.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         verify(draftRepository).delete(expired);
     }

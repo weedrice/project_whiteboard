@@ -9,6 +9,8 @@
  * 회귀를 놓치므로, 테스트에서는 기대하는 코드를 리터럴로 적는다.
  */
 export const API_ERROR_CODES = {
+    /** C001 INVALID_INPUT_VALUE — 요청 값이 유효하지 않음 */
+    INVALID_INPUT_VALUE: 'C001',
     /** C006 NOT_FOUND — 공통 404 */
     NOT_FOUND: 'C006',
     /** C012 CONCURRENT_MODIFICATION — 낙관적 락 충돌 */

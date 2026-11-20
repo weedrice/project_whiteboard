@@ -27,14 +27,23 @@ public interface KeywordNotificationFanoutJobRepository extends JpaRepository<Ke
     int enqueueIfAbsent(@Param("postId") Long postId, @Param("now") LocalDateTime now);
 
     @Query("""
-            SELECT job.fanoutJobId FROM KeywordNotificationFanoutJob job
+            SELECT new com.weedrice.whiteboard.domain.notification.repository.KeywordFanoutPage(
+                    job.fanoutJobId, job.lastSubscriptionId, job.retryCount)
+            FROM KeywordNotificationFanoutJob job
             WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFanoutJob.Status.PENDING
               AND job.nextAttemptAt <= :now
             ORDER BY job.nextAttemptAt, job.fanoutJobId
             """)
-    List<Long> findDueIds(@Param("now") LocalDateTime now, Pageable pageable);
+    List<KeywordFanoutPage> findDuePages(@Param("now") LocalDateTime now, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT job FROM KeywordNotificationFanoutJob job WHERE job.fanoutJobId = :id")
-    Optional<KeywordNotificationFanoutJob> findByIdForUpdate(@Param("id") Long id);
+    @Query("""
+            SELECT job FROM KeywordNotificationFanoutJob job
+            WHERE job.fanoutJobId = :id AND job.lastSubscriptionId = :cursor AND job.retryCount = :retryCount
+              AND job.status = com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFanoutJob.Status.PENDING
+              AND job.nextAttemptAt <= :now
+            """)
+    Optional<KeywordNotificationFanoutJob> findDuePageForUpdate(
+            @Param("id") Long id, @Param("cursor") Long cursor, @Param("retryCount") Integer retryCount,
+            @Param("now") LocalDateTime now);
 }

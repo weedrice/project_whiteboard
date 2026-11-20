@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, getComment, refetchComments, confirm } = vi.hoisted(() => ({
+const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, getCommentPath, refetchComments, confirm } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
     sessionGeneration: 0,
@@ -24,7 +24,7 @@ const { authState, bestCommentsValue, commentsValue, commentsState, deleteCommen
   confirm: vi.fn(),
   deleteComment: vi.fn(),
   fetchNextPage: vi.fn(),
-  getComment: vi.fn(),
+  getCommentPath: vi.fn(),
   refetchComments: vi.fn(),
 }))
 
@@ -62,7 +62,7 @@ vi.mock('@/composables/useConfirm', () => ({
 
 vi.mock('@/api/comment', () => ({
   commentApi: {
-    getComment,
+    getCommentPath,
   },
 }))
 
@@ -140,7 +140,7 @@ describe('CommentList', () => {
     commentsState.isFetchNextPageError = false
     fetchNextPage.mockClear()
     refetchComments.mockClear()
-    getComment.mockReset()
+    getCommentPath.mockReset()
     commentsValue.content = [
       { commentId: 1, content: '첫 댓글' },
     ]
@@ -219,19 +219,13 @@ describe('CommentList', () => {
   })
 
   it('resolves a deep-link ancestry path and passes only that branch to comment items', async () => {
-    getComment
-      .mockResolvedValueOnce({
-        data: { success: true, data: { commentId: 11, parentId: 1, postId: 1 } },
-      })
-      .mockResolvedValueOnce({
-        data: { success: true, data: { commentId: 1, parentId: null, postId: 1 } },
-      })
+    getCommentPath.mockResolvedValueOnce({ data: { success: true, data: [1, 5, 11] } })
 
     const wrapper = mountCommentList({ targetCommentId: 11 })
     await flushPromises()
 
-    expect(getComment).toHaveBeenCalledTimes(2)
-    expect(wrapper.get('[data-comment-id="1"]').attributes('data-deep-link-path')).toBe('1,11')
+    expect(getCommentPath).toHaveBeenCalledExactlyOnceWith(1, 11, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(wrapper.get('[data-comment-id="1"]').attributes('data-deep-link-path')).toBe('1,5,11')
   })
 
   it('deletes comments with the current post id for scoped cache invalidation', async () => {
@@ -245,7 +239,7 @@ describe('CommentList', () => {
     )
   })
 
-  it('emits the latest comment entering the reading viewport band', () => {
+  it('emits a comment entering the reading viewport band', () => {
     const intersectionCallback: { value?: IntersectionObserverCallback } = {}
     class ReadingIntersectionObserver {
       constructor(callback: IntersectionObserverCallback) {
@@ -299,11 +293,13 @@ describe('CommentList', () => {
     expect(observed.map((element) => (element as HTMLElement).dataset.commentId)).toEqual(['1', '2'])
     expect(observed.some((element) => (element as HTMLElement).dataset.commentId === '99')).toBe(false)
 
+    const firstTarget = wrapper.get('[data-reading-comment][data-comment-id="1"]').element
     const mainTarget = wrapper.get('[data-reading-comment][data-comment-id="2"]').element
     intersectionCallback.value?.([
+      { isIntersecting: true, target: firstTarget } as IntersectionObserverEntry,
       { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
     ], {} as IntersectionObserver)
-    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
+    expect(wrapper.emitted('last-read-comment')).toEqual([[1], [2]])
 
     await wrapper.findAll('[data-testid="sort-control"] button')[1]!.trigger('click')
     await Promise.resolve()
@@ -312,7 +308,7 @@ describe('CommentList', () => {
     intersectionCallback.value?.([
       { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
     ], {} as IntersectionObserver)
-    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
+    expect(wrapper.emitted('last-read-comment')).toEqual([[1], [2]])
   })
   it.each(['session', 'principal', 'post'] as const)('does not approve an old comment deletion after %s changes', async boundary => {
     let approve!: (value: boolean) => void

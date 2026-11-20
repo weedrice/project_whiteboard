@@ -13,9 +13,13 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Base64;
@@ -27,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -99,6 +104,10 @@ class PushSubscriptionServiceTest {
         when(currentUser.getUserId()).thenReturn(8L);
         when(previousUser.getUserId()).thenReturn(7L);
         when(existing.getUser()).thenReturn(previousUser);
+        LocalDateTime snapshotTime = LocalDateTime.of(2026, 11, 20, 10, 0);
+        when(existing.getSubscriptionId()).thenReturn(13L);
+        when(existing.getModifiedAt()).thenReturn(snapshotTime);
+        when(repository.findOwnerIdByEndpoint(request.getEndpoint())).thenReturn(Optional.of(7L));
         when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
         when(userResolver.resolveForUpdateWithRelatedUsers(8L, List.of(7L)))
                 .thenReturn(List.of(previousUser, currentUser));
@@ -116,6 +125,7 @@ class PushSubscriptionServiceTest {
                 "browser");
         verify(settingsService).setPushEnabledForLockedUser(currentUser, true);
         verify(settingsService).setPushEnabledForLockedUser(previousUser, false);
+        verify(jobs).redactForSubscriptionSnapshot(13L, snapshotTime);
     }
 
     @Test
@@ -126,6 +136,7 @@ class PushSubscriptionServiceTest {
         PushSubscriptionRequest request = request("https://push.example/transferred");
         when(currentUser.getUserId()).thenReturn(12L);
         when(previousUser.getUserId()).thenReturn(11L);
+        when(repository.findOwnerIdByEndpoint(request.getEndpoint())).thenReturn(Optional.of(11L));
         when(existing.getUser()).thenReturn(previousUser);
         when(existing.getEndpoint()).thenReturn(request.getEndpoint());
         when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
@@ -177,6 +188,11 @@ class PushSubscriptionServiceTest {
         when(user.getUserId()).thenReturn(7L);
         when(existing.getUser()).thenReturn(user);
         when(existing.getEndpoint()).thenReturn(request.getEndpoint());
+        LocalDateTime snapshotTime = LocalDateTime.of(2026, 11, 20, 10, 0);
+        when(existing.getSubscriptionId()).thenReturn(13L);
+        when(existing.getModifiedAt()).thenReturn(snapshotTime);
+        when(existing.getP256dh()).thenReturn(request.getKeys().getP256dh());
+        when(existing.getAuth()).thenReturn("previous-auth");
         when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
         when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
         when(repository.saveAndFlush(existing)).thenReturn(existing);
@@ -185,6 +201,60 @@ class PushSubscriptionServiceTest {
 
         verify(repository, never()).countByUser_UserId(7L);
         verify(existing).update(user, request.getKeys().getP256dh(), request.getKeys().getAuth(), "browser");
+        verify(jobs).redactForSubscriptionSnapshot(13L, snapshotTime);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"browser", "earlier browser"})
+    void registeringSameDeliveryKeysPreservesQueuedJobs(String previousUserAgent) {
+        User user = mock(User.class);
+        when(user.getUserId()).thenReturn(7L);
+        PushSubscriptionRequest request = request("https://push.example/same");
+        PushSubscription subscription = PushSubscription.builder().user(user).endpoint(request.getEndpoint())
+                .p256dh(request.getKeys().getP256dh()).auth(request.getKeys().getAuth())
+                .userAgent(previousUserAgent).build();
+        ReflectionTestUtils.setField(subscription, "subscriptionId", 13L);
+        ReflectionTestUtils.setField(subscription, "modifiedAt", LocalDateTime.of(2026, 11, 20, 10, 0));
+        when(repository.findOwnerIdByEndpoint(request.getEndpoint())).thenReturn(Optional.of(7L));
+        when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
+        when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(subscription));
+
+        assertThat(service.subscribe(7L, request).getSubscriptionId()).isEqualTo(13L);
+
+        var registration = org.mockito.Mockito.inOrder(repository, userResolver);
+        registration.verify(repository).lockEndpoint(request.getEndpoint());
+        registration.verify(repository).findOwnerIdByEndpoint(request.getEndpoint());
+        registration.verify(userResolver).resolveForUpdateWithRelatedUsers(7L, List.of());
+        registration.verify(repository).findByEndpoint(request.getEndpoint());
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verify(repository, org.mockito.Mockito.times(previousUserAgent.equals("browser") ? 0 : 1))
+                .updateUserAgent(13L, "browser");
+        verify(settingsService).setPushEnabledForLockedUser(user, true);
+        verifyNoInteractions(jobs);
+    }
+
+    @Test
+    void registeringEquivalentBase64UrlKeysPreservesTheOriginalSnapshotEncoding() {
+        User user = mock(User.class);
+        when(user.getUserId()).thenReturn(7L);
+        PushSubscriptionRequest request = request("https://push.example/padded");
+        String storedPublicKey = request.getKeys().getP256dh() + "=";
+        String storedAuth = request.getKeys().getAuth();
+        request.getKeys().setAuth(storedAuth + "==");
+        PushSubscription subscription = PushSubscription.builder().user(user).endpoint(request.getEndpoint())
+                .p256dh(storedPublicKey).auth(storedAuth).userAgent("browser").build();
+        ReflectionTestUtils.setField(subscription, "subscriptionId", 13L);
+        ReflectionTestUtils.setField(subscription, "modifiedAt", LocalDateTime.of(2026, 11, 20, 10, 0));
+        when(repository.findOwnerIdByEndpoint(request.getEndpoint())).thenReturn(Optional.of(7L));
+        when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
+        when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(subscription));
+
+        assertThat(service.subscribe(7L, request).getSubscriptionId()).isEqualTo(13L);
+
+        assertThat(subscription.getP256dh()).isEqualTo(storedPublicKey);
+        assertThat(subscription.getAuth()).isEqualTo(storedAuth);
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(jobs);
     }
 
     @Test

@@ -386,7 +386,7 @@ class CommentServiceTest {
         assertThat(commentCaptor.getValue().getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
         verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
     }
 
@@ -2295,7 +2295,7 @@ class CommentServiceTest {
 
         assertThat(result).isEqualTo(10L);
         assertThat(comment.getContent()).isEqualTo("New @Alice");
-        verify(commentMentionRepository, never()).deleteByCommentCommentId(anyLong());
+        verify(commentMentionRepository, never()).findByCommentCommentIdIn(anyCollection());
         ArgumentCaptor<CommentStreamEvent> streamEventCaptor =
                 ArgumentCaptor.forClass(CommentStreamEvent.class);
         verify(commentStreamEventDispatcher).publishAfterCommit(streamEventCaptor.capture());
@@ -2391,11 +2391,13 @@ class CommentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
 
+        when(commentMentionRepository.findByCommentCommentIdIn(List.of(10L))).thenReturn(
+                List.of(CommentMention.builder().comment(comment).userId(2L).build()));
         Long result = commentService.updateComment(1L, 10L, "New", List.of());
 
         assertThat(result).isEqualTo(10L);
         assertThat(comment.getContent()).isEqualTo("New");
-        verify(commentMentionRepository).deleteByCommentCommentId(10L);
+        verify(commentMentionRepository).deleteByCommentCommentIdAndUserIdIn(10L, List.of(2L));
     }
 
     @Test
@@ -2427,6 +2429,10 @@ class CommentServiceTest {
 
         commentService.updateComment(1L, 10L, "New", List.of(2L, 3L));
 
+        verify(commentMentionRepository, never()).deleteByCommentCommentIdAndUserIdIn(anyLong(), anyCollection());
+        ArgumentCaptor<List<CommentMention>> additions = ArgumentCaptor.captor();
+        verify(commentMentionRepository).saveAll(additions.capture());
+        assertThat(additions.getValue()).extracting(CommentMention::getUserId).containsExactly(3L);
         verify(mentionService).publishNewMentions(
                 author,
                 null,
@@ -2613,7 +2619,7 @@ class CommentServiceTest {
 
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
     }
 
     @Test

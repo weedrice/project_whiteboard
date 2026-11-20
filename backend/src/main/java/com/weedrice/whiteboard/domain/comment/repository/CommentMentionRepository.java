@@ -11,5 +11,5 @@ public interface CommentMentionRepository extends JpaRepository<CommentMention, 
     @EntityGraph(attributePaths = "comment")
     List<CommentMention> findByCommentCommentIdIn(Collection<Long> commentIds);
 
-    void deleteByCommentCommentId(Long commentId);
+    void deleteByCommentCommentIdAndUserIdIn(Long commentId, Collection<Long> userIds);
 }

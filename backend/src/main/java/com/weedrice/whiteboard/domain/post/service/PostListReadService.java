@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
-import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -72,7 +71,6 @@ public class PostListReadService {
     private final FeedPostSummaryAssembler feedPostSummaryAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostLatestReadService postLatestReadService;
-    private final SearchRecordEventPublisher searchRecordEventPublisher;
     private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
     private final Clock clock;
 
@@ -89,13 +87,11 @@ public class PostListReadService {
                 boardContext.context(),
                 boardContext.includeSecret(),
                 pageable);
-        Page<PostSummary> response = postSummaryAssembler.assembleBoardListProjectionPage(
+        return postSummaryAssembler.assembleBoardListProjectionPage(
                 posts,
                 posts.getPageable(),
                 true,
                 true, currentUserId);
-        publishSearchRecord(currentUserId, canonicalKeyword);
-        return response;
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
@@ -323,14 +319,6 @@ public class PostListReadService {
         return viewerUserId != null
                 && !viewerUserId.equals(targetUserId)
                 && postUserReadPort.isBlockedEitherDirection(viewerUserId, targetUserId);
-    }
-
-    private void publishSearchRecord(Long currentUserId, String keyword) {
-        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
-        if (canonicalKeyword == null) {
-            return;
-        }
-        searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
     }
 
     private Pageable sanitizeTagPostPageable(Pageable pageable) {

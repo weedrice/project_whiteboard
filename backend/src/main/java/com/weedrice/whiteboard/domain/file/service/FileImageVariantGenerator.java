@@ -139,14 +139,8 @@ class FileImageVariantGenerator {
         } catch (DataIntegrityViolationException duplicate) {
             return false;
         }
-        try {
-            fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
-            stateCommand.activate(pendingVariant.getFileVariantId());
-            return true;
-        } catch (RuntimeException e) {
-            fileStorageService.deleteFile(filePath);
-            throw e;
-        }
+        stateCommand.storeAndActivate(originalFile.getFileId(), pendingVariant.getFileVariantId(), contents);
+        return true;
     }
 
     private BufferedImage readSubsampled(

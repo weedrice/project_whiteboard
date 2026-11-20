@@ -89,6 +89,17 @@ class PostRepositoryTest {
     }
 
     @Test
+    void badgeCountStopsAtThresholdAndIncludesOnlyTheAuthorsUndeletedPosts() {
+        persistPost("Second post");
+        persistPost("Removed post").deletePost();
+        entityManager.flush();
+
+        assertThat(postRepository.countActiveByUserIdUpTo(user.getUserId(), 1)).isOne();
+        assertThat(postRepository.countActiveByUserIdUpTo(user.getUserId(), 10)).isEqualTo(2);
+        assertThat(postRepository.countActiveByUserIdUpTo(-1L, 10)).isZero();
+    }
+
+    @Test
     void withdrawnAuthorProjectionMasksIdentityAndRestoresWithoutChangingStoredAccount() {
         user.updateProfileImage("https://example.com/retained.png");
         user.delete(LocalDateTime.now());
@@ -1558,8 +1569,8 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("findActiveByIdAndBoardIdForUpdate는 게시글, 노드, 삭제 상태를 함께 검증한다")
-    void findActiveByIdAndBoardIdForUpdate_filtersByBoardAndDeletedState() {
+    @DisplayName("피드 작업은 같은 게시판의 삭제된 게시글을 식별할 수 있다")
+    void findByIdAndBoardIdForUpdate_includesDeletedPostsAndFiltersByBoard() {
         Board otherBoard = Board.builder()
                 .boardName("Other Board")
                 .boardUrl("other-board")
@@ -1579,25 +1590,25 @@ class PostRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Post> active = postRepository.findActiveByIdAndBoardIdForUpdate(
+        Optional<Post> active = postRepository.findByIdAndBoardIdForUpdate(
                 post.getPostId(),
                 board.getBoardId());
-        Optional<Post> boardMismatch = postRepository.findActiveByIdAndBoardIdForUpdate(
+        Optional<Post> boardMismatch = postRepository.findByIdAndBoardIdForUpdate(
                 post.getPostId(),
                 otherBoard.getBoardId());
-        Optional<Post> deleted = postRepository.findActiveByIdAndBoardIdForUpdate(
+        Optional<Post> deleted = postRepository.findByIdAndBoardIdForUpdate(
                 deletedPost.getPostId(),
                 board.getBoardId());
 
         assertThat(active).isPresent();
         assertThat(boardMismatch).isEmpty();
-        assertThat(deleted).isEmpty();
+        assertThat(deleted).map(Post::getIsDeleted).contains(true);
     }
 
     @Test
-    @DisplayName("findActiveByIdAndBoardIdForUpdate는 비관적 쓰기 잠금을 선언한다")
-    void findActiveByIdAndBoardIdForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
-        var method = PostRepository.class.getMethod("findActiveByIdAndBoardIdForUpdate", Long.class, Long.class);
+    @DisplayName("findByIdAndBoardIdForUpdate는 비관적 쓰기 잠금을 선언한다")
+    void findByIdAndBoardIdForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
+        var method = PostRepository.class.getMethod("findByIdAndBoardIdForUpdate", Long.class, Long.class);
 
         Lock lock = method.getAnnotation(Lock.class);
 

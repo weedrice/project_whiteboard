@@ -17,6 +17,7 @@ public class AnonymousReadCacheInvalidator {
             CacheNames.BOARD_CATALOG_ANONYMOUS,
             CacheNames.BOARD_DETAIL_ANONYMOUS,
             CacheNames.TRENDING_POSTS_ANONYMOUS,
+            CacheNames.HOME_LANDING_PUBLIC_STATS,
             CacheNames.HOME_LANDING_ANONYMOUS);
 
     private static final List<String> POST_RELATED_CACHES = BOARD_RELATED_CACHES;
@@ -35,10 +36,19 @@ public class AnonymousReadCacheInvalidator {
     }
 
     public void evictPostEngagementCachesAfterCommit(String boardUrl) {
+        runAfterCommit(() -> evictPostEngagementCaches(boardUrl));
+    }
+
+    public void evictCommentCountCachesAfterCommit(String boardUrl) {
         runAfterCommit(() -> {
-            evictCaches(POST_ENGAGEMENT_CACHES);
-            evictCacheEntry(CacheNames.BOARD_DETAIL_ANONYMOUS, boardUrl);
+            evictCaches(List.of(CacheNames.HOME_LANDING_PUBLIC_STATS));
+            evictPostEngagementCaches(boardUrl);
         });
+    }
+
+    private void evictPostEngagementCaches(String boardUrl) {
+        evictCaches(POST_ENGAGEMENT_CACHES);
+        evictCacheEntry(CacheNames.BOARD_DETAIL_ANONYMOUS, boardUrl);
     }
 
     public void evictBoardSubscriptionCachesAfterCommit(String boardUrl) {

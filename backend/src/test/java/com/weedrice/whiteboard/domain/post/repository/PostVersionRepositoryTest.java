@@ -90,6 +90,18 @@ class PostVersionRepositoryTest {
     }
 
     @Test
+    void legacyCreateTitleUsesFirstEditSnapshotAfterRenames() {
+        persistVersion("CREATE", null, null);
+        persistVersion("MODIFY", "First title", "original");
+        persistVersion("MODIFY", "Second title", "edited");
+        entityManager.flush();
+
+        assertThat(postVersionRepository.findVersionResponsesByPostId(post.getPostId()))
+                .filteredOn(version -> version.getActionType().equals("CREATE"))
+                .singleElement().extracting(PostVersionResponse::getTitle).isEqualTo("First title");
+    }
+
+    @Test
     @DisplayName("countByPostIdAndVersionType counts only matching post modifications")
     void countByPostIdAndVersionType_countsOnlyMatchingVersions() {
         persistVersion("CREATE", "Created title", "created contents");

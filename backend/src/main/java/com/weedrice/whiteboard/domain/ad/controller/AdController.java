@@ -31,11 +31,10 @@ public class AdController {
             @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String ipAddress = clientIpResolver.resolve(request);
-        if (!counterEventGuard.tryMarkRecorded("ad-impression", adId, userId, ipAddress)) {
+        return counterEventGuard.recordOnce("ad-impression", adId, userId, ipAddress, () -> {
+            adService.recordAdImpression(adId);
             return ApiResponses.ok();
-        }
-        adService.recordAdImpression(adId);
-        return ApiResponses.ok();
+        }, ApiResponses::ok);
     }
 
     @PostMapping("/{adId}/click")
@@ -44,11 +43,9 @@ public class AdController {
             @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String ipAddress = clientIpResolver.resolve(request);
-        if (!counterEventGuard.tryMarkRecorded("ad-click", adId, userId, ipAddress)) {
-            return ApiResponse.success(adService.getActiveAdTargetUrl(adId));
-        }
-
-        String targetUrl = adService.recordAdClick(adId, userId, ipAddress);
+        String targetUrl = counterEventGuard.recordOnce("ad-click", adId, userId, ipAddress,
+                () -> adService.recordAdClick(adId, userId, ipAddress),
+                () -> adService.getActiveAdTargetUrl(adId));
         return ApiResponse.success(targetUrl);
     }
 }

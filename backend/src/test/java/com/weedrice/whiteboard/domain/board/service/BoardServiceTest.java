@@ -1299,6 +1299,24 @@ class BoardServiceTest {
     }
 
     @Test
+    void getRecentBoardUpdates_batchesPermissionsAndRetainsRequestedOrder() {
+        Board hidden = Board.builder().boardUrl("hidden").isPublic(false).build();
+        Board managed = Board.builder().boardUrl("managed").isPublic(false).build();
+        ReflectionTestUtils.setField(hidden, "boardId", 2L);
+        ReflectionTestUtils.setField(managed, "boardId", 3L);
+        List<String> urls = List.of("managed", "test-board", "hidden");
+        when(boardRepository.findByBoardUrlIn(urls)).thenReturn(List.of(board, hidden, managed));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(2L, 3L), true))
+                .thenReturn(List.of(Admin.builder().user(user).board(managed).role("BOARD_ADMIN").build()));
+
+        var result = boardService.getRecentBoardUpdates(urls, 1L);
+
+        assertThat(result).extracting(item -> item.getBoardUrl()).containsExactly("managed", "test-board");
+        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(2L, 3L), true);
+        verify(adminRepository, never()).existsByUser_UserIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
+    }
+
+    @Test
     @DisplayName("카테고리 전체 순서 변경은 보드를 잠그고 캐시를 커밋 후 무효화한다")
     void reorderCategories_locksBoardAndEvictsCachesAfterCommit() {
         BoardCategory defaultCategory = categoryWithId(10L, "General", 1, true);
@@ -1343,6 +1361,8 @@ class BoardServiceTest {
         verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
         assertThat(previousDefault.isDefaultCategory()).isFalse();
         assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
+        assertThat(response.getSortOrder()).isOne();
+        assertThat(previousDefault.getSortOrder()).isEqualTo(2);
         assertThat(response.isDefault()).isTrue();
     }
 
@@ -1538,6 +1558,8 @@ class BoardServiceTest {
         assertThat(category.isDefaultCategory()).isTrue();
         assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
         assertThat(response.isDefault()).isTrue();
+        assertThat(response.getSortOrder()).isOne();
+        assertThat(previousDefault.getSortOrder()).isEqualTo(2);
     }
 
     @Test

@@ -1,1 +1,1 @@
-2026-11-search-independent-pagination-v1
+2026-11-view-history-session-v1

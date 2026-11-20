@@ -51,6 +51,41 @@ public class SearchPreviewReadService {
     private final SearchUserLookupPolicy searchUserLookupPolicy;
     private final CommentSummaryAssembler commentSummaryAssembler;
 
+    public Page<PostSummary> readSearchPosts(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
+        String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
+        String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
+        SearchDateRange dateRange = SearchDateRangeResolver.resolve(period, from, to);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
+        boolean includeSecret = false;
+        User currentUser = null;
+        if (canonicalBoardUrl != null) {
+            Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+            currentUser = searchUserLookupPolicy.resolveOptional(currentUserId);
+            BoardAccessPolicy.ReadAccess access = boardAccessPolicy.readAccess(board, currentUser);
+            if (!access.canReadBoard()) {
+                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+            }
+            inquiryLegacyWritePolicy.requireBoardReadable(board, currentUser);
+            includeSecret = access.canViewSecretPosts();
+        }
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = currentUser == null
+                    ? userBlockService.getBlockedUserIdsEitherDirection(currentUserId)
+                    : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
+        }
+        Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, normalizedSearchType,
+                canonicalBoardUrl, canonicalAuthor, dateRange.from(), dateRange.to(), blockedUserIds, includeSecret,
+                currentUserId, normalizedPageable);
+
+        return postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
+    }
+
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         return integratedSearch(keyword, 0, SEARCH_PREVIEW_LIMIT, currentUserId);
     }

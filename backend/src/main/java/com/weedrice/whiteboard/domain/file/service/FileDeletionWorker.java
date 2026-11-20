@@ -75,6 +75,14 @@ public class FileDeletionWorker {
         return transactionTemplate.execute(status -> fileRepository
                 .findDeletionClaimCandidateForUpdate(fileId, MAX_DELETE_RETRY_COUNT, staleBefore)
                 .map(file -> {
+                    // Registration holds this same lock and requires ACTIVE. Read the
+                    // reservation in a fresh statement before claiming any storage work.
+                    if (!fileRepository.findFileIdsReservedForOtherScheduledPost(List.of(fileId), null).isEmpty()) {
+                        if (file.getStorageStatus() == FileStorageStatus.PENDING_DELETE) {
+                            file.cancelDeletionRequest();
+                        }
+                        return null;
+                    }
                     boolean staleProcessingClaim = file.getStorageStatus() == FileStorageStatus.DELETING;
                     file.markDeleting(claimedAt);
                     return FileDeletionSnapshot.from(file, claimedAt, staleProcessingClaim);
@@ -86,7 +94,10 @@ public class FileDeletionWorker {
         return Boolean.TRUE.equals(transactionTemplate.execute(status -> fileRepository
                 .findByIdForUpdate(snapshot.fileId())
                 .map(current -> {
-                    if (!snapshot.matches(current) || snapshot.staleProcessingClaim()) {
+                    if (!snapshot.matches(current)) {
+                        return true;
+                    }
+                    if (snapshot.staleProcessingClaim()) {
                         return false;
                     }
                     if (!emoticonFileReferenceService.isReferenced(current.getFileId())) {
@@ -95,7 +106,7 @@ public class FileDeletionWorker {
                     current.cancelDeletionRequest();
                     return true;
                 })
-                .orElse(false)));
+                .orElse(true)));
     }
 
     private boolean deleteFromStorage(FileDeletionSnapshot snapshot) {

@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.KeywordNotificationFanoutJob;
 import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.entity.UserKeywordSubscription;
+import com.weedrice.whiteboard.domain.notification.repository.KeywordFanoutPage;
 import com.weedrice.whiteboard.domain.notification.repository.KeywordNotificationFanoutJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.UserKeywordSubscriptionRepository;
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
@@ -55,13 +57,13 @@ public class KeywordNotificationFanoutProcessor {
     private final KeywordNotificationFanoutMetrics metrics;
 
     public int processDueJobs() {
-        List<Long> ids = jobRepository.findDueIds(now(), PageRequest.of(0, BATCH_SIZE));
+        List<KeywordFanoutPage> pages = jobRepository.findDuePages(now(), PageRequest.of(0, BATCH_SIZE));
         int processed = 0;
-        for (Long id : ids) {
+        for (KeywordFanoutPage page : pages) {
             try {
-                if (Boolean.TRUE.equals(transactionTemplate.execute(status -> processPage(id)))) processed++;
+                if (Boolean.TRUE.equals(transactionTemplate.execute(status -> processPage(page)))) processed++;
             } catch (RuntimeException exception) {
-                transactionTemplate.executeWithoutResult(status -> fail(id, exception));
+                recordPageFailure(page, exception);
             }
         }
         LocalDateTime observedAt = now();
@@ -73,10 +75,28 @@ public class KeywordNotificationFanoutProcessor {
         return processed;
     }
 
+    private void recordPageFailure(KeywordFanoutPage page, RuntimeException pageFailure) {
+        KeywordNotificationFanoutJob.Status recordedStatus;
+        try {
+            recordedStatus = transactionTemplate.execute(status -> failIfCurrent(page, pageFailure));
+        } catch (RuntimeException recordingFailure) {
+            log.error("Could not record keyword notification fan-out failure. jobId={}, cursor={}, retryCount={}, "
+                            + "pageExceptionType={}, recordingExceptionType={}",
+                    page.jobId(), page.lastSubscriptionId(), page.retryCount(),
+                    pageFailure.getClass().getSimpleName(), recordingFailure.getClass().getSimpleName());
+            return;
+        }
+        if (recordedStatus == null) return;
+        log.warn("Keyword notification fan-out failed. jobId={}, exceptionType={}, status={}",
+                page.jobId(), pageFailure.getClass().getSimpleName(), recordedStatus);
+        if (recordedStatus == KeywordNotificationFanoutJob.Status.PENDING) {
+            metrics.recordRetry();
+        }
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean processPage(Long jobId) {
-        KeywordNotificationFanoutJob job = jobRepository.findByIdForUpdate(jobId)
-                .filter(candidate -> candidate.isDue(now())).orElse(null);
+    public boolean processPage(KeywordFanoutPage page) {
+        KeywordNotificationFanoutJob job = lockCurrentPage(page).orElse(null);
         if (job == null) return false;
         job.claim(now());
         Post post = postRepository.findByIdWithRelations(job.getPostId()).orElse(null);
@@ -114,13 +134,15 @@ public class KeywordNotificationFanoutProcessor {
         return true;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void fail(Long jobId, RuntimeException exception) {
-        jobRepository.findByIdForUpdate(jobId).ifPresent(job ->
-                job.fail(exception.getClass().getSimpleName(), now().plusMinutes(1)));
-        log.warn("Keyword notification fan-out failed. jobId={}, exceptionType={}",
-                jobId, exception.getClass().getSimpleName());
-        metrics.recordRetry();
+    private KeywordNotificationFanoutJob.Status failIfCurrent(KeywordFanoutPage page, RuntimeException exception) {
+        KeywordNotificationFanoutJob job = lockCurrentPage(page).orElse(null);
+        if (job == null) return null;
+        job.fail(exception.getClass().getSimpleName(), now().plusMinutes(1));
+        return job.getStatus();
+    }
+
+    private Optional<KeywordNotificationFanoutJob> lockCurrentPage(KeywordFanoutPage page) {
+        return jobRepository.findDuePageForUpdate(page.jobId(), page.lastSubscriptionId(), page.retryCount(), now());
     }
 
     private boolean isNotifiable(Post post) {

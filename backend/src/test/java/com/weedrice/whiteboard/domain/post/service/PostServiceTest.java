@@ -260,6 +260,7 @@ class PostServiceTest {
                 actorBatchReadPort);
         PostViewHistoryService postViewHistoryService = new PostViewHistoryService(
                 viewHistoryRepository,
+                mock(com.weedrice.whiteboard.domain.post.repository.ViewHistorySessionRepository.class),
                 viewHistoryCommandService,
                 postCommentStatusPort,
                 postRepository,
@@ -323,7 +324,6 @@ class PostServiceTest {
                 feedPostSummaryAssembler,
                 boardAccessPolicy,
                 postLatestReadService,
-                searchRecordEventPublisher,
                 inquiryLegacyWritePolicy,
                 java.time.Clock.fixed(
                         java.time.Instant.parse("2026-07-07T00:00:00Z"),
@@ -402,7 +402,8 @@ class PostServiceTest {
                 postDetailContextResolver,
                 mock(PostSeriesService.class),
                 postRelatedReadService,
-                postManagerModerationService);
+                postManagerModerationService,
+                searchRecordEventPublisher);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -515,6 +516,10 @@ class PostServiceTest {
         ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
         verify(tagAssignmentService).assignTags(postCaptor.capture(), eq(request.getTags()));
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
+        ArgumentCaptor<PostVersion> version = ArgumentCaptor.captor();
+        verify(postVersionRepository).save(version.capture());
+        assertThat(version.getValue().getVersionType()).isEqualTo("CREATE");
+        assertThat(version.getValue().getOriginalTitle()).isEqualTo("New Post");
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
         verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
@@ -2726,7 +2731,7 @@ class PostServiceTest {
                 .board(board)
                 .clientDraftKey("client-draft-key-1234")
                 .title("First attempt")
-                .contents("")
+                .contents("<p>Bodyattachment</p>")
                 .fileIds(List.of(12L))
                 .build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
@@ -2734,6 +2739,7 @@ class PostServiceTest {
         PostDraftRequest request = PostDraftRequest.builder()
                 .clientDraftKey("client-draft-key-1234")
                 .boardUrl("free")
+                .contents("<p>Body<img src=\"/api/v1/files/11\"><a href=\"/api/v1/files/11\">attachment</a></p>")
                 .title("First attempt")
                 .fileIds(List.of(11L, 12L))
                 .build();
@@ -2748,6 +2754,7 @@ class PostServiceTest {
         DraftResponse response = postService.saveDraftPost(1L, request);
 
         assertThat(response.getDraftId()).isEqualTo(10L);
+        assertThat(response.getContents()).isEqualTo("<p>Bodyattachment</p>");
         assertThat(response.getFileIds()).containsExactly(12L);
         assertThat(response.isStaleReferencesReset()).isTrue();
         verify(fileService, times(1)).retainValidDraftFileIds(List.of(11L, 12L), 1L, 10L);
@@ -3367,7 +3374,7 @@ class PostServiceTest {
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
                 eq(true),
                 any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(6), 21));
 
         Page<PostSummary> result = postInteractionService.getRecentlyViewedPosts(
                 1L,
@@ -3389,6 +3396,9 @@ class PostServiceTest {
                 Sort.Order.desc("modified_at"),
                 Sort.Order.desc("post_id")));
         assertThat(result.getPageable()).isEqualTo(pageable);
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isEqualTo(21);
+        assertThat(result.getTotalPages()).isOne();
     }
 
     // --- Misc ---
@@ -5156,7 +5166,7 @@ class PostServiceTest {
 
         verify(commentRepository).findByCommentIdAndPostIdAndIsDeletedFalse(200L, 1L);
         verify(viewHistoryRepository, never()).insertIgnore(anyLong(), anyLong());
-        verify(viewHistoryRepository, never()).findByUserAndPostForUpdate(anyLong(), anyLong());
+        verify(viewHistoryRepository).findByUserAndPostForUpdate(1L, 1L);
     }
 
     @Test
@@ -5418,6 +5428,22 @@ class PostServiceTest {
     }
 
     @Test
+    void updateViewHistory_storedDeletedCommentDoesNotPreventDurationUpdates() {
+        ViewHistory existing = new ViewHistory(user, post);
+        existing.updateView(100L, 500L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
+
+        postService.updateViewHistory(1L, 1L, new ViewHistoryRequest(100L, 1000L));
+        postService.updateViewHistory(1L, 1L, new ViewHistoryRequest(100L, 2000L));
+
+        assertThat(existing.getDurationMs()).isEqualTo(3500L);
+        assertThat(existing.getLastReadCommentId()).isEqualTo(100L);
+        verify(commentRepository, never()).findByCommentIdAndPostIdAndIsDeletedFalse(anyLong(), anyLong());
+    }
+
+    @Test
     void updateViewHistory_omittedCommentIdPreservesExistingProgress() {
         Comment existingLastReadComment = Comment.builder().post(post).build();
         ReflectionTestUtils.setField(existingLastReadComment, "commentId", 100L);
@@ -5439,21 +5465,36 @@ class PostServiceTest {
     void updateViewHistory_olderCommentIdDoesNotMoveProgressBackward() {
         Comment existingLastReadComment = Comment.builder().post(post).build();
         ReflectionTestUtils.setField(existingLastReadComment, "commentId", 100L);
-        Comment staleLastReadComment = Comment.builder().post(post).build();
-        ReflectionTestUtils.setField(staleLastReadComment, "commentId", 50L);
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
         existing.updateView(existingLastReadComment.getCommentId(), 500L);
         ViewHistoryRequest request = new ViewHistoryRequest(50L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(50L, 1L))
-                .thenReturn(Optional.of(staleLastReadComment));
+        when(commentRepository.findPostIdByCommentId(50L)).thenReturn(Optional.of(1L));
         when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
 
         postService.updateViewHistory(1L, 1L, request);
 
         assertThat(existing.getLastReadCommentId()).isEqualTo(existingLastReadComment.getCommentId());
         assertThat(existing.getDurationMs()).isEqualTo(1500L);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(longs = 2L)
+    void updateViewHistory_rejectsMissingOrForeignOlderComment(Long commentPostId) {
+        ViewHistory existing = new ViewHistory(user, post);
+        existing.updateView(100L, 500L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
+        when(commentRepository.findPostIdByCommentId(50L)).thenReturn(Optional.ofNullable(commentPostId));
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, new ViewHistoryRequest(50L, 1000L)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThat(existing.getDurationMs()).isEqualTo(500L);
+        assertThat(existing.getLastReadCommentId()).isEqualTo(100L);
     }
 
     private PostDraftRequest draftRequest(PollRequest poll) {
