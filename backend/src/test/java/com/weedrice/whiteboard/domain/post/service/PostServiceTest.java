@@ -2726,7 +2726,7 @@ class PostServiceTest {
                 .board(board)
                 .clientDraftKey("client-draft-key-1234")
                 .title("First attempt")
-                .contents("")
+                .contents("<p>Bodyattachment</p>")
                 .fileIds(List.of(12L))
                 .build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
@@ -2734,6 +2734,7 @@ class PostServiceTest {
         PostDraftRequest request = PostDraftRequest.builder()
                 .clientDraftKey("client-draft-key-1234")
                 .boardUrl("free")
+                .contents("<p>Body<img src=\"/api/v1/files/11\"><a href=\"/api/v1/files/11\">attachment</a></p>")
                 .title("First attempt")
                 .fileIds(List.of(11L, 12L))
                 .build();
@@ -2748,6 +2749,7 @@ class PostServiceTest {
         DraftResponse response = postService.saveDraftPost(1L, request);
 
         assertThat(response.getDraftId()).isEqualTo(10L);
+        assertThat(response.getContents()).isEqualTo("<p>Bodyattachment</p>");
         assertThat(response.getFileIds()).containsExactly(12L);
         assertThat(response.isStaleReferencesReset()).isTrue();
         verify(fileService, times(1)).retainValidDraftFileIds(List.of(11L, 12L), 1L, 10L);

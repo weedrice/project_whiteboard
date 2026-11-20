@@ -409,6 +409,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 `GET /api/v1/users/me/drafts/recovery`는 `boardUrl`과 선택적인 `originalPostId`, `draftId`, `clientDraftKey`를 받아 한 번의 요청으로 복구 상태를 판정한다. 응답의 `status`는 `AVAILABLE`, `MISSING`, `PROTECTED`, `AMBIGUOUS` 중 하나다. `AVAILABLE`에는 `draft`, `AVAILABLE`과 `PROTECTED`에는 `draftId`가 포함된다. 전달한 후보 ID가 없거나 작성 대상과 일치하지 않아 대체 후보를 검색한 경우 `staleCandidate`가 `true`다. 다른 사용자 소유 후보 ID도 존재 여부를 노출하지 않고 stale 후보로 처리한다.
 
 - 기존 초안 수정에서 `version` 또는 호환용 `updatedAt`이 현재 버전과 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
+- 신규 초안을 같은 `clientDraftKey`로 재전송하면 첫 저장에서 정리한 유실 첨부의 본문 참조까지 반영해 같은 요청인지 판정한다.
 - 예약 발행이 보호하는 초안의 수정·삭제·일반 발행은 `409 Conflict`, 오류 코드 `P005`(`DRAFT_PROTECTED`)를 반환한다.
 - 프론트엔드 자동 저장은 충돌 후 자동 덮어쓰기를 중단한다. 사용자가 서버 초안을 다시 불러온 뒤 편집을 계속해야 한다.
 - 초안 목록은 `modifiedAt DESC`, `draftId DESC` 순서이며 기본 크기는 20이다. 활성·발행 중·실패 예약발행이 참조하는 초안은 예약발행 목록에서 관리하므로 일반 초안 목록에서 제외한다.
