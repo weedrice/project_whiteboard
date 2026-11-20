@@ -7,6 +7,8 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 @Component
 public class CounterEventGuard {
@@ -18,6 +20,25 @@ public class CounterEventGuard {
             .expireAfterWrite(DEDUPLICATION_WINDOW)
             .maximumSize(MAXIMUM_SIZE)
             .build();
+
+    private final Cache<String, ReentrantLock> recordingLocks = Caffeine.newBuilder().weakValues().build();
+
+    public <T> T recordOnce(@NonNull String eventType, @NonNull Long targetId, Long userId, String ipAddress,
+            Supplier<T> record, Supplier<T> onDuplicate) {
+        String key = buildKey(eventType, targetId, userId, ipAddress);
+        ReentrantLock lock = recordingLocks.get(key, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            if (recentEvents.getIfPresent(key) == null) {
+                T result = record.get();
+                recentEvents.put(key, true);
+                return result;
+            }
+        } finally {
+            lock.unlock();
+        }
+        return onDuplicate.get();
+    }
 
     public boolean isRecentlyRecorded(@NonNull String eventType, @NonNull Long targetId, Long userId,
             String ipAddress) {

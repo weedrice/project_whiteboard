@@ -593,8 +593,8 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | `GET` | `/api/v1/emoticons/purchased` | 구매한 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}/purchased` | 구매 여부 |
 | `GET` | `/api/v1/ads` | 노출 광고 조회 |
-| `POST` | `/api/v1/ads/{adId}/impression` | 광고 노출 기록 |
-| `POST` | `/api/v1/ads/{adId}/click` | 광고 클릭 기록 |
+| `POST` | `/api/v1/ads/{adId}/impression` | 광고 노출 기록. 집계 실패 후 같은 요청을 재시도할 수 있음 |
+| `POST` | `/api/v1/ads/{adId}/click` | 광고 클릭 기록 및 이동 URL 반환. 집계 실패 후 같은 요청을 재시도할 수 있음 |
 | `POST` | `/api/v1/common-codes` | 공통 코드 생성 |
 | `GET` | `/api/v1/common-codes` | 공통 코드 목록 |
 | `GET` | `/api/v1/common-codes/{typeCode}` | 공통 코드 상세 |
