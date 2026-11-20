@@ -103,7 +103,7 @@ class SemanticSearchJobTimingPostgresTest {
         var job = jobs.findPendingJobs(5, 20).getFirst();
         LocalDateTime lease = now();
         jobs.claimForProcessing(job.jobId(), 5, lease);
-        jobs.markFailedIfCurrent(job.jobId(), lease, 5, "HTTP_401", false, now().plusMinutes(1));
+        jobs.markFailedIfCurrent(job.jobId(), lease, 5, "HTTP_401", false, null);
         assertThat(jobs.countFailedJobs()).isEqualTo(1);
         assertThat(jobs.findPendingJobs(5, 20)).isEmpty();
         assertThat(time("next_attempt_at")).isNull();

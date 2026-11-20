@@ -209,7 +209,7 @@ class SemanticSearchJobRepository {
                     processing_started_at = NULL,
                     last_error_message = ?,
                     queued_at = COALESCE(queued_at, processing_started_at, updated_at, created_at),
-                    next_attempt_at = CASE WHEN NOT ? OR retry_count + 1 >= ? THEN NULL ELSE ? END,
+                    next_attempt_at = CASE WHEN NOT ? OR retry_count + 1 >= ? THEN NULL ELSE CAST(? AS timestamp) END,
                     updated_at = ?
                 WHERE job_id = ?
                   AND status = 'PROCESSING'
