@@ -245,9 +245,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 FROM Post p
                 WHERE p.postId = :postId
                   AND p.board.boardId = :boardId
-                  AND p.isDeleted = false
                 """)
-        Optional<Post> findActiveByIdAndBoardIdForUpdate(
+        Optional<Post> findByIdAndBoardIdForUpdate(
                 @Param("postId") Long postId,
                 @Param("boardId") Long boardId);
 

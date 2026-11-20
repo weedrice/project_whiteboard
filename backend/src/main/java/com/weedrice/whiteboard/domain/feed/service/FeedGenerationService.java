@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.feed.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -23,8 +24,11 @@ public class FeedGenerationService {
 
     @Transactional
     public void generatePostFeeds(Board board, Long postId) {
-        postRepository.findActiveByIdAndBoardIdForUpdate(postId, board.getBoardId())
+        Post post = postRepository.findByIdAndBoardIdForUpdate(postId, board.getBoardId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (Boolean.TRUE.equals(post.getIsDeleted())) {
+            return;
+        }
 
         userFeedRepository.insertSubscriptionPostFeeds(
                 board.getBoardId(),
