@@ -259,7 +259,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/users/me/comments` | 내가 쓴 댓글 |
 | `GET` | `/api/v1/users/me/history/views` | 최근 본 글 |
 | `POST` | `/api/v1/attendance/check-in` | 일일 출석 체크와 보상 |
-| `GET` | `/api/v1/attendance/me` | 내 월별 출석과 streak 조회 |
+| `GET` | `/api/v1/attendance/me` | 같은 시점의 월별 출석, 오늘 체크인 여부, 현재 연속 출석 일수 조회 |
 | `GET` | `/api/v1/users/{userId}/badges` | 사용자 공개 뱃지 조회 |
 | `GET` | `/api/v1/users/me/badges` | 내 뱃지 조회 |
 | `PUT` | `/api/v1/users/me/badges/representative` | 대표 뱃지 설정 |

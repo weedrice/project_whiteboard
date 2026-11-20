@@ -119,27 +119,25 @@ class AttendanceServiceTest {
     void returnsRequestedMonthAndCurrentStreak() {
         User user = mock(User.class);
         UserAttendance today = new UserAttendance(user, TODAY, 4);
-        when(attendances.findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
-                4L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31))).thenReturn(List.of(today));
-        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(4L, TODAY.plusDays(1)))
-                .thenReturn(Optional.of(today));
+        when(attendances.findMonthAndCurrentStreakDays(
+                4L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), TODAY.minusDays(1), TODAY))
+                .thenReturn(List.of(new UserAttendance(user, TODAY.minusDays(1), 3), today));
 
         var response = service.getMyAttendance(4L, YearMonth.of(2026, 1));
 
         assertEquals(YearMonth.of(2026, 1), response.getMonth());
         assertTrue(response.isCheckedInToday());
         assertEquals(4, response.getCurrentStreakCount());
-        assertEquals(1, response.getDays().size());
+        assertEquals(2, response.getDays().size());
     }
 
     @Test
     void staleAttendanceDoesNotCountAsCurrentStreak() {
         User user = mock(User.class);
         UserAttendance staleAttendance = new UserAttendance(user, TODAY.minusDays(2), 12);
-        when(attendances.findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
-                5L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31))).thenReturn(List.of(staleAttendance));
-        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
-                5L, TODAY.plusDays(1))).thenReturn(Optional.of(staleAttendance));
+        when(attendances.findMonthAndCurrentStreakDays(
+                5L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), TODAY.minusDays(1), TODAY))
+                .thenReturn(List.of(staleAttendance));
 
         var response = service.getMyAttendance(5L, YearMonth.of(2026, 1));
 
@@ -151,15 +149,31 @@ class AttendanceServiceTest {
     void requestedPastMonthStillReportsTodaysCheckIn() {
         User user = mock(User.class);
         UserAttendance today = new UserAttendance(user, TODAY, 4);
-        when(attendances.findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
-                7L, LocalDate.of(2025, 12, 1), LocalDate.of(2025, 12, 31))).thenReturn(List.of());
-        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
-                7L, TODAY.plusDays(1))).thenReturn(Optional.of(today));
+        when(attendances.findMonthAndCurrentStreakDays(
+                7L, LocalDate.of(2025, 12, 1), LocalDate.of(2025, 12, 31), TODAY.minusDays(1), TODAY))
+                .thenReturn(List.of(today));
 
         var response = service.getMyAttendance(7L, YearMonth.of(2025, 12));
 
         assertTrue(response.isCheckedInToday());
         assertEquals(4, response.getCurrentStreakCount());
+        assertTrue(response.getDays().isEmpty());
+    }
+
+    @Test
+    void previousMonthsLastDayMaintainsTheStreakWithoutAnEntryInTheNewCalendar() {
+        LocalDate firstOfMonth = LocalDate.of(2026, 2, 1);
+        Clock february = Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC);
+        AttendanceService monthBoundary = new AttendanceService(attendances, users, sanctions, rewards, february, badges);
+        UserAttendance yesterday = new UserAttendance(mock(User.class), firstOfMonth.minusDays(1), 8);
+        when(attendances.findMonthAndCurrentStreakDays(
+                1L, firstOfMonth, firstOfMonth.plusDays(27), firstOfMonth.minusDays(1), firstOfMonth))
+                .thenReturn(List.of(yesterday));
+
+        var response = monthBoundary.getMyAttendance(1L, null);
+
+        assertFalse(response.isCheckedInToday());
+        assertEquals(8, response.getCurrentStreakCount());
         assertTrue(response.getDays().isEmpty());
     }
 }

@@ -1,8 +1,9 @@
 package com.weedrice.whiteboard.domain.attendance.repository;
 
 import com.weedrice.whiteboard.domain.attendance.entity.UserAttendance;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,8 +19,15 @@ public interface UserAttendanceRepository extends JpaRepository<UserAttendance, 
             Long userId,
             LocalDate attendanceDate);
 
-    List<UserAttendance> findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
-            Long userId,
-            LocalDate startDate,
-            LocalDate endDate);
+    @Query("""
+            SELECT a FROM UserAttendance a
+            WHERE a.user.userId = :userId
+              AND (a.attendanceDate BETWEEN :monthStart AND :monthEnd
+                   OR a.attendanceDate BETWEEN :yesterday AND :today)
+            ORDER BY a.attendanceDate
+            """)
+    List<UserAttendance> findMonthAndCurrentStreakDays(
+            @Param("userId") Long userId, @Param("monthStart") LocalDate monthStart,
+            @Param("monthEnd") LocalDate monthEnd, @Param("yesterday") LocalDate yesterday,
+            @Param("today") LocalDate today);
 }
