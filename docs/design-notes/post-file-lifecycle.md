@@ -79,7 +79,7 @@
 
 임시파일 폐기·만료 정리의 저장소 조건은 예약 참조가 있는 파일을 제외한다. 초안 정리는 보호된 예약 원본을 제외한다. 이 조건을 일반 연결 검사와 별개로 유지해야 예약 대기 중인 파일이 정리 대상이 되지 않는다.
 
-[FileDeletionWorker](../../backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileDeletionWorker.java)는 삭제 대기 메타데이터를 처리한다. 데이터베이스에서 삭제 작업을 claim하고 변형 이미지와 원본 저장 객체를 삭제한 뒤, claim 당시 상태와 일치하는지 확인하여 메타데이터를 정리한다. 프로세스 내부 중복 방지 집합은 여러 노드 사이의 동시성 제어를 대체하지 않는다. 기존 이모티콘 참조 보호와 실패 재시도도 이 흐름의 일부다.
+[FileDeletionWorker](../../backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileDeletionWorker.java)는 삭제 대기 메타데이터를 처리한다. 데이터베이스에서 삭제 작업을 claim하고 변형 이미지와 원본 저장 객체를 삭제한 뒤, claim 당시 상태와 일치하는지 확인하여 메타데이터를 정리한다. 프로세스 내부 중복 방지 집합은 여러 노드 사이의 동시성 제어를 대체하지 않는다. 임시파일 폐기·만료 정리는 대상 파일을 ID 순서로 잠근 뒤 별도 SQL에서 예약 참조를 다시 검사한다. 삭제 워커도 같은 파일 잠금 아래 예약을 확인한다. 예약된 `PENDING_DELETE` 파일은 활성 상태로 되돌리고, 삭제를 이미 시도한 파일은 저장소 상태가 불확실하므로 예약이 유지되는 동안 재시도하지 않는다. 기존 이모티콘 참조 보호와 실패 재시도도 이 흐름의 일부다.
 
 파일 연결 가능 여부와 다운로드 가능 여부는 다르다. [FileAccessService](../../backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileAccessService.java)는 연결된 게시글·문의 등의 접근 정책과 캐시 범위를 판단하며, 미연결 파일의 이모티콘 참조 예외도 처리한다. 예약 보호를 추가했다고 파일을 공개하거나 기존 접근 검사를 생략하지 않는다.
 
