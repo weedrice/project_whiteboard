@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,11 +21,9 @@ public class ShopEntitlementStartupValidator implements SmartInitializingSinglet
     private final ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
 
     @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public void afterSingletonsInstantiated() {
-        validateActiveItems();
-    }
-
-    void validateActiveItems() {
+        // A creator can hide or retire both the item and its entitlement target while another node starts.
         List<ShopItem> activeItems = shopItemRepository.findByIsActive(true);
         List<String> invalidItems = activeItems.stream()
                 .map(this::validateItem)
