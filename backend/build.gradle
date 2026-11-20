@@ -145,6 +145,7 @@ tasks.register('postgresSmokeTest', Test) {
 		includeTestsMatching 'com.weedrice.whiteboard.PostgresApplicationContextSmokeTest'
 		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchVisibilityPostgresTest'
 		includeTestsMatching 'com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibilityPostgresTest'
+		includeTestsMatching 'com.weedrice.whiteboard.domain.notification.repository.KeywordCooldownPostgresTest'
 		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchRecoveryPostgresTest'
 		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchAuthorRestorePostgresTest'
 		includeTestsMatching 'com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEmbeddingReusePostgresTest'
