@@ -43,6 +43,9 @@ public class TagAssignmentService {
                 .filter(tagName -> !existingPostTagsByName.containsKey(tagName))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
+        Set<String> changedNames = new LinkedHashSet<>(tagNamesToAdd);
+        postTagsToRemove.forEach(postTag -> changedNames.add(postTag.getTag().getTagName()));
+        tagRepository.lockOrCreateForAssignment(changedNames);
         List<Long> removedTagIds = removePostTags(postTagsToRemove);
         List<Long> addedTagIds = addPostTags(post, tagNamesToAdd);
         decrementPostCounts(removedTagIds);
@@ -51,8 +54,7 @@ public class TagAssignmentService {
 
     @Transactional
     public void clearTags(Post post) {
-        List<Long> removedTagIds = removePostTags(postTagRepository.findByPost(post));
-        decrementPostCounts(removedTagIds);
+        assignTags(post, List.of());
     }
 
     public List<String> getTagNames(Post post) {
@@ -70,35 +72,14 @@ public class TagAssignmentService {
             return List.of();
         }
 
-        Map<String, Tag> tagsByName = loadTagsForAssignment(tagNamesToAdd);
-        return tagNamesToAdd.stream()
-                .map(tagName -> addPostTag(post, tagsByName.get(tagName)))
-                .toList();
-    }
-
-    private Map<String, Tag> loadTagsForAssignment(Set<String> tagNamesToAdd) {
-        Map<String, Tag> existingTagsByName = findTagsForUpdateByName(tagNamesToAdd);
-        Set<String> missingTagNames = tagNamesToAdd.stream()
-                .filter(tagName -> !existingTagsByName.containsKey(tagName))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        Map<String, Tag> tagsByName = existingTagsByName;
-        if (!missingTagNames.isEmpty()) {
-            tagRepository.insertIgnoreAll(missingTagNames.stream()
-                    .sorted()
-                    .toList());
-            tagsByName = findTagsForUpdateByName(tagNamesToAdd);
-        }
-
+        Map<String, Tag> tagsByName = tagRepository.findByTagNameIn(tagNamesToAdd).stream()
+                .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
         if (!tagsByName.keySet().containsAll(tagNamesToAdd)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
-        return tagsByName;
-    }
-
-    private Map<String, Tag> findTagsForUpdateByName(Set<String> tagNames) {
-        return tagRepository.findByTagNameInForUpdate(tagNames).stream()
-                .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
+        return tagNamesToAdd.stream()
+                .map(tagName -> addPostTag(post, tagsByName.get(tagName)))
+                .toList();
     }
 
     private Long addPostTag(Post post, Tag tag) {

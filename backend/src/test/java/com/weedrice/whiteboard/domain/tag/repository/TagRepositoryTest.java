@@ -86,14 +86,13 @@ class TagRepositoryTest {
     }
 
     @Test
-    @DisplayName("없는 태그를 insert-ignore로 생성한다")
-    void insertIgnore_createsMissingTag() {
-        int inserted = tagRepository.insertIgnore("inserted-tag");
+    @DisplayName("잠금 대상에 없는 태그를 생성한다")
+    void lockOrCreate_createsMissingTag() {
+        tagRepository.lockOrCreateForAssignment(List.of("inserted-tag"));
         entityManager.flush();
         entityManager.clear();
 
         Optional<Tag> insertedTag = tagRepository.findByTagName("inserted-tag");
-        assertThat(inserted).isEqualTo(1);
         assertThat(insertedTag).isPresent();
         assertThat(insertedTag.get().getPostCount()).isZero();
         assertThat(insertedTag.get().getCreatedAt()).isNotNull();
@@ -101,24 +100,23 @@ class TagRepositoryTest {
     }
 
     @Test
-    @DisplayName("중복 태그 이름은 insert-ignore에서 건너뛴다")
-    void insertIgnore_skipsDuplicateTagName() {
-        int inserted = tagRepository.insertIgnore("test-tag");
+    @DisplayName("기존 태그를 잠글 때 카운트를 보존한다")
+    void lockOrCreate_preservesExistingCount() {
+        tagRepository.lockOrCreateForAssignment(List.of("test-tag", "test-tag"));
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(inserted).isZero();
-        assertThat(tagRepository.findByTagName("test-tag")).isPresent();
+        assertThat(tagRepository.findByTagName("test-tag")).get()
+                .extracting(Tag::getPostCount).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("누락 태그 목록을 insert-ignore로 배치 생성한다")
-    void insertIgnoreAll_createsOnlyMissingTags() {
-        int inserted = tagRepository.insertIgnoreAll(List.of("test-tag", "batch-tag-a", "batch-tag-b"));
+    @DisplayName("누락 태그를 함께 생성한다")
+    void lockOrCreate_createsOnlyMissingTags() {
+        tagRepository.lockOrCreateForAssignment(List.of("test-tag", "batch-tag-a", "batch-tag-b"));
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(inserted).isEqualTo(2);
         assertThat(tagRepository.findByTagNameIn(List.of("test-tag", "batch-tag-a", "batch-tag-b")))
                 .extracting(Tag::getTagName)
                 .containsExactlyInAnyOrder("test-tag", "batch-tag-a", "batch-tag-b");

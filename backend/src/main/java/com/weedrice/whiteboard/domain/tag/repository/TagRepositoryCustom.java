@@ -5,9 +5,7 @@ import java.time.LocalDateTime;
 
 public interface TagRepositoryCustom {
 
-    int insertIgnore(String tagName);
-
-    int insertIgnoreAll(Collection<String> tagNames);
+    void lockOrCreateForAssignment(Collection<String> tagNames);
 
     int deleteOrphanBatch(LocalDateTime cutoff, int batchSize);
 }

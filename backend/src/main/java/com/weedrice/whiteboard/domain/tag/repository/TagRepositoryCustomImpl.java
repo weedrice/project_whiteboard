@@ -28,31 +28,31 @@ public class TagRepositoryCustomImpl implements TagRepositoryCustom {
     }
 
     @Override
-    public int insertIgnore(String tagName) {
-        return insertIgnoreAll(List.of(tagName));
-    }
-
-    @Override
-    public int insertIgnoreAll(Collection<String> tagNames) {
-        if (tagNames == null || tagNames.isEmpty()) {
-            return 0;
+    public void lockOrCreateForAssignment(Collection<String> tagNames) {
+        List<String> orderedNames = tagNames.stream().distinct().sorted().toList();
+        if (orderedNames.isEmpty()) {
+            return;
         }
         if (h2Database) {
-            return tagNames.stream()
-                    .mapToInt(this::insertIgnoreForH2)
-                    .sum();
+            for (String name : orderedNames) {
+                if (jdbcTemplate.queryForList("SELECT tag_id FROM tags WHERE tag_name = ? FOR UPDATE",
+                        Long.class, name).isEmpty()) {
+                    createMissingTagForH2(name);
+                }
+            }
+            return;
         }
-
-        int[] insertedCounts = jdbcTemplate.batchUpdate("""
+        // Keep existing and concurrently created tags in the same lock order.
+        // A false conflict predicate locks the winning insert without rewriting its row.
+        jdbcTemplate.batchUpdate("""
+                WITH locked AS (
+                    SELECT tag_id FROM tags WHERE tag_name = ? FOR UPDATE
+                )
                 INSERT INTO tags (tag_name, post_count, created_at, modified_at)
-                VALUES (?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (tag_name) DO NOTHING
-                """, tagNames.stream()
-                .map(tagName -> new Object[] { tagName })
-                .toList());
-        return Arrays.stream(insertedCounts)
-                .map(insertedCount -> insertedCount == Statement.SUCCESS_NO_INFO ? 0 : Math.max(insertedCount, 0))
-                .sum();
+                SELECT ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM locked)
+                ON CONFLICT (tag_name) DO UPDATE SET tag_name = EXCLUDED.tag_name WHERE FALSE
+                """, orderedNames.stream().map(name -> new Object[]{name, name}).toList());
     }
 
     @Override
@@ -115,14 +115,14 @@ public class TagRepositoryCustomImpl implements TagRepositoryCustom {
                 .sum();
     }
 
-    private int insertIgnoreForH2(String tagName) {
+    private void createMissingTagForH2(String tagName) {
         try {
-            return jdbcTemplate.update("""
+            jdbcTemplate.update("""
                     INSERT INTO tags (tag_name, post_count, created_at, modified_at)
                     VALUES (?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """, tagName);
         } catch (DuplicateKeyException ignored) {
-            return 0;
+            jdbcTemplate.queryForList("SELECT tag_id FROM tags WHERE tag_name = ? FOR UPDATE", Long.class, tagName);
         }
     }
 }
