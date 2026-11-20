@@ -29,10 +29,20 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long>, JpaSpec
     Optional<Inquiry> findByIdForCommand(@Param("inquiryId") Long inquiryId);
 
     @Query("""
-            SELECT i FROM Inquiry i
+            SELECT i.inquiryId FROM Inquiry i
             WHERE i.status = com.weedrice.whiteboard.domain.inquiry.entity.InquiryStatus.RESOLVED
               AND i.resolvedAt <= :cutoff
             ORDER BY i.resolvedAt ASC, i.inquiryId ASC
             """)
-    List<Inquiry> findAutoCloseCandidates(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+    List<Long> findAutoCloseCandidateIds(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT i FROM Inquiry i
+            WHERE i.inquiryId = :inquiryId
+              AND i.status = com.weedrice.whiteboard.domain.inquiry.entity.InquiryStatus.RESOLVED
+              AND i.resolvedAt <= :cutoff
+            """)
+    Optional<Inquiry> findExpiredForUpdate(@Param("inquiryId") Long inquiryId,
+                                           @Param("cutoff") LocalDateTime cutoff);
 }
