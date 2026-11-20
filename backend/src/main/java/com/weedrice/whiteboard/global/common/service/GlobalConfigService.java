@@ -203,7 +203,9 @@ public class GlobalConfigService {
         if (REQUIRED_COMPATIBILITY_CONFIG_KEYS.contains(normalizedKey)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        if (!globalConfigRepository.existsById(normalizedKey)) {
+        if (INQUIRY_PRIORITY_THRESHOLD_KEYS.contains(normalizedKey)) {
+            validateInquiryPriorityThresholdRelationship(normalizedKey, null);
+        } else if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         globalConfigRepository.deleteById(normalizedKey);
@@ -321,9 +323,15 @@ public class GlobalConfigService {
         if (!INQUIRY_PRIORITY_THRESHOLD_KEYS.contains(key)) {
             return;
         }
+        // The V91 inquiry gate cannot be deleted. Lock it before reading the optional pair
+        // so concurrent creates also serialize when one or both thresholds are absent.
+        globalConfigRepository.findAllByKeysForUpdate(List.of(INQUIRY_NOTIFICATION_TYPE_ENABLED_CONFIG_KEY));
         Map<String, String> values = new LinkedHashMap<>();
         globalConfigRepository.findAllByKeysForUpdate(INQUIRY_PRIORITY_THRESHOLD_KEYS)
                 .forEach(config -> values.put(config.getConfigKey(), config.getConfigValue()));
+        if (proposedValue == null && !values.containsKey(key)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
         values.put(key, proposedValue);
         int highHours = parseIntConfigOrDefault(
                 values.get(INQUIRY_PRIORITY_HIGH_HOURS_CONFIG_KEY), 24, 1, 24 * 365);

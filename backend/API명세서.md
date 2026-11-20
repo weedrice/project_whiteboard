@@ -706,7 +706,7 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | `POST` | `/api/v1/admin/configs` | 전역 설정 생성 |
 | `PUT` | `/api/v1/admin/configs` | 전역 설정 일괄 수정 |
 | `PUT` | `/api/v1/admin/configs/{key}` | 전역 설정 수정 |
-| `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제 |
+| `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제. 일반 문의의 높음·긴급 기준은 삭제 후 기본값을 적용해도 높음 < 긴급이어야 하며, 위반하면 `INVALID_INPUT_VALUE`를 반환한다. |
 | `POST` | `/api/v1/admin/badges/backfill` | 기존 활성 사용자의 콘텐츠 뱃지 동기 일괄 보정 |
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
