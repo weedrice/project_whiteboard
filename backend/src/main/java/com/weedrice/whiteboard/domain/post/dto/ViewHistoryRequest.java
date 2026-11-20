@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Getter
 @Builder
 @NoArgsConstructor
@@ -18,4 +20,11 @@ public class ViewHistoryRequest {
     @PositiveOrZero
     @Max(MAX_DURATION_MS)
     private Long durationMs; // 추가된 체류 시간
+    private UUID viewSessionId;
+    @PositiveOrZero
+    private Long sessionDurationMs;
+
+    public ViewHistoryRequest(Long lastReadCommentId, Long durationMs) {
+        this(lastReadCommentId, durationMs, null, null);
+    }
 }

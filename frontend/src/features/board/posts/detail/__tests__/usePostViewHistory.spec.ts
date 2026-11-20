@@ -82,7 +82,7 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledWith(
       15,
-      { durationMs: 30_000, lastReadCommentId: 4 },
+      { durationMs: 30_000, viewSessionId: expect.any(String), sessionDurationMs: 30_000 },
       expect.objectContaining({
         expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
@@ -90,6 +90,162 @@ describe('usePostViewHistory', () => {
         skipGlobalErrorHandler: true,
       }),
     )
+  })
+
+  it('retries a changed cursor until confirmed, then omits it on duration-only requests without randomUUID', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) })
+    try {
+      vi.mocked(postApi.updateViewHistory).mockRejectedValueOnce(new Error('response lost'))
+      const wrapper = mount(TestHost)
+      wrapper.vm.setLastReadCommentId(9)
+      now = 1_000
+      wrapper.vm.flush()
+      await flushPromises()
+      now = 2_000
+      wrapper.vm.flush()
+      await flushPromises()
+      now = 3_000
+      wrapper.vm.flush()
+      await flushPromises()
+
+      const payloads = vi.mocked(postApi.updateViewHistory).mock.calls.map(([, payload]) => payload)
+      const id = payloads[0]!.viewSessionId
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      expect(payloads).toEqual([
+        { durationMs: 1_000, sessionDurationMs: 1_000, viewSessionId: id, lastReadCommentId: 9 },
+        { durationMs: 2_000, sessionDurationMs: 2_000, viewSessionId: id, lastReadCommentId: 9 },
+        { durationMs: 1_000, sessionDurationMs: 3_000, viewSessionId: id },
+      ])
+      wrapper.unmount()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('saves time without the rejected cursor and sends a newer cursor on the next flush', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    wrapper.vm.setLastReadCommentId(9)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    wrapper.vm.setLastReadCommentId(12)
+    pending.reject({ isAxiosError: true, response: { status: 400, data: { error: { code: 'C001' } } } })
+    await flushPromises()
+    window.dispatchEvent(new Event('focus'))
+    now = 2_000
+    window.dispatchEvent(new Event('blur'))
+    await flushPromises()
+
+    const calls = vi.mocked(postApi.updateViewHistory).mock.calls
+    const id = calls[0]![1].viewSessionId
+    expect(calls.map(([, payload]) => payload)).toEqual([
+      { durationMs: 1_000, sessionDurationMs: 1_000, viewSessionId: id, lastReadCommentId: 9 },
+      { durationMs: 1_000, sessionDurationMs: 1_000, viewSessionId: id },
+      { durationMs: 1_000, sessionDurationMs: 2_000, viewSessionId: id, lastReadCommentId: 12 },
+    ])
+    expect(calls[1]![2]!.signal).toBe(calls[0]![2]!.signal)
+    wrapper.unmount()
+  })
+
+  it('can advance from 4 to 8 after 10 is rejected and does not resubmit 10 when observed again', async () => {
+    const rejected = { isAxiosError: true, response: { status: 400, data: { error: { code: 'C001' } } } }
+    vi.mocked(postApi.updateViewHistory).mockRejectedValueOnce(rejected)
+    const wrapper = mount(TestHost, { props: { initialCommentId: 4 } })
+    wrapper.vm.setLastReadCommentId(10)
+    now = 1_000
+    wrapper.vm.flush()
+    await flushPromises()
+
+    wrapper.vm.setLastReadCommentId(8)
+    wrapper.vm.setLastReadCommentId(10)
+    now = 2_000
+    wrapper.vm.flush()
+    await flushPromises()
+
+    wrapper.vm.setLastReadCommentId(10)
+    now = 3_000
+    wrapper.vm.flush()
+    await flushPromises()
+    const calls = vi.mocked(postApi.updateViewHistory).mock.calls
+    const id = calls[0]![1].viewSessionId
+    expect(calls.map(([, payload]) => payload)).toEqual([
+      { durationMs: 1_000, sessionDurationMs: 1_000, viewSessionId: id, lastReadCommentId: 10 },
+      { durationMs: 1_000, sessionDurationMs: 1_000, viewSessionId: id },
+      { durationMs: 1_000, sessionDurationMs: 2_000, viewSessionId: id, lastReadCommentId: 8 },
+      { durationMs: 1_000, sessionDurationMs: 3_000, viewSessionId: id },
+    ])
+    wrapper.unmount()
+  })
+
+  it.each(['accepted', 'rejected'] as const)(
+    'keeps a lower observation made during a pending request only when needed after the cursor is %s',
+    async (outcome) => {
+      const pending = deferredHistoryRequest()
+      vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+      const wrapper = mount(TestHost, { props: { initialCommentId: 4 } })
+      wrapper.vm.setLastReadCommentId(10)
+      wrapper.vm.flush()
+      wrapper.vm.setLastReadCommentId(8)
+
+      if (outcome === 'accepted') pending.resolve()
+      else pending.reject({ isAxiosError: true, response: { status: 400, data: { error: { code: 'C001' } } } })
+      await flushPromises()
+      wrapper.vm.flush()
+      await flushPromises()
+      wrapper.vm.setLastReadCommentId(8)
+      wrapper.vm.setLastReadCommentId(10)
+      wrapper.vm.flush()
+      await flushPromises()
+
+      const cursors = vi.mocked(postApi.updateViewHistory).mock.calls.map(([, payload]) => payload.lastReadCommentId)
+      expect(cursors).toEqual(outcome === 'accepted' ? [10] : [10, 8])
+      wrapper.unmount()
+    },
+  )
+
+  it('stops after a failed duration-only retry on disposal', async () => {
+    const pending = deferredHistoryRequest()
+    const rejected = { isAxiosError: true, response: { status: 400, data: { error: { code: 'C001' } } } }
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise).mockRejectedValueOnce(rejected)
+    const wrapper = mount(TestHost)
+    wrapper.vm.setLastReadCommentId(9)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    wrapper.unmount()
+    pending.reject(rejected)
+    await flushPromises()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(postApi.updateViewHistory).mock.calls[1]![1]).not.toHaveProperty('lastReadCommentId')
+    expect(sessionBoundary.listener).toBeNull()
+  })
+
+  it('does not retry a rejected cursor after the user session changes', async () => {
+    const pending = deferredHistoryRequest()
+    vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
+    const wrapper = mount(TestHost)
+    wrapper.vm.setLastReadCommentId(9)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    wrapper.vm.userId = 8
+    wrapper.vm.sessionGeneration = 2
+    pending.reject({ isAxiosError: true, response: { status: 400, data: { error: { code: 'C001' } } } })
+    await flushPromises()
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('drains more than a day of unsent duration in capped final requests', async () => {
+    const wrapper = mount(TestHost)
+    now = 86_400_005
+    wrapper.unmount()
+    await flushPromises()
+
+    const calls = vi.mocked(postApi.updateViewHistory).mock.calls
+    expect(calls.map((call) => [call[1].durationMs, call[1].sessionDurationMs])).toEqual([
+      [86_400_000, 86_400_000], [5, 86_400_005],
+    ])
+    expect(calls[1]![1].viewSessionId).toBe(calls[0]![1].viewSessionId)
   })
 
   it('flushes the latest visible comment and partial duration when focus is lost', async () => {
@@ -102,7 +258,7 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledWith(
       15,
-      { durationMs: 5_250, lastReadCommentId: 9 },
+      { durationMs: 5_250, lastReadCommentId: 9, viewSessionId: expect.any(String), sessionDurationMs: 5_250 },
       expect.objectContaining({
         expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
@@ -123,7 +279,7 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledWith(
       15,
-      { durationMs: 1_000, lastReadCommentId: 9 },
+      { durationMs: 1_000, lastReadCommentId: 9, viewSessionId: expect.any(String), sessionDurationMs: 1_000 },
       expect.any(Object),
     )
   })
@@ -154,9 +310,12 @@ describe('usePostViewHistory', () => {
     vi.advanceTimersByTime(30_000)
     await flushPromises()
 
+    const calls = vi.mocked(postApi.updateViewHistory).mock.calls
+    expect(calls[0]![1].viewSessionId).toEqual(calls[1]![1].viewSessionId)
+    expect(calls[0]![1].sessionDurationMs).toBe(1_000)
     expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
       15,
-      { durationMs: 31_000, lastReadCommentId: 4 },
+      { durationMs: 31_000, viewSessionId: expect.any(String), sessionDurationMs: 31_000 },
       expect.objectContaining({
         expectedSession: { sessionGeneration: 1, userId: 7 },
         signal: expect.any(AbortSignal),
@@ -193,7 +352,7 @@ describe('usePostViewHistory', () => {
     expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
     expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
       15,
-      { durationMs: 30_000, lastReadCommentId: 4 },
+      { durationMs: 30_000, viewSessionId: expect.any(String), sessionDurationMs: 30_000 },
       expect.objectContaining({ skipAuthRefresh: true }),
     )
   })
@@ -217,8 +376,8 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
     expect(vi.mocked(postApi.updateViewHistory).mock.calls.map((call) => call[1])).toEqual([
-      { durationMs: 30_000, lastReadCommentId: 4 },
-      { durationMs: 5_000, lastReadCommentId: 9 },
+      { durationMs: 30_000, viewSessionId: expect.any(String), sessionDurationMs: 30_000 },
+      { durationMs: 5_000, lastReadCommentId: 9, viewSessionId: expect.any(String), sessionDurationMs: 35_000 },
     ])
     expect(sessionBoundary.listener).toBeNull()
     vi.advanceTimersByTime(90_000)
@@ -239,12 +398,12 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
     expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
-      15, { durationMs: 0, lastReadCommentId: 9 }, expect.any(Object),
+      15, { durationMs: 0, lastReadCommentId: 9, viewSessionId: expect.any(String), sessionDurationMs: 1_000 }, expect.any(Object),
     )
     expect(sessionBoundary.listener).toBeNull()
   })
 
-  it.each(['success', 'failure'] as const)('does not repeat unchanged final data after %s', async (outcome) => {
+  it.each(['success', 'failure'] as const)('retries unacknowledged final data once after %s', async (outcome) => {
     const pending = deferredHistoryRequest()
     vi.mocked(postApi.updateViewHistory).mockReturnValueOnce(pending.promise)
     const wrapper = mount(TestHost)
@@ -255,11 +414,14 @@ describe('usePostViewHistory', () => {
     else pending.reject(new Error('response lost'))
     await flushPromises()
 
-    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(1)
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(outcome === 'failure' ? 2 : 1)
+    const calls = vi.mocked(postApi.updateViewHistory).mock.calls
+    const retriedPayloads = calls.slice(1).map(([, payload]) => payload)
+    expect(retriedPayloads).toEqual(outcome === 'failure' ? [calls[0]![1]] : [])
     expect(sessionBoundary.listener).toBeNull()
   })
 
-  it('sends unsent final data after failure without replaying possibly persisted duration or retrying forever', async () => {
+  it('retries the cumulative final duration after an unknown outcome without retrying forever', async () => {
     const pending = deferredHistoryRequest()
     vi.mocked(postApi.updateViewHistory)
       .mockReturnValueOnce(pending.promise)
@@ -275,7 +437,7 @@ describe('usePostViewHistory', () => {
 
     expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
     expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
-      15, { durationMs: 5_000, lastReadCommentId: 9 }, expect.any(Object),
+      15, { durationMs: 35_000, lastReadCommentId: 9, viewSessionId: expect.any(String), sessionDurationMs: 35_000 }, expect.any(Object),
     )
     expect(sessionBoundary.listener).toBeNull()
     vi.advanceTimersByTime(90_000)

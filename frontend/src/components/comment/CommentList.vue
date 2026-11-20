@@ -214,7 +214,7 @@ onMounted(() => {
       .filter((entry) => entry.isIntersecting && (entry.target as HTMLElement).hasAttribute('data-reading-comment'))
       .map((entry) => Number((entry.target as HTMLElement).dataset.commentId))
       .filter((commentId) => Number.isInteger(commentId) && commentId > 0)
-    if (visibleCommentIds.length > 0) emit('last-read-comment', Math.max(...visibleCommentIds))
+    for (const commentId of visibleCommentIds) emit('last-read-comment', commentId)
   }, {
     rootMargin: '-20% 0px -60% 0px',
     threshold: 0,

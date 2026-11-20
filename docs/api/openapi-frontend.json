@@ -8465,6 +8465,15 @@
           "lastReadCommentId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "sessionDurationMs" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "viewSessionId" : {
+            "format" : "uuid",
+            "type" : "string"
           }
         },
         "type" : "object"

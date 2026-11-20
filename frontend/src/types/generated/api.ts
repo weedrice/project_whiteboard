@@ -6368,6 +6368,10 @@ export interface components {
             durationMs?: number;
             /** Format: int64 */
             lastReadCommentId?: number;
+            /** Format: int64 */
+            sessionDurationMs?: number;
+            /** Format: uuid */
+            viewSessionId?: string;
         };
     };
     responses: never;

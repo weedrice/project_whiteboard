@@ -70,12 +70,12 @@ class ViewHistoryCommandServiceTest {
 
     @Test
     @DisplayName("insert 후 lock 조회 이력이 없으면 POST_NOT_FOUND 예외로 변환한다")
-    void getOrCreateForUpdate_insertedButMissing_throwsPostNotFound() {
+    void insertAndLoadForUpdate_insertedButMissing_throwsPostNotFound() {
         when(viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId()))
                 .thenReturn(Optional.empty());
         when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(1);
 
-        assertThatThrownBy(() -> viewHistoryCommandService.getOrCreateForUpdate(user, post))
+        assertThatThrownBy(() -> viewHistoryCommandService.insertAndLoadForUpdate(user, post))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }

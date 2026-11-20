@@ -239,7 +239,7 @@ describe('CommentList', () => {
     )
   })
 
-  it('emits the latest comment entering the reading viewport band', () => {
+  it('emits a comment entering the reading viewport band', () => {
     const intersectionCallback: { value?: IntersectionObserverCallback } = {}
     class ReadingIntersectionObserver {
       constructor(callback: IntersectionObserverCallback) {
@@ -293,11 +293,13 @@ describe('CommentList', () => {
     expect(observed.map((element) => (element as HTMLElement).dataset.commentId)).toEqual(['1', '2'])
     expect(observed.some((element) => (element as HTMLElement).dataset.commentId === '99')).toBe(false)
 
+    const firstTarget = wrapper.get('[data-reading-comment][data-comment-id="1"]').element
     const mainTarget = wrapper.get('[data-reading-comment][data-comment-id="2"]').element
     intersectionCallback.value?.([
+      { isIntersecting: true, target: firstTarget } as IntersectionObserverEntry,
       { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
     ], {} as IntersectionObserver)
-    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
+    expect(wrapper.emitted('last-read-comment')).toEqual([[1], [2]])
 
     await wrapper.findAll('[data-testid="sort-control"] button')[1]!.trigger('click')
     await Promise.resolve()
@@ -306,7 +308,7 @@ describe('CommentList', () => {
     intersectionCallback.value?.([
       { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
     ], {} as IntersectionObserver)
-    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
+    expect(wrapper.emitted('last-read-comment')).toEqual([[1], [2]])
   })
   it.each(['session', 'principal', 'post'] as const)('does not approve an old comment deletion after %s changes', async boundary => {
     let approve!: (value: boolean) => void

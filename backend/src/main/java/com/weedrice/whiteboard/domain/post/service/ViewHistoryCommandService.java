@@ -34,12 +34,7 @@ public class ViewHistoryCommandService {
     }
 
     @Transactional
-    public ViewHistory getOrCreateForUpdate(UserIdRef user, Post post) {
-        return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
-                .orElseGet(() -> insertAndLoadForUpdate(user, post));
-    }
-
-    private ViewHistory insertAndLoadForUpdate(UserIdRef user, Post post) {
+    public ViewHistory insertAndLoadForUpdate(UserIdRef user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
                 .orElseThrow(this::viewHistoryUnavailable);

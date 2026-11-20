@@ -27,6 +27,13 @@ public class PostCommentStatusIntegrationAdapter implements PostCommentStatusPor
     }
 
     @Override
+    public void requireCommentOnPost(Long postId, Long commentId) {
+        if (commentRepository.findPostIdByCommentId(commentId).filter(postId::equals).isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    @Override
     public Long requireActiveCommentId(Long postId, Long commentId) {
         return commentRepository.findByCommentIdAndPostIdAndIsDeletedFalse(commentId, postId)
                 .map(comment -> comment.getCommentId())

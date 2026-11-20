@@ -6,8 +6,8 @@
 | --- | --- |
 | 기준일 | 2026-11-20 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V104__index_point_history_target.sql` |
-| 현재 테이블 수 | 89개 |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V105__add_view_history_sessions.sql` |
+| 현재 테이블 수 | 90개 |
 | DB | PostgreSQL |
 
 이 문서는 Flyway migration 기준의 현재 스키마 요약이다. 컬럼 단위 상세는 각 migration과 JPA entity를 최종 기준으로 본다.
@@ -67,6 +67,7 @@
 | `scheduled_post_files` | 예약 게시글이 발행 전까지 보호하는 첨부파일과 표시 순서. 한 파일은 하나의 예약만 참조 가능 |
 | `popular_posts` | 인기글 캐시 |
 | `view_histories` | 사용자별 게시글 열람 이력 |
+| `view_history_sessions` | 열람 이력과 세션 UUID를 복합 기본키로 사용하며 마지막 반영 누적시간(ms)을 저장한다. 부모 이력을 삭제하면 함께 삭제된다. |
 
 #### `draft_posts` 보존 정책
 
@@ -285,6 +286,7 @@
 | `V102` | semantic 색인 작업 대기 시작·재시도 예약 시각 추가(expand), 기존 컬럼·데이터·인덱스 유지 |
 | `V103` | 작성자 복구용 재색인 작업 테이블 및 실행 대기 인덱스 추가(expand) |
 | `V104` | 포인트 적립 중복 확인과 회수액 집계를 위한 회원·대상·유형 인덱스 온라인 추가(expand) |
+| `V105` | 열람 세션별 누적시간 테이블 추가(expand). 기존 이력의 초기 데이터 변환은 필요하지 않다. |
 
 ## 프로필 공개 설정 (V100)
 
