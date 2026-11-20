@@ -102,6 +102,18 @@ class CommentRepositoryTest {
     }
 
     @Test
+    void badgeCountStopsAtThresholdAndIncludesOnlyTheAuthorsUndeletedComments() {
+        entityManager.persist(commentFor(post, "Second comment"));
+        Comment removed = entityManager.persist(commentFor(post, "Removed comment"));
+        removed.deleteComment();
+        entityManager.flush();
+
+        assertThat(commentRepository.countActiveByUserIdUpTo(user.getUserId(), 1)).isOne();
+        assertThat(commentRepository.countActiveByUserIdUpTo(user.getUserId(), 10)).isEqualTo(2);
+        assertThat(commentRepository.countActiveByUserIdUpTo(-1L, 10)).isZero();
+    }
+
+    @Test
     void publicProfileComments_excludeBlockedPostAuthorsBeforePaginationAndCount() {
         User outgoingBlockedAuthor = entityManager.persist(User.builder()
                 .loginId("blocked-outgoing").email("blocked-outgoing@example.com")

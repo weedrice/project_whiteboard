@@ -89,6 +89,17 @@ class PostRepositoryTest {
     }
 
     @Test
+    void badgeCountStopsAtThresholdAndIncludesOnlyTheAuthorsUndeletedPosts() {
+        persistPost("Second post");
+        persistPost("Removed post").deletePost();
+        entityManager.flush();
+
+        assertThat(postRepository.countActiveByUserIdUpTo(user.getUserId(), 1)).isOne();
+        assertThat(postRepository.countActiveByUserIdUpTo(user.getUserId(), 10)).isEqualTo(2);
+        assertThat(postRepository.countActiveByUserIdUpTo(-1L, 10)).isZero();
+    }
+
+    @Test
     void withdrawnAuthorProjectionMasksIdentityAndRestoresWithoutChangingStoredAccount() {
         user.updateProfileImage("https://example.com/retained.png");
         user.delete(LocalDateTime.now());

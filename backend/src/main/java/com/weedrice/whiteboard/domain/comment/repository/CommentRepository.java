@@ -333,6 +333,14 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         long countByUserId(Long userId);
         long countByUserIdAndIsDeleted(Long userId, Boolean isDeleted);
+
+        @Query(value = """
+                SELECT COUNT(*) FROM (
+                    SELECT 1 FROM comments WHERE user_id = :userId AND is_deleted = 'N' LIMIT :threshold
+                ) active_content
+                """, nativeQuery = true)
+        int countActiveByUserIdUpTo(@Param("userId") Long userId, @Param("threshold") int threshold);
+
         default long countByUserAndIsDeleted(UserIdRef user, Boolean isDeleted) {
                 return countByUserIdAndIsDeleted(user.getUserId(), isDeleted);
         }

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.badge.service;
 
+import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,29 +23,56 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class BadgeEvaluationService {
 
+    private record Milestone(BadgeCode code, int threshold) {}
+
+    private static final List<Milestone> POST_MILESTONES = List.of(
+            new Milestone(BadgeCode.FIRST_POST, 1), new Milestone(BadgeCode.POSTS_10, 10),
+            new Milestone(BadgeCode.POSTS_100, 100));
+    private static final List<Milestone> COMMENT_MILESTONES = List.of(
+            new Milestone(BadgeCode.FIRST_COMMENT, 1), new Milestone(BadgeCode.COMMENTS_10, 10),
+            new Milestone(BadgeCode.COMMENTS_100, 100));
+
     private final BadgeAwardService badgeAwardService;
+    private final UserBadgeRepository userBadgeRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
 
     @Transactional
     public int evaluatePostCountBadges(Long userId) {
-        User user = activeUser(userId);
-        if (user == null) {
-            return 0;
-        }
-        long count = postRepository.countByUserIdAndIsDeleted(user.getUserId(), false);
-        return awardPostCountBadges(userId, count);
+        return evaluateCountBadges(userId, POST_MILESTONES,
+                threshold -> postRepository.countActiveByUserIdUpTo(userId, threshold));
     }
 
     @Transactional
     public int evaluateCommentCountBadges(Long userId) {
-        User user = activeUser(userId);
+        return evaluateCountBadges(userId, COMMENT_MILESTONES,
+                threshold -> commentRepository.countActiveByUserIdUpTo(userId, threshold));
+    }
+
+    private int evaluateCountBadges(Long userId, List<Milestone> milestones, IntUnaryOperator countUpTo) {
+        if (userId == null) {
+            return 0;
+        }
+        Set<String> owned = userBadgeRepository.findOwnedBadgeCodes(userId,
+                milestones.stream().map(milestone -> milestone.code().name()).toList());
+        List<Milestone> missing = milestones.stream().filter(milestone -> !owned.contains(milestone.code().name()))
+                .toList();
+        if (missing.isEmpty()) {
+            return 0;
+        }
+        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE).orElse(null);
         if (user == null) {
             return 0;
         }
-        long count = commentRepository.countByUserIdAndIsDeleted(user.getUserId(), false);
-        return awardCommentCountBadges(userId, count);
+        int count = countUpTo.applyAsInt(missing.stream().mapToInt(Milestone::threshold).max().orElseThrow());
+        int awarded = 0;
+        for (Milestone milestone : missing) {
+            if (count >= milestone.threshold() && badgeAwardService.awardForActiveUser(user, milestone.code().name())) {
+                awarded++;
+            }
+        }
+        return awarded;
     }
 
     @Transactional
@@ -71,8 +100,8 @@ public class BadgeEvaluationService {
         Map<Long, Set<BadgeCode>> eligibleBadgesByUserId = new HashMap<>();
         for (Long userId : usersById.keySet()) {
             Set<BadgeCode> eligibleBadges = EnumSet.noneOf(BadgeCode.class);
-            addEligiblePostCountBadges(eligibleBadges, postCounts.getOrDefault(userId, 0L));
-            addEligibleCommentCountBadges(eligibleBadges, commentCounts.getOrDefault(userId, 0L));
+            addEligibleBadges(eligibleBadges, POST_MILESTONES, postCounts.getOrDefault(userId, 0L));
+            addEligibleBadges(eligibleBadges, COMMENT_MILESTONES, commentCounts.getOrDefault(userId, 0L));
             if (!eligibleBadges.isEmpty()) {
                 eligibleBadgesByUserId.put(userId, eligibleBadges);
             }
@@ -104,62 +133,11 @@ public class BadgeEvaluationService {
         return awarded;
     }
 
-    private User activeUser(Long userId) {
-        if (userId == null) {
-            return null;
-        }
-        return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE).orElse(null);
-    }
-
-    private int awardPostCountBadges(Long userId, long count) {
-        int awarded = 0;
-        if (count >= 1 && badgeAwardService.awardIfMissing(userId, BadgeCode.FIRST_POST)) {
-            awarded++;
-        }
-        if (count >= 10 && badgeAwardService.awardIfMissing(userId, BadgeCode.POSTS_10)) {
-            awarded++;
-        }
-        if (count >= 100 && badgeAwardService.awardIfMissing(userId, BadgeCode.POSTS_100)) {
-            awarded++;
-        }
-        return awarded;
-    }
-
-    private int awardCommentCountBadges(Long userId, long count) {
-        int awarded = 0;
-        if (count >= 1 && badgeAwardService.awardIfMissing(userId, BadgeCode.FIRST_COMMENT)) {
-            awarded++;
-        }
-        if (count >= 10 && badgeAwardService.awardIfMissing(userId, BadgeCode.COMMENTS_10)) {
-            awarded++;
-        }
-        if (count >= 100 && badgeAwardService.awardIfMissing(userId, BadgeCode.COMMENTS_100)) {
-            awarded++;
-        }
-        return awarded;
-    }
-
-    private void addEligiblePostCountBadges(Set<BadgeCode> badges, long count) {
-        if (count >= 1) {
-            badges.add(BadgeCode.FIRST_POST);
-        }
-        if (count >= 10) {
-            badges.add(BadgeCode.POSTS_10);
-        }
-        if (count >= 100) {
-            badges.add(BadgeCode.POSTS_100);
-        }
-    }
-
-    private void addEligibleCommentCountBadges(Set<BadgeCode> badges, long count) {
-        if (count >= 1) {
-            badges.add(BadgeCode.FIRST_COMMENT);
-        }
-        if (count >= 10) {
-            badges.add(BadgeCode.COMMENTS_10);
-        }
-        if (count >= 100) {
-            badges.add(BadgeCode.COMMENTS_100);
+    private void addEligibleBadges(Set<BadgeCode> badges, List<Milestone> milestones, long count) {
+        for (Milestone milestone : milestones) {
+            if (count >= milestone.threshold()) {
+                badges.add(milestone.code());
+            }
         }
     }
 }
