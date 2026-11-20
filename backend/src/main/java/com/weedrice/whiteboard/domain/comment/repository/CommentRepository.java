@@ -306,7 +306,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         WHERE c.createdAt >= :start
                           AND c.createdAt < :end
                           AND c.isDeleted = false
+                          AND c.isBlinded = false
                           AND p.isDeleted = false
+                          AND p.isBlinded = false
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true

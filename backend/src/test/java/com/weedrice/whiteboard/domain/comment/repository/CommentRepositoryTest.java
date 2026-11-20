@@ -453,6 +453,11 @@ class CommentRepositoryTest {
         Post privatePost = persistPost("Landing Private Post", privateBoard, false, false);
         Post inactivePost = persistPost("Landing Inactive Post", inactiveBoard, false, false);
         Post inquiryPost = persistPost("Landing Inquiry Post", inquiryBoard, false, false);
+        Post blindedPost = persistPost("Landing Blinded Post", board, false, false);
+        blindedPost.blind("REPORT", todayStart);
+        Comment commentOnBlindedPost = entityManager.persist(commentFor(blindedPost, "Hidden parent"));
+        Comment blindedComment = entityManager.persist(commentFor(post, "Hidden comment"));
+        blindedComment.blind("REPORT", todayStart);
 
         Comment visibleComment = commentFor(post, "Visible Comment");
         Comment yesterdayComment = commentFor(post, "Yesterday Comment");
@@ -482,6 +487,8 @@ class CommentRepositoryTest {
         updateCreatedAt(privatePostComment, todayStart.plusHours(5));
         updateCreatedAt(inactivePostComment, todayStart.plusHours(6));
         updateCreatedAt(inquiryPostComment, todayStart.plusHours(7));
+        updateCreatedAt(commentOnBlindedPost, todayStart.plusHours(8));
+        updateCreatedAt(blindedComment, todayStart.plusHours(9));
         entityManager.flush();
         entityManager.clear();
 
@@ -491,6 +498,11 @@ class CommentRepositoryTest {
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(1L);
+        entityManager.find(Post.class, blindedPost.getPostId()).unblind();
+        entityManager.find(Comment.class, blindedComment.getCommentId()).unblind();
+        entityManager.flush();
+        assertThat(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                todayStart, tomorrowStart, BoardPolicyConstants.INQUIRY_BOARD_URL)).isEqualTo(3L);
     }
 
     @Test
