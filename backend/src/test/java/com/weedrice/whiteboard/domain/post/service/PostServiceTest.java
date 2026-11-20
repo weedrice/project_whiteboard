@@ -515,6 +515,10 @@ class PostServiceTest {
         ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
         verify(tagAssignmentService).assignTags(postCaptor.capture(), eq(request.getTags()));
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
+        ArgumentCaptor<PostVersion> version = ArgumentCaptor.captor();
+        verify(postVersionRepository).save(version.capture());
+        assertThat(version.getValue().getVersionType()).isEqualTo("CREATE");
+        assertThat(version.getValue().getOriginalTitle()).isEqualTo("New Post");
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
         verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();

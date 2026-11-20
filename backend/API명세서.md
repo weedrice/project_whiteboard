@@ -339,7 +339,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
-| `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력 |
+| `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력. 작성 이력에는 작성 당시 제목을 표시한다. 과거 작성 이력에 제목이 없으면 최초 수정 직전 제목, 현재 제목 순으로 대체한다. |
 | `POST` | `/api/v1/boards/{boardUrl}/scheduled-posts` | 예약 게시글 생성 |
 | `GET` | `/api/v1/users/me/scheduled-posts` | 내 예약 게시글 목록 |
 | `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
