@@ -14,6 +14,7 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.spec.ECFieldFp;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
@@ -34,6 +35,17 @@ class WebPushSubscriptionValidator {
     void validateForRegistration(String endpoint, String p256dh, String auth) {
         validateEndpoint(endpoint);
         validateKeys(p256dh, auth);
+    }
+
+    static boolean matchesRegisteredKey(String stored, String validated) {
+        if (stored == null) return false;
+        if (stored.equals(validated)) return true;
+        try {
+            var decoder = Base64.getUrlDecoder();
+            return MessageDigest.isEqual(decoder.decode(stored), decoder.decode(validated));
+        } catch (IllegalArgumentException malformedStoredKey) {
+            return false;
+        }
     }
 
     void validateForDelivery(PushSubscriptionSnapshot subscription) throws UnknownHostException {

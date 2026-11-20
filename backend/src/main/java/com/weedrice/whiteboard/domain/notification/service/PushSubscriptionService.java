@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -46,19 +47,32 @@ public class PushSubscriptionService {
         }
         pushSubscriptionRepository.lockEndpoint(endpoint);
 
+        Long ownerId = pushSubscriptionRepository.findOwnerIdByEndpoint(endpoint).orElse(null);
+        List<User> lockedUsers = userWritableResolver.resolveForUpdateWithRelatedUsers(
+                userId,
+                ownerId == null || ownerId.equals(userId) ? List.of() : List.of(ownerId));
+        User user = findLockedUser(lockedUsers, userId);
+        // Unsubscribe-all is serialized by the owner lock and can remove the row while we wait.
         PushSubscription existingSubscription = pushSubscriptionRepository.findByEndpoint(endpoint).orElse(null);
         Long previousUserId = existingSubscription == null ? null : existingSubscription.getUser().getUserId();
         Long previousSubscriptionId = existingSubscription == null ? null : existingSubscription.getSubscriptionId();
         java.time.LocalDateTime previousModifiedAt = existingSubscription == null
                 ? null
                 : existingSubscription.getModifiedAt();
-        List<User> lockedUsers = userWritableResolver.resolveForUpdateWithRelatedUsers(
-                userId,
-                previousUserId == null || previousUserId.equals(userId) ? List.of() : List.of(previousUserId));
-        User user = findLockedUser(lockedUsers, userId);
 
         boolean createsSubscriptionForCurrentUser = existingSubscription == null
                 || !userId.equals(previousUserId);
+        if (!createsSubscriptionForCurrentUser
+                && WebPushSubscriptionValidator.matchesRegisteredKey(
+                        existingSubscription.getP256dh(), request.getKeys().getP256dh())
+                && WebPushSubscriptionValidator.matchesRegisteredKey(
+                        existingSubscription.getAuth(), request.getKeys().getAuth())) {
+            if (!Objects.equals(existingSubscription.getUserAgent(), request.getUserAgent())) {
+                pushSubscriptionRepository.updateUserAgent(previousSubscriptionId, request.getUserAgent());
+            }
+            userSettingsService.setPushEnabledForLockedUser(user, true);
+            return PushSubscriptionResponse.from(existingSubscription);
+        }
         if (createsSubscriptionForCurrentUser
                 && pushSubscriptionRepository.countByUser_UserId(userId) >= maxSubscriptionsPerUser()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
