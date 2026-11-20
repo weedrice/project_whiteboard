@@ -154,7 +154,7 @@ class SemanticSearchJobTimingPostgresTest {
         jobs.claimForProcessing(job.jobId(), 5, now());
         jobs.markFailedIfCurrent(job.jobId(), now(), 5, "terminal", false, now());
         clock.advanceSeconds(60);
-        assertThat(jobs.redriveFailedDeletes("POST", 1)).isEqualTo(1);
+        assertThat(new SemanticSearchBackfillService(jdbc, jobs).enqueueBackfill("POST", 1)).isEqualTo(1);
         assertThat(jobs.findOldestPendingCreatedAt()).contains(now());
         assertThat(jobs.findPendingDeletionJobs(5, 20)).hasSize(1);
     }

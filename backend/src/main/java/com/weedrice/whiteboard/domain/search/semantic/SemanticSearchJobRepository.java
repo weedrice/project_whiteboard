@@ -137,6 +137,13 @@ class SemanticSearchJobRepository {
                 """, Long.class, contentType, now, now, now, now, new SqlArrayValue("bigint", ids.toArray()));
     }
 
+    void discardUnusedReservations(String contentType, List<Long> ids) {
+        if (!ids.isEmpty()) {
+            jdbcTemplate.update("DELETE FROM semantic_search_jobs WHERE content_type=? AND content_id=ANY(?)",
+                    contentType, new SqlArrayValue("bigint", ids.toArray()));
+        }
+    }
+
     List<Long> findActivePostIdsByBoardIdAfter(Long boardId, Long lastSeenPostId, int limit) {
         return jdbcTemplate.queryForList("""
                 SELECT p.post_id
@@ -289,20 +296,41 @@ class SemanticSearchJobRepository {
         return count == null ? 0L : count;
     }
 
-    int redriveFailedDeletes(String contentType, int limit) {
-        return jdbcTemplate.update("""
-                WITH selected AS (
-                    SELECT job_id FROM semantic_search_jobs
-                    WHERE content_type = ? AND action = 'DELETE' AND status = 'FAILED'
-                    ORDER BY updated_at ASC, job_id ASC
-                    LIMIT ? FOR UPDATE SKIP LOCKED
-                )
-                UPDATE semantic_search_jobs j
-                SET status = 'PENDING', retry_count = 0, processing_started_at = NULL,
-                    completed_at = NULL, last_error_message = NULL, queued_at = ?, next_attempt_at = ?, updated_at = ?
-                FROM selected WHERE j.job_id = selected.job_id
-                  AND j.status = 'FAILED' AND j.action = 'DELETE'
-                """, contentType, limit, now(), now(), now());
+    private static final String PICK_FAILED_DELETES = """
+            SELECT job_id FROM semantic_search_jobs
+            WHERE content_type = ? AND action = 'DELETE' AND status = 'FAILED'
+            ORDER BY updated_at, job_id LIMIT ? FOR UPDATE SKIP LOCKED
+            """;
+
+    private static final String REDRIVE_DELETES = """
+            UPDATE semantic_search_jobs SET status='PENDING', retry_count=0, processing_started_at=NULL,
+                completed_at=NULL, last_error_message=NULL, queued_at=?, next_attempt_at=?, updated_at=?
+            WHERE status='FAILED' AND action='DELETE' AND job_id
+            """;
+
+    // Finish a delete-only batch immediately. For a mixed batch, return the number that
+    // could be claimed and release the probe locks before waiting on any repair keys.
+    int probeFailedDeletes(String contentType, int limit) {
+        jdbcTemplate.execute("SAVEPOINT backfill_delete_batch");
+        List<Long> picked = jdbcTemplate.queryForList(PICK_FAILED_DELETES, Long.class, contentType, limit);
+        if (picked.size() == limit) {
+            LocalDateTime now = now();
+            jdbcTemplate.update(REDRIVE_DELETES + " = ANY(?)", now, now, now,
+                    new SqlArrayValue("bigint", picked.toArray()));
+        } else {
+            // A row updated since the statement snapshot can be locked and then
+            // filtered out by PostgreSQL, even when the result is empty.
+            jdbcTemplate.execute("ROLLBACK TO SAVEPOINT backfill_delete_batch");
+        }
+        jdbcTemplate.execute("RELEASE SAVEPOINT backfill_delete_batch");
+        return picked.size();
+    }
+
+    int redriveUnlockedDeletes(String contentType, int limit) {
+        LocalDateTime now = now();
+        return jdbcTemplate.update("WITH picked AS (" + PICK_FAILED_DELETES + ") "
+                        + REDRIVE_DELETES + " IN (SELECT job_id FROM picked)",
+                contentType, limit, now, now, now);
     }
 
     long countFailedJobs() {

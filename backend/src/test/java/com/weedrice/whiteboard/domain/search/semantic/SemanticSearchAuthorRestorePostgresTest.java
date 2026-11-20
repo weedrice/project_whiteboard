@@ -5,6 +5,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -19,7 +22,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +40,7 @@ class SemanticSearchAuthorRestorePostgresTest {
     private SemanticSearchJobRepository repository;
     private SemanticSearchReindexRepository cursors;
     private SemanticSearchReindexService service;
+    private SemanticSearchBackfillService backfill;
     private TransactionTemplate worker;
     private SimpleMeterRegistry meters;
 
@@ -102,6 +108,7 @@ class SemanticSearchAuthorRestorePostgresTest {
         LocalDateTime dbTime = jdbc.queryForObject("SELECT LOCALTIMESTAMP", LocalDateTime.class);
         Clock clock = Clock.fixed(dbTime.plusMinutes(1).toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
         repository = new SemanticSearchJobRepository(jdbc, clock);
+        backfill = new SemanticSearchBackfillService(jdbc, repository);
         cursors = new SemanticSearchReindexRepository(jdbc);
         meters = new SimpleMeterRegistry();
         service = new SemanticSearchReindexService(cursors, repository, worker, clock,
@@ -242,6 +249,376 @@ class SemanticSearchAuthorRestorePostgresTest {
         await().pollInSameThread().atMost(5, TimeUnit.SECONDS).until(() -> otherPid.isDone()
                 && Boolean.TRUE.equals(jdbc.queryForObject(
                         "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, owner, otherPid.join())));
+    }
+
+    private Future<Integer> startBackfillAndAwaitLock(ExecutorService executor, String type, int limit) {
+        return startBackfillAndAwaitLock(executor, type, limit, new CompletableFuture<>());
+    }
+
+    private Future<Integer> startBackfillAndAwaitLock(ExecutorService executor, String type, int limit,
+                                                     CompletableFuture<Integer> backfillPid) {
+        var result = executor.submit(() -> worker.execute(tx -> {
+            jdbc.execute("SET LOCAL lock_timeout = '10s'");
+            backfillPid.complete(backendPid());
+            return backfill.enqueueBackfill(type, limit);
+        }));
+        awaitBlockedByThisTransaction(backfillPid);
+        return result;
+    }
+
+    @ParameterizedTest
+    @CsvSource({"POST,1,2", "COMMENT,11,12"})
+    void manualBackfillCountsOnlyTheRepairStillEligibleAfterModeration(
+            String type, long moderatedId, long repairId) throws Exception {
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts UNION ALL SELECT 'COMMENT', comment_id FROM comments
+                """);
+        jdbc.update("DELETE FROM semantic_search_embeddings WHERE content_type=? AND content_id IN (?,?)",
+                type, moderatedId, repairId);
+        LocalDateTime lease = LocalDateTime.of(2026, 11, 20, 9, 45);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var response = worker.execute(moderation -> {
+                String blind = "POST".equals(type)
+                        ? "UPDATE posts SET is_blinded='Y' WHERE post_id=?"
+                        : "UPDATE comments SET is_blinded='Y' WHERE comment_id=?";
+                jdbc.update(blind, moderatedId);
+                repository.enqueue(type, moderatedId, SemanticSearchIndexAction.DELETE);
+                jdbc.update("""
+                        UPDATE semantic_search_jobs SET status='PROCESSING', processing_started_at=?
+                        WHERE content_type=? AND content_id=?
+                        """, lease, type, moderatedId);
+
+                // Candidate selection read the pre-moderation snapshot; the job key is still held here.
+                return startBackfillAndAwaitLock(executor, type, 2);
+            });
+            assertThat(response.get(10, TimeUnit.SECONDS)).isOne();
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT processing_started_at FROM semantic_search_jobs
+                WHERE content_type=? AND content_id=? AND action='DELETE' AND status='PROCESSING'
+                """, LocalDateTime.class, type, moderatedId)).isEqualTo(lease);
+        assertThat(action(type, repairId)).isEqualTo("UPSERT");
+        assertThat(jobIds(type)).containsExactly(moderatedId, repairId);
+    }
+
+    @Test
+    void manualBackfillRemovesOnlyItsNewReservationWhenTheParentBecomesPrivate() throws Exception {
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'COMMENT', comment_id FROM comments WHERE comment_id NOT IN (11, 12)
+                """);
+        repository.enqueue("COMMENT", 11L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("""
+                UPDATE semantic_search_jobs SET status='COMPLETED', completed_at=CURRENT_TIMESTAMP
+                WHERE content_type='COMMENT' AND content_id=11
+                """);
+        String previousJob = "SELECT * FROM semantic_search_jobs WHERE content_type='COMMENT' AND content_id=11";
+        var original = jdbc.queryForMap(previousJob);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var response = worker.execute(visibility -> {
+                jdbc.queryForMap(previousJob + " FOR UPDATE");
+                var result = startBackfillAndAwaitLock(executor, "COMMENT", 2);
+                jdbc.update("UPDATE posts SET is_secret='Y' WHERE post_id=1");
+                return result;
+            });
+            assertThat(response.get(10, TimeUnit.SECONDS)).isZero();
+        }
+        assertThat(jobIds("COMMENT")).containsExactly(11L);
+        assertThat(jdbc.queryForMap(previousJob)).isEqualTo(original);
+    }
+
+    @Test
+    void manualBackfillReservesRepairAndFailedDeleteInCursorOrder() throws Exception {
+        repository.enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED' WHERE content_id=1");
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=8");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts WHERE post_id<>1
+                """);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var response = worker.execute(cursor -> {
+                jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                // Pause the cursor at its lower key; simulate the rest of the same page below.
+                jdbc.queryForObject("""
+                        SELECT job_id FROM semantic_search_jobs
+                        WHERE content_type='POST' AND content_id=1 FOR UPDATE
+                        """, Long.class);
+                var result = startBackfillAndAwaitLock(executor, "POST", 2);
+                // If backfill already owns 8, the two transactions now form a lock cycle.
+                repository.enqueueReindexPage("POST", List.of(1L, 8L), true);
+                return result;
+            });
+            assertThat(response.get(10, TimeUnit.SECONDS)).isZero();
+        }
+        assertThat(action("POST", 1L)).isEqualTo("UPSERT");
+        assertThat(action("POST", 8L)).isEqualTo("DELETE");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM semantic_search_jobs WHERE status='PENDING'",
+                Long.class)).isEqualTo(2L);
+    }
+
+    @Test
+    void failedDeleteConsumesTheOnlyBackfillSlotAheadOfVisiblePosts() {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=8");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+
+        Integer queued = worker.execute(tx -> backfill.enqueueBackfill("POST", 1));
+
+        assertThat(queued).isOne();
+        assertThat(jobIds("POST")).containsExactly(8L);
+        assertThat(jdbc.queryForObject("""
+                SELECT status FROM semantic_search_jobs WHERE content_id=8 AND action='DELETE'
+                """, String.class)).isEqualTo("PENDING");
+    }
+
+    @Test
+    void partialDeleteBatchFillsItsLastSlotWithTheOldestRepair() {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=8");
+        jdbc.update("UPDATE posts SET created_at=TIMESTAMP '2000-01-01' WHERE post_id=4");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+
+        Integer queued = worker.execute(tx -> backfill.enqueueBackfill("POST", 2));
+
+        assertThat(queued).isEqualTo(2);
+        assertThat(jobIds("POST")).containsExactly(4L, 8L);
+        assertThat(action("POST", 4L)).isEqualTo("UPSERT");
+        assertThat(action("POST", 8L)).isEqualTo("DELETE");
+    }
+
+    @Test
+    void partialDeleteBatchFinishesWhileTheRepairOutsideItsRemainingLimitIsLocked() {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=8");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        repository.enqueue("POST", 2L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED' WHERE content_id=2");
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            worker.executeWithoutResult(other -> {
+                // Repair 1 is older in the queue order. The single free slot never needs key 2.
+                repository.reserveJobKeys("POST", List.of(2L));
+                var result = executor.submit(() -> worker.execute(tx -> {
+                    jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                    return backfill.enqueueBackfill("POST", 2);
+                }));
+                assertThat(result).succeedsWithin(5, TimeUnit.SECONDS).isEqualTo(2);
+            });
+        }
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs WHERE status='PENDING' ORDER BY content_id
+                """, Long.class)).containsExactly(1L, 8L);
+        assertThat(action("POST", 1L)).isEqualTo("UPSERT");
+        assertThat(action("POST", 8L)).isEqualTo("DELETE");
+        assertThat(jdbc.queryForObject("""
+                SELECT status FROM semantic_search_jobs WHERE content_id=2
+                """, String.class)).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void repairCandidateThatBecomesAFailedDeleteWhileWaitingIsRedrivenAsADelete() throws Exception {
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts WHERE post_id NOT IN (1,2)
+                """);
+        repository.enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
+        repository.enqueue("POST", 2L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED'");
+        long jobId = jdbc.queryForObject("SELECT job_id FROM semantic_search_jobs WHERE content_id=2", Long.class);
+        LocalDateTime lease = LocalDateTime.of(2026, 11, 20, 10, 30);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var response = worker.execute(barrier -> {
+                repository.reserveJobKeys("POST", List.of(1L));
+                var result = startBackfillAndAwaitLock(executor, "POST", 2);
+                worker.executeWithoutResult(moderation -> {
+                    jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=2");
+                    repository.enqueue("POST", 2L, SemanticSearchIndexAction.DELETE);
+                });
+                worker.executeWithoutResult(claim -> assertThat(repository.claimForProcessing(jobId, 1, lease)).isOne());
+                worker.executeWithoutResult(failure -> assertThat(repository.markFailedIfCurrent(
+                        jobId, lease, 1, "delete failed", true, lease.plusMinutes(1))).isOne());
+                return result;
+            });
+            assertThat(response.get(10, TimeUnit.SECONDS)).isEqualTo(2);
+        }
+        assertThat(action("POST", 1L)).isEqualTo("UPSERT");
+        assertThat(jdbc.queryForObject("""
+                SELECT retry_count FROM semantic_search_jobs
+                WHERE content_id=2 AND status='PENDING' AND action='DELETE'
+                """, Integer.class)).isZero();
+    }
+
+    @Test
+    void concurrentDeleteOnlyBackfillCompletesBeforeTheFirstRequestCommits() {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id IN (1,8)");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        repository.enqueue("POST", 1L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED'");
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            worker.executeWithoutResult(first -> {
+                assertThat(backfill.enqueueBackfill("POST", 1)).isOne();
+                assertThat(jdbc.queryForList("""
+                        SELECT content_id FROM semantic_search_jobs WHERE status='PENDING'
+                        """, Long.class)).containsExactly(8L);
+
+                var result = executor.submit(() -> worker.execute(tx -> {
+                    jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                    return backfill.enqueueBackfill("POST", 1);
+                }));
+                assertThat(result).succeedsWithin(5, TimeUnit.SECONDS).isEqualTo(1);
+            });
+        }
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs
+                WHERE content_type='POST' AND status='PENDING' AND action='DELETE' ORDER BY content_id
+                """, Long.class)).containsExactly(1L, 8L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    void concurrentBackfillFillsSlotsSkippedByALockedDeleteWithVisiblePostRepairs(int limit) {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=8");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            worker.executeWithoutResult(first -> {
+                assertThat(backfill.enqueueBackfill("POST", 1)).isOne();
+                var result = executor.submit(() -> worker.execute(tx -> {
+                    jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                    return backfill.enqueueBackfill("POST", limit);
+                }));
+                assertThat(result).succeedsWithin(5, TimeUnit.SECONDS).isEqualTo(limit);
+                assertThat(jdbc.queryForList("""
+                        SELECT content_id FROM semantic_search_jobs
+                        WHERE status='PENDING' AND action='UPSERT' ORDER BY content_id
+                        """, Long.class)).containsExactlyElementsOf(List.of(1L, 2L).subList(0, limit));
+            });
+        }
+        assertThat(action("POST", 8L)).isEqualTo("DELETE");
+    }
+
+    @Test
+    void backfillWithAPartiallyLockedDeletePageReservesTheLowerRepairKeyBeforeTheHigherDelete() {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id IN (7,8)");
+        repository.enqueue("POST", 7L, SemanticSearchIndexAction.DELETE);
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE action='DELETE'");
+        repository.enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED' WHERE content_id=1");
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts WHERE post_id<>1
+                """);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            worker.executeWithoutResult(first -> {
+                assertThat(backfill.enqueueBackfill("POST", 1)).isOne();
+                assertThat(jdbc.queryForObject("""
+                        SELECT content_id FROM semantic_search_jobs WHERE status='PENDING'
+                        """, Long.class)).isEqualTo(7L);
+                var second = worker.execute(cursor -> {
+                    jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                    repository.reserveJobKeys("POST", List.of(1L));
+                    var result = startBackfillAndAwaitLock(executor, "POST", 2);
+                    // The cursor can finish acquiring its page only if the waiting request released key 8.
+                    repository.reserveJobKeys("POST", List.of(1L, 8L));
+                    return result;
+                });
+                assertThat(second).succeedsWithin(5, TimeUnit.SECONDS).isEqualTo(2);
+            });
+        }
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs WHERE status='PENDING' AND action='DELETE' ORDER BY content_id
+                """, Long.class)).containsExactly(7L, 8L);
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs WHERE status='PENDING' AND action='UPSERT'
+                """, Long.class)).containsExactly(1L);
+    }
+
+    @Test
+    void expandedBackfillReleasesItsHigherRepairKeyBeforeWaitingForTheLowerKey() throws Exception {
+        jdbc.update("UPDATE posts SET created_at=TIMESTAMP '2000-01-01' WHERE post_id=8");
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id=7");
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts WHERE post_id NOT IN (1,8)
+                """);
+        repository.enqueueAll("POST", List.of(1L, 8L), SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED'");
+        repository.enqueue("POST", 7L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=7");
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var result = worker.execute(cursor -> {
+                jdbc.execute("SET LOCAL lock_timeout = '10s'");
+                repository.reserveJobKeys("POST", List.of(1L));
+                var backfillPid = new CompletableFuture<Integer>();
+                var mixed = worker.execute(barrier -> {
+                    repository.reserveJobKeys("POST", List.of(8L));
+                    // The observed DELETE leaves one repair slot, which the older post 8 wins.
+                    var request = startBackfillAndAwaitLock(executor, "POST", 2, backfillPid);
+                    Integer redriven = worker.execute(admin -> backfill.enqueueBackfill("POST", 1));
+                    assertThat(redriven).isOne();
+                    return request;
+                });
+                // The same backend now needs both repairs and is waiting on this cursor's lower key.
+                awaitBlockedByThisTransaction(backfillPid);
+                repository.reserveJobKeys("POST", List.of(8L));
+                return mixed;
+            });
+            assertThat(result.get(10, TimeUnit.SECONDS)).isEqualTo(2);
+        }
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs WHERE status='PENDING' AND action='UPSERT' ORDER BY content_id
+                """, Long.class)).containsExactly(1L, 8L);
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs WHERE status='PENDING' AND action='DELETE'
+                """, Long.class)).containsExactly(7L);
+    }
+
+    @Test
+    void mixedBackfillReplacesADeleteClaimedByAnotherRequestWithANewlyFailedDelete() throws Exception {
+        jdbc.update("UPDATE posts SET is_blinded='Y' WHERE post_id IN (2,8)");
+        jdbc.update("""
+                INSERT INTO semantic_search_embeddings (content_type, content_id)
+                SELECT 'POST', post_id FROM posts WHERE post_id<>1
+                """);
+        repository.enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
+        jdbc.update("UPDATE semantic_search_jobs SET status='COMPLETED' WHERE content_id=1");
+        repository.enqueue("POST", 8L, SemanticSearchIndexAction.DELETE);
+        jdbc.update("UPDATE semantic_search_jobs SET status='FAILED' WHERE content_id=8");
+        repository.enqueue("POST", 2L, SemanticSearchIndexAction.DELETE);
+        long processingJob = jdbc.queryForObject(
+                "SELECT job_id FROM semantic_search_jobs WHERE content_id=2", Long.class);
+        LocalDateTime lease = LocalDateTime.of(2026, 11, 20, 10, 15);
+        assertThat(repository.claimForProcessing(processingJob, 5, lease)).isOne();
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var second = worker.execute(first -> {
+                assertThat(backfill.enqueueBackfill("POST", 1)).isOne();
+                // Hold the candidate repair until DELETE 2 fails; DELETE 8 belongs to this request.
+                repository.reserveJobKeys("POST", List.of(1L));
+                var result = startBackfillAndAwaitLock(executor, "POST", 2);
+                assertThat(repository.markFailedIfCurrent(processingJob, lease, 5, "failure", false, null)).isOne();
+                return result;
+            });
+            assertThat(second.get(10, TimeUnit.SECONDS)).isEqualTo(2);
+        }
+        assertThat(action("POST", 1L)).isEqualTo("UPSERT");
+        assertThat(jdbc.queryForList("""
+                SELECT content_id FROM semantic_search_jobs
+                WHERE status='PENDING' AND action='DELETE' ORDER BY content_id
+                """, Long.class)).containsExactly(2L, 8L);
     }
 
     @Test

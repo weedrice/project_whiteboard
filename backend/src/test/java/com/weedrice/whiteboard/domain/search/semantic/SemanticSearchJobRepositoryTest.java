@@ -15,9 +15,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SemanticSearchJobRepositoryTest {
 
@@ -52,6 +54,20 @@ class SemanticSearchJobRepositoryTest {
         assertThat(sql.getValue().replaceAll("\\s+", " "))
                 .contains("ORDER BY candidate_id ON CONFLICT (content_type, content_id) "
                         + "DO UPDATE SET action = EXCLUDED.action WHERE FALSE RETURNING content_id");
+    }
+
+    @Test
+    void emptyDeleteProbeRollsBackBeforeReleasingSavepoint() {
+        when(jdbcTemplate.queryForList(contains("FOR UPDATE SKIP LOCKED"), eq(Long.class), eq("POST"), eq(1)))
+                .thenReturn(List.of());
+
+        assertThat(jobRepository.probeFailedDeletes("POST", 1)).isZero();
+
+        var order = inOrder(jdbcTemplate);
+        order.verify(jdbcTemplate).execute("SAVEPOINT backfill_delete_batch");
+        order.verify(jdbcTemplate).queryForList(contains("FOR UPDATE SKIP LOCKED"), eq(Long.class), eq("POST"), eq(1));
+        order.verify(jdbcTemplate).execute("ROLLBACK TO SAVEPOINT backfill_delete_batch");
+        order.verify(jdbcTemplate).execute("RELEASE SAVEPOINT backfill_delete_batch");
     }
 
     @Test
