@@ -515,7 +515,7 @@ BAN 등록 시 커밋 후 작성자 관련 익명 조회 캐시를 무효화한�
 | `POST` | `/api/v1/messages/{messageId}/read` | 쪽지 읽음 |
 | `DELETE` | `/api/v1/messages/{messageId}` | 쪽지 삭제 |
 | `DELETE` | `/api/v1/messages` | 쪽지 일괄 삭제 |
-| `GET` | `/api/v1/messages/unread-count` | 읽지 않은 쪽지 수 |
+| `GET` | `/api/v1/messages/unread-count` | 읽지 않은 쪽지 수. 본인에게 보낸 쪽지는 발신·수신 중 한쪽이라도 삭제됐으면 목록·대화·미읽음 수에서 제외한다. |
 | `GET` | `/api/v1/users/me/feeds` | 내 맞춤 피드 |
 | `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터 |
 | `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | 영구 실패한 피드 생성 작업 단건 재시도(SUPER_ADMIN) |
