@@ -1354,6 +1354,20 @@ class PostgresApplicationContextSmokeTest {
     }
 
     @Test
+    void pointHistoryTargetIndexIsValidForBothAwardsAndReversals() {
+        List<String> columns = jdbcTemplate.queryForList("""
+                SELECT pg_get_indexdef(i.indexrelid, key.position, false)
+                FROM pg_index i
+                CROSS JOIN LATERAL generate_series(1, i.indnkeyatts) AS key(position)
+                WHERE i.indrelid = 'point_histories'::regclass
+                  AND i.indexrelid = 'idx_point_histories_user_target_type'::regclass
+                  AND i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indpred IS NULL
+                ORDER BY key.position
+                """, String.class);
+        assertEquals(List.of("user_id", "related_type", "related_id", "type"), columns);
+    }
+
+    @Test
     void keywordPostDeliveryLookupCanUseItsValidPartialIndex() {
         String indexName = "idx_notification_delivery_jobs_keyword_post_receiver";
         Boolean valid = jdbcTemplate.queryForObject("""

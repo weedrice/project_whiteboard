@@ -6,7 +6,7 @@
 | --- | --- |
 | 기준일 | 2026-11-20 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V103__semantic_author_reindex_jobs.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V104__index_point_history_target.sql` |
 | 현재 테이블 수 | 89개 |
 | DB | PostgreSQL |
 
@@ -284,6 +284,7 @@
 | `V101` | 키워드 게시글 알림의 글·수신자별 중복 방지 조회용 부분 인덱스 온라인 추가(expand) |
 | `V102` | semantic 색인 작업 대기 시작·재시도 예약 시각 추가(expand), 기존 컬럼·데이터·인덱스 유지 |
 | `V103` | 작성자 복구용 재색인 작업 테이블 및 실행 대기 인덱스 추가(expand) |
+| `V104` | 포인트 적립 중복 확인과 회수액 집계를 위한 회원·대상·유형 인덱스 온라인 추가(expand) |
 
 ## 프로필 공개 설정 (V100)
 
@@ -294,6 +295,7 @@
 ## 운영 주의
 
 - V103은 작성자당 하나의 복구 작업을 저장한다. 기존 재색인 큐의 ID 시퀀스를 공유하므로 관리자 재시도 API가 양쪽 큐에서 작업을 식별할 수 있다. 새 테이블의 인덱스는 상태, 실행 가능 시각, 수정 시각, ID 순이다. 이전 JAR로 롤백하면 작성자 작업은 새 테이블에 남고, 지원 버전 재배포 후 처리가 재개된다.
+- V104의 비고유 인덱스 `idx_point_histories_user_target_type`은 `(user_id, related_type, related_id, type)`으로 특정 대상의 적립·회수 이력을 찾는다. 회원별 시간순 목록은 기존 인덱스를 사용한다. 기존 테이블에 온라인으로 생성하며 5초 잠금 대기 제한과 [온라인 인덱스 복구 절차](../docs/ops/database-migration-policy.md)를 적용한다.
 
 - `CREATE EXTENSION IF NOT EXISTS pg_trgm`와 `CREATE EXTENSION IF NOT EXISTS vector` 실행 권한이 필요하다.
 - 큰 테이블의 trigram/vector 인덱스는 운영 반영 전에 staging에서 `EXPLAIN (ANALYZE, BUFFERS)`와 락 영향을 확인한다.
