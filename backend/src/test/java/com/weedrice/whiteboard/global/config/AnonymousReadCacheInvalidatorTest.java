@@ -17,7 +17,8 @@ class AnonymousReadCacheInvalidatorTest {
             CacheNames.BOARD_CATALOG_ANONYMOUS,
             CacheNames.BOARD_DETAIL_ANONYMOUS,
             CacheNames.TRENDING_POSTS_ANONYMOUS,
-            CacheNames.HOME_LANDING_ANONYMOUS);
+            CacheNames.HOME_LANDING_ANONYMOUS,
+            CacheNames.HOME_LANDING_PUBLIC_STATS);
 
     @AfterEach
     void tearDownTransactionSynchronization() {
@@ -58,6 +59,7 @@ class AnonymousReadCacheInvalidatorTest {
 
         invalidator.evictPostRelatedCachesAfterCommit();
 
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_PUBLIC_STATS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.TRENDING_POSTS_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_CATALOG_ANONYMOUS).get("key")).isNull();
@@ -72,11 +74,27 @@ class AnonymousReadCacheInvalidatorTest {
 
         invalidator.evictPostEngagementCachesAfterCommit("key");
 
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_PUBLIC_STATS).get("key")).isNotNull();
         assertThat(cacheManager.getCache(CacheNames.TRENDING_POSTS_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("other")).isNotNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_CATALOG_ANONYMOUS).get("key")).isNotNull();
+    }
+
+    @Test
+    void commentCountChangesClearPublicStatsAndAnonymousLandingAfterCommit() {
+        ConcurrentMapCacheManager cacheManager = populatedCacheManager();
+        AnonymousReadCacheInvalidator invalidator = new AnonymousReadCacheInvalidator(cacheManager);
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        invalidator.evictCommentCountCachesAfterCommit("key");
+
+        assertCachesPopulated(cacheManager);
+        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_PUBLIC_STATS).get("key")).isNull();
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_ANONYMOUS).get("key")).isNull();
+        assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("key")).isNull();
     }
 
     @Test
@@ -87,6 +105,7 @@ class AnonymousReadCacheInvalidatorTest {
 
         invalidator.evictBoardSubscriptionCachesAfterCommit("key");
 
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_PUBLIC_STATS).get("key")).isNotNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_CATALOG_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("key")).isNull();
         assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("other")).isNotNull();

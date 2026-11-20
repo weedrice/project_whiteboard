@@ -386,7 +386,7 @@ class CommentServiceTest {
         assertThat(commentCaptor.getValue().getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
         verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
     }
 
@@ -2619,7 +2619,7 @@ class CommentServiceTest {
 
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
     }
 
     @Test

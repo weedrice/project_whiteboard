@@ -133,7 +133,7 @@ public class CommentCommandService {
                 userId, agentId, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         publishCommentStreamEvent("CREATED", post.postId(), savedComment.getCommentId(), userId);
-        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.boardUrl());
+        anonymousReadCacheInvalidator.evictCommentCountCachesAfterCommit(post.boardUrl());
         badgeEvaluationService.evaluateCommentCountBadges(userId);
 
         return CommentCreateResponse.builder()
@@ -243,7 +243,7 @@ public class CommentCommandService {
         contentRewardService.rollbackCreateReward(userId, commentId, ContentRewardPolicy.COMMENT);
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         publishCommentStreamEvent("DELETED", postId, comment.getCommentId(), userId);
-        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
+        anonymousReadCacheInvalidator.evictCommentCountCachesAfterCommit(
                 target.post().boardUrl());
     }
 
