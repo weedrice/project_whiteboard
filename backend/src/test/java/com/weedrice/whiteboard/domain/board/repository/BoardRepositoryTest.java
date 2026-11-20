@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.board.repository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
@@ -30,6 +31,9 @@ class BoardRepositoryTest {
     @Autowired
     private BoardRepository boardRepository;
 
+    @Autowired
+    private BoardCategoryRepository categoryRepository;
+
     private User creator;
     private Board board;
 
@@ -50,6 +54,18 @@ class BoardRepositoryTest {
                 .build();
         entityManager.persist(board);
         entityManager.flush();
+    }
+
+    @Test
+    void categoryListsKeepLegacyDefaultsFirst() {
+        entityManager.persist(BoardCategory.builder().board(board).name("Other").sortOrder(1).build());
+        entityManager.persist(BoardCategory.builder().board(board).name("Default").sortOrder(8).isDefault(true).build());
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(categoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
+                .extracting(BoardCategory::getName).containsExactly("Default", "Other");
+        assertThat(categoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(List.of(board.getBoardId()), true))
+                .extracting(BoardCategory::getName).containsExactly("Default", "Other");
     }
 
     @Test

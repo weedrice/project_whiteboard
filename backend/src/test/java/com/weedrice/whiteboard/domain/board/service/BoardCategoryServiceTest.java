@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,9 +34,6 @@ class BoardCategoryServiceTest {
     private BoardCategoryRepository boardCategoryRepository;
     @Mock
     private BoardCategoryNameConflictPolicy nameConflictPolicy;
-    @Mock
-    private BoardCategoryDefaultCommand defaultCommand;
-
     private BoardCategoryService service;
     private Board board;
     private BoardCategory defaultCategory;
@@ -47,7 +46,7 @@ class BoardCategoryServiceTest {
                 mutationResolver,
                 boardCategoryRepository,
                 nameConflictPolicy,
-                defaultCommand,
+                new BoardCategoryDefaultCommand(boardCategoryRepository),
                 new BoardCategoryResponseAssembler());
         board = Board.builder().boardName("Free").build();
         ReflectionTestUtils.setField(board, "boardId", 10L);
@@ -100,17 +99,18 @@ class BoardCategoryServiceTest {
         assertThat(categoryA.getSortOrder()).isEqualTo(2);
     }
 
-    @Test
-    void createCategory_movesStaleRequestedOrderAfterCurrentMaximum() {
+    @ParameterizedTest
+    @CsvSource({"3,4", "2147483647,2147483647"})
+    void createCategory_appendsEvenWhenTheMaximumRankIsAlreadyUsed(int maximum, int expected) {
         CategoryRequest request = categoryRequest("New", 3);
         when(mutationResolver.resolveBoardForCreate("free", 7L)).thenReturn(board);
-        when(boardCategoryRepository.findMaxActiveSortOrder(10L)).thenReturn(3);
+        when(boardCategoryRepository.findMaxActiveSortOrder(10L)).thenReturn(maximum);
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         CategoryResponse response = service.createCategory("free", request, 7L);
 
-        assertThat(response.getSortOrder()).isEqualTo(4);
+        assertThat(response.getSortOrder()).isEqualTo(expected);
         verify(boardCategoryRepository).findMaxActiveSortOrder(10L);
     }
 
@@ -125,6 +125,66 @@ class BoardCategoryServiceTest {
         CategoryResponse response = service.createCategory("free", request, 7L);
 
         assertThat(response.getSortOrder()).isEqualTo(10);
+    }
+
+    @Test
+    void editingInactiveLegacyDefaultLeavesActiveDefaultAndOrderIntact() {
+        BoardCategory archived = category(4L, "Legacy", 8, true);
+        archived.deactivate();
+        categoryB.updateSortOrder(7);
+
+        update(archived, categoryRequest("Archived", 6));
+
+        assertThat(archived.getSortOrder()).isEqualTo(6);
+        assertThat(archived.getIsActive()).isFalse();
+        assertThat(defaultCategory.isDefaultCategory()).isTrue();
+        assertThat(defaultCategory.getSortOrder()).isOne();
+        assertThat(categoryB.getSortOrder()).isEqualTo(7);
+    }
+
+    @Test
+    void reselectingFirstDefaultRepairsDuplicateFlagsAndAllowsReordering() {
+        categoryA.setDefaultCategory(true);
+        categoryA.updateSortOrder(8);
+        CategoryRequest request = categoryRequest("General", 1);
+        ReflectionTestUtils.setField(request, "isDefault", true);
+
+        update(defaultCategory, request);
+
+        assertThat(defaultCategory.isDefaultCategory()).isTrue();
+        assertThat(categoryA.isDefaultCategory()).isFalse();
+        assertThat(categoryA.getSortOrder()).isEqualTo(2);
+        assertThat(service.reorderCategories("free", List.of(1L, 3L, 2L), 7L))
+                .extracting(CategoryResponse::getCategoryId).containsExactly(1L, 3L, 2L);
+    }
+
+    @Test
+    void reselectingTheOnlyDefaultPreservesOtherStoredPositions() {
+        categoryB.updateSortOrder(7);
+        CategoryRequest request = categoryRequest("Renamed", 1);
+        ReflectionTestUtils.setField(request, "isDefault", true);
+
+        update(defaultCategory, request);
+
+        assertThat(categoryB.getSortOrder()).isEqualTo(7);
+    }
+
+    @Test
+    void ordinaryCategoryRequestingPositionOneRemainsAfterTheActiveDefault() {
+        when(boardCategoryRepository.existsByBoard_BoardIdAndIsActiveTrueAndIsDefaultTrue(10L)).thenReturn(true);
+
+        CategoryResponse response = update(categoryB, categoryRequest("Renamed", 1));
+
+        assertThat(response.getSortOrder()).isEqualTo(2);
+        assertThat(response.isDefault()).isFalse();
+        assertThat(defaultCategory.getSortOrder()).isOne();
+        assertThat(defaultCategory.isDefaultCategory()).isTrue();
+    }
+
+    private CategoryResponse update(BoardCategory category, CategoryRequest request) {
+        when(mutationResolver.resolveCategoryForUpdate(category.getCategoryId(), 7L)).thenReturn(category);
+        when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
+        return service.updateCategory(category.getCategoryId(), request, 7L);
     }
 
     private void assertValidationError(List<Long> categoryIds) {

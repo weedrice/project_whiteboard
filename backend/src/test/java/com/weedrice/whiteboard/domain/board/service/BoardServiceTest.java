@@ -1343,6 +1343,8 @@ class BoardServiceTest {
         verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
         assertThat(previousDefault.isDefaultCategory()).isFalse();
         assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
+        assertThat(response.getSortOrder()).isOne();
+        assertThat(previousDefault.getSortOrder()).isEqualTo(2);
         assertThat(response.isDefault()).isTrue();
     }
 
@@ -1538,6 +1540,8 @@ class BoardServiceTest {
         assertThat(category.isDefaultCategory()).isTrue();
         assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
         assertThat(response.isDefault()).isTrue();
+        assertThat(response.getSortOrder()).isOne();
+        assertThat(previousDefault.getSortOrder()).isEqualTo(2);
     }
 
     @Test

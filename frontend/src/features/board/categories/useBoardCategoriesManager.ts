@@ -12,6 +12,9 @@ import { resolveDefaultCategory } from '@/utils/board'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { sessionQueryKey, subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent, type AuthSessionIntent } from '@/utils/authSessionIntent'
+
+const MAX_CATEGORY_SORT_ORDER = 2_147_483_647
 
 export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const { t } = useI18n()
@@ -35,6 +38,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const dragIndex = ref<number | null>(null)
     const isReordering = ref(false)
     const isMutating = ref(false)
+    const changesBlocked = computed(() => isMutating.value || isReordering.value || isLoading.value || !!error.value)
     let reorderGeneration = 0
     let reorderController: AbortController | null = null
     let mutationRevision = 0
@@ -42,7 +46,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
 
     interface CategoryMutationIntent {
         boardUrl: string
-        sessionGeneration: number
+        session: AuthSessionIntent
         revision: number
         controller: AbortController
     }
@@ -63,11 +67,11 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     const beginMutation = (): CategoryMutationIntent | null => {
-        if (isMutating.value || isReordering.value) return null
+        if (changesBlocked.value) return null
         const controller = new AbortController()
         const intent = {
             boardUrl: boardUrl.value,
-            sessionGeneration: authStore.sessionGeneration,
+            session: captureAuthSessionIntent(authStore),
             revision: ++mutationRevision,
             controller,
         }
@@ -81,7 +85,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         && mutationRevision === intent.revision
         && !intent.controller.signal.aborted
         && boardUrl.value === intent.boardUrl
-        && authStore.sessionGeneration === intent.sessionGeneration
+        && isAuthSessionIntentCurrent(authStore, intent.session)
 
     const finishMutation = (intent: CategoryMutationIntent) => {
         if (mutationController !== intent.controller) return
@@ -102,14 +106,17 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         })
     }
 
-    async function fetchCategories() {
-        const requestedBoardUrl = boardUrl.value
+    function fetchCategories() {
+        return loadCategories(boardUrl.value, captureAuthSessionIntent(authStore))
+    }
+
+    async function loadCategories(requestedBoardUrl: string, expectedSession: AuthSessionIntent) {
         const loadedCategories = await categoryLoadTask.run(async ({ signal }) => {
-            const { data } = await boardApi.getCategories(requestedBoardUrl, { signal })
+            const { data } = await boardApi.getCategories(requestedBoardUrl, { signal, expectedSession })
             if (!data.success) throw new Error('Category load failed')
             return unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
         })
-        if (loadedCategories) {
+        if (loadedCategories && requestedBoardUrl === boardUrl.value && isAuthSessionIntentCurrent(authStore, expectedSession)) {
             categories.value = loadedCategories
         }
     }
@@ -135,20 +142,20 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         const intent = beginMutation()
         if (!intent) return
         try {
-            const nextSortOrder = categories.value.reduce(
+            const highestSortOrder = categories.value.reduce(
                 (maxSortOrder, category) => Math.max(maxSortOrder, category.sortOrder),
                 0,
-            ) + 1
+            )
             const { data } = await boardApi.createCategory(intent.boardUrl, {
                 name,
                 minWriteRole: newCategoryRole.value,
-                sortOrder: nextSortOrder,
-            }, { signal: intent.controller.signal })
+                sortOrder: Math.min(MAX_CATEGORY_SORT_ORDER, highestSortOrder + 1),
+            }, { signal: intent.controller.signal, expectedSession: intent.session })
             if (data.success && isMutationCurrent(intent)) {
                 categories.value.push(unwrapApiData(data))
                 newCategoryName.value = ''
                 newCategoryRole.value = 'USER'
-                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
+                invalidateCategories(intent.boardUrl, intent.session.sessionGeneration)
             }
         } catch (err: unknown) {
             if (!isMutationCurrent(intent)) return
@@ -169,10 +176,12 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         }
 
         try {
-            const { data } = await boardApi.deleteCategory(intent.boardUrl, categoryId, { signal: intent.controller.signal })
+            const { data } = await boardApi.deleteCategory(intent.boardUrl, categoryId, {
+                signal: intent.controller.signal, expectedSession: intent.session,
+            })
             if (data.success && isMutationCurrent(intent)) {
                 categories.value = categories.value.filter(category => category.categoryId !== categoryId)
-                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
+                invalidateCategories(intent.boardUrl, intent.session.sessionGeneration)
             }
         } catch (err: unknown) {
             if (!isMutationCurrent(intent)) return
@@ -197,24 +206,30 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
 
     async function saveEdit(category: Category) {
         const name = editingName.value.trim()
-        if (!name) return
+        const current = categories.value.find(item => item.categoryId === category.categoryId)
+        if (!name || !current) return
 
         const intent = beginMutation()
         if (!intent) return
         try {
             const { data } = await boardApi.updateCategory(intent.boardUrl, category.categoryId, {
                 name,
-                sortOrder: category.sortOrder,
+                sortOrder: current.sortOrder,
                 minWriteRole: editingRole.value,
-                isDefault: category.isDefault,
-            }, { signal: intent.controller.signal })
+                isDefault: current.isDefault,
+            }, { signal: intent.controller.signal, expectedSession: intent.session })
             if (data.success && isMutationCurrent(intent)) {
-                const index = categories.value.findIndex(item => item.categoryId === category.categoryId)
-                if (index !== -1) {
-                    categories.value[index] = unwrapApiData(data)
-                }
+                const updated = unwrapApiData(data)
                 cancelEdit()
-                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
+                invalidateCategories(intent.boardUrl, intent.session.sessionGeneration)
+                if (updated.isDefault) {
+                    // The server may have reassigned other ranks and cleared duplicate default flags.
+                    categories.value = []
+                    await loadCategories(intent.boardUrl, intent.session)
+                } else {
+                    const index = categories.value.findIndex(item => item.categoryId === updated.categoryId)
+                    if (index !== -1) categories.value[index] = updated
+                }
             }
         } catch (err: unknown) {
             if (!isMutationCurrent(intent)) return
@@ -226,7 +241,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     function onDragStart(event: DragEvent, index: number) {
-        if (isReordering.value || isMutating.value) return
+        if (changesBlocked.value) return
 
         dragIndex.value = index
         if (event.dataTransfer) {
@@ -235,7 +250,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function onDrop(index: number): Promise<boolean> {
-        if (isReordering.value || isMutating.value) {
+        if (changesBlocked.value) {
             dragIndex.value = null
             return false
         }
@@ -302,7 +317,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function moveCategory(index: number, offset: -1 | 1): Promise<boolean> {
-        if (isMutating.value || isReordering.value) return false
+        if (changesBlocked.value) return false
         const targetIndex = index + offset
         if (targetIndex < 0 || targetIndex >= draggableCategories.value.length) return false
 
