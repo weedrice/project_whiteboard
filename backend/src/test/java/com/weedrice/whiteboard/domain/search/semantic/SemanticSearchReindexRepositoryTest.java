@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 class SemanticSearchReindexRepositoryTest {
 
@@ -27,7 +28,7 @@ class SemanticSearchReindexRepositoryTest {
 
         repository.claim(7L, leaseToken, now);
 
-        verify(jdbcTemplate).update(
+        verify(jdbcTemplate, times(2)).update(
                 contains("next_attempt_at <= ?"), eq(now), eq(leaseToken), eq(now), eq(7L), eq(now));
     }
 
@@ -39,7 +40,7 @@ class SemanticSearchReindexRepositoryTest {
         repository.markFailed(7L, leaseToken, 5, now.plusMinutes(4), now, "bounded error");
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).update(sql.capture(), any(Object[].class));
+        verify(jdbcTemplate, times(2)).update(sql.capture(), any(Object[].class));
         assertThat(sql.getValue())
                 .contains("retry_count=LEAST(retry_count + 1, ?)")
                 .contains("THEN 'FAILED' ELSE 'PENDING'")
@@ -53,7 +54,7 @@ class SemanticSearchReindexRepositoryTest {
         repository.redrive(7L, now);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).update(sql.capture(), any(Object[].class));
+        verify(jdbcTemplate, times(2)).update(sql.capture(), any(Object[].class));
         assertThat(sql.getValue())
                 .contains("WHERE reindex_job_id=? AND status='FAILED'")
                 .doesNotContain("last_content_id=")

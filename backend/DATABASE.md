@@ -4,10 +4,10 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-11-05 |
+| 기준일 | 2026-11-20 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V102__semantic_search_job_timing.sql` |
-| 현재 테이블 수 | 88개 |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V103__semantic_author_reindex_jobs.sql` |
+| 현재 테이블 수 | 89개 |
 | DB | PostgreSQL |
 
 이 문서는 Flyway migration 기준의 현재 스키마 요약이다. 컬럼 단위 상세는 각 migration과 JPA entity를 최종 기준으로 본다.
@@ -122,6 +122,7 @@
 | `semantic_search_embeddings` | post/comment embedding vector와 검색 메타 |
 | `semantic_search_jobs` | embedding upsert/delete 작업 큐. `queued_at`은 현재 요청의 대기 시작, `next_attempt_at`은 재시도 가능 시각이며 nullable로 이전 JAR 쓰기 호환 유지 |
 | `semantic_search_reindex_jobs` | 범위별 semantic 대량 재색인 cursor와 retry/lease 상태 |
+| `semantic_search_author_reindex_jobs` | 계정 복구 시 작성자별 재색인 작업. 글·댓글 처리 단계, 마지막 콘텐츠 ID, 재시도·lease 상태 |
 
 ### Agent
 
@@ -282,6 +283,7 @@
 | `V100` | 프로필 개요·작성 글·작성 댓글 공개 설정 3개 추가(expand, 기본값 Y) |
 | `V101` | 키워드 게시글 알림의 글·수신자별 중복 방지 조회용 부분 인덱스 온라인 추가(expand) |
 | `V102` | semantic 색인 작업 대기 시작·재시도 예약 시각 추가(expand), 기존 컬럼·데이터·인덱스 유지 |
+| `V103` | 작성자 복구용 재색인 작업 테이블 및 실행 대기 인덱스 추가(expand) |
 
 ## 프로필 공개 설정 (V100)
 
@@ -290,6 +292,8 @@
 - V100은 `PROFILE_PRIVACY_ENABLED=N`도 등록한다. 지원 코드 배포와 비공개 설정 저장 활성화를 분리하며, 이전 JAR를 포함한 모든 롤백 대상이 비공개 조회 제한을 지원할 때만 관리자가 `Y`로 전환한다. 활성화 전에는 공개 필드를 명시한 저장을 거부하고, 저장된 비공개 값의 조회 제한은 항상 유지한다. 관리 API는 재비활성화와 키 삭제를 금지한다. 절차는 [단계적 활성화 가이드](../docs/ops/profile-privacy-rollout.md)를 따른다.
 
 ## 운영 주의
+
+- V103은 작성자당 하나의 복구 작업을 저장한다. 기존 재색인 큐의 ID 시퀀스를 공유하므로 관리자 재시도 API가 양쪽 큐에서 작업을 식별할 수 있다. 새 테이블의 인덱스는 상태, 실행 가능 시각, 수정 시각, ID 순이다. 이전 JAR로 롤백하면 작성자 작업은 새 테이블에 남고, 지원 버전 재배포 후 처리가 재개된다.
 
 - `CREATE EXTENSION IF NOT EXISTS pg_trgm`와 `CREATE EXTENSION IF NOT EXISTS vector` 실행 권한이 필요하다.
 - 큰 테이블의 trigram/vector 인덱스는 운영 반영 전에 staging에서 `EXPLAIN (ANALYZE, BUFFERS)`와 락 영향을 확인한다.

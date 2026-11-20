@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.search.semantic;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.SqlArrayValue;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
@@ -11,10 +12,29 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
 class SemanticSearchJobRepository {
+    private static final String ENQUEUE_JOB = """
+            INSERT INTO semantic_search_jobs (
+                content_type, content_id, action, status, retry_count, created_at, updated_at, queued_at, next_attempt_at
+            )
+            VALUES (?, ?, ?, 'PENDING', 0, ?, ?, ?, ?)
+            ON CONFLICT (content_type, content_id)
+            DO UPDATE SET
+                action = EXCLUDED.action,
+                status = 'PENDING',
+                retry_count = 0,
+                processing_started_at = NULL,
+                completed_at = NULL,
+                last_error_message = NULL,
+                updated_at = EXCLUDED.updated_at,
+                queued_at = EXCLUDED.queued_at,
+                next_attempt_at = EXCLUDED.next_attempt_at
+            """;
+
     private static final RowMapper<SemanticSearchJob> JOB_ROW_MAPPER = (rs, rowNum) -> new SemanticSearchJob(
             rs.getLong("job_id"),
             rs.getString("content_type"),
@@ -28,49 +48,93 @@ class SemanticSearchJobRepository {
 
     void enqueue(String contentType, Long contentId, SemanticSearchIndexAction action) {
         LocalDateTime now = now();
-        jdbcTemplate.update("""
-                INSERT INTO semantic_search_jobs (
-                    content_type, content_id, action, status, retry_count, created_at, updated_at, queued_at, next_attempt_at
-                )
-                VALUES (?, ?, ?, 'PENDING', 0, ?, ?, ?, ?)
-                ON CONFLICT (content_type, content_id)
-                DO UPDATE SET
-                    action = EXCLUDED.action,
-                    status = 'PENDING',
-                    retry_count = 0,
-                    processing_started_at = NULL,
-                    completed_at = NULL,
-                    last_error_message = NULL,
-                    updated_at = EXCLUDED.updated_at,
-                    queued_at = EXCLUDED.queued_at,
-                    next_attempt_at = EXCLUDED.next_attempt_at
-                """, contentType, contentId, action.name(), now, now, now, now);
+        jdbcTemplate.update(ENQUEUE_JOB, contentType, contentId, action.name(), now, now, now, now);
     }
 
     void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
+        enqueueAll(ENQUEUE_JOB, contentType, contentIds, action);
+    }
+
+    private void enqueueAll(String sql, String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
         if (contentIds == null || contentIds.isEmpty()) {
             return;
         }
         LocalDateTime now = now();
-        jdbcTemplate.batchUpdate("""
+        jdbcTemplate.batchUpdate(sql, contentIds.stream()
+                .map(contentId -> new Object[]{contentType, contentId, action.name(), now, now, now, now})
+                .toList());
+    }
+
+    List<Long> findAuthorPageIds(String phase, Long authorId, long afterId, int limit) {
+        if ("POST".equals(phase)) {
+            return jdbcTemplate.queryForList("""
+                    SELECT post_id FROM posts
+                    WHERE user_id = ? AND is_deleted = 'N' AND post_id > ?
+                    ORDER BY post_id LIMIT ?
+                    """, Long.class, authorId, afterId, limit);
+        }
+        return jdbcTemplate.queryForList("""
+                SELECT comment_id FROM (
+                    (SELECT c.comment_id FROM comments c JOIN posts p ON p.post_id = c.post_id
+                     WHERE c.user_id = ? AND c.is_deleted = 'N' AND p.is_deleted = 'N' AND c.comment_id > ?
+                     ORDER BY c.comment_id LIMIT ?)
+                    UNION ALL
+                    (SELECT c.comment_id FROM posts p JOIN comments c ON c.post_id = p.post_id
+                     WHERE p.user_id = ? AND p.is_deleted = 'N' AND c.is_deleted = 'N'
+                       AND c.user_id IS DISTINCT FROM ? AND c.comment_id > ?
+                     ORDER BY c.comment_id LIMIT ?)
+                ) affected ORDER BY comment_id LIMIT ?
+                """, Long.class, authorId, afterId, limit, authorId, authorId, afterId, limit, limit);
+    }
+
+    void enqueueReindexPage(String phase, List<Long> ids, boolean deleteHidden) {
+        if (ids.isEmpty()) {
+            return;
+        }
+        List<Long> candidates = deleteHidden ? ids : findVisiblePageIds(phase, ids);
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        // PostgreSQL locks a conflicting row even if its DO UPDATE condition is false.
+        // Reserve new and existing job keys in the same order without changing existing jobs or leases.
+        reserveJobKeys(phase, candidates);
+
+        // A separate READ COMMITTED statement sees edits that committed while reserving the keys.
+        // A writer enqueuing a newer action for the same key waits until this transaction commits.
+        List<Long> visible = findVisiblePageIds(phase, candidates);
+        enqueueAll(phase, visible, SemanticSearchIndexAction.UPSERT);
+        if (deleteHidden) {
+            Set<Long> visibleIds = Set.copyOf(visible);
+            List<Long> hidden = candidates.stream().filter(id -> !visibleIds.contains(id)).toList();
+            String deleteSql = ENQUEUE_JOB + """
+                    WHERE semantic_search_jobs.action <> 'DELETE'
+                       OR semantic_search_jobs.status NOT IN ('PENDING', 'PROCESSING')
+                    """;
+            enqueueAll(deleteSql, phase, hidden, SemanticSearchIndexAction.DELETE);
+        }
+    }
+
+    private List<Long> findVisiblePageIds(String phase, List<Long> ids) {
+        String sql = "SELECT content_id FROM (" + SemanticSearchSqlFragments.indexableSources(phase)
+                + ") source WHERE content_id = ANY(?) ORDER BY content_id";
+        return jdbcTemplate.queryForList(sql, Long.class, new SqlArrayValue("bigint", ids.toArray()));
+    }
+
+    // The guard locks existing keys without replacing their action, lease or retry schedule.
+    // RETURNING includes only newly inserted reservations. All keys stay locked until commit.
+    List<Long> reserveJobKeys(String contentType, Collection<Long> ids) {
+        LocalDateTime now = now();
+        return jdbcTemplate.queryForList("""
                 INSERT INTO semantic_search_jobs (
                     content_type, content_id, action, status, retry_count, created_at, updated_at, queued_at, next_attempt_at
                 )
-                VALUES (?, ?, ?, 'PENDING', 0, ?, ?, ?, ?)
-                ON CONFLICT (content_type, content_id)
-                DO UPDATE SET
-                    action = EXCLUDED.action,
-                    status = 'PENDING',
-                    retry_count = 0,
-                    processing_started_at = NULL,
-                    completed_at = NULL,
-                    last_error_message = NULL,
-                    updated_at = EXCLUDED.updated_at,
-                    queued_at = EXCLUDED.queued_at,
-                    next_attempt_at = EXCLUDED.next_attempt_at
-                """, contentIds.stream()
-                .map(contentId -> new Object[]{contentType, contentId, action.name(), now, now, now, now})
-                .toList());
+                SELECT ?, candidate_id, 'DELETE', 'PENDING', 0, ?, ?, ?, ?
+                FROM unnest(?::bigint[]) AS candidates(candidate_id)
+                ORDER BY candidate_id
+                ON CONFLICT (content_type, content_id) DO UPDATE SET action = EXCLUDED.action WHERE FALSE
+                RETURNING content_id
+                """, Long.class, contentType, now, now, now, now, new SqlArrayValue("bigint", ids.toArray()));
     }
 
     List<Long> findActivePostIdsByBoardIdAfter(Long boardId, Long lastSeenPostId, int limit) {
