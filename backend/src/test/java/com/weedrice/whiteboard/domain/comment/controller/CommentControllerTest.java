@@ -204,6 +204,16 @@ class CommentControllerTest {
     }
 
     @Test
+    void getCommentPath_returnsOnlyOrderedIds() throws Exception {
+        when(commentService.getCommentPath(10L, 21L, null)).thenReturn(List.of(20L, 21L));
+        mockMvc.perform(get("/api/v1/posts/10/comments/21/path").with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0]").value(20))
+                .andExpect(jsonPath("$.data[1]").value(21));
+    }
+
+    @Test
     @DisplayName("대댓글 목록 조회 성공")
     void getReplies_returnsSuccess() throws Exception {
         // given

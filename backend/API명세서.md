@@ -435,6 +435,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/posts/{postId}/comments` | 게시글 댓글 트리, 정렬과 읽던 위치 지원 |
 | `GET` | `/api/v1/posts/{postId}/comments/best` | 베스트 댓글 목록 |
 | `GET` | `/api/v1/comments/{commentId}/replies` | 대댓글 목록 |
+| `GET` | `/api/v1/posts/{postId}/comments/{commentId}/path` | 게시글 읽기 권한과 댓글 트리 노출 조건을 확인한 뒤 루트부터 대상까지의 댓글 ID 배열 반환. 삭제된 부모 자리표시자를 경유할 수 있으며 삭제된 대상 또는 다른 글의 대상은 404 |
 | `GET` | `/api/v1/comments/{commentId}` | 댓글 단건 |
 | `POST` | `/api/v1/posts/{postId}/comments` | 댓글/대댓글 작성 |
 | `PUT` | `/api/v1/comments/{commentId}` | 댓글 수정 |

@@ -124,27 +124,13 @@ function retryComments() {
 async function resolveDeepLinkPath(targetCommentId: number, revision: number, controller: AbortController) {
   const scope = createAuthSessionScope(authStore)
   try {
-    const reversedPath: number[] = []
-    const visited = new Set<number>()
-    let currentId: number | null | undefined = targetCommentId
-
-    while (currentId != null && !visited.has(currentId) && reversedPath.length < 32) {
-      visited.add(currentId)
-      const { data } = await commentApi.getComment(currentId, scope.withRequestConfig({
-        signal: controller.signal,
-        skipGlobalErrorHandler: true,
-      }))
-      scope.assertCurrent()
-      if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
-
-      const current = unwrapApiData(data)
-      if (String(current.postId) !== String(props.postId)) return
-      reversedPath.push(current.commentId)
-      currentId = current.parentId
-    }
-
-    if (revision !== deepLinkRevision || controller.signal.aborted) return
-    deepLinkCommentIds.value = reversedPath.reverse()
+    const { data } = await commentApi.getCommentPath(props.postId, targetCommentId, scope.withRequestConfig({
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    }))
+    scope.assertCurrent()
+    if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
+    deepLinkCommentIds.value = unwrapApiData(data)
     void loadDeepLinkRootPage(revision)
   } finally {
     scope.dispose()

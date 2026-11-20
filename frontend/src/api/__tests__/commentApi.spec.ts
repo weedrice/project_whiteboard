@@ -49,6 +49,7 @@ describe('commentApi', () => {
         commentApi.likeComment(11)
         commentApi.unlikeComment(11)
         commentApi.getComment(11)
+        commentApi.getCommentPath(3, 11)
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/posts/3/comments', { params: { page: 0, size: 20 } })
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/comments/11/replies', { params: { page: 0, size: 20 } })
@@ -58,5 +59,6 @@ describe('commentApi', () => {
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/comments/11', undefined)
         expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/comments/11/like', undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/comments/11')
+        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/posts/3/comments/11/path', undefined)
     })
 })

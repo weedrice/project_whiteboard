@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -59,6 +60,14 @@ public class CommentController {
             @CurrentUserId(required = false) Long userId) {
         Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
+    }
+
+    @GetMapping("/posts/{postId}/comments/{commentId}/path")
+    public ApiResponse<List<Long>> getCommentPath(
+            @PathVariable Long postId,
+            @PathVariable Long commentId,
+            @Parameter(hidden = true) @CurrentUserId(required = false) Long userId) {
+        return ApiResponse.success(commentService.getCommentPath(postId, commentId, userId));
     }
 
     @GetMapping("/comments/{commentId}")

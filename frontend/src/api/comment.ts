@@ -31,6 +31,9 @@ export const commentApi = {
     getBestComments: (postId: string | number, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<Comment[]>>(`/posts/${encodePathSegment(postId)}/comments/best`, config),
 
+    getCommentPath: (postId: string | number, commentId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<number[]>>(`/posts/${encodePathSegment(postId)}/comments/${encodePathSegment(commentId)}/path`, config),
+
     // Create a new comment
     createComment: (postId: string | number, data: CommentPayload, config?: AxiosRequestConfig) => api.post<ApiResponse<CommentCreateResponse>>(`/posts/${encodePathSegment(postId)}/comments`, data, config),
 

@@ -241,6 +241,25 @@ class CommentQueryReadAccessTest {
         verify(postRepository).findByIdWithRelations(10L);
     }
 
+    @org.junit.jupiter.api.Test
+    void commentPathRequiresReadablePostAndEveryAncestorToBeVisible() {
+        CommentRepository.PathNode target = mock(CommentRepository.PathNode.class);
+        when(target.getCommentId()).thenReturn(20L);
+        when(target.getParentId()).thenReturn(19L);
+        when(commentRepository.findVisiblePathNode(eq(10L), eq(20L), eq(true), anyBoolean(), anyCollection()))
+                .thenReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> service.getCommentPath(10L, 20L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        assertThatThrownBy(() -> service.getCommentPath(10L, 20L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(commentRepository).findVisiblePathNode(eq(10L), eq(20L), eq(true), anyBoolean(), anyCollection());
+    }
+
     private void assertReadError(ReadOperation operation, Long viewerId, ErrorCode code) {
         assertThatThrownBy(() -> read(operation, viewerId))
                 .isInstanceOf(BusinessException.class)
