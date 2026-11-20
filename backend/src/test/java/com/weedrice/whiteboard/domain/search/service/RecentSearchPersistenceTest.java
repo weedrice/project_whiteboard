@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.search.service;
 
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
+import com.weedrice.whiteboard.domain.search.event.SearchRecordedEvent;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
@@ -15,6 +16,11 @@ import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -129,6 +135,39 @@ class RecentSearchPersistenceTest {
                 PageRequest.of(0, 10)).getContent())
                 .extracting(SearchPersonalization::getLogId)
                 .containsExactly(other.getLogId());
+    }
+
+    @Autowired
+    private TransactionTemplate transactions;
+
+    @Test
+    void delayedStatisticsCannotRestoreHistoryDeletedAfterSearchResponse() {
+        User user = persistUser("search-order", "search-order@test.com");
+        Long userId = user.getUserId();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        try {
+            var queue = new ArrayList<SearchRecordedEvent>();
+            var publisher = new SearchRecordEventPublisher(event -> queue.add((SearchRecordedEvent) event),
+                    recentSearchCommandService);
+            var stats = mock(SearchStatisticCommandService.class);
+            var listener = new SearchRecordEventListener(stats);
+
+            publisher.publish(userId, "queued");
+            int deleted = transactions.execute(status -> searchPersonalizationRepository.deleteAllByUserId(userId));
+            assertThat(deleted).isOne();
+            assertThat(queue).singleElement().satisfies(event -> {
+                listener.handle(event);
+                verify(stats).recordSearchStatistic("queued", event.searchDate());
+            });
+            assertThat(searchPersonalizationRepository.findRecentSearchesByUserId(userId, PageRequest.of(0, 10)))
+                    .isEmpty();
+        } finally {
+            transactions.executeWithoutResult(status -> {
+                searchPersonalizationRepository.deleteAllByUserId(userId);
+                entityManager.remove(entityManager.find(User.class, userId));
+            });
+        }
     }
 
     private User persistUser(String loginId, String email) {

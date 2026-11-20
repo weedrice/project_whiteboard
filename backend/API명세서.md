@@ -462,7 +462,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/search/popular` | 인기 검색어 |
 | `GET` | `/api/v1/search/recent` | 내 최근 검색어 |
 | `DELETE` | `/api/v1/search/recent/{logId}` | 최근 검색어 단건 삭제 |
-| `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제 |
+| `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제. 삭제 전에 응답을 받은 검색어가 지연된 통계 처리로 복원되지 않는다. |
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
 | `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 semantic 재색인 cursor job 재실행(SUPER_ADMIN) |
 

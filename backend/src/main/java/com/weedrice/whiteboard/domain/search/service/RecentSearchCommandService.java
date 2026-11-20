@@ -3,13 +3,11 @@ package com.weedrice.whiteboard.domain.search.service;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class RecentSearchCommandService {
     private final RecentSearchWriteService recentSearchWriteService;
     private final SearchUserLookupPolicy searchUserLookupPolicy;

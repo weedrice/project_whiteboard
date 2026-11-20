@@ -62,10 +62,6 @@ class SearchServiceTest {
     @Mock
     private SearchStatisticRepository searchStatisticRepository;
     @Mock
-    private SearchStatisticCommandService searchStatisticCommandService;
-    @Mock
-    private RecentSearchCommandService recentSearchCommandService;
-    @Mock
     private SearchPersonalizationRepository searchPersonalizationRepository;
     @Mock
     private UserRepository userRepository;
@@ -118,19 +114,12 @@ class SearchServiceTest {
                         boardSubscriptionRepository),
                 PostContentSummaryExtractorFixtures.withNoviisCdn(),
                 actorBatchReadPort, org.mockito.Mockito.mock(com.weedrice.whiteboard.domain.post.service.PostVisibleCommentCountService.class));
-        searchService = new SearchService(
-                searchStatisticRepository,
-                searchStatisticCommandService,
-                recentSearchCommandService,
-                searchPersonalizationRepository,
-                postRepository,
-                boardRepository,
-                userBlockService,
-                postSummaryAssembler,
-                boardAccessPolicy,
-                inquiryLegacyWritePolicy,
-                searchRecordEventPublisher,
-                searchUserLookupPolicy);
+        SearchPreviewReadService preview = new SearchPreviewReadService(userRepository, postRepository,
+                commentRepository, boardRepository, boardAccessPolicy, inquiryLegacyWritePolicy,
+                userBlockService, postSummaryAssembler, new IntegratedSearchAssembler(), searchUserLookupPolicy,
+                mock(com.weedrice.whiteboard.domain.comment.service.CommentSummaryAssembler.class));
+        searchService = new SearchService(searchStatisticRepository, searchPersonalizationRepository, preview,
+                searchRecordEventPublisher, searchUserLookupPolicy);
         lenient().when(actorBatchReadPort.resolveAuthors(anyCollection()))
                 .thenAnswer(invocation -> invocation.<Collection<ContentActorRef>>getArgument(0).stream()
                         .collect(java.util.stream.Collectors.toMap(
@@ -143,62 +132,6 @@ class SearchServiceTest {
                                         null,
                                         null),
                                 (left, right) -> left)));
-    }
-
-    @Test
-    @DisplayName("검색 기록 저장 성공")
-    void recordSearch_success() {
-        // given
-        Long userId = 1L;
-        String keyword = "test";
-
-        // when
-        searchService.recordSearch(userId, keyword, LocalDate.now());
-
-        // then
-        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
-        verify(recentSearchCommandService).recordRecentSearch(userId, keyword);
-    }
-
-    @Test
-    @DisplayName("search record keyword is capped before statistics and recent search")
-    void recordSearch_truncatesKeyword() {
-        Long userId = 1L;
-        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
-        String canonicalKeyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
-
-        searchService.recordSearch(userId, keyword, LocalDate.now());
-
-        verify(searchStatisticCommandService).recordSearchStatistic(eq(canonicalKeyword), any(LocalDate.class));
-        verify(recentSearchCommandService).recordRecentSearch(userId, canonicalKeyword);
-    }
-
-    @Test
-    @DisplayName("검색 기록 저장 성공 - userId가 null인 경우")
-    void recordSearch_success_withNullUserId() {
-        // given
-        String keyword = "test";
-        // when
-        searchService.recordSearch(null, keyword, LocalDate.now());
-
-        // then
-        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
-        verify(recentSearchCommandService, never()).recordRecentSearch(any(), any());
-    }
-
-    @Test
-    @DisplayName("최근 검색어 저장이 실패해도 검색 통계 적재는 유지한다")
-    void recordSearch_keepsStatisticsWhenRecentSearchFails() {
-        Long userId = 1L;
-        String keyword = "test";
-        doThrow(new RuntimeException("recent search failed"))
-                .when(recentSearchCommandService)
-                .recordRecentSearch(userId, keyword);
-
-        searchService.recordSearch(userId, keyword, LocalDate.now());
-
-        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
-        verify(recentSearchCommandService).recordRecentSearch(userId, keyword);
     }
 
     @Test

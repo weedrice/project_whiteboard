@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class SearchRecordEventPublisher {
 
     private final ApplicationEventPublisher eventPublisher;
+    private final RecentSearchCommandService recentSearchCommandService;
 
     public void publish(Long userId, String keyword) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
@@ -20,11 +21,16 @@ public class SearchRecordEventPublisher {
             return;
         }
 
+        var searchDate = DateTimeUtils.nowKST().toLocalDate();
+        if (userId != null) {
+            try {
+                recentSearchCommandService.recordRecentSearch(userId, canonicalKeyword);
+            } catch (RuntimeException e) {
+                log.warn("Failed to record recent search. failureType={}", e.getClass().getSimpleName());
+            }
+        }
         try {
-            eventPublisher.publishEvent(new SearchRecordedEvent(
-                    userId,
-                    canonicalKeyword,
-                    DateTimeUtils.nowKST().toLocalDate()));
+            eventPublisher.publishEvent(new SearchRecordedEvent(canonicalKeyword, searchDate));
         } catch (RuntimeException e) {
             log.warn("Failed to publish search record event. failureType={}", e.getClass().getSimpleName());
         }

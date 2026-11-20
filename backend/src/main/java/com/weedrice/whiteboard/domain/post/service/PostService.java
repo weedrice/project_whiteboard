@@ -22,6 +22,8 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
+import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.port.PostUserReadPort;
@@ -59,9 +61,18 @@ public class PostService {
     private final PostRelatedReadService postRelatedReadService;
     private final PostManagerModerationService postManagerModerationService;
 
+    private final SearchRecordEventPublisher searchRecordEventPublisher;
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
-        return postListReadService.getPosts(boardUrl, categoryId, keyword, minLikes, currentUserId, pageable);
+        Page<PostSummary> response = postListReadService.getPosts(boardUrl, categoryId, keyword, minLikes,
+                currentUserId, pageable);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        if (canonicalKeyword != null) {
+            searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
+        }
+        return response;
     }
 
     public List<Post> getNotices(String boardUrl, Long currentUserId) {

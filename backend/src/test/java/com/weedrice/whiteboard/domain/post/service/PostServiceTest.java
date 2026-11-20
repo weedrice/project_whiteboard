@@ -323,7 +323,6 @@ class PostServiceTest {
                 feedPostSummaryAssembler,
                 boardAccessPolicy,
                 postLatestReadService,
-                searchRecordEventPublisher,
                 inquiryLegacyWritePolicy,
                 java.time.Clock.fixed(
                         java.time.Instant.parse("2026-07-07T00:00:00Z"),
@@ -402,7 +401,8 @@ class PostServiceTest {
                 postDetailContextResolver,
                 mock(PostSeriesService.class),
                 postRelatedReadService,
-                postManagerModerationService);
+                postManagerModerationService,
+                searchRecordEventPublisher);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");

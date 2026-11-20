@@ -1,31 +1,21 @@
 package com.weedrice.whiteboard.domain.search.service;
 
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.inquiry.legacy.InquiryLegacyWritePolicy;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
-import com.weedrice.whiteboard.domain.search.service.SearchDateRangeResolver.SearchDateRange;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -33,83 +23,22 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SearchService {
     private final SearchStatisticRepository searchStatisticRepository;
-    private final SearchStatisticCommandService searchStatisticCommandService;
-    private final RecentSearchCommandService recentSearchCommandService;
     private final SearchPersonalizationRepository searchPersonalizationRepository;
-    private final PostRepository postRepository;
-    private final BoardRepository boardRepository;
-    private final UserBlockService userBlockService;
-    private final PostSummaryAssembler postSummaryAssembler;
-    private final BoardAccessPolicy boardAccessPolicy;
-    private final InquiryLegacyWritePolicy inquiryLegacyWritePolicy;
+    private final SearchPreviewReadService searchPreviewReadService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
     private final SearchUserLookupPolicy searchUserLookupPolicy;
 
-    @Transactional
-    public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
-        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
-        if (canonicalKeyword == null) {
-            return;
-        }
-
-        searchStatisticCommandService.recordSearchStatistic(canonicalKeyword, searchDate);
-
-        if (userId != null) {
-            try {
-                recentSearchCommandService.recordRecentSearch(userId, canonicalKeyword);
-            } catch (RuntimeException e) {
-                log.warn("Failed to record recent search. failureType={}", e.getClass().getSimpleName());
-            }
-        }
-    }
-
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, int page, int size, Sort sort,
             Long currentUserId) {
-        Page<PostSummary> response = readSearchPosts(
+        Page<PostSummary> response = searchPreviewReadService.readSearchPosts(
                 keyword, searchType, boardUrl, author, from, to, period, page, size, sort, currentUserId);
         searchRecordEventPublisher.publish(currentUserId, SearchRequestNormalizer.canonicalizeKeyword(keyword));
-        return response;
-    }
-
-    private Page<PostSummary> readSearchPosts(String keyword, String searchType, String boardUrl, String author,
-            String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
-        String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
-        String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
-        String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
-        SearchDateRange dateRange = SearchDateRangeResolver.resolve(period, from, to);
-        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
-        boolean includeSecret = false;
-        User currentUser = null;
-        if (canonicalBoardUrl != null) {
-            Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-            currentUser = searchUserLookupPolicy.resolveOptional(currentUserId);
-            BoardAccessPolicy.ReadAccess access = boardAccessPolicy.readAccess(board, currentUser);
-            if (!access.canReadBoard()) {
-                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-            }
-            inquiryLegacyWritePolicy.requireBoardReadable(board, currentUser);
-            includeSecret = access.canViewSecretPosts();
-        }
-
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = currentUser == null
-                    ? userBlockService.getBlockedUserIdsEitherDirection(currentUserId)
-                    : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
-        }
-        Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, normalizedSearchType,
-                canonicalBoardUrl, canonicalAuthor, dateRange.from(), dateRange.to(), blockedUserIds, includeSecret,
-                currentUserId, normalizedPageable);
-
-        Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage, currentUserId);
         return response;
     }
 
