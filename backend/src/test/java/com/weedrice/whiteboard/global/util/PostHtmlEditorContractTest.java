@@ -1,7 +1,8 @@
 package com.weedrice.whiteboard.global.util;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -17,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PostHtmlEditorContractTest {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     @Test
     @DisplayName("게시글 HTML sanitizer와 시각 에디터가 공통 미디어·표 계약을 유지한다")
@@ -26,17 +27,17 @@ class PostHtmlEditorContractTest {
 
         assertThat(contract.path("version").asInt()).isEqualTo(1);
         for (JsonNode contractCase : contract.path("cases")) {
-            String name = contractCase.path("name").asText();
-            String sanitized = InputSanitizer.sanitizePostHtml(contractCase.path("html").asText());
+            String name = contractCase.path("name").asString();
+            String sanitized = InputSanitizer.sanitizePostHtml(contractCase.path("html").asString());
             Document document = Jsoup.parseBodyFragment(sanitized);
-            Element element = document.selectFirst(contractCase.path("selector").asText());
+            Element element = document.selectFirst(contractCase.path("selector").asString());
 
             assertThat(element).as(name).isNotNull();
             contractCase.path("attributes").properties().forEach(attribute -> {
                 String attributeName = attribute.getKey();
                 assertThat(normalizeAttributeValue(attributeName, element.attr(attributeName)))
                             .as(name + "[" + attribute.getKey() + "]")
-                            .isEqualTo(normalizeAttributeValue(attributeName, attribute.getValue().asText()));
+                            .isEqualTo(normalizeAttributeValue(attributeName, attribute.getValue().asString()));
             });
         }
     }

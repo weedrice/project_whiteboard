@@ -1,5 +1,5 @@
 ARG NODE_IMAGE=node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
-ARG NGINX_IMAGE=nginx:1.30.6-alpine3.24-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893
+ARG NGINX_IMAGE=nginx:1.30.7-alpine3.24-slim@sha256:8c950211a641ec5b23f265450517001f6bcca533666120ebe36cb4cff3d00a55
 
 FROM ${NODE_IMAGE} AS build
 
@@ -29,7 +29,7 @@ RUN npm run build
 
 FROM ${NGINX_IMAGE}
 
-# The pinned upstream image predates Alpine's zlib fix (CVE-2026-4738).
+# Enforce the zlib security baseline (CVE-2026-4738) independently of the base image.
 RUN --mount=type=secret,id=build_ca \
     if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi; \
     apk add --no-cache 'zlib>=1.4-r0'
