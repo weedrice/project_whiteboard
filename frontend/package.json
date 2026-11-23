@@ -98,7 +98,7 @@
     "@vue/compiler-sfc": "^3.5.44",
     "@vue/test-utils": "^2.6.0",
     "autoprefixer": "^10.7.0",
-    "baseline-browser-mapping": "^2.11.37",
+    "baseline-browser-mapping": "^2.11.39",
     "esbuild": "0.28.2",
     "eslint": "^10.15.0",
     "eslint-plugin-vue": "^10.12.1",
