@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
 @Getter
@@ -33,7 +34,7 @@ public class AdminBoardResponse {
     private final boolean agentUseYn;
     private final String guidePrompt;
 
-    public AdminBoardResponse(Board board, String adminDisplayName, Long adminUserId, String guidePrompt) {
+    public AdminBoardResponse(@Schema(hidden = true) Board board, String adminDisplayName, Long adminUserId, String guidePrompt) {
         this.boardId = board.getBoardId();
         this.boardName = board.getBoardName();
         this.boardUrl = board.getBoardUrl();

@@ -1,16 +1,16 @@
 # NoviIs Backend
 
-**NoviIs Backend**는 NoviIs 커뮤니티 플랫폼의 서버 사이드 애플리케이션입니다. Spring Boot 4.1과 Java 25를 기반으로 구축되었으며, 안정적이고 확장 가능한 RESTful API를 제공합니다.
+**NoviIs Backend**는 NoviIs 커뮤니티 플랫폼의 서버 사이드 애플리케이션입니다. Spring Boot 4.2와 Java 25를 기반으로 구축되었으며, 안정적이고 확장 가능한 RESTful API를 제공합니다.
 
 ## 🛠️ 기술 스택 (Tech Stack)
 
--   **Framework**: Spring Boot 4.1
+-   **Framework**: Spring Boot 4.2
 -   **Language**: Java 25
--   **Build Tool**: Gradle 9.9.1
+-   **Build Tool**: Gradle 9.9.2
 -   **Database**: PostgreSQL
 -   **ORM**: Spring Data JPA / Hibernate
 -   **Security**: Spring Security, JWT (JSON Web Token)
--   **Testing**: JUnit Jupiter 6.0.3, Mockito
+-   **Testing**: JUnit Jupiter 6.1.3, Mockito
 -   **Logging**: Logback
 -   **Cloud/Storage**: AWS S3, SMTP mail integration
 
