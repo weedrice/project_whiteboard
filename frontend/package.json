@@ -54,7 +54,7 @@
     "security:patch": "node ./scripts/patch-picomatch.mjs"
   },
   "dependencies": {
-    "@tanstack/vue-query": "^5.107.1",
+    "@tanstack/vue-query": "^5.108.1",
     "@tiptap/extension-code-block-lowlight": "3.34.0",
     "@tiptap/extension-color": "3.34.0",
     "@tiptap/extension-highlight": "3.34.0",
