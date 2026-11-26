@@ -12,13 +12,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SearchRecordEventListener {
 
-    private final SearchService searchService;
+    private final SearchStatisticCommandService searchStatisticCommandService;
 
     @Async("observabilityTaskExecutor")
     @EventListener
     public void handle(SearchRecordedEvent event) {
         try {
-            searchService.recordSearch(event.userId(), event.keyword(), event.searchDate());
+            searchStatisticCommandService.recordSearchStatistic(event.keyword(), event.searchDate());
         } catch (RuntimeException e) {
             log.warn("Failed to record search asynchronously. failureType={}", e.getClass().getSimpleName());
         }

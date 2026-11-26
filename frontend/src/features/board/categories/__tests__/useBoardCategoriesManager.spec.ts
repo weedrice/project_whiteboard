@@ -127,7 +127,7 @@ describe('useBoardCategoriesManager', () => {
             name: 'Notice',
             minWriteRole: 'BOARD_ADMIN',
             sortOrder: 2,
-        }, { signal: expect.any(AbortSignal) })
+        }, { signal: expect.any(AbortSignal), expectedSession: { sessionGeneration: 7, userId: null } })
         expect(manager.categories.value).toHaveLength(2)
         expect(manager.newCategoryName.value).toBe('')
         expect(manager.newCategoryRole.value).toBe('USER')
@@ -136,23 +136,26 @@ describe('useBoardCategoriesManager', () => {
         })
     })
 
-    it('appends a category after the highest sort order when existing orders have gaps', async () => {
+    it.each([
+        [7, 8],
+        [2_147_483_647, 2_147_483_647],
+    ])('appends a category after rank %i using supported rank %i', async (highest, expected) => {
         const manager = createManager()
         manager.categories.value = [
             makeCategory({ categoryId: 1, isDefault: true, sortOrder: 1 }),
-            makeCategory({ categoryId: 3, name: 'Later', sortOrder: 7 }),
+            makeCategory({ categoryId: 3, name: 'Later', sortOrder: highest }),
         ]
         manager.newCategoryName.value = 'Newest'
 
         vi.mocked(boardApi.createCategory).mockResolvedValueOnce(
-            axiosApiResponse(apiSuccess(makeCategory({ categoryId: 4, name: 'Newest', sortOrder: 8 })))
+            axiosApiResponse(apiSuccess(makeCategory({ categoryId: 4, name: 'Newest', sortOrder: expected })))
         )
 
         await manager.handleAdd()
 
         expect(boardApi.createCategory).toHaveBeenCalledWith('free-board', expect.objectContaining({
-            sortOrder: 8,
-        }), { signal: expect.any(AbortSignal) })
+            sortOrder: expected,
+        }), expect.objectContaining({ signal: expect.any(AbortSignal) }))
     })
 
     it('does not delete when confirmation is cancelled', async () => {
@@ -179,6 +182,7 @@ describe('useBoardCategoriesManager', () => {
 
         expect(boardApi.deleteCategory).toHaveBeenCalledWith('free-board', 2, {
             signal: expect.any(AbortSignal),
+            expectedSession: { sessionGeneration: 7, userId: null },
         })
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1])
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -212,7 +216,7 @@ describe('useBoardCategoriesManager', () => {
             sortOrder: 2,
             minWriteRole: 'BOARD_ADMIN',
             isDefault: undefined,
-        }, { signal: expect.any(AbortSignal) })
+        }, { signal: expect.any(AbortSignal), expectedSession: { sessionGeneration: 7, userId: null } })
         expect(manager.categories.value[0].name).toBe('New')
         expect(manager.editingId.value).toBeNull()
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -233,6 +237,88 @@ describe('useBoardCategoriesManager', () => {
 
         expect(boardApi.createCategory).not.toHaveBeenCalled()
         expect(boardApi.updateCategory).not.toHaveBeenCalled()
+    })
+
+    it('uses the refreshed sibling rank and default flag in a subsequent rename', async () => {
+        const manager = createManager()
+        const original = makeCategory({ categoryId: 1, sortOrder: 9, isDefault: true })
+        const sibling = makeCategory({ categoryId: 3, name: 'Sibling', sortOrder: 2, isDefault: true })
+        manager.categories.value = [original, sibling]
+        const selected = { ...original, sortOrder: 1 }
+        const repaired = { ...sibling, sortOrder: 3, isDefault: false }
+        vi.mocked(boardApi.updateCategory)
+            .mockResolvedValueOnce(axiosApiResponse(apiSuccess(selected)))
+            .mockResolvedValueOnce(axiosApiResponse(apiSuccess({ ...repaired, name: 'Renamed' })))
+        vi.mocked(boardApi.getCategories).mockResolvedValueOnce(axiosApiResponse(apiSuccess([selected, repaired])))
+        manager.startEdit(original)
+
+        await manager.saveEdit(original)
+        expect(manager.categories.value).toEqual([selected, repaired])
+        manager.startEdit(sibling)
+        manager.editingName.value = 'Renamed'
+        await manager.saveEdit(sibling)
+
+        expect(boardApi.updateCategory).toHaveBeenLastCalledWith('free-board', 3, {
+            name: 'Renamed', sortOrder: 3, minWriteRole: 'USER', isDefault: false,
+        }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(boardApi.getCategories).toHaveBeenCalledTimes(1)
+    })
+
+    it('blocks further writes after the refresh fails until the list is loaded again', async () => {
+        const manager = createManager()
+        const selected = makeCategory({ isDefault: true })
+        const sibling = makeCategory({ categoryId: 3, name: 'Sibling', sortOrder: 2 })
+        manager.categories.value = [selected, sibling]
+        vi.mocked(boardApi.updateCategory).mockResolvedValueOnce(axiosApiResponse(apiSuccess(selected)))
+        vi.mocked(boardApi.getCategories).mockRejectedValueOnce(new Error('offline'))
+        manager.startEdit(selected)
+        await manager.saveEdit(selected)
+
+        expect(manager.error.value).toBe('board.category.loadFailed')
+        expect(manager.categories.value).toEqual([])
+        manager.startEdit(sibling)
+        await manager.saveEdit(sibling)
+        manager.newCategoryName.value = 'New'
+        await manager.handleAdd()
+        expect(boardApi.updateCategory).toHaveBeenCalledTimes(1)
+        expect(boardApi.createCategory).not.toHaveBeenCalled()
+
+        vi.mocked(boardApi.getCategories).mockResolvedValueOnce(axiosApiResponse(apiSuccess([selected, sibling])))
+        await manager.fetchCategories()
+        expect(manager.error.value).toBeNull()
+        vi.mocked(boardApi.updateCategory).mockResolvedValueOnce(axiosApiResponse(apiSuccess(sibling)))
+        await manager.saveEdit(sibling)
+        expect(boardApi.updateCategory).toHaveBeenCalledTimes(2)
+    })
+
+    it.each(['board', 'session'])('discards a late default refresh after the %s changes', async boundary => {
+        const boardUrl = ref('board-a')
+        const manager = useBoardCategoriesManager(boardUrl)
+        const selected = makeCategory({ isDefault: true })
+        manager.categories.value = [selected]
+        const response = axiosApiResponse(apiSuccess([selected]))
+        const pending = createDeferred<typeof response>()
+        vi.mocked(boardApi.updateCategory).mockResolvedValueOnce(axiosApiResponse(apiSuccess(selected)))
+        vi.mocked(boardApi.getCategories).mockReturnValueOnce(pending.promise)
+        manager.startEdit(selected)
+
+        const save = manager.saveEdit(selected)
+        await vi.waitFor(() => expect(boardApi.getCategories).toHaveBeenCalledTimes(1))
+        const config = vi.mocked(boardApi.getCategories).mock.calls[0][1]
+        expect(config?.expectedSession).toEqual({ sessionGeneration: 7, userId: null })
+        if (boundary === 'board') {
+            boardUrl.value = 'board-b'
+            manager.resetState()
+        } else {
+            mocks.authStore.sessionGeneration = 8
+            notifyAuthSessionBoundary(8)
+        }
+        expect(config?.signal?.aborted).toBe(true)
+        pending.resolve(response)
+        await save
+
+        expect(manager.categories.value).toEqual([])
+        expect(manager.error.value).toBeNull()
     })
 
     it('aborts and ignores an add response after the board changes', async () => {

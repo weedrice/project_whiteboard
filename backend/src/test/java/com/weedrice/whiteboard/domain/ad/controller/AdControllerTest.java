@@ -46,10 +46,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -71,7 +69,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     })
 @Import({
         CurrentUserIdWebMvcConfig.class,
-        CurrentUserIdArgumentResolver.class
+        CurrentUserIdArgumentResolver.class,
+        CounterEventGuard.class
 })
 class AdControllerTest {
 
@@ -102,9 +101,6 @@ class AdControllerTest {
     @MockitoBean
     private ClientIpResolver clientIpResolver;
 
-    @MockitoBean
-    private CounterEventGuard counterEventGuard;
-
     private CustomUserDetails customUserDetails;
 
     @AfterEach
@@ -121,7 +117,6 @@ class AdControllerTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
-        when(counterEventGuard.tryMarkRecorded(any(), any(), any(), any())).thenReturn(true);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -131,7 +126,6 @@ class AdControllerTest {
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
 
-        clearInvocations(adService, counterEventGuard);
     }
 
     @Test
@@ -149,25 +143,22 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 impression 기록 성공")
     void recordAdImpression_returnsSuccess() throws Exception {
-        doNothing().when(adService).recordAdImpression(eq(1L));
-
         mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(counterEventGuard).tryMarkRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10"));
+        verify(adService).recordAdImpression(1L);
     }
 
     @Test
     void recordAdImpression_skipsServiceWhenRecentlyRecorded() throws Exception {
-        when(counterEventGuard.tryMarkRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10")))
-                .thenReturn(false);
-
-        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 2L))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 2L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(adService, never()).recordAdImpression(any());
+        verify(adService).recordAdImpression(2L);
     }
 
     @Test
@@ -175,12 +166,16 @@ class AdControllerTest {
     void recordAdImpression_returnsNotFoundWhenAdInactive() throws Exception {
         doThrow(new BusinessException(ErrorCode.AD_NOT_FOUND))
                 .when(adService)
-                .recordAdImpression(eq(1L));
+                .recordAdImpression(eq(3L));
 
-        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 3L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(ErrorCode.AD_NOT_FOUND.getCode()));
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 3L))
+                .andExpect(status().isNotFound());
+        verify(adService, times(2)).recordAdImpression(3L);
     }
 
     @Test
@@ -197,20 +192,27 @@ class AdControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
 
-        verify(counterEventGuard).tryMarkRecorded(eq("ad-click"), eq(1L), eq(1L), eq("203.0.113.10"));
+        verify(adService).recordAdClick(1L, 1L, "203.0.113.10");
     }
 
     @Test
     void recordAdClick_returnsTargetUrlWithoutIncrementWhenRecentlyRecorded() throws Exception {
-        when(counterEventGuard.tryMarkRecorded(eq("ad-click"), eq(1L), isNull(), eq("203.0.113.10")))
-                .thenReturn(false);
-        when(adService.getActiveAdTargetUrl(eq(1L))).thenReturn("http://example.com");
+        when(adService.recordAdClick(2L, null, "203.0.113.10"))
+                .thenThrow(new BusinessException(ErrorCode.AD_NOT_FOUND))
+                .thenReturn("http://example.com");
+        when(adService.getActiveAdTargetUrl(2L)).thenReturn("http://example.com/updated");
 
-        mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L))
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 2L))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 2L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value("http://example.com"));
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 2L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("http://example.com/updated"));
 
-        verify(adService, never()).recordAdClick(any(), any(), any());
+        verify(adService, times(2)).recordAdClick(2L, null, "203.0.113.10");
+        verify(adService).getActiveAdTargetUrl(2L);
     }
 
     @Test
@@ -230,10 +232,10 @@ class AdControllerTest {
     @Test
     @DisplayName("비활성 광고 click 기록은 404를 반환한다")
     void recordAdClick_returnsNotFoundWhenAdInactive() throws Exception {
-        when(adService.recordAdClick(eq(1L), any(), nullable(String.class)))
+        when(adService.recordAdClick(eq(3L), any(), nullable(String.class)))
                 .thenThrow(new BusinessException(ErrorCode.AD_NOT_FOUND));
 
-        mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 3L)
                         .with(user(customUserDetails)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))

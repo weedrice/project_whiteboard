@@ -139,50 +139,11 @@ public class PostDraftService {
 
         DraftResolution draftResolution = resolveDraftPost(
                 user, request, board, category, series, originalPost, normalizedPoll);
-        DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftResolution.draftPost());
-        Set<Long> referencedFileIds = extractDraftFileReferences(savedDraftPost.getContents());
-        Set<Long> usableEmoticonFileIds = fileService.findUsableEmoticonImageFileIds(
-                java.util.stream.Stream.concat(orEmpty(request.getFileIds()).stream(), referencedFileIds.stream())
-                        .collect(Collectors.toSet()), userId);
-        List<Long> retainedFileIds = draftResolution.retainedFileIds() != null
-                ? draftResolution.retainedFileIds()
-                : fileService.retainValidDraftFileIds(orEmpty(request.getFileIds()).stream()
-                        .filter(fileId -> fileId == null || !usableEmoticonFileIds.contains(fileId)).toList(),
-                        userId, savedDraftPost.getDraftId());
-        List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
-        Set<Long> validContentFileIds = new HashSet<>(retainedFileIds);
-        validContentFileIds.addAll(usableEmoticonFileIds);
-        if (originalPost != null) {
-            // Existing post attachments remain owned by the post, not by its editing draft.
-            fileService.getFilesByRelatedEntity(originalPost.getPostId(), FileService.RELATED_TYPE_POST_CONTENT)
-                    .stream()
-                    .filter(file -> file.getUploader() != null
-                            && userId.equals(file.getUploader().getUserId()))
-                    .forEach(file -> validContentFileIds.add(file.getFileId()));
-        }
-        Set<Long> removedFileIds = java.util.stream.Stream.concat(
-                        requestedFileIds.stream(), referencedFileIds.stream())
-                .filter(fileId -> !validContentFileIds.contains(fileId))
-                .collect(Collectors.toSet());
-        if (!removedFileIds.isEmpty()) {
-            staleReferencesReset = true;
-        }
-        String contentsWithoutInvalidFiles = removeDraftFileReferences(savedDraftPost.getContents(), removedFileIds);
-        boolean draftChanged = false;
-        if (!Objects.equals(savedDraftPost.getContents(), contentsWithoutInvalidFiles)) {
-            savedDraftPost.replaceContents(contentsWithoutInvalidFiles);
-            draftChanged = true;
-        }
-        if (!Objects.equals(orEmpty(savedDraftPost.getFileIds()), retainedFileIds)) {
-            savedDraftPost.replaceFileIds(retainedFileIds);
-            draftChanged = true;
-        }
-        if (draftChanged) {
-            savedDraftPost = draftPostRepository.saveAndFlush(savedDraftPost);
-        }
-        fileService.syncDraftFiles(retainedFileIds, userId, savedDraftPost.getDraftId());
+        DraftPost savedDraftPost = draftResolution.draftPost();
+        fileService.syncDraftFiles(draftResolution.files().fileIds(), userId, savedDraftPost.getDraftId());
         int evictedDraftCount = postDraftCleanupService.enforceUserDraftLimit(user);
-        return DraftResponse.from(savedDraftPost, staleReferencesReset, evictedDraftCount);
+        return DraftResponse.from(savedDraftPost, staleReferencesReset || draftResolution.files().referencesRemoved(),
+                evictedDraftCount);
     }
 
     @Transactional
@@ -213,18 +174,8 @@ public class PostDraftService {
                     .orElse(null);
         }
 
-        List<Long> resolvedFileIds = request.getFileIds();
-        if (draftPost != null) {
-            Set<Long> usableEmoticonFileIds = fileService.findUsableEmoticonImageFileIds(
-                    request.getFileIds(), user.getUserId());
-            resolvedFileIds = fileService.retainValidDraftFileIds(
-                    orEmpty(request.getFileIds()).stream()
-                            .filter(fileId -> fileId == null || !usableEmoticonFileIds.contains(fileId)).toList(),
-                    user.getUserId(), draftPost.getDraftId());
-        }
-
         if (draftPost == null) {
-            return new DraftResolution(DraftPost.builder()
+            draftPost = draftPostRepository.saveAndFlush(DraftPost.builder()
                     .userId(user.getUserId())
                     .board(board)
                     .category(category)
@@ -240,18 +191,21 @@ public class PostDraftService {
                     .poll(normalizedPoll)
                     .series(series)
                     .originalPost(originalPost)
-                    .build(), null);
+                    .build());
+            DraftFiles files = resolveDraftFiles(request, sanitizedContents, user.getUserId(), draftPost.getDraftId(),
+                    originalPost);
+            if (!Objects.equals(draftPost.getContents(), files.contents())
+                    || !Objects.equals(orEmpty(draftPost.getFileIds()), files.fileIds())) {
+                draftPost.replaceContents(files.contents());
+                draftPost.replaceFileIds(files.fileIds());
+                draftPost = draftPostRepository.saveAndFlush(draftPost);
+            }
+            return new DraftResolution(draftPost, files);
         }
 
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(
                 draftPost.getDraftId(), ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
             throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
-        }
-        if (request.getDraftId() == null
-                && !isMatchingIdempotentCreateRetry(
-                        draftPost, request, board, category, series, originalPost, sanitizedContents,
-                        normalizedPoll, resolvedFileIds)) {
-            throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
         if (request.getDraftId() != null
                 && !isMatchingDraftVersion(
@@ -263,22 +217,29 @@ public class PostDraftService {
                 && !request.getClientDraftKey().equals(draftPost.getClientDraftKey())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        DraftFiles files = resolveDraftFiles(request, sanitizedContents, user.getUserId(), draftPost.getDraftId(),
+                originalPost);
+        if (request.getDraftId() == null
+                && !isMatchingIdempotentCreateRetry(draftPost, request, board, category, series, originalPost,
+                        files.contents(), normalizedPoll, files.fileIds())) {
+            throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
+        }
         draftPost.adoptClientDraftKey(request.getClientDraftKey());
         draftPost.updateDraft(
                 board,
                 category,
                 request.getTitle(),
-                sanitizedContents,
+                files.contents(),
                 request.getTags(),
                 request.isNotice(),
                 request.isNsfw(),
                 request.isSpoiler(),
                 request.isSecret(),
-                resolvedFileIds,
+                files.fileIds(),
                 normalizedPoll,
                 series,
                 originalPost);
-        return new DraftResolution(draftPost, resolvedFileIds);
+        return new DraftResolution(draftPostRepository.saveAndFlush(draftPost), files);
     }
 
     public DraftMatchResponse getMatchingDraft(
@@ -461,7 +422,30 @@ public class PostDraftService {
                 .collect(Collectors.toSet());
     }
 
-    private record DraftResolution(DraftPost draftPost, List<Long> retainedFileIds) {
+    private DraftFiles resolveDraftFiles(PostDraftRequest request, String contents, Long userId, Long draftId,
+            Post originalPost) {
+        List<Long> requestedFileIds = orEmpty(request.getFileIds());
+        Set<Long> candidates = new HashSet<>(requestedFileIds);
+        candidates.addAll(extractDraftFileReferences(contents));
+        Set<Long> emoticonFileIds = fileService.findUsableEmoticonImageFileIds(candidates, userId);
+        List<Long> retained = fileService.retainValidDraftFileIds(requestedFileIds.stream()
+                .filter(id -> id == null || !emoticonFileIds.contains(id)).toList(), userId, draftId);
+        candidates.removeAll(retained);
+        candidates.removeAll(emoticonFileIds);
+        if (originalPost != null) {
+            // The original post retains ownership of its own attachments during draft editing.
+            fileService.getFilesByRelatedEntity(originalPost.getPostId(), FileService.RELATED_TYPE_POST_CONTENT)
+                    .stream()
+                    .filter(file -> file.getUploader() != null && userId.equals(file.getUploader().getUserId()))
+                    .forEach(file -> candidates.remove(file.getFileId()));
+        }
+        return new DraftFiles(removeDraftFileReferences(contents, candidates), retained, !candidates.isEmpty());
+    }
+
+    private record DraftFiles(String contents, List<Long> fileIds, boolean referencesRemoved) {
+    }
+
+    private record DraftResolution(DraftPost draftPost, DraftFiles files) {
     }
 
     private PollRequest normalizeDraftPoll(PollRequest poll) {

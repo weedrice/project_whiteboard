@@ -4,27 +4,27 @@ import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 
 final class CommentThreadQueries {
 
-    // Hidden ancestors remain only as placeholders for eligible descendants.
-    static final String VISIBLE_THREAD = """
-              AND (
-                    (c.isDeleted = false
-            """ + CommentVisibilityJpql.VISIBLE_COMMENT_AUTHOR + """
-                    )
-                    OR EXISTS (
-                            SELECT 1
-                            FROM CommentClosure cc
-                            JOIN cc.descendant descendant
-                            WHERE cc.ancestor = c
-                              AND cc.depth > 0
-                              AND descendant.isDeleted = false
-                              AND descendant.userId IN (
+    // A qualifying descendant keeps a hidden ancestor visible and contributes to its reply count.
+    private static final String HAS_VISIBLE_DESCENDANT = """
+            EXISTS (
+                SELECT 1
+                FROM CommentClosure cc
+                JOIN cc.descendant descendant
+                WHERE cc.ancestor = c
+                  AND cc.depth > 0
+                  AND descendant.isDeleted = false
+                  AND descendant.userId IN (
             """ + ContentAuthorVisibility.VISIBLE_AUTHOR_IDS_JPQL + """
-                              )
-                              AND (:blockedUserIdsEmpty = true
-                                   OR descendant.userId NOT IN (:blockedUserIds))
-                    )
-              )
+                  )
+                  AND (:blockedUserIdsEmpty = true OR descendant.userId NOT IN (:blockedUserIds))
+            )
             """;
+
+    private static final String ACTIVE_WITH_VISIBLE_AUTHOR = "c.isDeleted = false " + CommentVisibilityJpql.VISIBLE_COMMENT_AUTHOR;
+    static final String VISIBLE_THREAD = " AND ((" + ACTIVE_WITH_VISIBLE_AUTHOR + ") OR " + HAS_VISIBLE_DESCENDANT + ") ";
+    static final String COUNTED_REPLY = " AND ((" + ACTIVE_WITH_VISIBLE_AUTHOR
+            + " AND (:blockedUserIdsEmpty = true OR c.userId NOT IN (:blockedUserIds))) OR "
+            + HAS_VISIBLE_DESCENDANT + ") ";
 
     private static final String ROOT_FROM = """
             FROM Comment c

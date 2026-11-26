@@ -70,8 +70,8 @@ class FileImageVariantGeneratorTest {
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 1600, 800));
 
         ArgumentCaptor<byte[]> contentsCaptor = ArgumentCaptor.forClass(byte[].class);
-        verify(fileStorageService).storeBytesAs(contentsCaptor.capture(), eq("image/webp"), eq("variants/10/thumbnail.webp"));
-        verify(fileStorageService).storeBytesAs(any(byte[].class), eq("image/webp"), eq("variants/10/medium.webp"));
+        verify(stateCommand).storeAndActivate(eq(10L), eq(1L), contentsCaptor.capture());
+        verify(stateCommand).storeAndActivate(eq(10L), eq(2L), any(byte[].class));
 
         verify(stateCommand).createPending(
                 file, FileVariantType.THUMBNAIL, "variants/10/thumbnail.webp",
@@ -79,8 +79,6 @@ class FileImageVariantGeneratorTest {
         verify(stateCommand).createPending(
                 eq(file), eq(FileVariantType.MEDIUM), eq("variants/10/medium.webp"),
                 org.mockito.ArgumentMatchers.anyLong(), eq("image/webp"), eq(1280), eq(640));
-        verify(stateCommand).activate(1L);
-        verify(stateCommand).activate(2L);
         assertThat(contentsCaptor.getValue()).isNotEmpty();
     }
 
@@ -94,7 +92,7 @@ class FileImageVariantGeneratorTest {
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 100, 80));
         generator.generateVariants(file, multipartFile, validated("image/gif", 100, 80));
 
-        verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
+        verify(stateCommand, never()).storeAndActivate(any(), any(), any());
         verify(stateCommand, never()).createPending(any(), any(), any(), org.mockito.ArgumentMatchers.anyLong(), any(),
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
@@ -121,10 +119,8 @@ class FileImageVariantGeneratorTest {
         assertThat(file.getFileSize()).isEqualTo(recordedSize);
         assertThat(source.closed).isTrue();
         verify(fileStorageService).loadFile("original.jpg");
-        verify(fileStorageService).storeBytesAs(any(), eq("image/webp"), eq("variants/10/thumbnail.webp"));
-        verify(fileStorageService).storeBytesAs(any(), eq("image/webp"), eq("variants/10/medium.webp"));
-        verify(stateCommand).activate(1L);
-        verify(stateCommand).activate(2L);
+        verify(stateCommand).storeAndActivate(eq(10L), eq(1L), any());
+        verify(stateCommand).storeAndActivate(eq(10L), eq(2L), any());
     }
 
     @Test
@@ -141,7 +137,7 @@ class FileImageVariantGeneratorTest {
         assertThat(source.bytesRead).isEqualTo(FileUploadValidationPolicy.MAX_FILE_SIZE + 1);
         assertThat(source.aborted).isTrue();
         assertThat(source.closed).isTrue();
-        verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
+        verify(stateCommand, never()).storeAndActivate(any(), any(), any());
     }
 
     @Test
@@ -154,7 +150,7 @@ class FileImageVariantGeneratorTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FILE_EMPTY));
 
         assertThat(source.closed).isTrue();
-        verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
+        verify(stateCommand, never()).storeAndActivate(any(), any(), any());
     }
 
     @Test
@@ -170,7 +166,7 @@ class FileImageVariantGeneratorTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_FILE_TYPE));
 
         assertThat(source.closed).isTrue();
-        verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
+        verify(stateCommand, never()).storeAndActivate(any(), any(), any());
     }
 
     @Test
@@ -185,7 +181,7 @@ class FileImageVariantGeneratorTest {
 
         verify((Abortable) source).abort();
         verify(source).close();
-        verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
+        verify(stateCommand, never()).storeAndActivate(any(), any(), any());
     }
 
     private FileImageVariantGenerator generator() {

@@ -35,6 +35,10 @@ public class CommentService {
         return commentQueryService.getBestComments(postId, currentUserId);
     }
 
+    public List<Long> getCommentPath(Long postId, Long commentId, Long currentUserId) {
+        return commentQueryService.getCommentPath(postId, commentId, currentUserId);
+    }
+
     public CommentResponse getComment(Long commentId, Long currentUserId) {
         return commentQueryService.getComment(commentId, currentUserId);
     }

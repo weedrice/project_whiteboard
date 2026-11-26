@@ -181,6 +181,14 @@ public class CommentQueryService {
         return CommentListResponse.from(replies, maskedReplies);
     }
 
+    public List<Long> getCommentPath(Long postId, Long commentId, Long currentUserId) {
+        CommentPostPort.ReadAccess post = commentPostPort.loadForRead(postId);
+        CommentReadContext context = resolveReadContext(currentUserId);
+        post.validateReadable(currentUserId, context.blockedUserIds());
+
+        return commentReadSupport.getVisiblePath(postId, commentId, context.blockedUserIds());
+    }
+
     public CommentResponse getComment(Long commentId, Long currentUserId) {
         Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);

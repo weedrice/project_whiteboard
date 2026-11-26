@@ -81,7 +81,7 @@ watch(() => props.boardUrl, () => {
         variant="primary"
         class="px-3"
         :aria-label="$t('board.category.add')"
-        :disabled="isReordering || isMutating"
+        :disabled="isLoading || !!error || isReordering || isMutating"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
       </BaseButton>

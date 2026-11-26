@@ -11,23 +11,24 @@ import java.util.UUID;
 @Repository
 @RequiredArgsConstructor
 class SemanticSearchReindexRepository {
+    private static final String CONTENT_QUEUE = "semantic_search_reindex_jobs";
+    private static final String AUTHOR_QUEUE = "semantic_search_author_reindex_jobs";
+    private static final String CURSOR_COLUMNS = """
+            reindex_job_id, scope_type, scope_id, content_phase, last_content_id, retry_count,
+            status, lease_token, processing_started_at, next_attempt_at, updated_at
+            """;
+    // Both queues draw IDs from the same sequence. Enumerate the fields since
+    // V71 added columns to the original table in a different physical order.
+    private static final String ALL_JOBS = "(SELECT " + CURSOR_COLUMNS + " FROM " + CONTENT_QUEUE
+            + " UNION ALL SELECT " + CURSOR_COLUMNS + " FROM " + AUTHOR_QUEUE + ") jobs";
+
     private final JdbcTemplate jdbcTemplate;
 
-    List<Long> findBoardIdsForAuthorContent(Long userId) {
-        return jdbcTemplate.queryForList("""
-                SELECT p.board_id FROM posts p
-                WHERE p.user_id = ? AND p.is_deleted = 'N'
-                UNION
-                SELECT p.board_id FROM comments c JOIN posts p ON p.post_id = c.post_id
-                WHERE c.user_id = ? AND c.is_deleted = 'N' AND p.is_deleted = 'N'
-                ORDER BY board_id
-                """, Long.class, userId, userId);
-    }
-
     void enqueue(String scopeType, Long scopeId) {
-        String phase = "BOARD".equals(scopeType) ? "POST" : "COMMENT";
+        String phase = "POST_COMMENTS".equals(scopeType) ? "COMMENT" : "POST";
+        String queue = "AUTHOR".equals(scopeType) ? AUTHOR_QUEUE : CONTENT_QUEUE;
         jdbcTemplate.update("""
-                INSERT INTO semantic_search_reindex_jobs
+                INSERT INTO %s
                     (scope_type, scope_id, content_phase, last_content_id, status, created_at, updated_at)
                 VALUES (?, ?, ?, 0, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (scope_type, scope_id) DO UPDATE SET
@@ -41,20 +42,20 @@ class SemanticSearchReindexRepository {
                     failed_at = NULL,
                     processing_started_at = NULL,
                     updated_at = CURRENT_TIMESTAMP
-                """, scopeType, scopeId, phase);
+                """.formatted(queue), scopeType, scopeId, phase);
     }
 
     List<Long> findRunnableIds(LocalDateTime now, int limit) {
         return jdbcTemplate.queryForList("""
-                SELECT reindex_job_id FROM semantic_search_reindex_jobs
+                SELECT reindex_job_id FROM %s
                 WHERE status = 'PENDING' AND next_attempt_at <= ?
                 ORDER BY next_attempt_at, updated_at, reindex_job_id LIMIT ?
-                """, Long.class, now, limit);
+                """.formatted(ALL_JOBS), Long.class, now, limit);
     }
 
     int claim(Long id, UUID leaseToken, LocalDateTime now) {
-        return jdbcTemplate.update("""
-                UPDATE semantic_search_reindex_jobs
+        return updateById("""
+                UPDATE %s
                 SET status='PROCESSING', processing_started_at=?, lease_token=?, updated_at=?
                 WHERE reindex_job_id=? AND status='PENDING' AND next_attempt_at <= ?
                 """, now, leaseToken, now, id, now);
@@ -63,15 +64,15 @@ class SemanticSearchReindexRepository {
     ReindexCursor findClaimed(Long id, UUID leaseToken) {
         return jdbcTemplate.queryForObject("""
                 SELECT reindex_job_id, scope_type, scope_id, content_phase, last_content_id, retry_count
-                FROM semantic_search_reindex_jobs
+                FROM %s
                 WHERE reindex_job_id=? AND status='PROCESSING' AND lease_token=?
-                """, (rs, row) -> new ReindexCursor(rs.getLong(1), rs.getString(2), rs.getLong(3),
+                """.formatted(ALL_JOBS), (rs, row) -> new ReindexCursor(rs.getLong(1), rs.getString(2), rs.getLong(3),
                         rs.getString(4), rs.getLong(5), rs.getInt(6), leaseToken), id, leaseToken);
     }
 
     int advance(Long id, UUID leaseToken, String phase, long cursor, boolean completed, LocalDateTime now) {
-        return jdbcTemplate.update("""
-                UPDATE semantic_search_reindex_jobs
+        return updateById("""
+                UPDATE %s
                 SET content_phase=?, last_content_id=?, status=?, retry_count=0,
                     next_attempt_at=?, last_error=NULL, lease_token=NULL, failed_at=NULL,
                     processing_started_at=NULL, updated_at=?
@@ -81,8 +82,8 @@ class SemanticSearchReindexRepository {
 
     int markFailed(Long id, UUID leaseToken, int maxRetryCount, LocalDateTime nextAttemptAt,
                    LocalDateTime now, String error) {
-        return jdbcTemplate.update("""
-                UPDATE semantic_search_reindex_jobs
+        return updateById("""
+                UPDATE %s
                 SET retry_count=LEAST(retry_count + 1, ?),
                     status=CASE WHEN retry_count + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END,
                     next_attempt_at=CASE WHEN retry_count + 1 >= ? THEN ? ELSE ? END,
@@ -98,8 +99,8 @@ class SemanticSearchReindexRepository {
 
     int recoverStale(LocalDateTime staleBefore, int maxRetryCount, LocalDateTime nextAttemptAt,
                      LocalDateTime now, String error) {
-        return jdbcTemplate.update("""
-                UPDATE semantic_search_reindex_jobs
+        String sql = """
+                UPDATE %s
                 SET retry_count=LEAST(retry_count + 1, ?),
                     status=CASE WHEN retry_count + 1 >= ? THEN 'FAILED' ELSE 'PENDING' END,
                     next_attempt_at=CASE WHEN retry_count + 1 >= ? THEN ? ELSE ? END,
@@ -110,13 +111,16 @@ class SemanticSearchReindexRepository {
                     updated_at=?
                 WHERE status='PROCESSING'
                   AND (processing_started_at IS NULL OR processing_started_at < ?)
-                """, maxRetryCount, maxRetryCount, maxRetryCount, now, nextAttemptAt, error,
-                maxRetryCount, now, now, staleBefore);
+                """;
+        Object[] args = {maxRetryCount, maxRetryCount, maxRetryCount, now, nextAttemptAt, error,
+                maxRetryCount, now, now, staleBefore};
+        return jdbcTemplate.update(sql.formatted(CONTENT_QUEUE), args)
+                + jdbcTemplate.update(sql.formatted(AUTHOR_QUEUE), args);
     }
 
     int redrive(Long id, LocalDateTime now) {
-        return jdbcTemplate.update("""
-                UPDATE semantic_search_reindex_jobs
+        return updateById("""
+                UPDATE %s
                 SET status='PENDING', retry_count=0, next_attempt_at=?, last_error=NULL,
                     failed_at=NULL, processing_started_at=NULL, lease_token=NULL, updated_at=?
                 WHERE reindex_job_id=? AND status='FAILED'
@@ -125,15 +129,20 @@ class SemanticSearchReindexRepository {
 
     long countStatus(String status) {
         Long count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM semantic_search_reindex_jobs WHERE status=?", Long.class, status);
+                "SELECT COUNT(*) FROM " + ALL_JOBS + " WHERE status=?", Long.class, status);
         return count == null ? 0 : count;
     }
 
     LocalDateTime findOldestActiveAt() {
         return jdbcTemplate.queryForObject("""
                 SELECT MIN(CASE WHEN status='PROCESSING' THEN processing_started_at ELSE next_attempt_at END)
-                FROM semantic_search_reindex_jobs WHERE status IN ('PENDING', 'PROCESSING')
-                """, LocalDateTime.class);
+                FROM %s WHERE status IN ('PENDING', 'PROCESSING')
+                """.formatted(ALL_JOBS), LocalDateTime.class);
+    }
+
+    private int updateById(String sql, Object... args) {
+        int changed = jdbcTemplate.update(sql.formatted(CONTENT_QUEUE), args);
+        return changed == 0 ? jdbcTemplate.update(sql.formatted(AUTHOR_QUEUE), args) : changed;
     }
 
     record ReindexCursor(Long id, String scopeType, Long scopeId, String phase, Long lastContentId,

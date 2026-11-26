@@ -7,6 +7,9 @@ import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -33,8 +36,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @Import(QuerydslConfig.class)
@@ -94,6 +99,18 @@ class CommentRepositoryTest {
                 .depth(0)
                 .build());
         entityManager.flush();
+    }
+
+    @Test
+    void badgeCountStopsAtThresholdAndIncludesOnlyTheAuthorsUndeletedComments() {
+        entityManager.persist(commentFor(post, "Second comment"));
+        Comment removed = entityManager.persist(commentFor(post, "Removed comment"));
+        removed.deleteComment();
+        entityManager.flush();
+
+        assertThat(commentRepository.countActiveByUserIdUpTo(user.getUserId(), 1)).isOne();
+        assertThat(commentRepository.countActiveByUserIdUpTo(user.getUserId(), 10)).isEqualTo(2);
+        assertThat(commentRepository.countActiveByUserIdUpTo(-1L, 10)).isZero();
     }
 
     @Test
@@ -436,6 +453,11 @@ class CommentRepositoryTest {
         Post privatePost = persistPost("Landing Private Post", privateBoard, false, false);
         Post inactivePost = persistPost("Landing Inactive Post", inactiveBoard, false, false);
         Post inquiryPost = persistPost("Landing Inquiry Post", inquiryBoard, false, false);
+        Post blindedPost = persistPost("Landing Blinded Post", board, false, false);
+        blindedPost.blind("REPORT", todayStart);
+        Comment commentOnBlindedPost = entityManager.persist(commentFor(blindedPost, "Hidden parent"));
+        Comment blindedComment = entityManager.persist(commentFor(post, "Hidden comment"));
+        blindedComment.blind("REPORT", todayStart);
 
         Comment visibleComment = commentFor(post, "Visible Comment");
         Comment yesterdayComment = commentFor(post, "Yesterday Comment");
@@ -465,6 +487,8 @@ class CommentRepositoryTest {
         updateCreatedAt(privatePostComment, todayStart.plusHours(5));
         updateCreatedAt(inactivePostComment, todayStart.plusHours(6));
         updateCreatedAt(inquiryPostComment, todayStart.plusHours(7));
+        updateCreatedAt(commentOnBlindedPost, todayStart.plusHours(8));
+        updateCreatedAt(blindedComment, todayStart.plusHours(9));
         entityManager.flush();
         entityManager.clear();
 
@@ -474,6 +498,11 @@ class CommentRepositoryTest {
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(1L);
+        entityManager.find(Post.class, blindedPost.getPostId()).unblind();
+        entityManager.find(Comment.class, blindedComment.getCommentId()).unblind();
+        entityManager.flush();
+        assertThat(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                todayStart, tomorrowStart, BoardPolicyConstants.INQUIRY_BOARD_URL)).isEqualTo(3L);
     }
 
     @Test
@@ -1068,6 +1097,60 @@ class CommentRepositoryTest {
         assertThat(commentRepository.findByIdWithRelations(hiddenRoot.getCommentId())).isPresent();
         assertThat(commentRepository.findByIdWithRelations(hiddenRoot.getCommentId()).orElseThrow().getIsBlinded())
                 .isFalse();
+    }
+
+    @Test
+    void pathIncludesDeletedAncestorsOfVisibleReplyWithoutReturningDeletedTargets() {
+        Comment parent = persistVisibilityComment(user, comment, "Deleted parent");
+        Comment reply = persistVisibilityComment(user, parent, "Visible reply");
+        entityManager.persist(CommentClosure.builder().ancestor(comment).descendant(reply).depth(2).build());
+        comment.deleteComment();
+        parent.deleteComment();
+        entityManager.flush();
+        entityManager.clear();
+
+        CommentReadSupport reader = new CommentReadSupport(commentRepository);
+        assertThat(reader.getVisiblePath(post.getPostId(), reply.getCommentId(), Set.of()))
+                .containsExactly(comment.getCommentId(), parent.getCommentId(), reply.getCommentId());
+        assertPathNotFound(parent.getCommentId(), Set.of());
+        assertPathNotFound(reply.getCommentId(), Set.of(user.getUserId()));
+        assertThatThrownBy(() -> reader.getVisiblePath(-1L, reply.getCommentId(), Set.of()))
+                .isInstanceOf(BusinessException.class).hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+    }
+
+    @Test
+    void legacyReplyPathFollowsParentIdsWithoutClosureRowsAndPreservesPlaceholderVisibility() {
+        User blockedAuthor = persistUser("path-blocked", "path-blocked@test.com", "Blocked");
+        Comment root = entityManager.persist(Comment.builder().post(post).user(user).depth(0).content("Root").build());
+        Comment parent = entityManager.persist(Comment.builder().post(post).user(user).parent(root)
+                .depth(1).content("Parent").build());
+        Comment reply = entityManager.persist(Comment.builder().post(post).user(blockedAuthor).parent(parent)
+                .depth(2).content("Reply").build());
+        entityManager.flush();
+        CommentReadSupport reader = new CommentReadSupport(commentRepository);
+        assertThat(reader.getVisiblePath(post.getPostId(), root.getCommentId(), Set.of()))
+                .containsExactly(root.getCommentId());
+        assertThat(reader.getVisiblePath(post.getPostId(), reply.getCommentId(), Set.of()))
+                .containsExactly(root.getCommentId(), parent.getCommentId(), reply.getCommentId());
+
+        Set<Long> blocked = Set.of(blockedAuthor.getUserId());
+        assertPathNotFound(reply.getCommentId(), blocked);
+        Comment sibling = entityManager.persist(Comment.builder().post(post).user(user).parent(parent)
+                .depth(2).content("Visible sibling").build());
+        assertThat(reader.getVisiblePath(post.getPostId(), reply.getCommentId(), blocked))
+                .containsExactly(root.getCommentId(), parent.getCommentId(), reply.getCommentId());
+
+        parent.deleteComment();
+        assertPathNotFound(reply.getCommentId(), blocked);
+        entityManager.persist(CommentClosure.builder().ancestor(parent).descendant(sibling).depth(1).build());
+        assertThat(reader.getVisiblePath(post.getPostId(), reply.getCommentId(), blocked))
+                .containsExactly(root.getCommentId(), parent.getCommentId(), reply.getCommentId());
+    }
+
+    private void assertPathNotFound(Long commentId, Set<Long> blocked) {
+        CommentReadSupport reader = new CommentReadSupport(commentRepository);
+        assertThatThrownBy(() -> reader.getVisiblePath(post.getPostId(), commentId, blocked))
+                .isInstanceOf(BusinessException.class).hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
     }
 
     @Test

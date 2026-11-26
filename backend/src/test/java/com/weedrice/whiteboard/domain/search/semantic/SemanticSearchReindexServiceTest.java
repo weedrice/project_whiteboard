@@ -53,25 +53,19 @@ class SemanticSearchReindexServiceTest {
     }
 
     @Test
-    void restoredAuthorUsesAllAffectedBoardsAndDoesNotDirectlyEnqueueContent() {
-        when(reindexRepository.findBoardIdsForAuthorContent(7L)).thenReturn(List.of(10L, 20L));
-
+    void restoredAuthorRegistersOnlyOneCursor() {
         service.enqueueAuthorContent(7L);
 
-        verify(reindexRepository).enqueue("BOARD", 10L);
-        verify(reindexRepository).enqueue("BOARD", 20L);
+        verify(reindexRepository).enqueue("AUTHOR", 7L);
         verifyNoInteractions(jobRepository);
     }
 
     @Test
-    void authorWithoutContentDoesNotCreateAnEmptyScope() {
-        service.enqueueAuthorContent(7L);
+    void invalidAuthorDoesNotCreateJobs() {
         service.enqueueAuthorContent(null);
         service.enqueueAuthorContent(0L);
 
-        verify(reindexRepository).findBoardIdsForAuthorContent(7L);
-        verify(reindexRepository, never()).enqueue(anyString(), anyLong());
-        verifyNoInteractions(jobRepository);
+        verifyNoInteractions(jobRepository, reindexRepository);
     }
 
     @Test
@@ -84,7 +78,7 @@ class SemanticSearchReindexServiceTest {
         when(reindexRepository.advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(0L), eq(false), eq(NOW))).thenReturn(1);
 
         assertThat(service.processPages()).isEqualTo(1);
-        verify(jobRepository).enqueueAll("POST", List.of(11L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueReindexPage("POST", List.of(11L), true);
         verify(reindexRepository).advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(0L), eq(false), eq(NOW));
 
         when(reindexRepository.findClaimed(eq(1L), any(UUID.class))).thenAnswer(invocation ->
@@ -93,7 +87,7 @@ class SemanticSearchReindexServiceTest {
         when(reindexRepository.advance(eq(1L), any(UUID.class), eq("COMMENT"), eq(22L), eq(true), eq(NOW))).thenReturn(1);
 
         assertThat(service.processPages()).isEqualTo(1);
-        verify(jobRepository).enqueueAll("COMMENT", List.of(21L, 22L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueReindexPage("COMMENT", List.of(21L, 22L), true);
     }
 
     @Test

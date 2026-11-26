@@ -38,10 +38,7 @@ public class SemanticSearchReindexService {
         if (userId == null || userId <= 0) {
             return;
         }
-        // A restored post author also restores other authors' comments underneath that post.
-        for (Long boardId : reindexRepository.findBoardIdsForAuthorContent(userId)) {
-            enqueueBoard(boardId);
-        }
+        reindexRepository.enqueue("AUTHOR", userId);
     }
 
     int processPages() {
@@ -103,32 +100,33 @@ public class SemanticSearchReindexService {
     }
 
     private boolean processPage(SemanticSearchReindexRepository.ReindexCursor cursor) {
-        List<Long> ids;
-        if ("POST".equals(cursor.phase())) {
-            ids = jobRepository.findActivePostIdsByBoardIdAfter(
-                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
-        } else if ("BOARD".equals(cursor.scopeType())) {
-            ids = jobRepository.findActiveCommentIdsByBoardIdAfter(
-                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
-        } else {
-            ids = jobRepository.findActiveCommentIdsByPostIdAfter(
-                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
-        }
-        jobRepository.enqueueAll(cursor.phase(), ids, SemanticSearchIndexAction.UPSERT);
+        boolean authorRestore = "AUTHOR".equals(cursor.scopeType());
+        List<Long> ids = authorRestore
+                ? jobRepository.findAuthorPageIds(cursor.phase(), cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE)
+                : loadContentPage(cursor);
+        jobRepository.enqueueReindexPage(cursor.phase(), ids, !authorRestore);
         boolean exhausted = ids.size() < PAGE_SIZE;
-        int advanced;
-        if (exhausted && "BOARD".equals(cursor.scopeType()) && "POST".equals(cursor.phase())) {
-            advanced = reindexRepository.advance(
-                    cursor.id(), cursor.leaseToken(), "COMMENT", 0, false, now());
-        } else {
-            long nextCursor = ids.isEmpty() ? cursor.lastContentId() : ids.get(ids.size() - 1);
-            advanced = reindexRepository.advance(
-                    cursor.id(), cursor.leaseToken(), cursor.phase(), nextCursor, exhausted, now());
-        }
+        boolean nextPhase = exhausted && "POST".equals(cursor.phase());
+        long nextId = ids.isEmpty() ? cursor.lastContentId() : ids.getLast();
+        int advanced = reindexRepository.advance(cursor.id(), cursor.leaseToken(),
+                nextPhase ? "COMMENT" : cursor.phase(), nextPhase ? 0 : nextId, exhausted && !nextPhase, now());
         if (advanced != 1) {
             throw new IllegalStateException("Semantic reindex lease was lost");
         }
         return true;
+    }
+
+    private List<Long> loadContentPage(SemanticSearchReindexRepository.ReindexCursor cursor) {
+        if ("POST".equals(cursor.phase())) {
+            return jobRepository.findActivePostIdsByBoardIdAfter(
+                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
+        } else if ("BOARD".equals(cursor.scopeType())) {
+            return jobRepository.findActiveCommentIdsByBoardIdAfter(
+                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
+        } else {
+            return jobRepository.findActiveCommentIdsByPostIdAfter(
+                    cursor.scopeId(), cursor.lastContentId(), PAGE_SIZE);
+        }
     }
 
     private void handlePageFailure(SemanticSearchReindexRepository.ReindexCursor cursor, RuntimeException ex) {

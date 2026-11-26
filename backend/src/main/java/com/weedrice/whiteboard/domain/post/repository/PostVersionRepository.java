@@ -16,7 +16,13 @@ public interface PostVersionRepository extends JpaRepository<PostVersion, Long> 
             select new com.weedrice.whiteboard.domain.post.dto.PostVersionResponse(
                 version.historyId,
                 version.versionType,
-                coalesce(version.originalTitle, post.title),
+                coalesce(version.originalTitle,
+                    case when version.versionType = 'CREATE' then (
+                        select edit.originalTitle from PostVersion edit
+                        where edit.post = post and edit.versionType = 'MODIFY'
+                        order by edit.createdAt, edit.historyId
+                        limit 1
+                    ) end, post.title),
                 version.createdAt
             )
             from PostVersion version

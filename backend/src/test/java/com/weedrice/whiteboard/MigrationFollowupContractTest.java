@@ -55,6 +55,18 @@ class MigrationFollowupContractTest {
                 .doesNotContain("ALTER COLUMN is_listed SET NOT NULL");
     }
 
+    @Test
+    void v104BuildsThePointHistoryTargetIndexOnline() throws Exception {
+        String file = "V104__index_point_history_target.sql";
+        assertThat(migration(file))
+                .contains("-- noviis:migration-phase expand", "SET lock_timeout = '5s'",
+                        "-- noviis:online-index idx_point_histories_user_target_type",
+                        "CREATE INDEX CONCURRENTLY idx_point_histories_user_target_type",
+                        "ON point_histories (user_id, related_type, related_id, type)", "RESET lock_timeout")
+                .doesNotContain("IF NOT EXISTS");
+        assertThat(migration(file + ".conf").trim()).isEqualTo("executeInTransaction=false");
+    }
+
     private String migration(String fileName) throws Exception {
         return new ClassPathResource("db/migration/" + fileName)
                 .getContentAsString(StandardCharsets.UTF_8);

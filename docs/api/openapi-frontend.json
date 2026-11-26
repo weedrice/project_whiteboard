@@ -1252,6 +1252,24 @@
         },
         "type" : "object"
       },
+      "ApiResponseListLong" : {
+        "properties" : {
+          "data" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListMentionCandidateResponse" : {
         "properties" : {
           "data" : {
@@ -8447,6 +8465,15 @@
           "lastReadCommentId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "sessionDurationMs" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "viewSessionId" : {
+            "format" : "uuid",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -14701,6 +14728,41 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseListCommentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "comment-controller" ]
+      }
+    },
+    "/api/v1/posts/{postId}/comments/{commentId}/path" : {
+      "get" : {
+        "operationId" : "getCommentPath",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "postId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "commentId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLong"
                 }
               }
             },

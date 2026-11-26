@@ -12,7 +12,13 @@ import java.util.Optional;
 
 public interface BoardCategoryRepository extends JpaRepository<BoardCategory, Long> {
 
-    List<BoardCategory> findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(Long boardId, Boolean isActive);
+    // Honor the default flag even for rows saved before mutations enforced its first position.
+    String DISPLAY_ORDER = "CASE WHEN c.isDefault = true THEN 0 ELSE 1 END, c.sortOrder, c.categoryId";
+
+    @Query("SELECT c FROM BoardCategory c WHERE c.board.boardId = :boardId AND c.isActive = :isActive ORDER BY " + DISPLAY_ORDER)
+    List<BoardCategory> findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(@Param("boardId") Long boardId, @Param("isActive") Boolean isActive);
+
+    boolean existsByBoard_BoardIdAndIsActiveTrueAndIsDefaultTrue(Long boardId);
 
     @Query("SELECT c.board.boardId FROM BoardCategory c WHERE c.categoryId = :categoryId")
     Optional<Long> findBoardIdByCategoryId(@Param("categoryId") Long categoryId);
@@ -33,5 +39,7 @@ public interface BoardCategoryRepository extends JpaRepository<BoardCategory, Lo
     Optional<BoardCategory> findByCategoryIdAndBoard_BoardIdAndIsActive(Long categoryId, Long boardId, Boolean isActive);
 
     @EntityGraph(attributePaths = "board")
-    List<BoardCategory> findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(Collection<Long> boardIds, Boolean isActive);
+    @Query("SELECT c FROM BoardCategory c WHERE c.board.boardId IN :boardIds AND c.isActive = :isActive ORDER BY c.board.boardId, " + DISPLAY_ORDER)
+    List<BoardCategory> findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+            @Param("boardIds") Collection<Long> boardIds, @Param("isActive") Boolean isActive);
 }

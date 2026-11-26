@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.badge.service;
 
+import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
 class BadgeEvaluationServiceTest {
 
     @Mock BadgeAwardService awards;
+    @Mock UserBadgeRepository userBadges;
     @Mock PostRepository posts;
     @Mock CommentRepository comments;
     @Mock UserRepository users;
@@ -34,25 +36,39 @@ class BadgeEvaluationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BadgeEvaluationService(awards, posts, comments, users);
+        service = new BadgeEvaluationService(awards, userBadges, posts, comments, users);
     }
 
     @Test
-    void evaluatesPostAndCommentThresholds() {
+    void evaluatesOnlyMissingBadgesAndStopsCountingAtTheHighestMissingThreshold() {
         User user = mock(User.class);
         when(users.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE)).thenReturn(Optional.of(user));
-        when(user.getUserId()).thenReturn(1L);
-        when(posts.countByUserIdAndIsDeleted(1L, false)).thenReturn(100L);
-        when(comments.countByUserIdAndIsDeleted(1L, false)).thenReturn(10L);
-        when(awards.awardIfMissing(1L, BadgeCode.FIRST_POST)).thenReturn(true);
-        when(awards.awardIfMissing(1L, BadgeCode.POSTS_10)).thenReturn(true);
-        when(awards.awardIfMissing(1L, BadgeCode.POSTS_100)).thenReturn(false);
-        when(awards.awardIfMissing(1L, BadgeCode.FIRST_COMMENT)).thenReturn(true);
-        when(awards.awardIfMissing(1L, BadgeCode.COMMENTS_10)).thenReturn(true);
+        when(userBadges.findOwnedBadgeCodes(1L, List.of("FIRST_POST", "POSTS_10", "POSTS_100")))
+                .thenReturn(Set.of("FIRST_POST", "POSTS_100"));
+        when(posts.countActiveByUserIdUpTo(1L, 10)).thenReturn(10);
+        when(comments.countActiveByUserIdUpTo(1L, 100)).thenReturn(9);
+        when(awards.awardForActiveUser(user, "POSTS_10")).thenReturn(true);
+        when(awards.awardForActiveUser(user, "FIRST_COMMENT")).thenReturn(false); // Concurrent award.
 
-        assertEquals(2, service.evaluatePostCountBadges(1L));
-        assertEquals(2, service.evaluateCommentCountBadges(1L));
-        verify(awards).awardIfMissing(1L, BadgeCode.POSTS_100);
+        assertEquals(1, service.evaluatePostCountBadges(1L));
+        assertEquals(0, service.evaluateCommentCountBadges(1L));
+
+        verify(awards).awardForActiveUser(user, "POSTS_10");
+        verify(awards).awardForActiveUser(user, "FIRST_COMMENT");
+        org.mockito.Mockito.verifyNoMoreInteractions(awards);
+    }
+
+    @Test
+    void fullyAwardedContentTypesSkipCountingAndAwarding() {
+        var postCodes = List.of("FIRST_POST", "POSTS_10", "POSTS_100");
+        var commentCodes = List.of("FIRST_COMMENT", "COMMENTS_10", "COMMENTS_100");
+        when(userBadges.findOwnedBadgeCodes(1L, postCodes)).thenReturn(Set.copyOf(postCodes));
+        when(userBadges.findOwnedBadgeCodes(1L, commentCodes)).thenReturn(Set.copyOf(commentCodes));
+
+        assertEquals(0, service.evaluatePostCountBadges(1L));
+        assertEquals(0, service.evaluateCommentCountBadges(1L));
+
+        verifyNoInteractions(posts, comments, awards, users);
     }
 
     @Test

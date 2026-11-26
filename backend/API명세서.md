@@ -259,7 +259,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/users/me/comments` | 내가 쓴 댓글 |
 | `GET` | `/api/v1/users/me/history/views` | 최근 본 글 |
 | `POST` | `/api/v1/attendance/check-in` | 일일 출석 체크와 보상 |
-| `GET` | `/api/v1/attendance/me` | 내 월별 출석과 streak 조회 |
+| `GET` | `/api/v1/attendance/me` | 같은 시점의 월별 출석, 오늘 체크인 여부, 현재 연속 출석 일수 조회 |
 | `GET` | `/api/v1/users/{userId}/badges` | 사용자 공개 뱃지 조회 |
 | `GET` | `/api/v1/users/me/badges` | 내 뱃지 조회 |
 | `PUT` | `/api/v1/users/me/badges/representative` | 대표 뱃지 설정 |
@@ -339,7 +339,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
-| `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력 |
+| `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력. 작성 이력에는 작성 당시 제목을 표시한다. 과거 작성 이력에 제목이 없으면 최초 수정 직전 제목, 현재 제목 순으로 대체한다. |
 | `POST` | `/api/v1/boards/{boardUrl}/scheduled-posts` | 예약 게시글 생성 |
 | `GET` | `/api/v1/users/me/scheduled-posts` | 내 예약 게시글 목록 |
 | `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
@@ -356,7 +356,9 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 탈퇴 시 미공개 예약은 취소되고 초안·실제 파일은 기존 정리 규칙을 따른다. 재가입은 기존 사용자 ID와 글/댓글 수정·삭제 권한을 복원하지만 취소 예약을 자동 재개하지 않는다. 내부 프로필 파일도 보존하되 탈퇴 상태의 파일 공개 접근은 거절한다.
 
-`GET /api/v1/users/me/history/views`는 현재 작성자 노출 조건을 목록과 전체 개수 조회에 함께 적용한다. 유효 BAN·정지 작성자의 글은 카드에서 제외하되 저장된 열람 이력은 삭제하지 않는다. 탈퇴만으로 기존 글을 카드에서 제외하지 않는다.
+`PUT /api/v1/posts/{postId}/history`의 `durationMs`는 아직 확인받지 못한 체류시간(ms, 최대 86,400,000)이다. 클라이언트는 재전송 시 중복 가산을 막기 위해 열람 세션 UUID인 `viewSessionId`와 이 세션의 전체 누적시간 `sessionDurationMs`를 함께 보낼 수 있다. 이때 `durationMs`도 필수이며 0을 허용한다. 서버는 저장된 누계를 초과한 시간과 `durationMs` 중 작은 값만 더하고 세션의 최대 누계를 기록한다. 두 세션 필드를 생략하면 기존처럼 델타를 가산한다. 저장된 읽음 위치를 다시 보내거나 다른 탭이 보낸 더 이전 위치가 같은 글의 댓글이면 소프트 삭제 후에도 시간을 반영한다. 읽음 위치는 뒤로 가지 않으며 새 위치에는 활성 댓글만 허용한다.
+
+`GET /api/v1/users/me/history/views`는 요청 페이지가 마지막 페이지를 넘어도 실제 전체 건수를 반환한다. 현재 작성자 노출 조건을 목록과 전체 개수 조회에 함께 적용한다. 유효 BAN·정지 작성자의 글은 카드에서 제외하되 저장된 열람 이력은 삭제하지 않는다. 탈퇴만으로 기존 글을 카드에서 제외하지 않는다.
 
 게시글 카드·목록·상세·피드의 `commentCount`는 현재 방문자에게 노출 가능한 실제 댓글 수(루트와 답글 합계)다. 삭제·블라인드·공통 작성자 조건 미충족·양방향 차단 댓글과 숨김 조상 자리표시자는 제외하며 목록별 일괄 집계한다. 댓글 트리 페이지의 `totalElements`는 루트 개수이므로 이 값과 같지 않을 수 있다. DB에 저장된 전체 댓글 수와 인기 순위 계산용 통계는 변경하지 않는다. 관리자 문의 상세·사용자 관리 목록은 관리 통계 목적의 원본 값을 유지한다.
 
@@ -374,6 +376,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 목록 비노출 스페이스는 일반 사용자의 `GET /api/v1/boards`, 인기·추천 스페이스, 통합/semantic 전역 검색, 공개 프로필과 홈 발견 결과에 포함되지 않는다. 다만 `GET /api/v1/boards/{boardUrl}` 직접 조회, 해당 URL 범위의 게시글·댓글 검색, 구독/구독 목록 접근은 공개 스페이스와 동일하게 허용한다. 스페이스 관리자와 슈퍼 관리자는 관리 목적의 목록에서 계속 확인할 수 있다.
 
 카테고리 순서 변경 요청은 `{ "categoryIds": [1, 2, 3] }` 형태다. 해당 스페이스의 활성 카테고리 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며, 기본 카테고리가 존재하면 첫 번째 ID여야 한다. 검증 실패 시 어떤 순서도 변경하지 않으며, 성공 시 1부터 다시 매긴 정렬 순서의 카테고리 목록을 반환한다.
+
+기본 카테고리를 생성하거나 기존 카테고리를 기본으로 지정하면 새 기본의 `sortOrder`는 1이다. 나머지 활성 카테고리는 기존 표시 순서를 유지한다. 과거에 기본 카테고리의 순번이 뒤로 저장된 경우에도 목록은 기본 카테고리를 먼저 반환한다.
 
 슈퍼관리자 스페이스 순서 변경 요청은 `{ "boardIds": [1, 2, 3] }` 형태다. 활성 여부와 관계없이 현재 스페이스 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며 최대 500개까지 허용한다. 검증 실패 시 어떤 순서도 변경하지 않고, 성공 시 1부터 다시 매긴 `AdminBoardResponse` 목록을 반환한다.
 
@@ -407,6 +411,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 `GET /api/v1/users/me/drafts/recovery`는 `boardUrl`과 선택적인 `originalPostId`, `draftId`, `clientDraftKey`를 받아 한 번의 요청으로 복구 상태를 판정한다. 응답의 `status`는 `AVAILABLE`, `MISSING`, `PROTECTED`, `AMBIGUOUS` 중 하나다. `AVAILABLE`에는 `draft`, `AVAILABLE`과 `PROTECTED`에는 `draftId`가 포함된다. 전달한 후보 ID가 없거나 작성 대상과 일치하지 않아 대체 후보를 검색한 경우 `staleCandidate`가 `true`다. 다른 사용자 소유 후보 ID도 존재 여부를 노출하지 않고 stale 후보로 처리한다.
 
 - 기존 초안 수정에서 `version` 또는 호환용 `updatedAt`이 현재 버전과 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
+- 신규 초안을 같은 `clientDraftKey`로 재전송하면 첫 저장에서 정리한 유실 첨부의 본문 참조까지 반영해 같은 요청인지 판정한다.
 - 예약 발행이 보호하는 초안의 수정·삭제·일반 발행은 `409 Conflict`, 오류 코드 `P005`(`DRAFT_PROTECTED`)를 반환한다.
 - 프론트엔드 자동 저장은 충돌 후 자동 덮어쓰기를 중단한다. 사용자가 서버 초안을 다시 불러온 뒤 편집을 계속해야 한다.
 - 초안 목록은 `modifiedAt DESC`, `draftId DESC` 순서이며 기본 크기는 20이다. 활성·발행 중·실패 예약발행이 참조하는 초안은 예약발행 목록에서 관리하므로 일반 초안 목록에서 제외한다.
@@ -435,6 +440,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/posts/{postId}/comments` | 게시글 댓글 트리, 정렬과 읽던 위치 지원 |
 | `GET` | `/api/v1/posts/{postId}/comments/best` | 베스트 댓글 목록 |
 | `GET` | `/api/v1/comments/{commentId}/replies` | 대댓글 목록 |
+| `GET` | `/api/v1/posts/{postId}/comments/{commentId}/path` | 게시글 읽기 권한과 댓글 트리 노출 조건을 확인한 뒤 루트부터 대상까지의 댓글 ID 배열 반환. 삭제된 부모 자리표시자를 경유할 수 있으며 삭제된 대상 또는 다른 글의 대상은 404 |
 | `GET` | `/api/v1/comments/{commentId}` | 댓글 단건 |
 | `POST` | `/api/v1/posts/{postId}/comments` | 댓글/대댓글 작성 |
 | `PUT` | `/api/v1/comments/{commentId}` | 댓글 수정 |
@@ -458,7 +464,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/search/popular` | 인기 검색어 |
 | `GET` | `/api/v1/search/recent` | 내 최근 검색어 |
 | `DELETE` | `/api/v1/search/recent/{logId}` | 최근 검색어 단건 삭제 |
-| `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제 |
+| `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제. 삭제 전에 응답을 받은 검색어가 지연된 통계 처리로 복원되지 않는다. |
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
 | `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 semantic 재색인 cursor job 재실행(SUPER_ADMIN) |
 
@@ -468,11 +474,15 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 적용: 의미 검색은 벡터 후보와 키워드 후보를 결합하고 `(contentType, contentId)`로 중복을 제거한다. 정확한 게시글 제목 일치를 우선하며 나머지는 두 후보 목록의 순위를 결합한다. 벡터 후보의 최소 유사도는 `SEMANTIC_SEARCH_RETRIEVAL_MIN_SIMILARITY`(기본 0.20), 최종 후보 상한은 `SEMANTIC_SEARCH_RETRIEVAL_CANDIDATE_LIMIT`(기본 200, 20~1000)이다. `totalElements`는 전체 색인 건수가 아닌 이 제한된 후보 집합의 크기이며, 같은 집합에서 페이지를 나누므로 범위 밖 페이지는 빈 목록이다. 비활성·임베딩 호출 실패의 키워드 대체 검색도 같은 후보 상한을 적용한다. 응답 필드와 `VECTOR`·`KEYWORD_FALLBACK` 값은 유지한다. 유형별 HNSW 후보가 상한보다 적으면 같은 공개·게시판·작성자 조건의 정확 검색으로 후보를 대체하여 필터로 인한 누락을 보완한다. 후보가 충분하면 기존 근사 검색을 유지한다.
 
-`POST /api/v1/admin/search/semantic/backfill`은 미색인·삭제된 벡터뿐 아니라 기존 벡터가 남아 있는 `FAILED` 상태의 `UPSERT` 작업도 재등록한다. 콘텐츠 유형별 `limit` 안에서 `FAILED DELETE`를 삭제 동작 그대로 우선 재등록하고, 남은 한도로 미색인·실패한 `UPSERT`를 선택한다. `ALL`은 게시글·댓글에 각각 한도를 적용하며 반환 건수는 둘의 합계다. `PENDING`·`PROCESSING` 대상은 제외하고, UPSERT 후보에서는 미색인 작업을 실패 작업보다 먼저 선택한다. 재시도 한도 소진 후 자동 무한 재시도는 하지 않으며 원인 해소 후 관리자가 backfill을 실행한다. 일반 색인 실패 수는 `noviis_semantic_jobs_failed`로 제공한다.
+`POST /api/v1/admin/search/semantic/backfill`은 미색인·삭제된 벡터뿐 아니라 기존 벡터가 남아 있는 `FAILED` 상태의 `UPSERT` 작업도 재등록한다. 다른 요청이 잠근 삭제 작업을 건너뛰고, 콘텐츠 유형별 `limit` 안에서 `FAILED DELETE`를 삭제 동작 그대로 우선 재등록한다. 잠글 수 있는 삭제 건수만큼 복구 후보의 예약 범위를 줄인다. 예약을 기다리는 동안 후보가 `FAILED DELETE`로 바뀌면 삭제로 재등록하고, 남은 한도는 같은 유형의 미색인 작업과 실패한 `UPSERT` 순서로 채운다. `ALL`은 게시글·댓글에 각각 한도를 적용한다.
+
+후보를 선택한 뒤에도 작업 잠금을 확보한 시점의 공개 상태와 백필 자격을 확인한다. 그사이 블라인드 처리되거나 이미 대기·처리 중인 작업은 보존하며, 응답 건수에는 실제 등록한 작업만 포함한다. 재시도 한도 소진 후 자동 무한 재시도는 하지 않으며 원인 해소 후 관리자가 backfill을 실행한다. 일반 색인 실패 수는 `noviis_semantic_jobs_failed`로 제공한다.
 
 임베딩 입력은 유니코드 코드 포인트를 보존하며 UTF-8 8,000바이트 이하로 제한한다. 이는 토큰을 직접 세는 방식이 아니라 API 한도 이내로 제한하기 위한 보수적 상한이며, 한·일 문자는 더 적게 포함될 수 있다. 기능 비활성화·키 미설정 시에도 이미 등록된 `DELETE` 작업은 처리하며, 삭제 직전 현재 공개 상태를 잠금 아래 다시 검사하여 복구된 글의 벡터를 늦은 작업이 지우지 않도록 한다.
 
-적용: 비밀글을 공개로 복원하면 제목 변경 여부와 무관하게 하위 댓글도 재색인한다. 정지 계정의 활성 복원 시 작성 글·댓글이 있는 스페이스의 기존 cursor 작업을 등록하여 원글의 타인 댓글도 복구한다. 같은 텍스트 해시·모델의 벡터는 현재 원문 검증 후 재사용하며 메타데이터와 삭제 상태를 갱신한다.
+적용: 비밀글을 공개로 복원하면 제목 변경 여부와 무관하게 하위 댓글도 재색인한다. 정지 계정을 활성으로 복원할 때는 작성자별 작업 한 건을 등록한다. 워커는 본인의 글, 본인의 댓글, 본인 글에 달린 타인의 댓글을 페이지 단위로 확인한다. 현재 색인 가능한 콘텐츠만 갱신하며 블라인드 등으로 숨겨진 콘텐츠의 대기 중인 삭제 작업을 보존한다. 같은 텍스트 해시·모델의 벡터는 현재 원문 검증 후 재사용하며 메타데이터와 삭제 상태를 갱신한다.
+
+게시판이나 원글 단위로 재색인할 때도 각 항목의 현재 공개 상태를 다시 확인한다. 블라인드 댓글 등 색인에서 제외할 항목은 삭제 작업으로 처리하며, 이미 대기 중이거나 처리 중인 삭제 작업은 이어서 실행한다.
 
 적용: 일반 색인 작업은 일시 오류에 1·2·4분 등 최대 60분의 지수 지연과 provider Retry-After(최대 24시간)를 적용하고, 인증·잘못된 요청·비정상 벡터 응답은 즉시 FAILED로 종료한다. V102의 queued_at은 현재 요청 재등록 때 갱신하고 재시도 중에는 유지하며, next_attempt_at 이전에는 작업을 실행하지 않는다. 기존 행의 시각은 updated_at/created_at으로 보완한다.
 
@@ -496,7 +506,7 @@ BAN 등록 시 커밋 후 작성자 관련 익명 조회 캐시를 무효화한�
 | `GET` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 목록 |
 | `POST` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 생성 |
 | `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 body 기준 키워드 알림 구독 해지 |
-| `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
+| `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록. 같은 사용자가 같은 endpoint와 전송 키를 다시 등록하면 대기 중인 푸시는 계속 발송한다. |
 | `POST` | `/api/v1/users/me/push-subscriptions/status` | 현재 사용자·기기 endpoint의 서버 등록 여부 조회 (`{ "endpoint": "..." }` → `ApiResponse<boolean>`); 미등록·다른 사용자 소유는 모두 false |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 해지 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions/all` | 현재 사용자의 Web Push 구독 전체 해지 및 push 설정 비활성화 |
@@ -510,9 +520,9 @@ BAN 등록 시 커밋 후 작성자 관련 익명 조회 캐시를 무효화한�
 | `POST` | `/api/v1/messages/{messageId}/read` | 쪽지 읽음 |
 | `DELETE` | `/api/v1/messages/{messageId}` | 쪽지 삭제 |
 | `DELETE` | `/api/v1/messages` | 쪽지 일괄 삭제 |
-| `GET` | `/api/v1/messages/unread-count` | 읽지 않은 쪽지 수 |
+| `GET` | `/api/v1/messages/unread-count` | 읽지 않은 쪽지 수. 본인에게 보낸 쪽지는 발신·수신 중 한쪽이라도 삭제됐으면 목록·대화·미읽음 수에서 제외한다. |
 | `GET` | `/api/v1/users/me/feeds` | 내 맞춤 피드 |
-| `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터 |
+| `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터. `stats.commentsToday`와 `stats.liveCount`는 블라인드 댓글 및 블라인드 게시글의 댓글을 제외한다. |
 | `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | 영구 실패한 피드 생성 작업 단건 재시도(SUPER_ADMIN) |
 
 `GET /api/v1/users/me/feeds`의 `POST` 항목은 공통 작성자 노출 필터를 목록과 전체 개수 조회에 적용한다. 게시글이 아닌 시스템·기타 피드 항목의 기존 조회 계약은 유지한다.
@@ -582,7 +592,7 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | Method | URI | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/emoticons/popular` | 인기 이모티콘 |
-| `GET` | `/api/v1/emoticons/search/all` | 이모티콘 목록 및 통합 검색 |
+| `GET` | `/api/v1/emoticons/search/all` | 이모티콘 목록 및 통합 검색. 제작자 정보가 없는 팩도 표시하며 제작자 ID와 이름은 null이다. |
 | `GET` | `/api/v1/emoticons/my` | 내가 만든 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 상세 |
 | `POST` | `/api/v1/emoticons` | 이모티콘 생성 |
@@ -593,8 +603,8 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | `GET` | `/api/v1/emoticons/purchased` | 구매한 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}/purchased` | 구매 여부 |
 | `GET` | `/api/v1/ads` | 노출 광고 조회 |
-| `POST` | `/api/v1/ads/{adId}/impression` | 광고 노출 기록 |
-| `POST` | `/api/v1/ads/{adId}/click` | 광고 클릭 기록 |
+| `POST` | `/api/v1/ads/{adId}/impression` | 광고 노출 기록. 집계 실패 후 같은 요청을 재시도할 수 있음 |
+| `POST` | `/api/v1/ads/{adId}/click` | 광고 클릭 기록 및 이동 URL 반환. 집계 실패 후 같은 요청을 재시도할 수 있음 |
 | `POST` | `/api/v1/common-codes` | 공통 코드 생성 |
 | `GET` | `/api/v1/common-codes` | 공통 코드 목록 |
 | `GET` | `/api/v1/common-codes/{typeCode}` | 공통 코드 상세 |
@@ -698,7 +708,7 @@ MESSAGE 알림 설정이 꺼져 있어도 기존 전달 outbox 처리 커밋 후
 | `POST` | `/api/v1/admin/configs` | 전역 설정 생성 |
 | `PUT` | `/api/v1/admin/configs` | 전역 설정 일괄 수정 |
 | `PUT` | `/api/v1/admin/configs/{key}` | 전역 설정 수정 |
-| `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제 |
+| `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제. 일반 문의의 높음·긴급 기준은 삭제 후 기본값을 적용해도 높음 < 긴급이어야 하며, 위반하면 `INVALID_INPUT_VALUE`를 반환한다. |
 | `POST` | `/api/v1/admin/badges/backfill` | 기존 활성 사용자의 콘텐츠 뱃지 동기 일괄 보정 |
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |

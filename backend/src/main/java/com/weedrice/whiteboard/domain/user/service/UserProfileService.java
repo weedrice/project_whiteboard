@@ -97,17 +97,14 @@ public class UserProfileService {
         }
 
         ProfilePrivacyPolicy.Visibility visibility = profilePrivacyPolicy.resolve(user.getUserId(), viewerUserId);
-        UserActivityPort.PublicActivityCounts activity = visibility.canViewPosts() || visibility.canViewComments()
-                ? userActivityPort.getPublicActivityCounts(user.getUserId(), viewerUserId)
-                : new UserActivityPort.PublicActivityCounts(0L, 0L);
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(visibility.canViewOverview() ? user.getCreatedAt() : null)
-                .postCount(visibility.canViewPosts() ? activity.postCount() : null)
-                .commentCount(visibility.canViewComments() ? activity.commentCount() : null)
+                .postCount(visibility.canViewPosts() ? userActivityPort.countPublicPosts(userId) : null)
+                .commentCount(visibility.canViewComments() ? userActivityPort.countPublicComments(userId, viewerUserId) : null)
                 .profileOverviewPublic(visibility.profileOverviewPublic())
                 .profilePostsPublic(visibility.profilePostsPublic())
                 .profileCommentsPublic(visibility.profileCommentsPublic())

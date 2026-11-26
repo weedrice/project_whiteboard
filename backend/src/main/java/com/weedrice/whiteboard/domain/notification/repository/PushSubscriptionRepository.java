@@ -14,6 +14,14 @@ public interface PushSubscriptionRepository
         extends JpaRepository<PushSubscription, Long>, PushSubscriptionRepositoryCustom {
     Optional<PushSubscription> findByEndpoint(String endpoint);
 
+    @Query("SELECT ps.user.userId FROM PushSubscription ps WHERE ps.endpoint = :endpoint")
+    Optional<Long> findOwnerIdByEndpoint(@Param("endpoint") String endpoint);
+
+    // Browser metadata does not change the delivery snapshot's modifiedAt.
+    @Modifying
+    @Query("UPDATE PushSubscription ps SET ps.userAgent = :userAgent WHERE ps.subscriptionId = :id")
+    int updateUserAgent(@Param("id") Long id, @Param("userAgent") String userAgent);
+
     List<PushSubscription> findByUser_UserId(Long userId);
 
     @Query("""

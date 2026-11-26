@@ -97,12 +97,13 @@ class InquiryRepositoryWorkflowTest {
         persist(closed);
         entityManager.flush();
 
-        var candidates = inquiryRepository.findAutoCloseCandidates(
+        var candidates = inquiryRepository.findAutoCloseCandidateIds(
                 NOW.minusDays(7), PageRequest.of(0, 100));
 
-        assertThat(candidates)
-                .extracting(Inquiry::getInquiryId)
-                .containsExactly(expired.getInquiryId());
+        assertThat(candidates).containsExactly(expired.getInquiryId());
+        assertThat(inquiryRepository.findExpiredForUpdate(expired.getInquiryId(), NOW.minusDays(7))).isPresent();
+        assertThat(inquiryRepository.findExpiredForUpdate(recent.getInquiryId(), NOW.minusDays(7))).isEmpty();
+        assertThat(inquiryRepository.findExpiredForUpdate(reopened.getInquiryId(), NOW.minusDays(7))).isEmpty();
         assertThat(reopened.getStatus()).isEqualTo(InquiryStatus.NEW);
     }
 

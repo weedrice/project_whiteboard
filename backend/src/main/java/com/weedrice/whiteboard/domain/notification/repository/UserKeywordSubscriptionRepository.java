@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.notification.repository;
 
 import com.weedrice.whiteboard.domain.notification.entity.UserKeywordSubscription;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -28,7 +30,9 @@ public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKey
             """)
     List<UserKeywordSubscription> findMatchingTitle(@Param("title") String title);
 
-    @EntityGraph(attributePaths = "user")
+    // Workers for different posts share the subscription cooldown. Lock only subscriptions
+    // and acquire them in the same order before evaluating lastNotifiedAt.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT subscription FROM UserKeywordSubscription subscription
             WHERE subscription.subscriptionId > :afterId

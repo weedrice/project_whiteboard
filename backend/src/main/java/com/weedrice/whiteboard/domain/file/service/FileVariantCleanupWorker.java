@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
-import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +31,6 @@ public class FileVariantCleanupWorker {
     private final FileVariantRepository fileVariantRepository;
     private final FileVariantStateCommand stateCommand;
     private final FileUploadStateCommand uploadStateCommand;
-    private final FileStorageService fileStorageService;
     private final Clock clock;
     private final FileRepository fileRepository;
     private final FileImageVariantGenerator variantGenerator;
@@ -58,15 +56,17 @@ public class FileVariantCleanupWorker {
                 continue;
             }
             try {
-                fileStorageService.deleteFileOrThrow(snapshot.filePath());
-                stateCommand.deleteClaimed(snapshot.fileVariantId());
-                deleted++;
+                if (stateCommand.deleteClaimed(snapshot)) {
+                    deleted++;
+                }
             } catch (RuntimeException exception) {
                 int retry = snapshot.retryCount() + 1;
                 long delayMinutes = Math.min(60, 1L << Math.min(retry - 1, 6));
-                stateCommand.recordCleanupFailure(candidateId, exception.getClass().getSimpleName(),
+                boolean recorded = stateCommand.recordCleanupFailure(snapshot, exception.getClass().getSimpleName(),
                         now.plusMinutes(delayMinutes));
-                metrics.recordRetry();
+                if (recorded && retry < MAX_RETRY_COUNT) {
+                    metrics.recordRetry();
+                }
                 log.warn("Failed to clean stale image variant. fileVariantId={}, exceptionType={}",
                         snapshot.fileVariantId(), exception.getClass().getSimpleName());
             }

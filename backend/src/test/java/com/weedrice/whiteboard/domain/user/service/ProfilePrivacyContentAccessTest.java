@@ -59,7 +59,7 @@ class ProfilePrivacyContentAccessTest {
         when(settingsRepository.findById(2L)).thenReturn(Optional.of(settings));
         postService = new PostListReadService(posts, null,
                 new PostUserReadIntegrationAdapter(privacy, users, blockService),
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
         commentService = new CommentQueryService(comments, null, null,
                 new CommentUserIntegrationAdapter(privacy, new UserReadableResolver(users), blockService, blocks),
                 null, null, null, null, null, mock(ContentAuthorVisibilityRepository.class));

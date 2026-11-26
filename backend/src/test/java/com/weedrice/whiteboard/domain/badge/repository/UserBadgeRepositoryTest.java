@@ -10,6 +10,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +64,9 @@ class UserBadgeRepositoryTest {
 
         assertThat(inserted).isEqualTo(1);
         assertThat(duplicate).isZero();
+        assertThat(userBadgeRepository.findOwnedBadgeCodes(user.getUserId(), List.of("TEST_BADGE", "OTHER_BADGE")))
+                .containsExactly("TEST_BADGE");
+        assertThat(userBadgeRepository.findOwnedBadgeCodes(user.getUserId(), List.of("OTHER_BADGE"))).isEmpty();
         assertThat(userBadgeRepository.findByUser_UserIdAndBadge_BadgeCode(
                 user.getUserId(), "TEST_BADGE")).isPresent();
     }

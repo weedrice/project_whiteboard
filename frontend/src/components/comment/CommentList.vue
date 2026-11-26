@@ -124,27 +124,13 @@ function retryComments() {
 async function resolveDeepLinkPath(targetCommentId: number, revision: number, controller: AbortController) {
   const scope = createAuthSessionScope(authStore)
   try {
-    const reversedPath: number[] = []
-    const visited = new Set<number>()
-    let currentId: number | null | undefined = targetCommentId
-
-    while (currentId != null && !visited.has(currentId) && reversedPath.length < 32) {
-      visited.add(currentId)
-      const { data } = await commentApi.getComment(currentId, scope.withRequestConfig({
-        signal: controller.signal,
-        skipGlobalErrorHandler: true,
-      }))
-      scope.assertCurrent()
-      if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
-
-      const current = unwrapApiData(data)
-      if (String(current.postId) !== String(props.postId)) return
-      reversedPath.push(current.commentId)
-      currentId = current.parentId
-    }
-
-    if (revision !== deepLinkRevision || controller.signal.aborted) return
-    deepLinkCommentIds.value = reversedPath.reverse()
+    const { data } = await commentApi.getCommentPath(props.postId, targetCommentId, scope.withRequestConfig({
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    }))
+    scope.assertCurrent()
+    if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
+    deepLinkCommentIds.value = unwrapApiData(data)
     void loadDeepLinkRootPage(revision)
   } finally {
     scope.dispose()
@@ -228,7 +214,7 @@ onMounted(() => {
       .filter((entry) => entry.isIntersecting && (entry.target as HTMLElement).hasAttribute('data-reading-comment'))
       .map((entry) => Number((entry.target as HTMLElement).dataset.commentId))
       .filter((commentId) => Number.isInteger(commentId) && commentId > 0)
-    if (visibleCommentIds.length > 0) emit('last-read-comment', Math.max(...visibleCommentIds))
+    for (const commentId of visibleCommentIds) emit('last-read-comment', commentId)
   }, {
     rootMargin: '-20% 0px -60% 0px',
     threshold: 0,

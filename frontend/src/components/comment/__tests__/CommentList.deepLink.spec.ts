@@ -10,7 +10,7 @@ const authState = reactive({ isAuthenticated: true, sessionGeneration: 0 })
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: vi.fn() }) }))
 vi.mock('@/api/comment', () => ({
-  commentApi: { getComments: vi.fn(), getBestComments: vi.fn(), getComment: vi.fn() },
+  commentApi: { getComments: vi.fn(), getBestComments: vi.fn(), getCommentPath: vi.fn() },
 }))
 
 let queryClient: QueryClient
@@ -54,8 +54,8 @@ describe('CommentList deep links with Vue Query', () => {
     authState.sessionGeneration = 0
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: Infinity } } })
     vi.mocked(commentApi.getBestComments).mockResolvedValue(apiDataResponse<typeof commentApi.getBestComments>([]))
-    vi.mocked(commentApi.getComment).mockImplementation(async (id) => (
-      apiSuccessDataResponse<typeof commentApi.getComment>({ commentId: Number(id), parentId: null, postId: Number(id) === 52 ? 2 : 1 })
+    vi.mocked(commentApi.getCommentPath).mockImplementation(async (_postId, id) => (
+      apiSuccessDataResponse<typeof commentApi.getCommentPath>([Number(id)])
     ))
     vi.mocked(commentApi.getComments).mockImplementation(async (_postId, params) => commentsPage(params.page ?? 0))
   })
@@ -129,15 +129,15 @@ describe('CommentList deep links with Vue Query', () => {
   })
 
   it('cancels ancestry resolution across a session change', async () => {
-    let resolveOldPath!: (response: Awaited<ReturnType<typeof commentApi.getComment>>) => void
-    vi.mocked(commentApi.getComment).mockImplementationOnce(() => new Promise((resolve) => { resolveOldPath = resolve }))
+    let resolveOldPath!: (response: Awaited<ReturnType<typeof commentApi.getCommentPath>>) => void
+    vi.mocked(commentApi.getCommentPath).mockImplementationOnce(() => new Promise((resolve) => { resolveOldPath = resolve }))
     const view = setup()
     await vi.waitFor(() => expect(resolveOldPath).toBeDefined())
     authState.sessionGeneration += 1
     await vi.waitFor(() => expect(view.find('[data-comment-id="51"]').exists()).toBe(true))
-    resolveOldPath(apiSuccessDataResponse<typeof commentApi.getComment>({ commentId: 99, parentId: null, postId: 1 }))
+    resolveOldPath(apiSuccessDataResponse<typeof commentApi.getCommentPath>([99]))
     await flushPromises()
     expect(view.find('[data-comment-id="99"]').exists()).toBe(false)
-    expect(commentApi.getComment).toHaveBeenCalledTimes(2)
+    expect(commentApi.getCommentPath).toHaveBeenCalledTimes(2)
   })
 })

@@ -31,6 +31,24 @@ class PushSubscriptionRepositoryTest {
     }
 
     @Test
+    void userAgentChangeKeepsThePersistedDeliverySnapshot() {
+        User user = persistUser("push-browser");
+        PushSubscription subscription = persistSubscription(user, "device-browser");
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime previousVersion = repository.findById(subscription.getSubscriptionId())
+                .orElseThrow().getModifiedAt();
+
+        assertThat(repository.findOwnerIdByEndpoint("device-browser")).contains(user.getUserId());
+        assertThat(repository.updateUserAgent(subscription.getSubscriptionId(), "new browser")).isOne();
+        entityManager.clear();
+
+        PushSubscription current = repository.findById(subscription.getSubscriptionId()).orElseThrow();
+        assertThat(current.getUserAgent()).isEqualTo("new browser");
+        assertThat(current.getModifiedAt()).isEqualTo(previousVersion);
+    }
+
+    @Test
     void conditionalCleanupPreservesSubscriptionUpdatedAfterSnapshot() {
         User user = User.builder()
                 .loginId("push-cleanup-user")

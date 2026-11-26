@@ -37,7 +37,8 @@ public class CacheConfig {
         register(cacheManager, CacheNames.BOARD_CATALOG_ANONYMOUS, 32, 60, TimeUnit.SECONDS);
         register(cacheManager, CacheNames.BOARD_DETAIL_ANONYMOUS, 500, 30, TimeUnit.SECONDS);
         register(cacheManager, CacheNames.TRENDING_POSTS_ANONYMOUS, 200, 30, TimeUnit.SECONDS);
-        register(cacheManager, CacheNames.HOME_LANDING_ANONYMOUS, 16, 30, TimeUnit.SECONDS);
+        register(cacheManager, CacheNames.HOME_LANDING_ANONYMOUS, 16, AnonymousCacheKey.LANDING_CACHE_SECONDS, TimeUnit.SECONDS);
+        register(cacheManager, CacheNames.HOME_LANDING_PUBLIC_STATS, 2, AnonymousCacheKey.LANDING_CACHE_SECONDS, TimeUnit.SECONDS);
         return cacheManager;
     }
 

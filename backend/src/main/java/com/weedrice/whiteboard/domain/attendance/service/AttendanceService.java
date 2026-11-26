@@ -60,18 +60,17 @@ public class AttendanceService {
         YearMonth targetMonth = month != null ? month : YearMonth.from(today);
         LocalDate startDate = targetMonth.atDay(1);
         LocalDate endDate = targetMonth.atEndOfMonth();
-        List<UserAttendance> attendances = attendanceRepository
-                .findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(userId, startDate, endDate);
+        LocalDate yesterday = today.minusDays(1);
+        List<UserAttendance> attendances = attendanceRepository.findMonthAndCurrentStreakDays(
+                userId, startDate, endDate, yesterday, today);
 
-        Optional<UserAttendance> latestAttendance = attendanceRepository
-                .findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
-                        userId,
-                        today.plusDays(1));
+        Optional<UserAttendance> latestAttendance = attendances.reversed().stream()
+                .filter(day -> day.getAttendanceDate().equals(today) || day.getAttendanceDate().equals(yesterday))
+                .findFirst();
         boolean checkedInToday = latestAttendance
                 .filter(attendance -> attendance.getAttendanceDate().equals(today))
                 .isPresent();
         int currentStreakCount = latestAttendance
-                .filter(attendance -> !attendance.getAttendanceDate().isBefore(today.minusDays(1)))
                 .map(UserAttendance::getStreakCount)
                 .orElse(0);
 
@@ -81,6 +80,7 @@ public class AttendanceService {
                 .checkedInToday(checkedInToday)
                 .currentStreakCount(currentStreakCount)
                 .days(attendances.stream()
+                        .filter(day -> YearMonth.from(day.getAttendanceDate()).equals(targetMonth))
                         .map(AttendanceMonthResponse.AttendanceDay::from)
                         .toList())
                 .build();

@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInv
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -125,6 +126,8 @@ public class BoardService {
         return queryService.getAllBoards(userId);
     }
 
+    // Release the detail query's connection before recording the visit in its own transaction.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         BoardDetailResponse response = userId == null

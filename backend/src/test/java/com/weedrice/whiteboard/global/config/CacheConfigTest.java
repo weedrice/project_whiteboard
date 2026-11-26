@@ -21,12 +21,14 @@ class CacheConfigTest {
                 CacheNames.BOARD_CATALOG_ANONYMOUS,
                 CacheNames.BOARD_DETAIL_ANONYMOUS,
                 CacheNames.TRENDING_POSTS_ANONYMOUS,
-                CacheNames.HOME_LANDING_ANONYMOUS);
+                CacheNames.HOME_LANDING_ANONYMOUS,
+                CacheNames.HOME_LANDING_PUBLIC_STATS);
         assertPolicy(cacheManager, CacheNames.GLOBAL_CONFIG, 1000, 600);
         assertPolicy(cacheManager, CacheNames.BOARD_CATALOG_ANONYMOUS, 32, 60);
         assertPolicy(cacheManager, CacheNames.BOARD_DETAIL_ANONYMOUS, 500, 30);
         assertPolicy(cacheManager, CacheNames.TRENDING_POSTS_ANONYMOUS, 200, 30);
         assertPolicy(cacheManager, CacheNames.HOME_LANDING_ANONYMOUS, 16, 30);
+        assertPolicy(cacheManager, CacheNames.HOME_LANDING_PUBLIC_STATS, 2, 30);
     }
 
     @Test

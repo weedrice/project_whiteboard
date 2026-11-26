@@ -184,9 +184,9 @@ class BoardQueryService {
             Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(
                     user,
                     fixedOrderPageable);
-            Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user, subscriptions.getContent());
-            List<Board> readableBoards = subscriptions.getContent().stream()
-                    .map(BoardSubscription::getBoard)
+            List<Board> boards = subscriptions.getContent().stream().map(BoardSubscription::getBoard).toList();
+            Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user, boards);
+            List<Board> readableBoards = boards.stream()
                     .filter(board -> boardAccessPolicy.canReadBoard(board, user, activeAdminBoardIds))
                     .toList();
             Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(subscriptions.getContent());
@@ -241,8 +241,10 @@ class BoardQueryService {
         for (int index = 0; index < normalizedUrls.size(); index++) {
             orderByUrl.put(normalizedUrls.get(index), index);
         }
-        List<Board> readableBoards = boardRepository.findByBoardUrlIn(normalizedUrls).stream()
-                .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
+        List<Board> boards = boardRepository.findByBoardUrlIn(normalizedUrls);
+        Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(currentUser, boards);
+        List<Board> readableBoards = boards.stream()
+                .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser, activeAdminBoardIds))
                 .sorted((left, right) -> Integer.compare(
                         orderByUrl.getOrDefault(left.getBoardUrl(), Integer.MAX_VALUE),
                         orderByUrl.getOrDefault(right.getBoardUrl(), Integer.MAX_VALUE)))
@@ -324,11 +326,12 @@ class BoardQueryService {
         return PageRequestUtils.of(pageable, 20);
     }
 
-    private Set<Long> resolveActiveAdminBoardIds(User user, List<BoardSubscription> subscriptions) {
-        List<Long> boardIds = subscriptions.stream()
-                .map(BoardSubscription::getBoard)
+    private Set<Long> resolveActiveAdminBoardIds(User user, List<Board> boards) {
+        if (user == null || user.isUsableSuperAdmin()) {
+            return Set.of();
+        }
+        List<Long> boardIds = boards.stream()
                 .filter(board -> !isPublicActive(board))
-                .filter(board -> !user.isUsableSuperAdmin())
                 .map(Board::getBoardId)
                 .toList();
         if (boardIds.isEmpty()) {

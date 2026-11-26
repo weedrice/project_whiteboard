@@ -52,8 +52,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
-                        message.receiver.userId.eq(userId),
-                        message.isDeletedByReceiver.eq(isDeleted),
+                        receivedBy(userId, isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
                 )
                 .offset(pageable.getOffset())
@@ -65,8 +64,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.receiver.userId.eq(userId),
-                        message.isDeletedByReceiver.eq(isDeleted),
+                        receivedBy(userId, isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
                 )
                 .fetchOne();
@@ -82,8 +80,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
-                        message.sender.userId.eq(userId),
-                        message.isDeletedBySender.eq(isDeleted),
+                        sentBy(userId, isDeleted),
                         notBlockedReceiverCondition(blockedUserIds)
                 )
                 .offset(pageable.getOffset())
@@ -95,8 +92,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.sender.userId.eq(userId),
-                        message.isDeletedBySender.eq(isDeleted),
+                        sentBy(userId, isDeleted),
                         notBlockedReceiverCondition(blockedUserIds)
                 )
                 .fetchOne();
@@ -196,12 +192,9 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     @Override
     public Page<Message> findConversationMessages(Long userId, Long partnerId, List<Long> blockedUserIds,
             Pageable pageable) {
-        BooleanExpression conversationAccess = message.sender.userId.eq(userId)
+        BooleanExpression conversationAccess = sentBy(userId, false)
                 .and(message.receiver.userId.eq(partnerId))
-                .and(message.isDeletedBySender.isFalse())
-                .or(message.receiver.userId.eq(userId)
-                        .and(message.sender.userId.eq(partnerId))
-                        .and(message.isDeletedByReceiver.isFalse()));
+                .or(receivedBy(userId, false).and(message.sender.userId.eq(partnerId)));
 
         List<Message> content = queryFactory
                 .selectFrom(message)
@@ -235,9 +228,8 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.receiver.userId.eq(userId),
+                        receivedBy(userId, isDeleted),
                         message.isRead.eq(isRead),
-                        message.isDeletedByReceiver.eq(isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
                 )
                 .fetchOne();
@@ -321,14 +313,20 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     private BooleanExpression senderOrReceiverCanAccess(Long userId) {
-        BooleanExpression selfMessage = message.sender.userId.eq(userId)
-                .and(message.receiver.userId.eq(userId));
-        BooleanExpression selfMessageAccess = selfMessage
-                .and(message.isDeletedBySender.isFalse())
-                .and(message.isDeletedByReceiver.isFalse());
-        BooleanExpression regularMessageAccess = selfMessage.not().and(
-                message.sender.userId.eq(userId).and(message.isDeletedBySender.isFalse())
-                        .or(message.receiver.userId.eq(userId).and(message.isDeletedByReceiver.isFalse())));
-        return selfMessageAccess.or(regularMessageAccess);
+        return sentBy(userId, false).or(receivedBy(userId, false));
+    }
+
+    private BooleanExpression sentBy(Long userId, Boolean isDeleted) {
+        BooleanExpression sent = message.sender.userId.eq(userId).and(message.isDeletedBySender.eq(isDeleted));
+        return Boolean.FALSE.equals(isDeleted)
+                ? sent.and(message.receiver.userId.ne(userId).or(message.isDeletedByReceiver.isFalse()))
+                : sent;
+    }
+
+    private BooleanExpression receivedBy(Long userId, Boolean isDeleted) {
+        BooleanExpression received = message.receiver.userId.eq(userId).and(message.isDeletedByReceiver.eq(isDeleted));
+        return Boolean.FALSE.equals(isDeleted)
+                ? received.and(message.sender.userId.ne(userId).or(message.isDeletedBySender.isFalse()))
+                : received;
     }
 }

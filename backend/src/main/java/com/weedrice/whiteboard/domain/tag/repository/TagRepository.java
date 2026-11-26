@@ -2,10 +2,8 @@ package com.weedrice.whiteboard.domain.tag.repository;
 
 import com.weedrice.whiteboard.domain.actor.query.ContentAuthorVisibility;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,10 +24,6 @@ public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCu
     Optional<Tag> findByTagName(String tagName);
 
     List<Tag> findByTagNameIn(Collection<String> tagNames);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT t FROM Tag t WHERE t.tagName IN :tagNames ORDER BY t.tagName ASC")
-    List<Tag> findByTagNameInForUpdate(@Param("tagNames") Collection<String> tagNames);
 
     List<Tag> findTop10ByPostCountGreaterThanOrderByPostCountDesc(Integer postCount);
 

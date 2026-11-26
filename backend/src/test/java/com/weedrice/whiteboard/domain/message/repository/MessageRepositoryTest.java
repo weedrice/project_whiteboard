@@ -380,6 +380,37 @@ class MessageRepositoryTest {
     }
 
     @Test
+    void partiallyDeletedSelfMessagesAreExcludedFromMailboxesConversationAndUnreadCount() {
+        Message deletedBySender = entityManager.persist(Message.builder().sender(sender).receiver(sender)
+                .content("legacy sender deletion").build());
+        Message deletedByReceiver = entityManager.persist(Message.builder().sender(sender).receiver(sender)
+                .content("legacy receiver deletion").build());
+        Message visible = entityManager.persist(Message.builder().sender(sender).receiver(sender)
+                .content("visible self message").build());
+        deletedBySender.deleteBySender();
+        deletedByReceiver.deleteByReceiver();
+        message.deleteByReceiver(); // The sender can still see this ordinary message.
+        entityManager.flush();
+        entityManager.clear();
+
+        Long userId = sender.getUserId();
+        var firstPage = PageRequest.of(0, 1);
+        var inbox = messageRepository.findReceivedMessagesExcludingBlocked(userId, false, List.of(), firstPage);
+        assertThat(inbox.getTotalElements()).isOne();
+        assertThat(inbox.getContent()).extracting(Message::getMessageId).containsExactly(visible.getMessageId());
+        var sent = messageRepository.findSentMessagesExcludingBlocked(userId, false, List.of(), firstPage);
+        assertThat(sent.getTotalElements()).isEqualTo(2);
+        assertThat(messageRepository.findSentMessagesExcludingBlocked(userId, false, List.of(),
+                PageRequest.of(0, 10)).getContent()).extracting(Message::getMessageId)
+                .containsExactlyInAnyOrder(visible.getMessageId(), message.getMessageId());
+        var conversation = messageRepository.findConversationMessages(userId, userId, List.of(), firstPage);
+        assertThat(conversation.getTotalElements()).isOne();
+        assertThat(conversation.getContent()).extracting(Message::getMessageId).containsExactly(visible.getMessageId());
+        assertThat(messageRepository.countUnreadMessagesExcludingBlocked(userId, false, false, List.of())).isOne();
+        assertThat(messageRepository.findAccessibleMessage(userId, deletedByReceiver.getMessageId(), List.of())).isEmpty();
+    }
+
+    @Test
     @DisplayName("단건 접근 조회는 차단한 발신자 메시지를 수신자에게 숨긴다")
     void findAccessibleMessage_blockedSenderHiddenFromReceiver() {
         entityManager.clear();

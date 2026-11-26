@@ -60,51 +60,31 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of())
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag")))
                 .thenReturn(List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
-        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
+        verify(tagRepository).lockOrCreateForAssignment(Set.of("newTag"));
         verify(postTagRepository).save(any(PostTag.class));
         verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
 
     @Test
-    @DisplayName("assignTags reuses tag loaded after duplicate insert-ignore")
-    void assignTags_reusesTagLoadedAfterDuplicateInsertIgnore() {
-        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        Tag concurrentlyCreatedTag = new Tag("newTag");
-        ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of())
-                .thenReturn(List.of(concurrentlyCreatedTag));
-        when(tagRepository.insertIgnoreAll(List.of("newTag"))).thenReturn(0);
-
-        tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
-
-        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
-        verify(postTagRepository).save(any(PostTag.class));
-        verify(tagRepository).incrementPostCountIn(List.of(20L));
-    }
-
-    @Test
-    @DisplayName("assignTags inserts missing tags in stable name order")
-    void assignTags_insertsMissingTagsInStableNameOrder() {
+    @DisplayName("assignTags locks affected names and retains requested association order")
+    void assignTags_retainsRequestedAssociationOrder() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag alphaTag = new Tag("alpha");
         Tag zuluTag = new Tag("zulu");
         ReflectionTestUtils.setField(alphaTag, "tagId", 21L);
         ReflectionTestUtils.setField(zuluTag, "tagId", 22L);
         Set<String> requestedTags = new LinkedHashSet<>(Arrays.asList("zulu", "alpha"));
-        when(tagRepository.findByTagNameInForUpdate(requestedTags))
-                .thenReturn(List.of())
+        when(tagRepository.findByTagNameIn(requestedTags))
                 .thenReturn(List.of(alphaTag, zuluTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("zulu", "alpha"));
 
-        verify(tagRepository).insertIgnoreAll(List.of("alpha", "zulu"));
+        verify(tagRepository).lockOrCreateForAssignment(Set.of("alpha", "zulu"));
         verify(tagRepository).incrementPostCountIn(List.of(22L, 21L));
     }
 
@@ -112,15 +92,14 @@ class TagAssignmentServiceTest {
     @DisplayName("assignTags preserves duplicate error when inserted tag cannot be loaded")
     void assignTags_preservesDuplicateErrorWhenInsertedTagCannotBeLoaded() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of())
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag")))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> tagAssignmentService.assignTags(post, Collections.singletonList("newTag")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
-        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
+        verify(tagRepository).lockOrCreateForAssignment(Set.of("newTag"));
         verify(postTagRepository, never()).save(any(PostTag.class));
         verify(tagRepository, never()).incrementPostCountIn(any());
     }
@@ -168,13 +147,12 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of())
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag")))
                 .thenReturn(List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 
-        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
+        verify(tagRepository).lockOrCreateForAssignment(Set.of("newTag", "tagToRemove"));
         verify(postTagRepository).save(any(PostTag.class));
         verify(postTagRepository).delete(postTagToRemove);
         verify(tagRepository).incrementPostCountIn(List.of(12L));
@@ -189,7 +167,7 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag springTag = new Tag("Spring");
         ReflectionTestUtils.setField(springTag, "tagId", 22L);
-        when(tagRepository.findByTagNameInForUpdate(new LinkedHashSet<>(List.of("Java", "Spring"))))
+        when(tagRepository.findByTagNameIn(new LinkedHashSet<>(List.of("Java", "Spring"))))
                 .thenReturn(List.of(springTag, javaTag));
 
         tagAssignmentService.assignTags(post, List.of("  Java  ", "Spring", "Java"));

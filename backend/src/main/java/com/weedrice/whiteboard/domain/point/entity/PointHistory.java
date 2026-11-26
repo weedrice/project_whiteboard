@@ -13,7 +13,8 @@ import jakarta.persistence.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "point_histories", indexes = {
-        @Index(name = "idx_point_histories_user", columnList = "user_id, created_at DESC")
+        @Index(name = "idx_point_histories_user", columnList = "user_id, created_at DESC"),
+        @Index(name = "idx_point_histories_user_target_type", columnList = "user_id, related_type, related_id, type")
 })
 public class PointHistory extends BaseTimeEntity {
 

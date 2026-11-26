@@ -44,11 +44,16 @@ class BoardCategoryService {
 
         String normalizedName = normalizeCategoryName(request.getName());
         nameConflictPolicy.validateCreatable(board.getBoardId(), normalizedName);
+        int sortOrder;
         if (requestedDefault) {
-            defaultCommand.clearDefaultCategories(board.getBoardId(), null);
+            defaultCommand.makeRoomForDefault(board.getBoardId(), null);
+            sortOrder = 1;
+        } else {
+            int maximum = boardCategoryRepository.findMaxActiveSortOrder(board.getBoardId());
+            // At the largest rank the category ID orders the new entry after existing ones.
+            int nextAvailableSortOrder = maximum == Integer.MAX_VALUE ? maximum : maximum + 1;
+            sortOrder = Math.max(request.getSortOrder(), nextAvailableSortOrder);
         }
-        int nextAvailableSortOrder = boardCategoryRepository.findMaxActiveSortOrder(board.getBoardId()) + 1;
-        int sortOrder = Math.max(request.getSortOrder(), nextAvailableSortOrder);
 
         BoardCategory category = BoardCategory.builder()
                 .board(board)
@@ -74,21 +79,29 @@ class BoardCategoryService {
         BoardCategory category = mutationResolver.resolveCategoryForUpdate(categoryId, userId);
 
         String normalizedName = normalizeCategoryName(request.getName());
-        if (Boolean.TRUE.equals(category.getIsActive())) {
+        boolean active = Boolean.TRUE.equals(category.getIsActive());
+        boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
+        if (active) {
             nameConflictPolicy.validateUpdatable(category.getBoard().getBoardId(), normalizedName, categoryId);
         }
-        if (!Boolean.TRUE.equals(category.getIsActive()) && Boolean.TRUE.equals(request.getIsDefault())) {
+        if (!active && requestedDefault) {
             throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.inactiveDefault");
         }
         if (category.isDefaultCategory() && Boolean.FALSE.equals(request.getIsDefault())) {
             throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.defaultUnset");
         }
-        if (Boolean.TRUE.equals(request.getIsDefault())) {
-            defaultCommand.clearDefaultCategories(category.getBoard().getBoardId(), categoryId);
+        boolean nextDefault = request.getIsDefault() != null ? request.getIsDefault() : category.isDefaultCategory();
+        int sortOrder = request.getSortOrder();
+        if (active && nextDefault) {
+            if (requestedDefault || category.getSortOrder() != 1) {
+                defaultCommand.makeRoomForDefault(category.getBoard().getBoardId(), category);
+            }
+            sortOrder = 1;
+        } else if (active && sortOrder < 2
+                && boardCategoryRepository.existsByBoard_BoardIdAndIsActiveTrueAndIsDefaultTrue(category.getBoard().getBoardId())) {
+            sortOrder = 2;
         }
-
-        Boolean nextDefault = request.getIsDefault() != null ? request.getIsDefault() : category.isDefaultCategory();
-        category.update(normalizedName, request.getSortOrder(), request.getMinWriteRole(), nextDefault);
+        category.update(normalizedName, sortOrder, request.getMinWriteRole(), nextDefault);
         try {
             return responseAssembler.toResponse(boardCategoryRepository.saveAndFlush(category));
         } catch (DataIntegrityViolationException ex) {

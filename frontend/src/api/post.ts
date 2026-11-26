@@ -93,6 +93,8 @@ export interface PostCreateResponse {
 }
 
 export interface ViewHistoryPayload {
+    viewSessionId?: string
+    sessionDurationMs?: number
     lastReadCommentId?: number
     durationMs?: number
 }

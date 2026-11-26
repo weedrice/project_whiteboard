@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.inquiry.repository.InquiryRepository;
 import com.weedrice.whiteboard.domain.inquiry.port.InquiryNotificationPort;
 import com.weedrice.whiteboard.global.lock.DomainLockManager;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -18,12 +19,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,18 +46,26 @@ class InquiryAutoCloseServiceTest {
     @Mock private InquiryHistoryRepository historyRepository;
     @Mock private InquiryNotificationPort notificationPort;
     @Mock private DomainLockManager domainLockManager;
+    @Mock private TransactionTemplate transactionTemplate;
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    private InquiryAutoCloseService service;
+
+    @BeforeEach
+    void setUp() {
+        when(transactionTemplate.execute(any())).thenAnswer(invocation ->
+                invocation.<TransactionCallback<?>>getArgument(0).doInTransaction(new SimpleTransactionStatus()));
+        service = new InquiryAutoCloseService(inquiryRepository, historyRepository, notificationPort,
+                domainLockManager, registry, CLOCK, transactionTemplate);
+    }
 
     @Test
     void closesAtSevenDayBoundaryRecordsHistoryAndNotifiesAuthor() {
         Inquiry inquiry = new Inquiry(11L, InquiryCategory.OTHER, "Question", NOW.minusDays(8));
         inquiry.reply(NOW.minusDays(7));
         ReflectionTestUtils.setField(inquiry, "inquiryId", 41L);
-        when(inquiryRepository.findAutoCloseCandidates(eq(NOW.minusDays(7)), any(Pageable.class)))
-                .thenReturn(List.of(inquiry));
-        SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        InquiryAutoCloseService service = new InquiryAutoCloseService(
-                inquiryRepository, historyRepository, notificationPort,
-                domainLockManager, registry, CLOCK);
+        when(inquiryRepository.findAutoCloseCandidateIds(eq(NOW.minusDays(7)), any(Pageable.class)))
+                .thenReturn(List.of(41L));
+        when(inquiryRepository.findExpiredForUpdate(41L, NOW.minusDays(7))).thenReturn(Optional.of(inquiry));
 
         int closed = service.closeExpiredResolvedInquiries();
 
@@ -71,11 +84,8 @@ class InquiryAutoCloseServiceTest {
 
     @Test
     void emptyEligibleBatchIsSafeAndProducesNoSideEffects() {
-        when(inquiryRepository.findAutoCloseCandidates(eq(NOW.minusDays(7)), any(Pageable.class)))
+        when(inquiryRepository.findAutoCloseCandidateIds(eq(NOW.minusDays(7)), any(Pageable.class)))
                 .thenReturn(List.of());
-        InquiryAutoCloseService service = new InquiryAutoCloseService(
-                inquiryRepository, historyRepository, notificationPort,
-                domainLockManager, new SimpleMeterRegistry(), CLOCK);
 
         assertThat(service.closeExpiredResolvedInquiries()).isZero();
 

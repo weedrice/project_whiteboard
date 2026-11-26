@@ -57,6 +57,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
@@ -190,6 +191,27 @@ class PostgresApplicationContextSmokeTest {
     void contextLoadsWithPostgresMigrations() {
         assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
                 .isTransactionalLock());
+    }
+
+    @Test
+    @Transactional
+    void authorCursorSharesRedriveIdsWhileRemainingInvisibleToPreviousWorkers() {
+        Long boardJob = jdbcTemplate.queryForObject("""
+                INSERT INTO semantic_search_reindex_jobs (scope_type, scope_id, content_phase)
+                VALUES ('BOARD', 9103103, 'POST') RETURNING reindex_job_id
+                """, Long.class);
+        Long authorJob = jdbcTemplate.queryForObject("""
+                INSERT INTO semantic_search_author_reindex_jobs (scope_type, scope_id, content_phase)
+                VALUES ('AUTHOR', 9103103, 'POST') RETURNING reindex_job_id
+                """, Long.class);
+        assertNotEquals(boardJob, authorJob);
+        assertEquals(0, jdbcTemplate.update("""
+                UPDATE semantic_search_reindex_jobs SET status='PROCESSING'
+                WHERE reindex_job_id=? AND status='PENDING'
+                """, authorJob));
+        assertEquals("PENDING", jdbcTemplate.queryForObject("""
+                SELECT status FROM semantic_search_author_reindex_jobs WHERE reindex_job_id=?
+                """, String.class, authorJob));
     }
 
     @Test
@@ -1329,6 +1351,20 @@ class PostgresApplicationContextSmokeTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void pointHistoryTargetIndexIsValidForBothAwardsAndReversals() {
+        List<String> columns = jdbcTemplate.queryForList("""
+                SELECT pg_get_indexdef(i.indexrelid, key.position, false)
+                FROM pg_index i
+                CROSS JOIN LATERAL generate_series(1, i.indnkeyatts) AS key(position)
+                WHERE i.indrelid = 'point_histories'::regclass
+                  AND i.indexrelid = 'idx_point_histories_user_target_type'::regclass
+                  AND i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indpred IS NULL
+                ORDER BY key.position
+                """, String.class);
+        assertEquals(List.of("user_id", "related_type", "related_id", "type"), columns);
     }
 
     @Test

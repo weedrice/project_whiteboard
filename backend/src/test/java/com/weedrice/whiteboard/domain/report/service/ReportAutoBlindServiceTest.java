@@ -134,7 +134,7 @@ class ReportAutoBlindServiceTest {
         verify(comment).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(post.getPostId());
         verify(semanticSearchEvents).publish("COMMENT", 4L, SemanticSearchIndexAction.DELETE);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
 
         Post blinded = mock(Post.class);
         when(posts.findByIdWithRelationsForBlindUpdate(5L)).thenReturn(Optional.of(blinded));
@@ -166,7 +166,7 @@ class ReportAutoBlindServiceTest {
         verify(comment).unblind();
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
         verify(semanticSearchEvents).publish("COMMENT", 6L, SemanticSearchIndexAction.UPSERT);
-        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
+        verify(anonymousReadCacheInvalidator).evictCommentCountCachesAfterCommit("free");
         verify(audits).recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,
